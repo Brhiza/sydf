@@ -28,7 +28,7 @@ export const NAV_DATA: NavData[] = [
         link: 'https://cp.kuaishou.com',
       },
       {
-        icon: 'https://favicon.im/www.xiaohongshu.com,
+        icon: 'https://favicon.im/www.xiaohongshu.com',
         title: '小红书',
         desc: '小红书创作服务平台',
         link: 'https://creator.xiaohongshu.com',
