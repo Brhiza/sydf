@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>六爻起卦</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; }
+        #container { display: flex; flex-direction: column; align-items: center; margin-top: 50px; }
+        #question-container { margin-bottom: 20px; }
+        #question-input { width: 100%; max-width: 300px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+        #button-container { display: flex; justify-content: center; flex-wrap: wrap; }
+        #button, #resetButton, #aiButton { margin: 10px; padding: 10px 20px; font-size: 18px; border: none; border-radius: 5px; background-color: #007bff; color: white; cursor: pointer; transition: background-color 0.3s ease; }
+        #button:hover, #resetButton:hover, #aiButton:hover { background-color: #0056b3; }
+        #resetButton, #aiButton { display: none; }
+        #result { margin-top: 20px; font-size: 24px; display: flex; flex-direction: column; align-items: center; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        .loading { display: none; margin-top: 20px; font-size: 24px; }
+        .output { display: none; margin-top: 20px; font-size: 24px; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        .hexagram { font-size: 36px; font-weight: bold; margin-bottom: 10px; }
+        .yin-yang { font-size: 24px; margin-left: 20px; }
+
+        /* 响应式设计 */
+        @media (max-width: 600px) {
+            #question-input { max-width: 100%; }
+            #button, #resetButton, #aiButton { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <h1>六爻起卦</h1>
+    <div id="container">
+        <div id="question-container">
+            <label for="question-input">1.写下您的问题</label><br><br>
+            <input type="text" id="question-input" placeholder="请详细的写下你的问题" /><br><br><br>
+            <p>2.你需要抽取 6 次才能获取排盘（头脑中想着您的问题）</p>
+        </div>
+        <div id="button-container">
+            <button id="button">抽一卦</button>
+            <button id="resetButton">重新抽取</button>
+            <button id="aiButton">AI解读</button>
+        </div>
+        <div id="result"></div>
+        <div id="loading" class="loading">AI解读中...</div>
+        <div id="output" class="output"></div>
+    </div>
+
+    <script>
+        let count = 0;
+        const resultDiv = document.getElementById('result');
+        const button = document.getElementById('button');
+        const resetButton = document.getElementById('resetButton');
+        const aiButton = document.getElementById('aiButton');
+        const loadingAnimation = document.getElementById('loading');
+        const outputText = document.getElementById('output');
+        const questionInput = document.getElementById('question-input');
+
+        const hexagrams = [
+            { name: '乾为天', description: '乾卦象征天，代表刚健、进取、领导力。', changeDescription: '变卦为坤，象征地，代表柔顺、包容、顺应。' },
+            { name: '坤为地', description: '坤卦象征地，代表柔顺、包容、顺应。', changeDescription: '变卦为乾，象征天，代表刚健、进取、领导力。' },
+            { name: '水雷屯', description: '屯卦象征初生，代表艰难、开始、积累。', changeDescription: '变卦为蒙，象征启蒙，代表教育、学习、成长。' },
+            { name: '山水蒙', description: '蒙卦象征启蒙，代表教育、学习、成长。', changeDescription: '变卦为屯，象征初生，代表艰难、开始、积累。' },
+            { name: '水天需', description: '需卦象征等待，代表耐心、需求、时机。', changeDescription: '变卦为讼，象征争讼，代表冲突、诉讼、解决。' },
+            { name: '天水讼', description: '讼卦象征争讼，代表冲突、诉讼、解决。', changeDescription: '变卦为需，象征等待，代表耐心、需求、时机。' },
+            { name: '地水师', description: '师卦象征军队，代表领导、指挥、纪律。', changeDescription: '变卦为比，象征亲比，代表合作、亲近、团结。' },
+            { name: '水地比', description: '比卦象征亲比，代表合作、亲近、团结。', changeDescription: '变卦为师，象征军队，代表领导、指挥、纪律。' },
+            { name: '风天小畜', description: '小畜卦象征积蓄，代表积累、小有成就、克制。', changeDescription: '变卦为履，象征履行，代表实践、行动、礼仪。' },
+            { name: '天泽履', description: '履卦象征履行，代表实践、行动、礼仪。', changeDescription: '变卦为小畜，象征积蓄，代表积累、小有成就、克制。' },
+            { name: '地天泰', description: '泰卦象征通达，代表顺利、和谐、平安。', changeDescription: '变卦为否，象征闭塞，代表阻碍、不通、困难。' },
+            { name: '天地否', description: '否卦象征闭塞，代表阻碍、不通、困难。', changeDescription: '变卦为泰，象征通达，代表顺利、和谐、平安。' },
+            { name: '天火同人', description: '同人卦象征团结，代表合作、共同、一致。', changeDescription: '变卦为大有，象征富有，代表丰收、成功、繁荣。' },
+            { name: '火天大有', description: '大有卦象征富有，代表丰收、成功、繁荣。', changeDescription: '变卦为同人，象征团结，代表合作、共同、一致。' },
+            { name: '地山谦', description: '谦卦象征谦虚，代表谦逊、谨慎、低调。', changeDescription: '变卦为豫，象征愉悦，代表快乐、满足、享受。' },
+            { name: '雷地豫', description: '豫卦象征愉悦，代表快乐、满足、享受。', changeDescription: '变卦为谦，象征谦虚，代表谦逊、谨慎、低调。' },
+            { name: '泽雷随', description: '随卦象征跟随，代表顺从、适应、变化。', changeDescription: '变卦为蛊，象征腐败，代表问题、解决、改革。' },
+            { name: '山风蛊', description: '蛊卦象征腐败，代表问题、解决、改革。', changeDescription: '变卦为随，象征跟随，代表顺从、适应、变化。' },
+            { name: '地泽临', description: '临卦象征领导，代表管理、监督、指导。', changeDescription: '变卦为观，象征观察，代表审视、洞察、理解。' },
+            { name: '风地观', description: '观卦象征观察，代表审视、洞察、理解。', changeDescription: '变卦为临，象征领导，代表管理、监督、指导。' },
+            { name: '火雷噬嗑', description: '噬嗑卦象征咬合，代表解决、处理、执行。', changeDescription: '变卦为贲，象征装饰，代表美化、修饰、文饰。' },
+            { name: '山火贲', description: '贲卦象征装饰，代表美化、修饰、文饰。', changeDescription: '变卦为噬嗑，象征咬合，代表解决、处理、执行。' },
+            { name: '山地剥', description: '剥卦象征剥落，代表减少、衰落、剥离。', changeDescription: '变卦为复，象征复归，代表回归、恢复、重生。' },
+            { name: '地雷复', description: '复卦象征复归，代表回归、恢复、重生。', changeDescription: '变卦为剥，象征剥落，代表减少、衰落、剥离。' },
+            { name: '天雷无妄', description: '无妄卦象征无妄，代表真实、自然、无为。', changeDescription: '变卦为大畜，象征大积蓄，代表大积累、大成就、大克制。' },
+            { name: '山天大畜', description: '大畜卦象征大积蓄，代表大积累、大成就、大克制。', changeDescription: '变卦为无妄，象征无妄，代表真实、自然、无为。' },
+            { name: '山雷颐', description: '颐卦象征颐养，代表保养、滋养、养生。', changeDescription: '变卦为大过，象征大过，代表过度、超越、大错。' },
+            { name: '泽风大过', description: '大过卦象征大过，代表过度、超越、大错。', changeDescription: '变卦为颐，象征颐养，代表保养、滋养、养生。' },
+            { name: '坎为水', description: '坎卦象征水，代表危险、困难、挑战。', changeDescription: '变卦为离，象征火，代表光明、热情、文明。' },
+            { name: '离为火', description: '离卦象征火，代表光明、热情、文明。', changeDescription: '变卦为坎，象征水，代表危险、困难、挑战。' },
+            { name: '泽山咸', description: '咸卦象征感应，代表感应、共鸣、情感。', changeDescription: '变卦为恒，象征恒久，代表持久、稳定、不变。' },
+            { name: '雷风恒', description: '恒卦象征恒久，代表持久、稳定、不变。', changeDescription: '变卦为咸，象征感应，代表感应、共鸣、情感。' },
+            { name: '天山遁', description: '遁卦象征退避，代表退隐、逃避、放弃。', changeDescription: '变卦为大壮，象征大壮，代表强大、强盛、强健。' },
+            { name: '雷天大壮', description: '大壮卦象征大壮，代表强大、强盛、强健。', changeDescription: '变卦为遁，象征退避，代表退隐、逃避、放弃。' },
+            { name: '火地晋', description: '晋卦象征晋升，代表进步、上升、发展。', changeDescription: '变卦为明夷，象征光明受损，代表受伤、挫折、困境。' },
+            { name: '地火明夷', description: '明夷卦象征光明受损，代表受伤、挫折、困境。', changeDescription: '变卦为晋，象征晋升，代表进步、上升、发展。' },
+            { name: '风火家人', description: '家人卦象征家庭，代表亲情、和谐、团结。', changeDescription: '变卦为睽，象征背离，代表分歧、矛盾、冲突。' },
+            { name: '火泽睽', description: '睽卦象征背离，代表分歧、矛盾、冲突。', changeDescription: '变卦为家人，象征家庭，代表亲情、和谐、团结。' },
+            { name: '水山蹇', description: '蹇卦象征艰难，代表困难、阻碍、挑战。', changeDescription: '变卦为解，象征解脱，代表解决、释放、放松。' },
+            { name: '雷水解', description: '解卦象征解脱，代表解决、释放、放松。', changeDescription: '变卦为蹇，象征艰难，代表困难、阻碍、挑战。' },
+            { name: '山泽损', description: '损卦象征损失，代表减少、牺牲、克制。', changeDescription: '变卦为益，象征增益，代表增加、成长、发展。' },
+            { name: '风雷益', description: '益卦象征增益，代表增加、成长、发展。', changeDescription: '变卦为损，象征损失，代表减少、牺牲、克制。' },
+            { name: '泽天夬', description: '夬卦象征决断，代表决定、果断、行动。', changeDescription: '变卦为姤，象征相遇，代表相遇、邂逅、机会。' },
+            { name: '天风姤', description: '姤卦象征相遇，代表相遇、邂逅、机会。', changeDescription: '变卦为夬，象征决断，代表决定、果断、行动。' },
+            { name: '泽地萃', description: '萃卦象征聚集，代表聚集、团结、合作。', changeDescription: '变卦为升，象征上升，代表进步、提升、发展。' },
+            { name: '地风升', description: '升卦象征上升，代表进步、提升、发展。', changeDescription: '变卦为萃，象征聚集，代表聚集、团结、合作。' },
+            { name: '泽水困', description: '困卦象征困境，代表困难、挑战、阻碍。', changeDescription: '变卦为井，象征井，代表供给、资源、支持。' },
+            { name: '水风井', description: '井卦象征井，代表供给、资源、支持。', changeDescription: '变卦为困，象征困境，代表困难、挑战、阻碍。' },
+            { name: '泽火革', description: '革卦象征变革，代表改变、革新、改革。', changeDescription: '变卦为鼎，象征鼎，代表稳定、支持、基础。' },
+            { name: '火风鼎', description: '鼎卦象征鼎，代表稳定、支持、基础。', changeDescription: '变卦为革，象征变革，代表改变、革新、改革。' },
+            { name: '震为雷', description: '震卦象征雷，代表震动、行动、启动。', changeDescription: '变卦为艮，象征山，代表静止、稳定、阻碍。' },
+            { name: '艮为山', description: '艮卦象征山，代表静止、稳定、阻碍。', changeDescription: '变卦为震，象征雷，代表震动、行动、启动。' },
+            { name: '风山渐', description: '渐卦象征渐进，代表逐步、渐进、发展。', changeDescription: '变卦为归妹，象征归妹，代表回归、归宿、婚姻。' },
+            { name: '雷泽归妹', description: '归妹卦象征归妹，代表回归、归宿、婚姻。', changeDescription: '变卦为渐，象征渐进，代表逐步、渐进、发展。' },
+            { name: '雷火丰', description: '丰卦象征丰收，代表丰富、繁荣、成功。', changeDescription: '变卦为旅，象征旅行，代表旅行、移动、变化。' },
+            { name: '火山旅', description: '旅卦象征旅行，代表旅行、移动、变化。', changeDescription: '变卦为丰，象征丰收，代表丰富、繁荣、成功。' },
+            { name: '巽为风', description: '巽卦象征风，代表顺从、适应、变化。', changeDescription: '变卦为兑，象征泽，代表喜悦、和谐、交流。' },
+            { name: '兑为泽', description: '兑卦象征泽，代表喜悦、和谐、交流。', changeDescription: '变卦为巽，象征风，代表顺从、适应、变化。' },
+            { name: '风水涣', description: '涣卦象征涣散，代表分散、离散、解散。', changeDescription: '变卦为节，象征节制，代表节制、约束、控制。' },
+            { name: '水泽节', description: '节卦象征节制，代表节制、约束、控制。', changeDescription: '变卦为涣，象征涣散，代表分散、离散、解散。' },
+            { name: '风泽中孚', description: '中孚卦象征诚信，代表诚信、信任、忠诚。', changeDescription: '变卦为小过，象征小过，代表小错、小误、小节。' },
+            { name: '雷山小过', description: '小过卦象征小过，代表小错、小误、小节。', changeDescription: '变卦为中孚，象征诚信，代表诚信、信任、忠诚。' },
+            { name: '水火既济', description: '既济卦象征完成，代表完成、成功、结束。', changeDescription: '变卦为未济，象征未完成，代表未完成、未结束、未成功。' },
+            { name: '火水未济', description: '未济卦象征未完成，代表未完成、未结束、未成功。', changeDescription: '变卦为既济，象征完成，代表完成、成功、结束。' }
+        ];
+
+        function getRandomYinYang() {
+            // 使用复杂的随机数生成算法，这里简单使用Math.random()
+            const random = Math.random();
+            if (random < 0.125) return { yinYang: '▅▅ ▅▅', type: '老阴 x (0 背 3 字)' };
+            if (random < 0.375) return { yinYang: '▅▅▅▅▅', type: '老阳 o (3 背 0 字)' };
+            if (random < 0.625) return { yinYang: '▅▅ ▅▅', type: '少阴 (2 背 1 字)' };
+            return { yinYang: '▅▅▅▅▅', type: '少阳 (1 背 2 字)' };
+        }
+
+        function displayResult() {
+            if (questionInput.value.trim() === '') {
+                alert('请输入您的问题');
+                return;
+            }
+
+            count++;
+            const { yinYang, type } = getRandomYinYang();
+            resultDiv.innerHTML += `<div class="hexagram">${yinYang}</div><div class="yin-yang">${type}</div>`;
+
+            if (count === 6) {
+                button.innerText = '获取排盘结果';
+                button.onclick = displayFinalResult;
+                displayFinalResult(); // 自动获取结果
+            }
+        }
+
+        function displayFinalResult() {
+            const results = resultDiv.innerText.split('\n').filter(Boolean);
+            const hexagram = convertToHexagram(results);
+            resultDiv.innerHTML = `<div><strong>问题：${questionInput.value}</strong></div>` + resultDiv.innerHTML;
+            resultDiv.innerHTML += `<div><strong>卦象：${hexagram.name}</strong></div>`;
+            resultDiv.innerHTML += `<div>解释：${hexagram.description}</div>`;
+            resultDiv.innerHTML += `<div>变卦：${hexagram.changeDescription}</div>`;
+            button.style.display = 'none';
+            resetButton.style.display = 'inline-block';
+            aiButton.style.display = 'inline-block';
+            resetButton.onclick = reset;
+            aiButton.onclick = aiInterpretation;
+        }
+
+        function reset() {
+            count = 0;
+            resultDiv.innerHTML = '';
+            button.innerText = '抽一卦';
+            button.style.display = 'inline-block';
+            resetButton.style.display = 'none';
+            aiButton.style.display = 'none';
+            outputText.style.display = 'none';
+            button.onclick = displayResult;
+            questionInput.value = ''; // 清除用户输入的内容
+        }
+
+        function convertToHexagram(results) {
+            // 这里简化处理，实际需要根据六爻的组合转换为六十四卦
+            const hexagramNames = ['乾', '坤', '屯', '蒙', '需', '讼', '师', '比', '小畜', '履', '泰', '否', '同人', '大有', '谦', '豫', '随', '蛊', '临', '观', '噬嗑', '贲', '剥', '复', '无妄', '大畜', '颐', '大过', '坎', '离', '咸', '恒', '遁', '大壮', '晋', '明夷', '家人', '睽', '蹇', '解', '损', '益', '夬', '姤', '萃', '升', '困', '井', '革', '鼎', '震', '艮', '渐', '归妹', '丰', '旅', '巽', '兑', '涣', '节', '中孚', '小过', '既济', '未济'];
+            const randomIndex = Math.floor(Math.random() * hexagramNames.length);
+            const name = hexagramNames[randomIndex];
+            return hexagrams[randomIndex];
+        }
+
+        async function aiInterpretation() {
+            loadingAnimation.style.display = 'block';
+            outputText.style.display = 'none';
+
+            try {
+                const response = await fetch('https://api.akanax.com/api/ai-interpretation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        messages: [{
+                                content: "你是一个专业的六爻大师，你会根据我的问题和抽的牌给我解决问题。",
+                                role: "system"
+                            },
+                            {
+                                content: `问题：${questionInput.value}\n卦象：${resultDiv.innerText}`,
+                                role: "user"
+                            }
+                        ],
+                        model: "deepseek-chat",
+                        frequency_penalty: 0,
+                        max_tokens: 2048,
+                        presence_penalty: 0,
+                        response_format: {
+                            type: "text"
+                        },
+                        stop: null,
+                        stream: false, // 关闭流式数据
+                        temperature: 1,
+                        top_p: 1,
+                        tools: null,
+                        tool_choice: "none",
+                        logprobs: false,
+                        top_logprobs: null
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("AI解读失败: ", errorText);
+                    alert("AI解读失败: " + errorText);
+                    loadingAnimation.style.display = 'none';
+                    outputText.style.display = 'block';
+                    return;
+                }
+
+                const data = await response.json();
+                const aiResponse = data.choices[0].message.content;
+
+                outputText.innerHTML = aiResponse;
+                loadingAnimation.style.display = 'none';
+                outputText.style.display = 'block';
+            } catch (error) {
+                console.error("AI解读失败: ", error);
+                alert("AI解读失败: " + error.message);
+                loadingAnimation.style.display = 'none';
+                outputText.style.display = 'block';
+            }
+        }
+
+        button.onclick = displayResult;
+    </script>
+</body>
+</html>
