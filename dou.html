@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>链接提取器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>链接提取器</h1>
+
+    <label for="textInput">原文：</label>
+    <input type="text" id="textInput" placeholder="直接粘贴文本" autofocus oninput="autoExtract()">
+
+    <br>
+
+    <label for="linkInput">链接：</label>
+    <input type="text" id="linkInput" placeholder="提取的网页链接">
+
+    <button onclick="copyText('linkInput')">复制</button>
+
+    <br>
+
+    <label for="textInput">标题：</label>
+    <input type="text" id="textOutput" placeholder="提取的文字">
+
+    <button onclick="copyText('textOutput')">复制</button>
+
+    <script>
+        function autoExtract() {
+            var textInput = document.getElementById("textInput").value;
+            var linkInput = document.getElementById("linkInput");
+            var textOutput = document.getElementById("textOutput");
+
+            // 重置输入框
+            linkInput.value = "";
+            textOutput.value = "";
+
+            // 提取网页链接
+            var linkMatch = textInput.match(/https?:\/\/[^\s]+/);
+            var linkResult = linkMatch ? linkMatch[0] : "未找到网页链接";
+
+            linkInput.value = linkResult; // 将提取的链接显示在输入框中
+
+            // 提取特定文字
+            var textResult = "未找到特定文字";
+
+            // 样式1提取
+            var style1Match = textInput.match(/【[^】]+】([^#]+)#/);
+            if (style1Match) {
+                textResult = style1Match[1].trim();
+            }
+
+            // 样式2提取
+            var style2Match = textInput.match(/https?:\/\/[^\s]+ ([^“]+)“/);
+            if (style2Match) {
+                textResult = style2Match[1].trim();
+            }
+
+            textOutput.value = textResult; // 将提取的文字显示在输入框中
+
+            // 自动复制网页链接的提取结果
+            copyText('linkInput');
+
+            // 将焦点设置回输入文本框
+            document.getElementById("textInput").focus();
+        }
+
+        function copyText(inputId) {
+            var inputElement = document.getElementById(inputId);
+            inputElement.select();
+            document.execCommand("copy");
+        }
+    </script>
+</body>
+</html>
