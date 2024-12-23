@@ -15,7 +15,7 @@ hero:
     - text: 在线六爻
       link: https://sydf.cc/ly.html
     - text: iKun
-      link: https://ali.sydf.cc
+      link: https://ikun.jp
       theme: alt
       
 features:
