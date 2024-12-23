@@ -49,7 +49,7 @@ export const NAV_DATA: NavData[] = [
         icon: '/logo.png',
         title: '链接提取器',
         desc: '提取网页链接',
-        link: '/dou',
+        link: 'https://sydf.cc/dou.html',
       },
     ],
   },

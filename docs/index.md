@@ -11,10 +11,10 @@ hero:
     alt: 时月东方
   actions:
     - text: 在线塔罗
-      link: /akn
+      link: https://sydf.cc/akn.html
     - text: 在线六爻
-      link: ly
-    - text: 时月云
+      link: https://sydf.cc/ly.html
+    - text: iKun
       link: https://ali.sydf.cc
       theme: alt
       
