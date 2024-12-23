@@ -11,9 +11,9 @@ hero:
     alt: 时月东方
   actions:
     - text: 在线塔罗
-      link: https://sydf.cc/akn.html
+      link: /akn
     - text: 在线六爻
-      link: https://sydf.cc/ly.html
+      link: ly
     - text: 时月云
       link: https://ali.sydf.cc
       theme: alt

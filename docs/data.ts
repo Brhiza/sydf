@@ -28,7 +28,7 @@ export const NAV_DATA: NavData[] = [
         link: 'https://cp.kuaishou.com',
       },
       {
-        icon: 'https://s21.ax1x.com/2024/11/04/pAspyTA.png',
+        icon: 'https://favicon.im/www.xiaohongshu.com,
         title: '小红书',
         desc: '小红书创作服务平台',
         link: 'https://creator.xiaohongshu.com',
@@ -46,10 +46,10 @@ export const NAV_DATA: NavData[] = [
         link: 'https://member.bilibili.com',
       },
             {
-        icon: 'https://sydf.cc/logo.png',
+        icon: '/logo.png',
         title: '链接提取器',
         desc: '提取网页链接',
-        link: 'https://sydf.cc/dou.html',
+        link: '/dou',
       },
     ],
   },
