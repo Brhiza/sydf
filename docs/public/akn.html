@@ -1,33 +1,155 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>大阿卡纳</title>
-  <style>
-    /* 压缩后的 CSS */
-    body {
-      font-family: 'Arial', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 2rem;
-      box-sizing: border-box;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大阿卡纳</title>
+    <style>
+        /* 背景样式 */
+        body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #87CEFA;
+            background: linear-gradient(to bottom right, #9370DB 0, #483D8B 100%);
+            overflow: auto;
+            position: relative;
+            padding-top: 100px
+        }
 
-    h1 {
-      margin-top: 2rem;
-      margin-bottom: 1rem;
-      text-align: center;
-      color: #333;
-      font-size: 2rem;
-      font-weight: bold;
+/* 电脑设备（屏幕宽度大于 768px） */
+@media (min-width: 769px) {
+    body {
+        padding-top: 50px; /* 电脑设备留白 */
     }
+}
+
+/* 手机设备（屏幕宽度小于等于 768px） */
+@media (max-width: 768px) {
+    body {
+        padding-top: 50px; /* 手机设备留白 */
+    }
+}
+
+        
+        /* 背景气泡动画 */
+        .bg-bubbles {
+            position: fixed; /* 改为 fixed，固定在背景上 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* 背景气泡的 z-index 设置为 0 */
+        }
+
+        .bg-bubbles li {
+            position: absolute;
+            list-style: none;
+            display: block;
+            width: 40px;
+            height: 40px;
+            background-color: hsla(0, 0%, 100%, .15);
+            bottom: -160px;
+            animation: square 25s infinite;
+            transition-timing-function: linear;
+        }
+
+        .bg-bubbles li:nth-child(1) {
+            left: 10%;
+        }
+
+        .bg-bubbles li:nth-child(2) {
+            left: 20%;
+            width: 80px;
+            height: 80px;
+            animation-delay: 2s;
+            animation-duration: 17s;
+        }
+
+        .bg-bubbles li:nth-child(3) {
+            left: 25%;
+            animation-delay: 4s;
+        }
+
+        .bg-bubbles li:nth-child(4) {
+            left: 40%;
+            width: 60px;
+            height: 60px;
+            animation-duration: 22s;
+            background-color: hsla(0, 0%, 100%, .25);
+        }
+
+        .bg-bubbles li:nth-child(5) {
+            left: 70%;
+        }
+
+        .bg-bubbles li:nth-child(6) {
+            left: 80%;
+            width: 120px;
+            height: 120px;
+            animation-delay: 3s;
+            background-color: hsla(0, 0%, 100%, .2);
+        }
+
+        .bg-bubbles li:nth-child(7) {
+            left: 32%;
+            width: 160px;
+            height: 160px;
+            animation-delay: 7s;
+        }
+
+        .bg-bubbles li:nth-child(8) {
+            left: 55%;
+            width: 20px;
+            height: 20px;
+            animation-delay: 15s;
+            animation-duration: 40s;
+        }
+
+        .bg-bubbles li:nth-child(9) {
+            left: 25%;
+            width: 10px;
+            height: 10px;
+            animation-delay: 2s;
+            animation-duration: 40s;
+            background-color: hsla(0, 0%, 100%, .3);
+        }
+
+        .bg-bubbles li:nth-child(10) {
+            left: 90%;
+            width: 160px;
+            height: 160px;
+            animation-delay: 11s;
+        }
+
+        @keyframes square {
+            0% {
+                transform: translateY(0);
+            }
+            to {
+                transform: translateY(-700px) rotate(600deg);
+            }
+        }
+
+        /* 内容框样式 */
+        .content-box {
+            width: 90%;
+            max-width: 1200px;
+            min-width: 300px;
+                padding: 20px; /* 减少 padding */
+    box-sizing: border-box; /* 确保 padding 不会增加宽度 */
+            border-radius: 20px; /* 圆角矩形 */
+            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
+            backdrop-filter: blur(10px); /* 毛玻璃效果 */
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); /* 阴影 */
+            z-index: 2; /* 确保内容框在背景气泡之上 */
+            position: relative; /* 相对定位 */
+        }
 
     .card-container {
       width: 100%;
@@ -36,7 +158,7 @@
       align-items: center;
       justify-content: center;
       gap: 0;
-      overflow: auto;
+      overflow: visible;
     }
 
     .card-row {
@@ -65,12 +187,12 @@
 
     @media (max-width: 768px) {
       .card {
-        width: 4rem;
-        height: 6rem;
+        width: 3rem;
+        height: 5rem;
       }
 
       .card-row {
-        gap: 0.25rem;
+        gap: 0.17rem;
       }
 
       .input-container input {
@@ -81,8 +203,8 @@
 
     @media (min-width: 769px) {
       .card {
-        width: 8rem;
-        height: 11rem;
+        width: 6rem;
+        height: 9rem;
       }
     }
 
@@ -90,28 +212,26 @@
       opacity: 0;
     }
 
-    .result-container {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 2rem;
-    }
-
-    .result-container img {
-      width: 4rem;
-      height: 6rem;
-      border-radius: 10px;
-    }
-
-    .result-container p {
-      font-size: 1rem;
-      font-weight: bold;
-      margin-top: 0.5rem;
-      color: #333;
-      text-align: center;
-    }
+        .result-container {
+            width: 90%;
+            max-width: 1200px;
+            overflow: auto; /* 超出部分滚动 */
+            box-sizing: border-box; /* 包含 padding 和 border */
+            display: flex;
+            flex-wrap: wrap; /* 允许换行 */
+            gap: 10px; /* 子元素间距 */
+            align-items: center;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        .result-container img {
+            max-width: 100%; /* 图片宽度不超过容器 */
+            height: auto; /* 高度自适应 */
+        }
+        .result-container p {
+            word-wrap: break-word; /* 允许长单词换行 */
+            margin: 0;
+        }
 
     .reset-button,
     .copy-button,
@@ -120,7 +240,7 @@
       padding: 0.75rem 1.5rem;
       font-size: 1rem;
       cursor: pointer;
-      background-color: #007bff;
+      background-color: #8A2BE2;
       color: white;
       border: none;
       border-radius: 5px;
@@ -131,7 +251,7 @@
     .reset-button:hover,
     .copy-button:hover,
     .ai-button:hover {
-      background-color: #0056b3;
+      background-color: #8A2BE2;
     }
 
     .centered {
@@ -141,15 +261,25 @@
       justify-content: center;
     }
 
-    .input-container {
-      margin-top: 1rem;
-      display: flex;
-      flex-direction: column;
+
+        h1 {
+            font-size: 48px;
+            color: #fff;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+                  flex-direction: column;
       align-items: center;
       text-align: center;
-      color: #333;
-      font-size: 1.2rem;
-      font-weight: bold;
+        }
+        
+    .input-container {
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 30px;
+                  flex-direction: column;
+      align-items: center;
+      text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .input-container input {
@@ -159,7 +289,8 @@
       font-size: 1rem;
       border: 1px solid #ccc;
       border-radius: 5px;
-      background-color: #fff;
+            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
+            backdrop-filter: blur(10px);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
       margin-top: 0.5rem;
@@ -175,24 +306,22 @@
       margin-top: 2rem;
       font-size: 1.2rem;
       font-weight: bold;
-      color: #333;
+      color: #F5F5F5;
       text-align: center;
-      background-color: #fff;
       padding: 1rem;
       border-radius: 5px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .output-text strong {
       font-size: 1.4rem;
       font-weight: bold;
-      color: #007bff;
+      color: #F5F5F5;
     }
 
     .output-text em {
       font-size: 1.1rem;
       font-style: italic;
-      color: #555;
+      color: #F5F5F5;
     }
 
     .button-container {
@@ -206,9 +335,10 @@
       margin-top: 2rem;
       font-size: 1.2rem;
       font-weight: bold;
-      color: #333;
+      color: #FFF;
       text-align: center;
-      background-color: #fff;
+            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
+            backdrop-filter: blur(10px);
       padding: 1rem;
       border-radius: 5px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -236,19 +366,34 @@
         content: 'AI疯狂思考中.';
       }
     }
-  </style>
+    </style>
 </head>
-
 <body>
-  <header>
-    <div style="height: 13rem;"></div> <!-- 增加顶部空位 -->
-    <h1>大阿卡纳</h1>
+    <!-- 背景气泡动画 -->
+    <ul class="bg-bubbles">
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+    </ul>
+
+    <!-- 内容框 -->
+    <h1>时月的大阿卡纳</h1>
+    <div class="content-box">
     <div class="input-container">
+
       1.写下您的问题
-      <input type="text" id="inputText" placeholder="只能提问能用Yes/No回答的问题哦">
+      <br><br>
+      <input type="text" id="inputText" placeholder="只能提问能用Yes/No回答的问题哦" autofocus>
       <br><br>
       2.抽取 3 张塔罗牌（头脑中想着您的问题）
-      <br><br>
+      <br>
     </div>
   </header>
   <main class="centered">
@@ -262,10 +407,10 @@
     <div class="output-text" id="outputText"></div>
     <div class="loading-animation" id="loadingAnimation"></div>
   </main>
+    </div>
 
-  <script>
-    // 压缩后的 JS
-    const majorArcanaCardNames = ["愚人", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐士", "命运之轮", "正义", "倒吊人", "死亡", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
+    <script>
+const majorArcanaCardNames = ["愚人", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐士", "命运之轮", "正义", "倒吊人", "死亡", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
     const cardDescriptions = [{
         upright: "开端、自由、纯真、独创性、冒险、理想主义、自发性",
         reversed: "鲁莽、粗心、分心、幼稚、愚蠢、容易上当、陈旧、迟钝"
@@ -570,7 +715,6 @@
 
     initCards();
     displayCards();
-  </script>
+    </script>
 </body>
-
 </html>

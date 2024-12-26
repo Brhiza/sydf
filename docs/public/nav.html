@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网站导航</title>
+    <style>
+        /* 背景样式 */
+        body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #87CEFA;
+            background: linear-gradient(to bottom right, #87CEFA 0, #4682B4 100%);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 背景气泡动画 */
+        .bg-bubbles {
+            position: fixed; /* 改为 fixed，固定在背景上 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* 背景气泡的 z-index 设置为 0 */
+        }
+
+        .bg-bubbles li {
+            position: absolute;
+            list-style: none;
+            display: block;
+            width: 40px;
+            height: 40px;
+            background-color: hsla(0, 0%, 100%, .15);
+            bottom: -160px;
+            animation: square 25s infinite;
+            transition-timing-function: linear;
+        }
+
+        .bg-bubbles li:nth-child(1) {
+            left: 10%;
+        }
+
+        .bg-bubbles li:nth-child(2) {
+            left: 20%;
+            width: 80px;
+            height: 80px;
+            animation-delay: 2s;
+            animation-duration: 17s;
+        }
+
+        .bg-bubbles li:nth-child(3) {
+            left: 25%;
+            animation-delay: 4s;
+        }
+
+        .bg-bubbles li:nth-child(4) {
+            left: 40%;
+            width: 60px;
+            height: 60px;
+            animation-duration: 22s;
+            background-color: hsla(0, 0%, 100%, .25);
+        }
+
+        .bg-bubbles li:nth-child(5) {
+            left: 70%;
+        }
+
+        .bg-bubbles li:nth-child(6) {
+            left: 80%;
+            width: 120px;
+            height: 120px;
+            animation-delay: 3s;
+            background-color: hsla(0, 0%, 100%, .2);
+        }
+
+        .bg-bubbles li:nth-child(7) {
+            left: 32%;
+            width: 160px;
+            height: 160px;
+            animation-delay: 7s;
+        }
+
+        .bg-bubbles li:nth-child(8) {
+            left: 55%;
+            width: 20px;
+            height: 20px;
+            animation-delay: 15s;
+            animation-duration: 40s;
+        }
+
+        .bg-bubbles li:nth-child(9) {
+            left: 25%;
+            width: 10px;
+            height: 10px;
+            animation-delay: 2s;
+            animation-duration: 40s;
+            background-color: hsla(0, 0%, 100%, .3);
+        }
+
+        .bg-bubbles li:nth-child(10) {
+            left: 90%;
+            width: 160px;
+            height: 160px;
+            animation-delay: 11s;
+        }
+
+        @keyframes square {
+            0% {
+                transform: translateY(0);
+            }
+            to {
+                transform: translateY(-700px) rotate(600deg);
+            }
+        }
+
+        /* 内容框样式 */
+        .content-box {
+            width: 90%;
+            max-width: 1200px;
+            padding: 40px;
+            border-radius: 20px; /* 圆角矩形 */
+            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
+            backdrop-filter: blur(10px); /* 毛玻璃效果 */
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); /* 阴影 */
+            z-index: 2; /* 确保内容框在背景气泡之上 */
+            position: relative; /* 相对定位 */
+        }
+
+        /* 时间、日期和倒计时样式 */
+        .time-date {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .time-date .current-time {
+            font-size: 100px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: -10px;
+        }
+
+        .time-date .current-date {
+            font-size: 24px;
+            color: #fff;
+        }
+
+        .countdown {
+            font-size: 15px;
+            color: #fff;
+            margin-top: 0px;
+            text-align: center;
+        }
+
+        /* 导航标题样式 */
+        h1 {
+            font-size: 48px;
+            color: #fff;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 搜索框和按钮样式 */
+        .search-container {
+            display: flex;
+            align-items: center;
+            justify-content: center; /* 使内容居中 */
+            margin-bottom: 40px;
+            width: 100%;
+            position: relative;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 600px; /* 设置最大宽度 */
+            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
+            backdrop-filter: blur(10px); /* 毛玻璃效果 */
+            border-radius: 30px; /* 圆角 */
+            padding: 10px 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* 阴影 */
+        }
+
+        .search-input-wrapper input[type="text"] {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 18px;
+            color: #fff;
+            padding: 10px;
+        }
+
+        .search-input-wrapper input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .search-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-buttons button {
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .search-buttons button:hover {
+            color: #007BFF;
+        }
+
+        /* 导航磁贴样式 */
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .tile {
+            width: 70%;
+            padding-top: 70%; /* 使磁贴保持正方形 */
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tile:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+.tile a {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: flex-start; /* 左对齐 */
+    align-items: flex-end; /* 下对齐 */
+    text-decoration: none;
+    color: #fff; /* 文字颜色 */
+    font-size: 16px; /* 字体大小 */
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); /* 文字阴影 */
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.3s, filter 0.3s;
+    padding: -10px; /* 内边距 */
+    padding-left: 8px;
+}
+
+        .tile a:hover {
+            transform: scale(1.1);
+            filter: brightness(1.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景气泡动画 -->
+    <ul class="bg-bubbles">
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+    </ul>
+
+    <!-- 内容框 -->
+    <div class="content-box">
+        <!-- 时间、日期和倒计时 -->
+        <div class="time-date">
+            <div class="current-time" id="current-time"></div>
+            <div class="current-date" id="current-date"></div>
+            <div class="countdown" id="countdown"></div>
+        </div>
+
+        <!-- 搜索框和按钮 -->
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <input type="text" id="search-input" placeholder="输入搜索内容...">
+                <div class="search-buttons">
+                    <button onclick="searchBaidu()" class="baidu">
+  <img src="img/images/baidu.png" class="baidu-icon">
+                    </button>
+<button onclick="searchGoogle()">
+  <img src="img/images/google.png" class="google-icon">
+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导航磁贴 -->
+        <div class="container">
+            <div class="tile">
+                <a href="https://www.google.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/1200px-Google_2015_logo.svg.png');"></a>
+            </div>
+            <div class="tile">
+                <a href="https://www.baidu.com" target="_blank" style="background-image: url('https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png');">百度</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.github.com" target="_blank" style="background-image: url('https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png');">GitHub</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.wikipedia.org" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Wikipedia-logo-v2.svg/1200px-Wikipedia-logo-v2.svg.png');">维基百科</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.youtube.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Logo_of_YouTube_%282015-2017%29.svg/1200px-Logo_of_YouTube_%282015-2017%29.svg.png');">YouTube</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.stackoverflow.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Stack_Overflow_icon.svg/1200px-Stack_Overflow_icon.svg.png');">Stack Overflow</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.twitter.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Logo_of_Twitter.svg/1200px-Logo_of_Twitter.svg.png');">Twitter</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.reddit.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Reddit_logo_new.svg/1200px-Reddit_logo_new.svg.png');">Reddit</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.amazon.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/1200px-Amazon_logo.svg.png');">Amazon</a>
+            </div>
+            <div class="tile">
+                <a href="https://www.linkedin.com" target="_blank" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/1200px-LinkedIn_logo_initials.png');">LinkedIn</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js"></script>
+
+    <script>
+        // 获取当前时间并显示
+        function updateTimeDate() {
+            const now = new Date();
+            const currentTimeElement = document.getElementById('current-time');
+            const currentDateElement = document.getElementById('current-date');
+
+            // 显示当前时间（大字体、加粗）
+            currentTimeElement.textContent = now.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+
+            // 显示日期和星期几
+            const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            const lunarDate = Lunar.fromDate(now);
+            const lunarText = `${lunarDate.getMonthInChinese()}月${lunarDate.getDayInChinese()}`;
+            currentDateElement.textContent = `${now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })} ${days[now.getDay()]} 农历 ${lunarText}`;
+        }
+
+        // 更新倒计时
+        function updateCountdown() {
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const countdownElement = document.getElementById('countdown');
+
+            if (isWeekend) {
+                countdownElement.textContent = '今天是周末，休息中！';
+                return;
+            }
+
+            const workTimes = [
+                { start: '09:30', end: '12:00' },
+                { start: '14:00', end: '18:30' }
+            ];
+
+            let remainingTime = 0;
+            let isWorking = false;
+
+            workTimes.forEach(time => {
+                const [startHour, startMinute] = time.start.split(':').map(Number);
+                const [endHour, endMinute] = time.end.split(':').map(Number);
+
+                const startTime = new Date(now);
+                startTime.setHours(startHour, startMinute, 0, 0);
+
+                const endTime = new Date(now);
+                endTime.setHours(endHour, endMinute, 0, 0);
+
+                if (now >= startTime && now < endTime) {
+                    isWorking = true;
+                    remainingTime = endTime - now;
+                } else if (now < startTime) {
+                    remainingTime = startTime - now;
+                }
+            });
+
+            if (isWorking) {
+                countdownElement.textContent = `距离下班还有：${formatTime(remainingTime)}`;
+            } else {
+                countdownElement.textContent = '现在是休息时间';
+            }
+        }
+
+        // 格式化时间
+        function formatTime(ms) {
+            const seconds = Math.floor((ms / 1000) % 60);
+            const minutes = Math.floor((ms / 1000 / 60) % 60);
+            const hours = Math.floor((ms / 1000 / 60 / 60) % 24);
+            return `${hours}小时 ${minutes}分钟 ${seconds}秒`;
+        }
+
+        // 百度搜索
+        function searchBaidu() {
+            const query = document.getElementById('search-input').value;
+            if (query) {
+                window.open(`https://www.baidu.com/s?wd=${encodeURIComponent(query)}`, '_blank');
+            }
+        }
+
+        // 谷歌搜索
+        function searchGoogle() {
+            const query = document.getElementById('search-input').value;
+            if (query) {
+                window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+            }
+        }
+
+        // 回车键触发百度搜索
+        document.getElementById('search-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                searchBaidu();
+            }
+        });
+
+        // 页面加载时聚焦搜索框
+        document.getElementById('search-input').focus();
+        
+        // 确保焦点始终在输入框中
+document.addEventListener('click', function () {
+    document.getElementById('search-input').focus();
+});
+
+        // 每秒更新时间、日期和倒计时
+        setInterval(() => {
+            updateTimeDate();
+            updateCountdown();
+        }, 1000);
+
+        // 初始化时间、日期和倒计时
+        updateTimeDate();
+        updateCountdown();
+    </script>
+</body>
+</html>
