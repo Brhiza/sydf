@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>六爻起卦</title>
     <style>
         body {
@@ -164,7 +164,6 @@
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); /* 阴影 */
             z-index: 2; /* 确保内容框在背景气泡之上 */
             position: relative; /* 相对定位 */
-            color: #FFF;
         }
         
             .input-container {
@@ -182,7 +181,6 @@
       max-width: 100%;
       padding: 1rem;
       font-size: 1rem;
-      color: #FFF;
       border: 1px solid #ccc;
       border-radius: 5px;
             background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
@@ -195,7 +193,6 @@
     .input-container input:focus {
       outline: none;
       border-color: #8A2BE2;
-      color: #FFF;
       box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
     }
     
@@ -513,6 +510,10 @@
                 outputText.style.display = 'block';
             }
         }
+        
+document.addEventListener('gesturestart', function (e) {
+    e.preventDefault();
+});
 
         button.onclick = displayResult;
     </script>
