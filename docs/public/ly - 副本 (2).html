@@ -5,305 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>六爻起卦</title>
     <style>
-        body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: #87CEFA;
-            background: linear-gradient(to bottom right, #9370DB 0, #483D8B 100%);
-            overflow: auto;
-            position: relative;
-            padding-top: 100px
-        }
-
-/* 电脑设备（屏幕宽度大于 768px） */
-@media (min-width: 769px) {
-    body {
-        padding-top: 50px; /* 电脑设备留白 */
-    }
-}
-
-/* 手机设备（屏幕宽度小于等于 768px） */
-@media (max-width: 768px) {
-    body {
-        padding-top: 50px; /* 手机设备留白 */
-    }
-}
-
-        
-        /* 背景气泡动画 */
-        .bg-bubbles {
-            position: fixed; /* 改为 fixed，固定在背景上 */
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0; /* 背景气泡的 z-index 设置为 0 */
-        }
-
-        .bg-bubbles li {
-            position: absolute;
-            list-style: none;
-            display: block;
-            width: 40px;
-            height: 40px;
-            background-color: hsla(0, 0%, 100%, .15);
-            bottom: -160px;
-            animation: square 25s infinite;
-            transition-timing-function: linear;
-        }
-
-        .bg-bubbles li:nth-child(1) {
-            left: 10%;
-        }
-
-        .bg-bubbles li:nth-child(2) {
-            left: 20%;
-            width: 80px;
-            height: 80px;
-            animation-delay: 2s;
-            animation-duration: 17s;
-        }
-
-        .bg-bubbles li:nth-child(3) {
-            left: 25%;
-            animation-delay: 4s;
-        }
-
-        .bg-bubbles li:nth-child(4) {
-            left: 40%;
-            width: 60px;
-            height: 60px;
-            animation-duration: 22s;
-            background-color: hsla(0, 0%, 100%, .25);
-        }
-
-        .bg-bubbles li:nth-child(5) {
-            left: 70%;
-        }
-
-        .bg-bubbles li:nth-child(6) {
-            left: 80%;
-            width: 120px;
-            height: 120px;
-            animation-delay: 3s;
-            background-color: hsla(0, 0%, 100%, .2);
-        }
-
-        .bg-bubbles li:nth-child(7) {
-            left: 32%;
-            width: 160px;
-            height: 160px;
-            animation-delay: 7s;
-        }
-
-        .bg-bubbles li:nth-child(8) {
-            left: 55%;
-            width: 20px;
-            height: 20px;
-            animation-delay: 15s;
-            animation-duration: 40s;
-        }
-
-        .bg-bubbles li:nth-child(9) {
-            left: 25%;
-            width: 10px;
-            height: 10px;
-            animation-delay: 2s;
-            animation-duration: 40s;
-            background-color: hsla(0, 0%, 100%, .3);
-        }
-
-        .bg-bubbles li:nth-child(10) {
-            left: 90%;
-            width: 160px;
-            height: 160px;
-            animation-delay: 11s;
-        }
-
-        @keyframes square {
-            0% {
-                transform: translateY(0);
-            }
-            to {
-                transform: translateY(-700px) rotate(600deg);
-            }
-        }
-        
- h1 {
-  font-size: 48px; /* 默认字体大小 */
-  color: #fff;
-  margin-bottom: 30px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-/* 针对手机设备的样式 */
-@media (max-width: 768px) {
-  h1 {
-    font-size: 32px; /* 手机端字体大小 */
-  }
-}       
-
-        .content-box {
-            width: 90%;
-            max-width: 1200px;
-            min-width: 300px;
-                padding: 20px; /* 减少 padding */
-    box-sizing: border-box; /* 确保 padding 不会增加宽度 */
-            border-radius: 20px; /* 圆角矩形 */
-            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
-            backdrop-filter: blur(10px); /* 毛玻璃效果 */
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); /* 阴影 */
-            z-index: 2; /* 确保内容框在背景气泡之上 */
-            position: relative; /* 相对定位 */
-            color: #FFF;
-        }
-        
-            .input-container {
-            font-size: 24px;
-            color: #FFF;
-            margin-bottom: 30px;
-                  flex-direction: column;
-      align-items: center;
-      text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    }
-    
-            .input-container input {
-      width: 90%;
-      max-width: 100%;
-      padding: 1rem;
-      font-size: 1rem;
-      color: #FFF;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
-            backdrop-filter: blur(10px);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-      margin-top: 0.5rem;
-    }
-
-    .input-container input:focus {
-      outline: none;
-      border-color: #8A2BE2;
-      color: #FFF;
-      box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
-    }
-    
-                #question-container {
-            margin-bottom: 20px;
-        }
-
-        #question-input {
-            font-size: 1.1rem;
-            font-style: italic;
-            color: #FFF;
-        }
-
-        #button-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        #button, #resetButton, #aiButton {
-            margin: 10px; /* 统一设置所有按钮的外边距 */
-            padding: 0.75rem 1rem;
-            font-size: 1rem;
-            cursor: pointer;
-            background-color: #8A2BE2;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.3s ease-in-out;
-        }
-
-        #resetButton, #aiButton {
-            display: none;
-            margin-left: 20px; /* 增加 resetButton 和 aiButton 之间的间隔 */
-        }
-
-        #result {
-            margin-top: 20px;
-            font-size: 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            border-radius: 10px;
-            color: #fff;
-        }
-
-        .loading {
-            display: none;
-            margin-top: 20px;
-            font-size: 24px;
-        }
-
-        .output {
-            display: none;
-            margin-top: 20px;
-            font-size: 24px;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .hexagram {
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #fff;
-        }
-
-        .yin-yang {
-            font-size: 24px;
-            margin-left: 20px;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; }
+        #container { display: flex; flex-direction: column; align-items: center; margin-top: 50px; }
+        #question-container { margin-bottom: 20px; }
+        #question-input { width: 100%; max-width: 300px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+        #button-container { display: flex; justify-content: center; flex-wrap: wrap; }
+        #button, #resetButton, #aiButton { margin: 10px; padding: 10px 20px; font-size: 18px; border: none; border-radius: 5px; background-color: #007bff; color: white; cursor: pointer; transition: background-color 0.3s ease; }
+        #button:hover, #resetButton:hover, #aiButton:hover { background-color: #0056b3; }
+        #resetButton, #aiButton { display: none; }
+        #result { margin-top: 20px; font-size: 24px; display: flex; flex-direction: column; align-items: center; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        .loading { display: none; margin-top: 20px; font-size: 24px; }
+        .output { display: none; margin-top: 20px; font-size: 24px; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        .hexagram { font-size: 36px; font-weight: bold; margin-bottom: 10px; }
+        .yin-yang { font-size: 24px; margin-left: 20px; }
 
         /* 响应式设计 */
         @media (max-width: 600px) {
-            #question-input {
-                max-width: 100%;
-            }
-
-            #button, #resetButton, #aiButton {
-                width: 100%;
-            }
+            #question-input { max-width: 100%; }
+            #button, #resetButton, #aiButton { width: 100%; }
         }
     </style>
 </head>
 <body>
-<!-- 背景气泡动画 -->
-    <ul class="bg-bubbles">
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-        <li></li>
-    </ul>
     <h1>六爻起卦</h1>
-    <div class="content-box">
-        <div class="input-container">
-            1.写下您的问题<br><br>
-            <input type="text" id="inputText" placeholder="只能提问能用Yes/No回答的问题哦" autofocus><br><br><br>
-            2.你需要抽取 6 次才能获取排盘（头脑中想着您的问题）
+    <div id="container">
+        <div id="question-container">
+            <label for="question-input">1.写下您的问题</label><br><br>
+            <input type="text" id="question-input" placeholder="请详细的写下你的问题" /><br><br><br>
+            <p>2.你需要抽取 6 次才能获取排盘（头脑中想着您的问题）</p>
         </div>
         <div id="button-container">
             <button id="button">抽一卦</button>
@@ -323,7 +52,7 @@
         const aiButton = document.getElementById('aiButton');
         const loadingAnimation = document.getElementById('loading');
         const outputText = document.getElementById('output');
-        const questionInput = document.getElementById('inputText');
+        const questionInput = document.getElementById('question-input');
 
         const hexagrams = [
             { name: '乾为天', description: '乾卦象征天，代表刚健、进取、领导力。', changeDescription: '变卦为坤，象征地，代表柔顺、包容、顺应。' },
