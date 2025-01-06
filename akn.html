@@ -625,6 +625,12 @@ const majorArcanaCardNames = ["愚人", "魔术师", "女祭司", "皇后", "皇
         const cardDescriptionsText = drawnCards.map(card => `<em>${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}，代表${card.description}</em>`).join('<br>');
         const resultText = `${cardNames}<br>${inputText}<br><br><strong>牌意简介</strong><br>${cardDescriptionsText}`;
         outputText.innerHTML = resultText;
+        setTimeout(() => {
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth'
+          });
+        }, 100);
       }
     }
 
@@ -746,8 +752,14 @@ async function aiInterpretation() {
           const currentText = text.substring(0, i + 1);
           element.innerHTML = marked.parse(currentText);
           
-          // 添加自动滚动
-          element.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          // 修改滚动逻辑，确保每次打字都滚动到底部
+          const scrollTarget = document.documentElement.scrollHeight;
+          if (window.innerHeight + window.scrollY < scrollTarget) {
+            window.scrollTo({
+              top: scrollTarget,
+              behavior: 'smooth'
+            });
+          }
           
           i++;
           const randomSpeed = Math.floor(Math.random() * (maxSpeed - minSpeed + 1)) + minSpeed;
