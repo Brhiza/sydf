@@ -1056,6 +1056,17 @@ async function aiInterpretation() {
       document.getElementById('copyButton').style.display = 'inline-block';
       document.getElementById('resetButton').style.display = 'inline-block';
       document.getElementById('reminderText').style.display = 'block';
+
+      // 使用 requestAnimationFrame 确保 DOM 更新后再滚动
+      requestAnimationFrame(() => {
+          setTimeout(() => {
+              window.scrollTo({
+                  top: document.documentElement.scrollHeight,
+                  behavior: 'smooth'
+              });
+          }, 100);
+      });
+
     } catch (error) {
       console.error("AI解读失败: ", error);
       alert("AI解读失败: " + error.message);
@@ -1079,6 +1090,15 @@ async function aiInterpretation() {
       type();
     }
 
+    // 添加自动滚动函数
+    function scrollToBottom() {
+        // 使用平滑滚动效果
+        window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+
     async function drawRandomCard() {
         const inputText = document.getElementById('inputText').value;
         if (!inputText.trim()) {
@@ -1087,7 +1107,7 @@ async function aiInterpretation() {
         }
 
         const cardInner = document.querySelector('.card-inner');
-        cardInner.classList.add('flipped');  // 添加翻转类名
+        cardInner.classList.add('flipped');
 
         const cardIndex = Math.floor(Math.random() * allTarotCards.length);
         const isReversed = Math.random() < 0.5;
@@ -1127,6 +1147,9 @@ async function aiInterpretation() {
         const cardDescription = `<em>${isReversed ? cardDescriptions[cardIndex].reversed : cardDescriptions[cardIndex].upright}</em>`;
         // 修改这里: 直接用卡片名称作为标题
         outputText.innerHTML = `<strong>${isReversed ? "逆位" : "正位"}「${card.name}」</strong><br>${cardDescription}`;
+
+        // 在显示结果后滚动到底部
+        setTimeout(scrollToBottom, 500); // 等待卡片翻转动画完成
 
         // 自动进行 AI 解读
         await aiInterpretation();
@@ -1562,6 +1585,9 @@ async function drawRandomCard() {
     const cardDescription = `<em>${isReversed ? cardDescriptions[cardIndex].reversed : cardDescriptions[cardIndex].upright}</em>`;
     // 修改这里: 直接用卡片名称作为标题
     outputText.innerHTML = `<strong>${isReversed ? "逆位" : "正位"}「${card.name}」</strong><br>${cardDescription}`;
+
+    // 在显示结果后滚动到底部
+    setTimeout(scrollToBottom, 500); // 等待卡片翻转动画完成
 
     // 自动进行 AI 解读
     await aiInterpretation();
