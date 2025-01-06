@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大阿卡纳</title>
+    <title>今日运势</title>
     <style>
         /* 背景样式 */
         body {
@@ -430,10 +430,11 @@ h1 {
     }
 
     .card-wrapper {
-        perspective: 1000px;
-        width: 200px;
-        height: 300px;
-        margin: 0 auto;
+        perspective: 1500px; /* 增加透视效果 */
+        width: 280px; /* 增加卡片尺寸 */
+        height: 480px;
+        margin: 2rem auto;
+        cursor: pointer;
     }
 
     .card-inner {
@@ -441,8 +442,10 @@ h1 {
         width: 100%;
         height: 100%;
         text-align: center;
-        transition: transform 0.8s;
+        transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1); /* 优化翻转动画 */
         transform-style: preserve-3d;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); /* 添加基础阴影 */
+        border-radius: 15px; /* 圆角优化 */
     }
 
     .card-inner.flipped {
@@ -457,6 +460,12 @@ h1 {
         display: flex;
         justify-content: center;
         align-items: center;
+        border-radius: 15px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(5px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .card-back {
@@ -472,6 +481,7 @@ h1 {
         width: 100%;
         height: 100%;
         object-fit: contain;
+        transition: transform 0.3s ease;
     }
 
     .input-container select {
@@ -585,6 +595,36 @@ h1 {
             line-height: 1.8;
         }
     }
+
+    /* 添加悬停效果 */
+    .card-wrapper:hover .card-inner:not(.flipped) {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .card-wrapper {
+            width: 200px;
+            height: 340px;
+        }
+    }
+
+    /* 卡片名称样式优化 */
+    .card-name {
+        position: absolute;
+        bottom: 20px;
+        left: 0;
+        right: 0;
+        color: #fff;
+        font-size: 1.4rem;
+        font-weight: 500;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+        padding: 15px 0;
+        margin: 0;
+    }
+
     </style>
         <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -604,7 +644,7 @@ h1 {
     </ul>
 
     <!-- 内容框 -->
-    <h1>时月的大阿卡纳</h1>
+    <h1>时月的阿卡纳</h1>
     <div class="content-box">
     <div class="input-container">
       <div class="reminder-text" style="margin: 20px 0; color: #fff; text-align: center; ">
@@ -1053,27 +1093,18 @@ async function aiInterpretation() {
         cardContainer.style.flexDirection = 'column';
         cardContainer.style.alignItems = 'center';
         cardContainer.style.height = '100%';
+        cardContainer.style.position = 'relative'; // 添加相对定位
         
         const newCardImg = document.createElement('img');
         newCardImg.src = `${cdnBaseUrl}${card.number}.jpg`;
         newCardImg.alt = card.name;
         newCardImg.className = 'tarot-card';
-        newCardImg.style.marginBottom = '10px';
         
         if (isReversed) {
             newCardImg.style.transform = 'rotate(180deg)';
         }
         
-        const cardName = document.createElement('div');
-        cardName.textContent = `${isReversed ? "逆位 " : ""}${card.name}`;
-        cardName.style.color = '#fff';
-        cardName.style.fontSize = '1.2rem';
-        cardName.style.textAlign = 'center';
-        cardName.style.marginTop = '10px';
-        cardName.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.3)';
-        
         cardContainer.appendChild(newCardImg);
-        cardContainer.appendChild(cardName);
         
         drawnCard.innerHTML = '';
         drawnCard.appendChild(cardContainer);
@@ -1087,7 +1118,8 @@ async function aiInterpretation() {
 
         const outputText = document.getElementById('outputText');
         const cardDescription = `<em>${isReversed ? cardDescriptions[cardIndex].reversed : cardDescriptions[cardIndex].upright}</em>`;
-        outputText.innerHTML = `<strong>牌意简介</strong><br>${cardDescription}`;
+        // 修改这里: 直接用卡片名称作为标题
+        outputText.innerHTML = `<strong>${isReversed ? "逆位" : "正位"}「${card.name}」</strong><br>${cardDescription}`;
 
         // 自动进行 AI 解读
         await aiInterpretation();
@@ -1496,27 +1528,18 @@ async function drawRandomCard() {
     cardContainer.style.flexDirection = 'column';
     cardContainer.style.alignItems = 'center';
     cardContainer.style.height = '100%';
+    cardContainer.style.position = 'relative'; // 添加相对定位
     
     const newCardImg = document.createElement('img');
     newCardImg.src = `${cdnBaseUrl}${card.number}.jpg`;
     newCardImg.alt = card.name;
     newCardImg.className = 'tarot-card';
-    newCardImg.style.marginBottom = '10px';
     
     if (isReversed) {
         newCardImg.style.transform = 'rotate(180deg)';
     }
     
-    const cardName = document.createElement('div');
-    cardName.textContent = `${isReversed ? "逆位 " : ""}${card.name}`;
-    cardName.style.color = '#fff';
-    cardName.style.fontSize = '1.2rem';
-    cardName.style.textAlign = 'center';
-    cardName.style.marginTop = '10px';
-    cardName.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.3)';
-    
     cardContainer.appendChild(newCardImg);
-    cardContainer.appendChild(cardName);
     
     drawnCard.innerHTML = '';
     drawnCard.appendChild(cardContainer);
@@ -1530,7 +1553,8 @@ async function drawRandomCard() {
 
     const outputText = document.getElementById('outputText');
     const cardDescription = `<em>${isReversed ? cardDescriptions[cardIndex].reversed : cardDescriptions[cardIndex].upright}</em>`;
-    outputText.innerHTML = `<strong>牌意简介</strong><br>${cardDescription}`;
+    // 修改这里: 直接用卡片名称作为标题
+    outputText.innerHTML = `<strong>${isReversed ? "逆位" : "正位"}「${card.name}」</strong><br>${cardDescription}`;
 
     // 自动进行 AI 解读
     await aiInterpretation();
