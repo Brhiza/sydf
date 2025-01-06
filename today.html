@@ -688,12 +688,13 @@ h1 {
     <main class="centered">
         <div class="output-text" id="outputText"></div>
         <div class="loading-animation" id="loadingAnimation"></div>
-        <div class="reminder-text" style="margin: 15px 0; color: #fff; text-align: center; display: none;" id="reminderText">
-            短时间内请不要重复抽取同一个问题，塔罗牌并不能改变你的整体运势，也不是你逃避现实的工具
-        </div>
         <div class="button-container" style="margin-top: 20px;">
             <button class="copy-button centered" id="copyButton" onclick="copyResult()" style="display: none;">复制结果</button>
             <button class="reset-button centered" id="resetButton" onclick="resetCards()" style="display: none;">重新抽牌</button>
+        </div>
+        <!-- 将提示文字移到按钮下面 -->
+        <div class="reminder-text" style="margin: 20px 0; color: #fff; text-align: center; display: none; font-style: italic;" id="reminderText">
+            短时间内请不要重复抽取同一个问题，塔罗牌并不能改变你的整体运势，也不是你逃避现实的工具
         </div>
     </main>
     </div>
@@ -974,7 +975,6 @@ const allTarotCards = [
         function type() {
             if (i < textArray.length) {
                 htmlContent += textArray[i];
-                // 移除 marked.parse，直接使用 HTML
                 element.innerHTML = htmlContent;
                 
                 window.scrollTo({
@@ -985,6 +985,21 @@ const allTarotCards = [
                 i++;
                 const randomSpeed = Math.floor(Math.random() * (maxSpeed - minSpeed + 1)) + minSpeed;
                 setTimeout(type, randomSpeed);
+            } else {
+                // 打字效果完成后显示按钮和提示
+                document.getElementById('copyButton').style.display = 'inline-block';
+                document.getElementById('resetButton').style.display = 'inline-block';
+                
+                // 延迟显示提示文字
+                setTimeout(() => {
+                    const reminderText = document.getElementById('reminderText');
+                    reminderText.style.display = 'block';
+                    reminderText.style.marginTop = '20px';
+                    reminderText.style.color = '#fff';
+                    reminderText.style.opacity = '0.8';
+                    reminderText.style.fontSize = '0.9rem';
+                    reminderText.style.fontStyle = 'italic';
+                }, 500); // 延迟0.5秒显示提示文字
             }
         }
         
@@ -1060,12 +1075,9 @@ const allTarotCards = [
             // 先将 Markdown 转换为 HTML，然后再进行逐字输出
             const markdownContent = marked.parse(aiResponse);
             const fullContent = `${currentContent}<br><br><strong>AI 解读</strong><br>${markdownContent}`;
-            typeWriter(fullContent, outputText);
             
-            // 显示按钮和提示文字
-            document.getElementById('copyButton').style.display = 'inline-block';
-            document.getElementById('resetButton').style.display = 'inline-block';
-            document.getElementById('reminderText').style.display = 'block';
+            // 开始逐字显示，按钮和提示会在 typeWriter 完成后显示
+            typeWriter(fullContent, outputText);
 
         } catch (error) {
             console.error("AI解读失败: ", error);
