@@ -512,25 +512,22 @@ h1 {
         margin: 20px 0;
     }
 
-    /* 修改按钮样式 */
     .question-btn {
         padding: 12px 24px;
         border: none;
-        border-radius: 25px; /* 增加圆角 */
-        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.1);
         color: white;
         cursor: pointer;
         transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
         font-size: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        margin: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .question-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.2);
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
     }
 
     .question-btn.active {
@@ -539,18 +536,14 @@ h1 {
         box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
     }
 
-    /* 修改内容框样式，移除手机端的模糊效果 */
     @media (max-width: 768px) {
-        .content-box {
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: none; /* 移除手机端的模糊效果 */
-            -webkit-backdrop-filter: none; /* 为 Safari 移除模糊效果 */
+        .question-btn {
+            padding: 8px 16px;
+            font-size: 0.9rem;
         }
         
-        .question-btn {
-            padding: 8px 16px; /* 减小手机端按钮的内边距 */
-            font-size: 0.9rem; /* 减小手机端字体大小 */
-            margin: 3px; /* 减小按钮间距 */
+        .question-options {
+            gap: 8px;
         }
     }
 
