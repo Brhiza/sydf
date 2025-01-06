@@ -314,7 +314,6 @@ h1 {
       font-size: 1.2rem;
       font-weight: bold;
       color: #F5F5F5;
-      text-align: center;
       padding: 1rem;
       border-radius: 5px;
     }
@@ -373,7 +372,21 @@ h1 {
         content: 'AI疯狂思考中.';
       }
     }
+
+    #outputText .highlight {
+      background-color: #fff3cd;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    #outputText blockquote {
+      border-left: 4px solid #6c757d;
+      padding-left: 1em;
+      margin-left: 0;
+      color: #6c757d;
+    }
     </style>
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <!-- 背景气泡动画 -->
@@ -507,54 +520,54 @@ const majorArcanaCardNames = ["愚人", "魔术师", "女祭司", "皇后", "皇
         reversed: "缺乏封闭感、缺乏成就感、感觉不完整、空虚"
       }
     ];
-    const cdnBaseUrl = "https://sydf.cc/img/images/";
-    const defaultCardImage = `${cdnBaseUrl}00.jpg`;
-    let cards = [];
-    let drawnCards = [];
-    let drawCount = 0;
-    let isCardClickable = true;
+        const cdnBaseUrl = "https://sydf.cc/img/images/";
+        const defaultCardImage = `${cdnBaseUrl}00.jpg`;
+        let cards = [];
+        let drawnCards = [];
+        let drawCount = 0;
+        let isCardClickable = true;
 
-    function shuffleArray(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
-
-    function initCards() {
-      cards = shuffleArray(Array.from({
-        length: 22
-      }, (_, i) => i));
-    }
-
-    function createCardElement(cardNumber) {
-      const cardElement = document.createElement('div');
-      cardElement.classList.add('card');
-      cardElement.dataset.number = cardNumber;
-      cardElement.style.backgroundImage = `url(${defaultCardImage})`;
-      cardElement.addEventListener('click', drawCard);
-      return cardElement;
-    }
-
-    function displayCards() {
-      const cardContainer = document.getElementById('cardContainer');
-      cardContainer.innerHTML = '';
-      const row1 = document.createElement('div');
-      row1.classList.add('card-row');
-      const row2 = document.createElement('div');
-      row2.classList.add('card-row');
-      cards.forEach((cardNumber, index) => {
-        const cardElement = createCardElement(cardNumber);
-        if (index < 11) {
-          row1.appendChild(cardElement);
-        } else {
-          row2.appendChild(cardElement);
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
         }
-      });
-      cardContainer.appendChild(row1);
-      cardContainer.appendChild(row2);
-    }
+
+        function initCards() {
+            console.log("initCards called"); // 调试
+            cards = shuffleArray(Array.from({ length: 22 }, (_, i) => i));
+        }
+
+        function createCardElement(cardNumber) {
+            const cardElement = document.createElement('div');
+            cardElement.classList.add('card');
+            cardElement.dataset.number = cardNumber;
+            cardElement.style.backgroundImage = `url(${defaultCardImage})`;
+            cardElement.addEventListener('click', drawCard);
+            return cardElement;
+        }
+
+        function displayCards() {
+            console.log("displayCards called"); // 调试
+            const cardContainer = document.getElementById('cardContainer');
+            cardContainer.innerHTML = '';
+            const row1 = document.createElement('div');
+            row1.classList.add('card-row');
+            const row2 = document.createElement('div');
+            row2.classList.add('card-row');
+            cards.forEach((cardNumber, index) => {
+                const cardElement = createCardElement(cardNumber);
+                if (index < 11) {
+                    row1.appendChild(cardElement);
+                } else {
+                    row2.appendChild(cardElement);
+                }
+            });
+            cardContainer.appendChild(row1);
+            cardContainer.appendChild(row2);
+        }
 
     function generateResultContent(card) {
       const imgPath = `${cdnBaseUrl}${card.number}.jpg`;
@@ -652,76 +665,103 @@ const majorArcanaCardNames = ["愚人", "魔术师", "女祭司", "皇后", "皇
       });
     }
 
-    async function aiInterpretation() {
-      const inputText = document.getElementById('inputText').value;
-      const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`).join('、');
-      const prompt = `${cardNames}，${inputText}`;
+async function aiInterpretation() {
+  const inputText = document.getElementById('inputText').value;
+  const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`).join('、');
+  const prompt = `${cardNames}，${inputText}`;
 
-      const outputText = document.getElementById('outputText');
-      const loadingAnimation = document.getElementById('loadingAnimation');
-      outputText.style.display = 'none';
-      loadingAnimation.style.display = 'block';
+  const outputText = document.getElementById('outputText');
+  const loadingAnimation = document.getElementById('loadingAnimation');
+  outputText.style.display = 'none';
+  loadingAnimation.style.display = 'block';
 
-      try {
-        const response = await fetch('https://api.ikun.jp/api/ai-interpretation', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+  try {
+    const response = await fetch('https://api.ikun.jp/api/ai-interpretation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        messages: [{
+            content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。我知道塔罗牌的解读并不是绝对的，但我希望你根据牌意给我一个准确的答案，并在解析完后用出一句尽量简短毒辣的锐评，最后满分五颗星的话你会给我打几颗星。输出格式为：你抽到的牌是、牌意解析、综合分析、建议、锐评、牌面分数",
+            role: "system"
           },
-          body: JSON.stringify({
-            messages: [{
-                content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。",
-                role: "system"
-              },
-              {
-                content: prompt,
-                role: "user"
-              }
-            ],
-            model: "deepseek-chat",
-            frequency_penalty: 0,
-            max_tokens: 2048,
-            presence_penalty: 0,
-            response_format: {
-              type: "text"
-            },
-            stop: null,
-            stream: false, // 关闭流式数据
-            temperature: 1,
-            top_p: 1,
-            tools: null,
-            tool_choice: "none",
-            logprobs: false,
-            top_logprobs: null
-          })
-        });
+          {
+            content: prompt,
+            role: "user"
+          }
+        ],
+        model: "deepseek-chat",
+        frequency_penalty: 0,
+        max_tokens: 2048,
+        presence_penalty: 0,
+        response_format: {
+          type: "text"
+        },
+        stop: null,
+        stream: false, // 关闭流式数据
+        temperature: 1,
+        top_p: 1,
+        tools: null,
+        tool_choice: "none",
+        logprobs: false,
+        top_logprobs: null
+      })
+    });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("AI解读失败: ", errorText);
-          alert("AI解读失败: " + errorText);
-          loadingAnimation.style.display = 'none';
-          outputText.style.display = 'block';
-          return;
-        }
-
-        const data = await response.json();
-        const aiResponse = data.choices[0].message.content;
-
-        outputText.innerHTML = aiResponse;
-        loadingAnimation.style.display = 'none';
-        outputText.style.display = 'block';
-      } catch (error) {
-        console.error("AI解读失败: ", error);
-        alert("AI解读失败: " + error.message);
-        loadingAnimation.style.display = 'none';
-        outputText.style.display = 'block';
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI解读失败: ", errorText);
+      alert("AI解读失败: " + errorText);
+      loadingAnimation.style.display = 'none';
+      outputText.style.display = 'block';
+      return;
     }
 
-    initCards();
-    displayCards();
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
+
+    // 将Markdown转换为HTML
+    const htmlContent = marked.parse(aiResponse);
+
+    loadingAnimation.style.display = 'none';
+    outputText.style.display = 'block';
+    outputText.innerHTML = '';
+    typeWriter(aiResponse, outputText, 10, 40);
+  } catch (error) {
+    console.error("AI解读失败: ", error);
+    alert("AI解读失败: " + error.message);
+    loadingAnimation.style.display = 'none';
+    outputText.style.display = 'block';
+  }
+}
+
+    function typeWriter(text, element, minSpeed = 10, maxSpeed = 40) {
+      let i = 0;
+      element.innerHTML = '';
+      
+      function type() {
+        if (i < text.length) {
+          const currentText = text.substring(0, i + 1);
+          element.innerHTML = marked.parse(currentText);
+          
+          // 添加自动滚动
+          element.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          
+          i++;
+          const randomSpeed = Math.floor(Math.random() * (maxSpeed - minSpeed + 1)) + minSpeed;
+          setTimeout(type, randomSpeed);
+        }
+      }
+      
+      type();
+    }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCards();
+            displayCards();
+        });
     </script>
 </body>
 </html>
