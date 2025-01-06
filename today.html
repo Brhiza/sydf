@@ -965,129 +965,113 @@ const allTarotCards = [
       });
     }
 
-async function aiInterpretation() {
-    const inputText = document.getElementById('inputText').value;
-    const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${card.name}`).join('、');
-    
-    // 根据不同问题类型设置不同的提示词
-    let prompt = '';
-    switch(inputText) {
-        case '综合运势':
-            prompt = `我抽到了${cardNames}，请从今日整体运势、事业发展、感情状况等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，今日运势解读、具体建议、总结`;
-            break;
-        case '事业运势':
-            prompt = `我抽到了${cardNames}，请从今日工作发展、职业规划、事业机遇等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，事业运解读、具体建议、总结`;
-            break;
-        case '学业运势':
-            prompt = `我抽到了${cardNames}，请从今日学习状态、考试成绩、未来规划等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，学业运解读、具体建议、总结`;
-            break;
-        case '财运':
-            prompt = `我抽到了${cardNames}，请从今日财务状况、理财机会、收入变化等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，财运解读、具体建议、总结`;
-            break;
-        case '感情运势':
-            prompt = `我抽到了${cardNames}，请从今日感情状况、桃花运、人际关系等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，感情运解读、具体建议、总结`;
-            break;
-        case '幸运数字':
-            prompt = `我抽到了${cardNames}，请根据这张牌的寓意为我推荐今日的幸运数字，并解释这个数字的含义。请特别说明这是今日运势。`;
-            break;
-        case '本周运势':
-            prompt = `我抽到了${cardNames}，请从本周的整体运势、事业发展、感情状况、财运等方面为我解读这张牌的寓意。请特别强调这是对本周（未来7天）的预测，并给出每个方面具体的建议。格式如下，本周运势解读、具体建议、总结`;
-            break;
-    }
-
-    // 如果没有选择问题类型，提示用户
-    if (!prompt) {
-        alert("请先选择想要解答的问题");
-        return;
-    }
-
-    const outputText = document.getElementById('outputText');
-    const loadingAnimation = document.getElementById('loadingAnimation');
-    const currentContent = outputText.innerHTML;
-    loadingAnimation.style.display = 'block';
-
-    try {
-      const response = await fetch('https://api.ikun.jp/api/ai-interpretation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          messages: [{
-              content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。请用简洁易懂的语言回答，并给出具体的建议。",
-              role: "system"
-            },
-            {
-              content: prompt,
-              role: "user"
+    // 首先定义 typeWriter 函数
+    function typeWriter(text, element, minSpeed = 10, maxSpeed = 40) {
+        let i = 0;
+        let htmlContent = '';
+        const textArray = text.split('');
+        
+        function type() {
+            if (i < textArray.length) {
+                htmlContent += textArray[i];
+                // 移除 marked.parse，直接使用 HTML
+                element.innerHTML = htmlContent;
+                
+                window.scrollTo({
+                    top: document.documentElement.scrollHeight,
+                    behavior: 'smooth'
+                });
+                
+                i++;
+                const randomSpeed = Math.floor(Math.random() * (maxSpeed - minSpeed + 1)) + minSpeed;
+                setTimeout(type, randomSpeed);
             }
-          ],
-          model: "deepseek-chat",
-          frequency_penalty: 0,
-          max_tokens: 2048,
-          presence_penalty: 0,
-          response_format: {
-            type: "text"
-          },
-          stop: null,
-          stream: false,
-          temperature: 1,
-          top_p: 1,
-          tools: null,
-          tool_choice: "none",
-          logprobs: false,
-          top_logprobs: null
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const data = await response.json();
-      const aiResponse = data.choices[0].message.content;
-      const htmlContent = marked.parse(aiResponse);
-
-      loadingAnimation.style.display = 'none';
-      outputText.innerHTML = `${currentContent}<br><br><strong>AI 解读</strong><br>${htmlContent}`;
-      
-      // AI 解读完成后显示按钮和提示文字
-      document.getElementById('copyButton').style.display = 'inline-block';
-      document.getElementById('resetButton').style.display = 'inline-block';
-      document.getElementById('reminderText').style.display = 'block';
-
-      // 使用 requestAnimationFrame 确保 DOM 更新后再滚动
-      requestAnimationFrame(() => {
-          setTimeout(() => {
-              window.scrollTo({
-                  top: document.documentElement.scrollHeight,
-                  behavior: 'smooth'
-              });
-          }, 100);
-      });
-
-    } catch (error) {
-      console.error("AI解读失败: ", error);
-      alert("AI解读失败: " + error.message);
-      loadingAnimation.style.display = 'none';
-    }
-}
-
-    function typeWriter(text, element, minSpeed = 10, maxSpeed = 30) {
-      let i = 0;
-      element.innerHTML = '';
-      
-      function type() {
-        if (i < text.length) {
-          element.innerHTML += text.charAt(i);
-          i++;
-          const randomSpeed = Math.floor(Math.random() * (maxSpeed - minSpeed + 1)) + minSpeed;
-          setTimeout(type, randomSpeed);
         }
-      }
-      
-      type();
+        
+        type();
+    }
+
+    // 重写 aiInterpretation 函数
+    async function aiInterpretation() {
+        try {
+            const inputText = document.getElementById('inputText').value;
+            const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${card.name}`).join('、');
+            const outputText = document.getElementById('outputText');
+            const loadingAnimation = document.getElementById('loadingAnimation');
+            const currentContent = outputText.innerHTML;
+
+            // 设置提示词
+            const promptMap = {
+                '综合运势': `我抽到了${cardNames}，请从今日整体运势、事业发展、感情状况等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，今日运势解读、具体建议、总结`,
+                '事业运势': `我抽到了${cardNames}，请从今日工作发展、职业规划、事业机遇等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，事业运解读、具体建议、总结`,
+                '学业运势': `我抽到了${cardNames}，请从今日学习状态、考试成绩、未来规划等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，学业运解读、具体建议、总结`,
+                '财运': `我抽到了${cardNames}，请从今日财务状况、理财机会、收入变化等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，财运解读、具体建议、总结`,
+                '感情运势': `我抽到了${cardNames}，请从今日感情状况、桃花运、人际关系等方面为我解读这张牌的寓意。请特别说明这是今日运势。格式如下，感情运解读、具体建议、总结`,
+                '幸运数字': `我抽到了${cardNames}，请根据这张牌的寓意为我推荐今日的幸运数字，并解释这个数字的含义。请特别说明这是今日运势。`,
+                '本周运势': `我抽到了${cardNames}，请从本周的整体运势、事业发展、感情状况、财运等方面为我解读这张牌的寓意。请特别强调这是对本周（未来7天）的预测，并给出每个方面具体的建议。格式如下，本周运势解读、具体建议、总结`
+            };
+
+            const prompt = promptMap[inputText];
+            if (!prompt) {
+                throw new Error("请先选择想要解答的问题");
+            }
+
+            loadingAnimation.style.display = 'block';
+
+            const apiResponse = await fetch('https://api.ikun.jp/api/ai-interpretation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [{
+                        content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。请用简洁易懂的语言回答，并给出具体的建议。",
+                        role: "system"
+                    }, {
+                        content: prompt,
+                        role: "user"
+                    }],
+                    model: "deepseek-chat",
+                    frequency_penalty: 0,
+                    max_tokens: 2048,
+                    presence_penalty: 0,
+                    response_format: { type: "text" },
+                    stop: null,
+                    stream: false,
+                    temperature: 1,
+                    top_p: 1,
+                    tools: null,
+                    tool_choice: "none",
+                    logprobs: false,
+                    top_logprops: null
+                })
+            });
+
+            if (!apiResponse.ok) {
+                throw new Error(await apiResponse.text());
+            }
+
+            const data = await apiResponse.json();
+            const aiResponse = data.choices[0].message.content;
+            
+            loadingAnimation.style.display = 'none';
+            
+            // 先将 Markdown 转换为 HTML，然后再进行逐字输出
+            const markdownContent = marked.parse(aiResponse);
+            const fullContent = `${currentContent}<br><br><strong>AI 解读</strong><br>${markdownContent}`;
+            typeWriter(fullContent, outputText);
+            
+            // 显示按钮和提示文字
+            document.getElementById('copyButton').style.display = 'inline-block';
+            document.getElementById('resetButton').style.display = 'inline-block';
+            document.getElementById('reminderText').style.display = 'block';
+
+        } catch (error) {
+            console.error("AI解读失败: ", error);
+            alert("AI解读失败: " + error.message);
+            document.getElementById('loadingAnimation').style.display = 'none';
+        }
     }
 
     // 添加自动滚动函数
