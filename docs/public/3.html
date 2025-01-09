@@ -632,7 +632,7 @@ h1 {
         margin: 0;
     }
 
-    /* 修改卡片容器样式，确保卡片水平排列 */
+    /* 修改卡片容器样式 */
     .cards-wrapper {
         display: flex;
         justify-content: center;
@@ -642,7 +642,7 @@ h1 {
         max-width: 100%;
         padding: 0 1rem;
         box-sizing: border-box;
-        width: 100%; /* 添加宽度100% */
+        overflow-x: hidden; /* 防止水平滚动 */
     }
 
     .card-container {
@@ -702,6 +702,39 @@ h1 {
     
     .card-back {
         transform: rotateY(180deg);
+    }
+
+    /* 修改手机端的卡片样式 */
+    @media (max-width: 768px) {
+        .card-wrapper {
+            width: 90px;  /* 减小卡片宽度 */
+            height: 153px;  /* 保持宽高比例 1:1.7 */
+            margin: 0 0.25rem;
+        }
+
+        .cards-wrapper {
+            gap: 0.25rem;  /* 减小卡片间距 */
+            padding: 0 0.5rem;
+        }
+
+        .card-front img,
+        .card-back img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;  /* 确保图片完整显示 */
+        }
+
+        .content-box {
+            padding: 15px;  /* 减少内容框内边距 */
+        }
+    }
+
+    /* 确保卡片图片适应容器 */
+    .tarot-card {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 8px;  /* 添加圆角 */
     }
 
     </style>
