@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>今日运势</title>
     <style>
-        /* 背景样式 */
         body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
@@ -15,67 +14,47 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #87CEFA;
             background: linear-gradient(to bottom right, #9370DB 0, #483D8B 100%);
             overflow: auto;
             position: relative;
-            padding-top: 100px
+            padding-top: 50px;
         }
 
-/* 电脑设备（屏幕宽度大于 768px） */
-@media (min-width: 769px) {
-    body {
-        padding-top: 50px; /* 电脑设备留白 */
-    }
-}
-
-/* 手机设备（屏幕宽度小于等于 768px） */
-@media (max-width: 768px) {
-    body {
-        padding-top: 50px; /* 手机设备留白 */
-    }
-}
-
-        
-
-        /* 内容框样式 */
-          .content-box {
+        .content-box {
             width: 90%;
             max-width: 1200px;
             min-width: 300px;
-                padding: 20px; /* 减少 padding */
-    box-sizing: border-box; /* 确保 padding 不会增加宽度 */
-            border-radius: 20px; /* 圆角矩形 */
-            background: rgba(255, 255, 255, 0.2); /* 毛玻璃背景 */
-            backdrop-filter: blur(10px); /* 毛玻璃效果 */
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); /* 阴影 */
-            z-index: 2; /* 确保内容框在背景气泡之上 */
-            position: relative; /* 相对定位 */
+            padding: 20px;
+            box-sizing: border-box;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            z-index: 2;
+            position: relative;
         }
 
         .nav-list {
             display: flex;
             flex-direction: column;
             gap: 20px;
-            padding: 10px;  /* 添加内边距 */
+            padding: 10px;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
-            padding: 20px 0;  /* 只保留上下padding */
+            padding: 20px 0;
             text-decoration: none;
             color: white;
             transition: all 0.3s ease;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);  /* 添加底部分隔线 */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* 修改悬停效果 */
         .nav-item:hover {
-            transform: translateX(10px);  /* 改为横向移动效果 */
+            transform: translateX(10px);
         }
 
-        /* 最后一个导航项不需要分隔线 */
         .nav-item:last-child {
             border-bottom: none;
         }
@@ -111,7 +90,14 @@
             line-height: 1.5;
         }
 
-        /* 移动端适配 */
+        h1 {
+            font-size: 48px;
+            color: #fff;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
         @media (max-width: 768px) {
             .nav-list {
                 padding: 5px;
@@ -134,30 +120,28 @@
             .nav-desc {
                 font-size: 0.8em;
             }
-        }
-        h1 {
-  font-size: 48px; /* 默认字体大小 */
-  color: #fff;
-  margin-bottom: 30px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
 
-/* 针对手机设备的样式 */
-@media (max-width: 768px) {
-  h1 {
-    font-size: 32px; /* 手机端字体大小 */
-  }
-}
+            h1 {
+                font-size: 32px;
+            }
+        }
     </style>
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                window.location.reload();
+            }
+        });
+
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+    </script>
 </head>
 <body>
-
-    <!-- 内容框 -->
-    <h1>时月的阿卡纳</h1>
+    <h1>时月塔罗</h1>
     <div class="content-box">
         <div class="nav-list">
             <a href="https://sydf.cc/1" class="nav-item">
@@ -170,6 +154,16 @@
                     <div class="nav-desc">经典韦特塔罗牌单牌，适合单日运程、周运势、Yes or No等简单问题。</div>
                 </div>
             </a>
+            <a href="https://sydf.cc/3" class="nav-item">
+                <div class="nav-icon">
+                    <img src="https://sydf.cc/img/3.jpg" alt="经典三牌">
+                </div>
+                <div class="nav-info">
+                    <div class="nav-title">经典三牌</div>
+                    <div class="nav-desc">类型：通用、基础牌阵</div>
+                    <div class="nav-desc">78张韦特塔罗牌三牌，通用型牌阵，适用范围较广。</div>
+                </div>
+            </a>
             <a href="https://sydf.cc/22" class="nav-item">
                 <div class="nav-icon">
                     <img src="https://sydf.cc/img/3.jpg" alt="大阿卡纳三牌">
@@ -180,35 +174,7 @@
                     <div class="nav-desc">大阿卡纳的三牌牌阵，排列呈线形，贯穿过去、现在和未来三个不同的时间，在时间之上，在时间之下。</div>
                 </div>
             </a>
-            <a href="https://sydf.cc/3" class="nav-item">
-              <div class="nav-icon">
-                  <img src="https://sydf.cc/img/3.jpg" alt="经典三牌">
-              </div>
-              <div class="nav-info">
-                  <div class="nav-title">经典三牌</div>
-                  <div class="nav-desc">类型：通用、基础牌阵</div>
-                  <div class="nav-desc">78张韦特塔罗牌三牌，通用型牌阵，适用范围较广。</div>
-              </div>
-          </a>
-      </div>
         </div>
     </div>
-  
-    </div>
-    
-    <main class="centered">
-        <div class="output-text" id="outputText"></div>
-        <div class="loading-animation" id="loadingAnimation"></div>
-        <div class="button-container" style="margin-top: 20px;">
-            <button class="copy-button centered" id="copyButton" onclick="copyResult()" style="display: none;">复制结果</button>
-            <button class="reset-button centered" id="resetButton" onclick="resetCards()" style="display: none;">重新抽牌</button>
-        </div>
-        <!-- 将提示文字移到按钮下面 -->
-        <div class="reminder-text" style="margin: 20px 0; color: #fff; text-align: center; display: none; font-style: italic;" id="reminderText">
-            短时间内请不要重复抽取同一个问题，塔罗牌并不能改变你的整体运势，也不是你逃避现实的工具
-        </div>
-    </main>
-    </div>
-
 </body>
 </html>
