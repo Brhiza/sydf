@@ -737,6 +737,28 @@ h1 {
         border-radius: 8px;  /* 添加圆角 */
     }
 
+    .reset-button,
+    .copy-button,
+    .ai-button {  /* 添加 ai-button */
+        padding: 10px 20px;
+        border: none;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
+        font-size: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .reset-button:hover,
+    .copy-button:hover,
+    .ai-button:hover {  /* 添加 ai-button:hover */
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
     </style>
         <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -807,9 +829,10 @@ h1 {
     <main class="centered">
         <div class="output-text" id="outputText"></div>
         <div class="loading-animation" id="loadingAnimation"></div>
-        <div class="button-container" style="margin-top: 20px;">
-            <button class="copy-button centered" id="copyButton" onclick="copyResult()" style="display: none;">复制结果</button>
-            <button class="reset-button centered" id="resetButton" onclick="resetCards()" style="display: none;">重新抽牌</button>
+        <div class="button-container">
+            <button class="copy-button" id="copyButton" onclick="copyResult()" style="display: none;">复制结果</button>
+            <button class="reset-button" id="resetButton" onclick="resetCards()" style="display: none;">重新抽牌</button>
+            <button class="ai-button" id="aiButton" onclick="aiInterpretation()" style="display: none;">AI解读</button>
         </div>
         <!-- 将提示文字移到按钮下面 -->
         <div class="reminder-text" style="margin: 20px 0; color: #fff; text-align: center; display: none; font-style: italic;" id="reminderText">
@@ -1143,22 +1166,24 @@ const allTarotCards = [
                 throw new Error("请先写下你想要解答的问题");
             }
 
-            const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${card.name}`).join('、');
-            const outputText = document.getElementById('outputText');
-            const loadingAnimation = document.getElementById('loadingAnimation');
-            
-            // 隐藏按钮和提示
+            // 隐藏所有按钮
             const copyButton = document.getElementById('copyButton');
             const resetButton = document.getElementById('resetButton');
+            const aiButton = document.getElementById('aiButton');
             const reminderText = document.getElementById('reminderText');
             
             if (copyButton) copyButton.style.display = 'none';
             if (resetButton) resetButton.style.display = 'none';
+            if (aiButton) aiButton.style.display = 'none';
             if (reminderText) reminderText.style.display = 'none';
-            
-            // 保存抽牌结果的内容
-            const cardResultContent = outputText.innerHTML;
 
+            const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${card.name}`).join('、');
+            const outputText = document.getElementById('outputText');
+            const loadingAnimation = document.getElementById('loadingAnimation');
+            
+            // 隐藏原有内容
+            outputText.innerHTML = '';
+            
             // 显示加载动画
             loadingAnimation.style.display = 'block';
 
@@ -1204,29 +1229,19 @@ const allTarotCards = [
             // 隐藏加载动画
             loadingAnimation.style.display = 'none';
             
-            // 先显示原有的抽牌结果
-            outputText.innerHTML = cardResultContent;
-            
-            // 创建新的元素用于显示 AI 解读
+            // 直接创建 AI 解读容器，不显示问题和抽到的卡牌
             const aiContainer = document.createElement('div');
-            aiContainer.innerHTML = `<br><br><strong>AI 解读</strong><br>`;
             outputText.appendChild(aiContainer);
             
-            // 将 Markdown 转换为纯文本
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = marked.parse(aiResponse);
-            const plainText = tempDiv.textContent || tempDiv.innerText;
-            
-            // 只对 AI 解读部分使用打字机效果
             let i = 0;
-            const textArray = plainText.split('');
+            const textArray = aiResponse.split('');
+            let markdownContent = '';
             
             function typeWriter() {
                 if (i < textArray.length) {
-                    // 使用 textContent 而不是 innerHTML 来避免 HTML 标签
-                    const currentText = aiContainer.innerHTML;
-                    aiContainer.innerHTML = currentText + textArray[i].replace(/\n/g, '<br>');
-                    
+                    markdownContent += textArray[i];
+                    // 使用 marked 将 Markdown 转换为 HTML
+                    aiContainer.innerHTML = marked.parse(markdownContent);
                     window.scrollTo({
                         top: document.documentElement.scrollHeight,
                         behavior: 'smooth'
@@ -1235,13 +1250,10 @@ const allTarotCards = [
                     const randomSpeed = Math.floor(Math.random() * (40 - 10 + 1)) + 10;
                     setTimeout(typeWriter, randomSpeed);
                 } else {
-                    // 打字效果完成后再显示按钮和提示
+                    // 显示复制和重新抽牌按钮
                     if (copyButton) copyButton.style.display = 'inline-block';
                     if (resetButton) resetButton.style.display = 'inline-block';
-                    if (reminderText) {
-                        reminderText.style.display = 'block';
-                        reminderText.style.marginTop = '20px';
-                    }
+                    if (reminderText) reminderText.style.display = 'block';
                 }
             }
             
@@ -1251,6 +1263,17 @@ const allTarotCards = [
             console.error("AI解读失败: ", error);
             alert("AI解读失败: " + error.message);
             document.getElementById('loadingAnimation').style.display = 'none';
+            
+            // 错误时重新显示所有按钮
+            const copyButton = document.getElementById('copyButton');
+            const resetButton = document.getElementById('resetButton');
+            const aiButton = document.getElementById('aiButton');
+            const reminderText = document.getElementById('reminderText');
+            
+            if (copyButton) copyButton.style.display = 'inline-block';
+            if (resetButton) resetButton.style.display = 'inline-block';
+            if (aiButton) aiButton.style.display = 'inline-block';
+            if (reminderText) reminderText.style.display = 'block';
         }
     }
 
@@ -1325,17 +1348,19 @@ const allTarotCards = [
                 
                 outputText.innerHTML = resultHTML;
                 
-                // 显示按钮和提示
+                // 显示所有按钮和提示
                 const copyButton = document.getElementById('copyButton');
                 const resetButton = document.getElementById('resetButton');
+                const aiButton = document.getElementById('aiButton');
                 const reminderText = document.getElementById('reminderText');
                 
                 if (copyButton) copyButton.style.display = 'inline-block';
                 if (resetButton) resetButton.style.display = 'inline-block';
+                if (aiButton) aiButton.style.display = 'inline-block';
                 if (reminderText) reminderText.style.display = 'block';
                 
-                // 自动进行 AI 解读
-                await aiInterpretation();
+                // 移除自动AI解读
+                // await aiInterpretation();
             }
         }
     }
