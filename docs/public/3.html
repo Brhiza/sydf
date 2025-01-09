@@ -638,25 +638,42 @@ h1 {
         justify-content: center;
         gap: 1rem;
         margin: 2rem auto;
-        flex-wrap: nowrap; /* 防止换行 */
-        max-width: 100%; /* 确保不超出屏幕 */
+        flex-wrap: nowrap;
+        max-width: 100%;
+        padding: 0 1rem;
+        box-sizing: border-box;
+        width: 100%; /* 添加宽度100% */
+    }
+
+    .card-container {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* 确保子元素居中 */
+        justify-content: center;
+        overflow-x: hidden;
+        padding: 0;
+        box-sizing: border-box;
     }
 
     .card-wrapper {
-        width: 160px; /* 减小卡片宽度 */
-        height: 272px; /* 保持宽高比 */
-        flex-shrink: 0; /* 防止卡片被压缩 */
+        width: 160px;
+        height: 272px;
+        flex-shrink: 0;
+        margin: 0 0.5rem; /* 添加左右间距 */
     }
 
-    /* 响应式调整 */
+    /* 手机端响应式调整 */
     @media (max-width: 768px) {
         .cards-wrapper {
             gap: 0.5rem;
+            padding: 0 0.5rem;
         }
         
         .card-wrapper {
             width: 100px;
             height: 170px;
+            margin: 0 0.25rem; /* 减小手机端间距 */
         }
     }
 
@@ -1096,9 +1113,8 @@ const allTarotCards = [
             const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${card.name}`).join('、');
             const outputText = document.getElementById('outputText');
             const loadingAnimation = document.getElementById('loadingAnimation');
-            const currentContent = outputText.innerHTML;
-
-            // 在 AI 思考过程中隐藏按钮和提示
+            
+            // 隐藏按钮和提示
             const copyButton = document.getElementById('copyButton');
             const resetButton = document.getElementById('resetButton');
             const reminderText = document.getElementById('reminderText');
@@ -1106,12 +1122,14 @@ const allTarotCards = [
             if (copyButton) copyButton.style.display = 'none';
             if (resetButton) resetButton.style.display = 'none';
             if (reminderText) reminderText.style.display = 'none';
+            
+            // 保存抽牌结果的内容
+            const cardResultContent = outputText.innerHTML;
 
             // 显示加载动画
             loadingAnimation.style.display = 'block';
 
-            // 设置提示词
-            const prompt = `我抽到了${cardNames}，请从整体角度为我解读这些牌的寓意，解答我的问题："${inputText}"。请用简洁易懂的语言回答，并给出具体的建议。格式如下：塔罗牌解读、具体建议、总结`;
+            const prompt = `我抽到了${cardNames}，请从整体角度为我解读这些牌的寓意，解答我的问题："${inputText}"。`;
 
             const apiResponse = await fetch('https://api.ikun.jp/api/ai-interpretation', {
                 method: 'POST',
@@ -1121,7 +1139,7 @@ const allTarotCards = [
                 },
                 body: JSON.stringify({
                     messages: [{
-                        content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。请用简洁易懂的语言回答，并给出具体的建议。",
+                        content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题，并给出具体的建议。",
                         role: "system"
                     }, {
                         content: prompt,
@@ -1153,26 +1171,53 @@ const allTarotCards = [
             // 隐藏加载动画
             loadingAnimation.style.display = 'none';
             
-            // 将 Markdown 转换为 HTML，然后再进行逐字输出
-            const markdownContent = marked.parse(aiResponse);
-            const fullContent = `${currentContent}<br><br><strong>AI 解读</strong><br>${markdownContent}`;
+            // 先显示原有的抽牌结果
+            outputText.innerHTML = cardResultContent;
             
-            // 开始逐字显示（按钮和提示会在 typeWriter 完成后显示）
-            typeWriter(fullContent, outputText);
+            // 创建新的元素用于显示 AI 解读
+            const aiContainer = document.createElement('div');
+            aiContainer.innerHTML = `<br><br><strong>AI 解读</strong><br>`;
+            outputText.appendChild(aiContainer);
+            
+            // 将 Markdown 转换为纯文本
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = marked.parse(aiResponse);
+            const plainText = tempDiv.textContent || tempDiv.innerText;
+            
+            // 只对 AI 解读部分使用打字机效果
+            let i = 0;
+            const textArray = plainText.split('');
+            
+            function typeWriter() {
+                if (i < textArray.length) {
+                    // 使用 textContent 而不是 innerHTML 来避免 HTML 标签
+                    const currentText = aiContainer.innerHTML;
+                    aiContainer.innerHTML = currentText + textArray[i].replace(/\n/g, '<br>');
+                    
+                    window.scrollTo({
+                        top: document.documentElement.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                    i++;
+                    const randomSpeed = Math.floor(Math.random() * (40 - 10 + 1)) + 10;
+                    setTimeout(typeWriter, randomSpeed);
+                } else {
+                    // 打字效果完成后再显示按钮和提示
+                    if (copyButton) copyButton.style.display = 'inline-block';
+                    if (resetButton) resetButton.style.display = 'inline-block';
+                    if (reminderText) {
+                        reminderText.style.display = 'block';
+                        reminderText.style.marginTop = '20px';
+                    }
+                }
+            }
+            
+            typeWriter();
 
         } catch (error) {
             console.error("AI解读失败: ", error);
             alert("AI解读失败: " + error.message);
             document.getElementById('loadingAnimation').style.display = 'none';
-            
-            // 发生错误时也要隐藏按钮和提示
-            const copyButton = document.getElementById('copyButton');
-            const resetButton = document.getElementById('resetButton');
-            const reminderText = document.getElementById('reminderText');
-            
-            if (copyButton) copyButton.style.display = 'none';
-            if (resetButton) resetButton.style.display = 'none';
-            if (reminderText) reminderText.style.display = 'none';
         }
     }
 
