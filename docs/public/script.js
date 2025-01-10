@@ -492,6 +492,12 @@ const Performance = {
 function drawCards() {
     Performance.start('drawCards');
     try {
+        // 平滑滚动到顶部
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+
         // 移除现有的事件监听器和容器
         const oldContainer = document.querySelector('.result-container');
         if (oldContainer) {
@@ -749,6 +755,36 @@ style.textContent = `
     
     #questionInput:focus {
         outline: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* 增大抽牌按钮尺寸并修复 WebKit 按钮样式 */
+    @media (max-width: 768px) {
+        #initialDraw {
+            padding: 15px 30px !important;
+            font-size: 18px !important;
+            min-width: 150px !important;
+        }
+
+        /* 只修复复制和重新抽牌按钮样式 */
+        .copy-button,
+        .redraw {
+            -webkit-appearance: none !important;
+            background: rgba(0, 0, 0, 0.3) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            color: #fff !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            border-radius: 8px !important; /* 增加圆角 */
+        }
+
+        .copy-button:active,
+        .redraw:active {
+            background: rgba(0, 0, 0, 0.4) !important;
+        }
+
+        /* 移除 AI 按钮的样式覆盖 */
+        .ai-button {
+            /* 保持原有样式 */
+        }
     }
 `;
 document.head.appendChild(style);
