@@ -1,190 +1,64 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>时月塔罗</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(to bottom right, #9370DB 0, #483D8B 100%);
-            overflow: auto;
-            position: relative;
-            padding-top: 10px;
-        }
-
-        @media (min-width: 769px) {
-            body {
-                padding-top: 50px;
-            }
-        }
-
-        .content-box {
-            width: 90%;
-            max-width: 1200px;
-            min-width: 300px;
-            padding: 20px;
-            box-sizing: border-box;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-            z-index: 2;
-            position: relative;
-        }
-
-        .nav-list {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            padding: 10px;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 20px 0;
-            text-decoration: none;
-            color: white;
-            transition: all 0.3s ease;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-item:hover {
-            transform: translateX(10px);
-        }
-
-        .nav-item:last-child {
-            border-bottom: none;
-        }
-
-        .nav-icon {
-            width: 80px;
-            height: 80px;
-            margin-right: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .nav-icon img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .nav-info {
-            flex: 1;
-        }
-
-        .nav-title {
-            font-size: 1.4em;
-            font-weight: bold;
-            color: #FFD700;
-            margin-bottom: 10px;
-        }
-
-        .nav-desc {
-            font-size: 0.9em;
-            opacity: 0.8;
-            line-height: 1.5;
-        }
-
-        h1 {
-            font-size: 48px;
-            color: #fff;
-            margin-bottom: 30px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
-
-        @media (max-width: 768px) {
-            .nav-list {
-                padding: 5px;
-            }
-
-            .nav-item {
-                padding: 15px;
-            }
-
-            .nav-icon {
-                width: 60px;
-                height: 60px;
-                margin-right: 15px;
-            }
-
-            .nav-title {
-                font-size: 1.2em;
-            }
-
-            .nav-desc {
-                font-size: 0.8em;
-            }
-
-            h1 {
-                font-size: 32px;
-            }
-
-            .content-box {
-                margin-top: 10px;
-            }
-        }
-    </style>
-    <script>
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') {
-                window.location.reload();
-            }
-        });
-
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-                window.location.reload();
-            }
-        });
-    </script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>时月塔罗</h1>
-    <div class="content-box">
-        <div class="nav-list">
-            <a href="https://sydf.cc/1" class="nav-item">
-                <div class="nav-icon">
-                    <img src="https://sydf.cc/img/1.jpg" alt="经典单牌">
+    <div id="tarotContainer">
+        <h1 class="site-title">时月塔罗</h1>
+        <div class="nav-container">
+            <div class="nav-item active" data-mode="single">
+                <img src="https://sydf.cc/img/1.jpg" alt="随机单牌">
+                <div class="nav-content">
+                    <h3>随机单牌</h3>
+                    <p>类型：通用、基础牌阵</p>
+                    <p>经典韦特塔罗单牌卜牌，适合单日运程、周运势、Yes or No等简单问题。</p>
                 </div>
-                <div class="nav-info">
-                    <div class="nav-title">随机单牌</div>
-                    <div class="nav-desc">类型：通用、基础牌阵</div>
-                    <div class="nav-desc">经典韦特塔罗牌单牌，适合单日运程、周运势、Yes or No等简单问题。</div>
+            </div>
+            <div class="nav-item" data-mode="classic">
+                <img src="https://sydf.cc/img/3.jpg" alt="经典三牌">
+                <div class="nav-content">
+                    <h3>经典三牌</h3>
+                    <p>类型：通用、基础牌阵</p>
+                    <p>78张韦特塔罗牌三牌，通用型牌阵，适用范围较广。</p>
                 </div>
-            </a>
-            <a href="https://sydf.cc/3" class="nav-item">
-                <div class="nav-icon">
-                    <img src="https://sydf.cc/img/3.jpg" alt="经典三牌">
+            </div>
+            <div class="nav-item" data-mode="timeline">
+                <img src="https://sydf.cc/img/3.jpg" alt="大阿卡纳三牌">
+                <div class="nav-content">
+                    <h3>大阿卡纳三牌</h3>
+                    <p>类型：通用、基础牌阵</p>
+                    <p>大阿卡纳的三牌牌阵，排列呈线形，贯穿过去、现在和未来三个不同的时间，在时间之上，在时间之下。</p>
                 </div>
-                <div class="nav-info">
-                    <div class="nav-title">经典三牌</div>
-                    <div class="nav-desc">类型：通用、基础牌阵</div>
-                    <div class="nav-desc">78张韦特塔罗牌三牌，通用型牌阵，适用范围较广。</div>
+            </div>
+        </div>
+        <div class="controls">
+            <div class="input-container">
+                <div class="guidance-text">
+                    <p>现在静下心来</p>
+                    <p>选择并心中默念困扰你的问题</p>
+                    <p>然后点击抽取你的牌</p>
                 </div>
-            </a>
-            <a href="https://sydf.cc/22" class="nav-item">
-                <div class="nav-icon">
-                    <img src="https://sydf.cc/img/3.jpg" alt="大阿卡纳三牌">
-                </div>
-                <div class="nav-info">
-                    <div class="nav-title">大阿卡纳三牌</div>
-                    <div class="nav-desc">类型：通用、基础牌阵</div>
-                    <div class="nav-desc">大阿卡纳的三牌牌阵，排列呈线形，贯穿过去、现在和未来三个不同的时间，在时间之上，在时间之下。</div>
-                </div>
-            </a>
+                <button class="draw-button" id="initialDraw">抽牌</button>
+            </div>
         </div>
     </div>
+
+    <!-- 初始化全局对象 -->
+    <script>
+        window.AI = {};
+        // 等待所有脚本加载完成后再绑定事件
+        window.addEventListener('load', function() {
+            document.getElementById('initialDraw').addEventListener('click', drawCards);
+        });
+    </script>
+
+    <!-- 按顺序加载脚本，使用 defer 确保按顺序执行 -->
+    <script src="tarot-data.js" defer></script>
+    <script src="ai-reading.js" defer></script>
+    <script src="script.js" defer></script>
 </body>
-</html>
+</html> 
