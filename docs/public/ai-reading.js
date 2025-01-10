@@ -40,7 +40,7 @@
 
     // 将所有函数添加到全局 AI 对象
     window.AI = {
-        async getReading(question, cards) {
+        getReading: async function(question, cards) {
             const prompt = this.generatePrompt(question, cards);
             let retryCount = 0;
             
@@ -90,7 +90,7 @@
             }
         },
         
-        generatePrompt(question, cards) {
+        generatePrompt: function(question, cards) {
             // 根据卡牌数量判断模式
             const mode = cards.length === 1 ? 'single' : 'spread';
             
@@ -132,8 +132,7 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
             }
         },
         
-        // 解析 Markdown 文本
-        parseMd(md) {
+        parseMd: function(md) {
             return md
                 // 处理标题
                 .replace(/^### (.*$)/gm, '<h3>$1</h3>')
@@ -150,7 +149,7 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
                 .replace(/^- (.*$)/gm, '<div class="list-item">• $1</div>');
         },
         
-        createStreamingContainer() {
+        createStreamingContainer: function() {
             const container = document.createElement('div');
             container.className = 'ai-reading-container';
             container.innerHTML = `
@@ -199,7 +198,7 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
             return container;
         },
         
-        scrollToBottom(container) {
+        scrollToBottom: function(container) {
             if (!container) return;
             
             const scrollOptions = {
@@ -216,7 +215,7 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
             }
         },
 
-        async handleReading() {
+        handleReading: async function() {
             const self = this;
             const aiBtn = document.querySelector('.ai-button');
             const questionInput = document.getElementById('questionInput');
