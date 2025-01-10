@@ -21,13 +21,15 @@ h1 {
 button {
     padding: 12px 30px;
     font-size: 16px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1); /* 调整透明度 */
     color: white;
     border: 2px solid white;
     border-radius: 25px;
     cursor: pointer;
     margin: 0 10px;
     transition: all 0.3s;
+    -webkit-backdrop-filter: blur(5px); /* 添加 -webkit- 前缀 */
+    backdrop-filter: blur(5px);
 }
 
 button:hover {
