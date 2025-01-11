@@ -4,7 +4,14 @@ const CONFIG = {
     DISPLAY_DELAY: 1000,
     COPY_FEEDBACK_DURATION: 2000,
     MAX_WAIT_TIME: 10000,
-    POLL_INTERVAL: 100
+    POLL_INTERVAL: 100,
+    MODES: {
+        single: { cards: 1, allowQuestion: true, requireQuestion: true },
+        classic: { cards: 3, allowQuestion: true, requireQuestion: true },
+        timeline: { cards: 3, allowQuestion: true, requireQuestion: true },
+        daily: { cards: 1, allowQuestion: false, autoAI: true },
+        choice: { cards: 5, allowQuestion: true, requireQuestion: false }
+    }
 };
 
 // 监听 DOM 变化
@@ -45,12 +52,12 @@ function handleAIButton(event) {
     const questionInput = document.getElementById('questionInput');
     const questionValue = questionInput?.value.trim();
     
-    if (questionValue) {
+    if (currentMode === 'choice' || questionValue) {
         window.AI.handleReading();
         return;
     }
     
-    // 使用 DocumentFragment 优化 DOM 操作
+    // 只有在非二选一模式下才要求输入问题
     const questionSection = document.querySelector('.question-section');
     if (!questionSection) return;
     
@@ -298,6 +305,18 @@ async function copyResult() {
             resultParts.push(`${title}\n${meaning}\n\n`);
         }
         
+        // 添加 AI 解读内容（如果有）
+        const aiReadingText = document.querySelector('.ai-reading-text');
+        if (aiReadingText && aiReadingText.textContent.trim()) {
+            resultParts.push('AI解读：\n');
+            // 移除 HTML 标签，保留纯文本
+            const aiText = aiReadingText.textContent.trim()
+                .replace(/\n\s*\n/g, '\n\n') // 规范化多个换行
+                .replace(/\s+/g, ' ') // 规范化空白字符
+                .trim();
+            resultParts.push(`${aiText}\n`);
+        }
+        
         const resultText = resultParts.join('');
         await navigator.clipboard.writeText(resultText);
         
@@ -398,6 +417,12 @@ function initializeTarot() {
             resetDrawArea();
         });
     });
+
+    // 设置初始模式
+    const activeNav = document.querySelector('.nav-item.active');
+    if (activeNav) {
+        currentMode = activeNav.dataset.mode;
+    }
 }
 
 // 重置抽牌区域
@@ -516,8 +541,20 @@ function drawCards() {
         const container = document.getElementById('tarotContainer');
         let numCards;
         let currentDeck;
+        let allowQuestion = true;
+        let autoAI = false;
         
         switch(currentMode) {
+            case 'choice':
+                numCards = 5;
+                currentDeck = currentCards;
+                break;
+            case 'daily':
+                numCards = 1;
+                currentDeck = currentCards;
+                allowQuestion = false;
+                autoAI = true;
+                break;
             case 'single':
                 numCards = 1;
                 currentDeck = currentCards;
@@ -528,9 +565,7 @@ function drawCards() {
                 break;
             case 'timeline':
                 numCards = 3;
-                // 如果大阿卡纳牌组为空，则初始化
                 if (majorArcanaCards.length === 0) {
-                    // 只选择前22张牌（大阿卡纳牌）
                     majorArcanaCards = window.tarotCards.slice(0, 22).map(card => ({...card}));
                 }
                 currentDeck = majorArcanaCards;
@@ -561,14 +596,18 @@ function drawCards() {
                 <div class="reading-content">
                     <p class="section-title">抽取的卡牌：</p>
                     <div class="reading-section"></div>
-                    <div class="question-section hidden">
-                        <p class="question-title">记录下你的问题：</p>
-                        <textarea id="questionInput" placeholder="在这里写下你的问题..." rows="3"></textarea>
-                    </div>
+                    ${currentMode !== 'daily' ? `
+                        <div class="question-section hidden">
+                            <p class="question-title">记录下你的问题：</p>
+                            <textarea id="questionInput" placeholder="在这里写下你的问题..." rows="3"></textarea>
+                        </div>
+                    ` : ''}
                     <div class="redraw-container hidden">
-                        <button class="draw-button copy-button">复制结果</button>
+                        <button class="draw-button copy-button" onclick="copyResult()">复制结果</button>
                         <button class="draw-button redraw">重新抽牌</button>
-                        <button class="draw-button ai-button">AI解读</button>
+                        ${currentMode !== 'daily' ? `
+                            <button class="draw-button ai-button">AI解读</button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -616,36 +655,41 @@ function drawCards() {
                 readingSection.appendChild(element);
             });
             
-            // 使用 requestAnimationFrame 确保平滑过渡
             requestAnimationFrame(() => {
-                // 显示结果容器
                 resultContainer.classList.remove('hidden');
                 
-                // 使用 setTimeout 确保过渡动画正常工作
                 setTimeout(() => {
                     resultContainer.classList.add('fade-in');
                     
-                    // 显示问题区域
-                    const questionSection = resultContainer.querySelector('.question-section');
-                    questionSection.classList.remove('hidden');
-                    questionSection.classList.add('fade-in');
+                    // 根据模式决定是否显示问题区域
+                    if (allowQuestion) {
+                        const questionSection = resultContainer.querySelector('.question-section');
+                        questionSection.classList.remove('hidden');
+                        questionSection.classList.add('fade-in');
+                    }
                     
                     // 显示按钮区域
                     const redrawContainer = resultContainer.querySelector('.redraw-container');
                     redrawContainer.classList.remove('hidden');
                     redrawContainer.classList.add('fade-in');
                     
+                    // 如果是今日运势模式，自动触发 AI 解读
+                    if (autoAI) {
+                        setTimeout(() => {
+                            window.AI.handleReading();
+                        }, 500);
+                    }
+                    
                     // 添加按钮事件监听
                     redrawContainer.addEventListener('click', handleControlButtons);
-                }, 50); // 短暂延迟以确保 DOM 更新
+                }, 50);
             });
-        }, numCards * CONFIG.ANIMATION_DURATION + CONFIG.DISPLAY_DELAY * 2); // 等待所有卡片动画完成
+        }, numCards * CONFIG.ANIMATION_DURATION + CONFIG.DISPLAY_DELAY * 2);
         
         Performance.end('drawCards');
     } catch (error) {
         Performance.end('drawCards');
         console.error('抽牌过程出错:', error);
-        // 可以添加用户友好的错误提示
     }
 }
 
@@ -1096,3 +1140,127 @@ async function animateCard(cardElement, isReversed, index) {
         fill: 'forwards'
     });
 }
+
+function copyReading() {
+    let contentText = '';
+    
+    // 获取塔罗牌解读内容
+    const readingSection = document.querySelector('.reading-section');
+    console.log('Reading section:', readingSection); // 调试日志
+    
+    if (readingSection) {
+        const cardInfos = readingSection.querySelectorAll('.card-info');
+        console.log('Card infos:', cardInfos); // 调试日志
+        
+        cardInfos.forEach(info => {
+            const title = info.querySelector('.card-title')?.textContent || '';
+            const meaning = info.querySelector('.meaning')?.textContent || '';
+            contentText += `${title}\n${meaning}\n\n`;
+        });
+    }
+    
+    // 获取 AI 解读内容
+    const aiResultContainer = document.querySelector('.ai-result-container');
+    console.log('AI container:', aiResultContainer); // 调试日志
+    
+    if (aiResultContainer) {
+        const aiText = aiResultContainer.querySelector('.ai-reading-text')?.textContent?.trim();
+        console.log('AI text:', aiText); // 调试日志
+        if (aiText) {
+            contentText += `\nAI解读：\n${aiText}`;
+        }
+    }
+    
+    console.log('Final content:', contentText); // 调试日志
+    
+    // 如果没有内容，直接返回
+    if (!contentText.trim()) {
+        console.error('没有找到可复制的内容');
+        return;
+    }
+    
+    // 创建临时文本区域
+    const textarea = document.createElement('textarea');
+    textarea.value = contentText;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    
+    try {
+        // 选择并复制文本
+        textarea.select();
+        document.execCommand('copy');
+        
+        // 显示复制成功提示
+        const copyButton = document.querySelector('.copy-button');
+        const originalText = copyButton.textContent;
+        copyButton.textContent = '复制成功';
+        setTimeout(() => {
+            copyButton.textContent = originalText;
+        }, 2000);
+    } catch (err) {
+        console.error('复制失败:', err);
+    } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+    }
+}
+
+function addAIReading(text) {
+    const aiReadingText = document.querySelector('.ai-reading-text');
+    if (aiReadingText) {
+        aiReadingText.textContent = text;
+        console.log('AI reading added:', text); // 调试日志
+    } else {
+        console.error('AI reading container not found');
+    }
+}
+
+// 修改 AI 解读函数中的提示词生成
+window.AI.generatePrompt = function(question, cards) {
+    const mode = currentMode;
+    const cardsInfo = cards.map(card => 
+        `${card.title}：${card.meaning}`
+    ).join('\n');
+    
+    if (mode === 'choice') {
+        const promptQuestion = question?.trim() 
+            ? `用户的问题是：${question}`
+            : '这是一次二选一抉择占卜，用户希望在两个选择之间得到指引。';
+
+        return `你是一位专业的塔罗牌解读师。${promptQuestion}
+
+抽到的塔罗牌是：
+${cardsInfo}
+
+这个二选一牌阵的五张牌分别代表：
+1. 第一张牌：当前处境
+2. 第二张牌：选择A的结果
+3. 第三张牌：选择B的结果
+4. 第四张牌：内在建议
+5. 第五张牌：外在影响
+
+请你以温和、积极的语气进行解读。解读内容应该：
+1. 先分析当前处境
+2. 分别解读两个选择可能带来的结果
+3. 结合内在建议和外在影响
+4. 给出综合性的建议
+5. 避免做出绝对的选择，而是帮助提问者看清利弊
+
+请直接开始解读，不要重复问题或牌面信息。`;
+    } else if (mode === 'daily') {
+        return `你是一位专业的塔罗牌解读师。这是一次今日运势占卜，抽到的塔罗牌是：
+
+${cardsInfo}
+
+请你以温和、积极的语气解读今天的整体运势。解读内容应该：
+1. 简明扼要地说明这张牌对今日运势的指引
+2. 提供具体的建议，帮助改善今日运势
+
+请直接开始解读，不要重复牌面信息。`;
+    } else if (mode === 'single') {
+        // ... 现有的 single 模式提示词 ...
+    } else {
+        // ... 现有的其他模式提示词 ...
+    }
+};

@@ -39,9 +39,10 @@ button:hover {
 .cards-display {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 20px;
-    margin: 30px 0;
-    perspective: 1000px;
+    padding: 20px;
+    flex-wrap: wrap;
 }
 
 .card-inner {
@@ -647,7 +648,8 @@ button:hover {
     backdrop-filter: blur(5px);
     width: 100%;
     box-sizing: border-box;
-    max-width: 800px; /* 限制最大宽度 */
+    max-width: 800px;
+    user-select: text;
 }
 
 .ai-reading-content {
@@ -662,6 +664,7 @@ button:hover {
     font-size: 1em;
     padding: 0 15px;
     margin-top: 20px;
+    user-select: text;
 }
 
 /* 移除最大高度和滚动条相关样式 */
@@ -717,24 +720,21 @@ button:hover {
 
 .nav-item {
     background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     padding: 15px;
     cursor: pointer;
     transition: all 0.3s ease;
-    border: 1px solid rgba(255, 255, 255, 0.15);
     display: flex;
     align-items: center;
 }
 
-.nav-item:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
+.nav-item:hover,
 .nav-item.active {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(135deg, rgba(230, 198, 123, 0.2), rgba(230, 198, 123, 0.3));
+    border: 2px solid rgba(230, 198, 123, 0.6);
+    box-shadow: 0 0 15px rgba(230, 198, 123, 0.3);
+    transform: translateY(-2px) scale(1.02);
 }
 
 .nav-item img {
@@ -911,6 +911,136 @@ button:hover {
     .cards-display {
         gap: 10px;
         padding: 0 10px;
+    }
+}
+
+.nav-item {
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.nav-item.active {
+    transform: scale(1.02);
+}
+
+.ai-result-container,
+.ai-reading-content,
+.ai-reading-text {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+}
+
+/* 为今日运势模式添加特殊样式 */
+.nav-item[data-mode="daily"],
+.nav-item[data-mode="daily"]:hover,
+.nav-item[data-mode="daily"].active,
+/* 随机单牌模式 */
+.nav-item[data-mode="single"],
+.nav-item[data-mode="single"]:hover,
+.nav-item[data-mode="single"].active,
+/* 经典三牌模式 */
+.nav-item[data-mode="classic"],
+.nav-item[data-mode="classic"]:hover,
+.nav-item[data-mode="classic"].active,
+/* 时间线模式 */
+.nav-item[data-mode="timeline"],
+.nav-item[data-mode="timeline"]:hover,
+.nav-item[data-mode="timeline"].active {
+    /* 移除所有这些选择器的样式 */
+}
+
+/* 只保留通用的导航项样式 */
+.nav-item {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+/* 统一的悬停和选中样式 */
+.nav-item:hover,
+.nav-item.active {
+    background: linear-gradient(135deg, rgba(230, 198, 123, 0.2), rgba(230, 198, 123, 0.3));
+    border: 2px solid rgba(230, 198, 123, 0.6);
+    box-shadow: 0 0 15px rgba(230, 198, 123, 0.3);
+    transform: translateY(-2px) scale(1.02);
+}
+
+/* 调整五张牌的布局 */
+[data-mode="choice"] .cards-display {
+    display: grid !important; /* 使用 !important 确保覆盖基础样式 */
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto auto;
+    gap: 20px;
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* 电脑端布局 */
+@media screen and (min-width: 768px) {
+    [data-mode="choice"] .cards-display {
+        grid-template-areas: 
+            ".    card1    ."
+            "card2 card3 card4"
+            ".    card5    .";
+    }
+    
+    [data-mode="choice"] .card-inner:nth-child(1) {
+        grid-area: card1;
+        justify-self: center;
+        width: 200px; /* 设置固定宽度 */
+    }
+    
+    [data-mode="choice"] .card-inner:nth-child(2) {
+        grid-area: card2;
+        width: 200px;
+    }
+    
+    [data-mode="choice"] .card-inner:nth-child(3) {
+        grid-area: card3;
+        width: 200px;
+    }
+    
+    [data-mode="choice"] .card-inner:nth-child(4) {
+        grid-area: card4;
+        width: 200px;
+    }
+    
+    [data-mode="choice"] .card-inner:nth-child(5) {
+        grid-area: card5;
+        justify-self: center;
+        width: 200px;
+    }
+}
+
+/* 移动端布局 */
+@media screen and (max-width: 767px) {
+    [data-mode="choice"] .cards-display {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: 
+            "card1 card1"
+            "card2 card3"
+            "card4 card5";
+        gap: 10px;
+    }
+    
+    [data-mode="choice"] .card-inner {
+        width: 100%;
+        max-width: 150px;
+        aspect-ratio: 1/1.7;
+        margin: 0 auto;
+    }
+    
+    [data-mode="choice"] .card-inner:nth-child(1) {
+        grid-area: card1;
+        width: 60%;
+        max-width: 200px;
     }
 }
 
