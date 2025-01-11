@@ -10,12 +10,20 @@
     <div id="tarotContainer">
         <h1 class="site-title">时月塔罗</h1>
         <div class="nav-container">
-            <div class="nav-item active" data-mode="single">
+            <div class="nav-item active" data-mode="daily">
+                <img src="https://sydf.cc/img/1.jpg" alt="今日运势">
+                <div class="nav-content">
+                    <h3>今日运势</h3>
+                    <p>类型：基础牌阵</p>
+                    <p>直接抽取一张牌，解读今天的运势</p>
+                </div>
+            </div>
+            <div class="nav-item" data-mode="single">
                 <img src="https://sydf.cc/img/1.jpg" alt="随机单牌">
                 <div class="nav-content">
                     <h3>随机单牌</h3>
                     <p>类型：通用、基础牌阵</p>
-                    <p>经典韦特塔罗单牌卜牌，适合单日运程、周运势、Yes or No等简单问题。</p>
+                    <p>经典韦特塔罗单牌卜牌，适合单日运势、周运势、Yes or No等简单问题。</p>
                 </div>
             </div>
             <div class="nav-item" data-mode="classic">
@@ -34,6 +42,14 @@
                     <p>大阿卡纳的三牌牌阵，排列呈线形，贯穿过去、现在和未来三个不同的时间，在时间之上，在时间之下。</p>
                 </div>
             </div>
+            <div class="nav-item" data-mode="choice">
+                <img src="https://sydf.cc/img/3.jpg" alt="二选一牌阵">
+                <div class="nav-content">
+                    <h3>二选一牌阵</h3>
+                    <p>类型：决策、抉择牌阵</p>
+                    <p>五张牌阵，帮助你在两个选择之间做出更明智的决定。</p>
+                </div>
+            </div>
         </div>
         <div class="controls">
             <div class="input-container">
@@ -43,6 +59,27 @@
                     <p>然后点击抽取你的牌</p>
                 </div>
                 <button class="draw-button" id="initialDraw">抽牌</button>
+            </div>
+        </div>
+        <div class="result-container">
+            <div class="reading-content">
+                <div class="reading-section">
+                    <!-- 卡牌信息 -->
+                </div>
+                
+                <!-- AI 解读内容 -->
+                <div class="ai-result-container">
+                    <div class="ai-reading-content">
+                        <div class="ai-reading-text"></div>
+                    </div>
+                </div>
+                
+                <!-- 按钮容器 -->
+                <div class="redraw-container">
+                    <button class="draw-button copy-button" onclick="copyReading()">复制结果</button>
+                    <button class="draw-button redraw">重新抽牌</button>
+                    <button class="draw-button ai-button">AI解读</button>
+                </div>
             </div>
         </div>
     </div>

@@ -91,16 +91,38 @@
         },
         
         generatePrompt: function(question, cards) {
-            // 根据卡牌数量判断模式
-            const mode = cards.length === 1 ? 'single' : 'spread';
-            
-            // 构建卡牌信息
+            // 使用 currentMode 来判断模式，而不是卡牌数量
+            const mode = currentMode;
             const cardsInfo = cards.map(card => 
                 `${card.title}：${card.meaning}`
             ).join('\n');
             
-            // 根据不同模式设置不同的提示词
-            if (mode === 'single') {
+            if (mode === 'choice') {
+                const promptQuestion = question?.trim() 
+                    ? `用户的问题是：${question}`
+                    : '这是一次二选一抉择占卜，用户希望在两个选择之间得到指引。';
+
+                return `你是一位专业的塔罗牌解读师。${promptQuestion}
+
+抽到的塔罗牌是：
+${cardsInfo}
+
+这个二选一牌阵的五张牌分别代表：
+1. 第一张牌：当前处境
+2. 第二张牌：选择A的结果
+3. 第三张牌：选择B的结果
+4. 第四张牌：内在建议
+5. 第五张牌：外在影响
+
+请你以温和、积极的语气进行解读。解读内容应该：
+1. 先分析当前处境
+2. 分别解读两个选择可能带来的结果
+3. 结合内在建议和外在影响
+4. 给出综合性的建议
+5. 避免做出绝对的选择，而是帮助提问者看清利弊
+
+请直接开始解读，不要重复问题或牌面信息。`;
+            } else if (mode === 'daily') {
                 return `你是一位专业的塔罗牌解读师。请根据以下抽到的塔罗牌为用户做解读：
 
 ${cardsInfo}
@@ -109,10 +131,16 @@ ${question ? `用户的问题是：${question}` : '这是一次日常运势的�
 
 请你以温和、积极的语气进行解读。解读内容应该：
 1. 简明扼要地说明这张牌的核心含义
-2. 结合用户的问题（如果有）或日常运势进行针对性解读
-3. 给出积极的建议或指导
-4. 避免过于消极或绝对的表述
+请直接开始解读，不要重复问题或牌面信息。`;
+            } else if (cards.length === 1) {
+                return `你是一位专业的塔罗牌解读师。请根据以下抽到的塔罗牌为用户做解读：
 
+${cardsInfo}
+
+${question ? `用户的问题是：${question}` : '这是一次日常运势的占卜。'}
+
+请你以温和、积极的语气进行解读。解读内容应该：
+1. 简明扼要地说明这张牌的核心含义
 请直接开始解读，不要重复问题或牌面信息。`;
             } else {
                 return `你是一位专业的塔罗牌解读师。请根据以下抽到的塔罗牌阵为用户做解读：
@@ -220,10 +248,17 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
             const aiBtn = document.querySelector('.ai-button');
             const questionInput = document.getElementById('questionInput');
             const readingSection = document.querySelector('.reading-section');
+            const copyBtn = document.querySelector('.copy-button');
             
             try {
-                aiBtn.textContent = '解读中...';
-                aiBtn.disabled = true;
+                // 如果是今日运势模式，显示加载状态在复制按钮上
+                if (currentMode === 'daily' && copyBtn) {
+                    copyBtn.textContent = 'AI解读中...';
+                    copyBtn.disabled = true;
+                } else if (aiBtn) {
+                    aiBtn.textContent = '解读中...';
+                    aiBtn.disabled = true;
+                }
 
                 // 移除之前的解读结果
                 const oldContainer = document.querySelector('.ai-reading-container');
@@ -250,7 +285,13 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
                         meaning: info.querySelector('.meaning').textContent
                     }));
 
-                    const stream = await self.getReading(questionInput?.value || '', cards);
+                    // 修改这里：只在单牌、经典三牌和时间线模式下要求必须输入问题
+                    const questionValue = questionInput?.value || '';
+                    if (!questionValue && !['daily', 'choice'].includes(currentMode)) {
+                        throw new Error('请先输入你的问题');
+                    }
+
+                    const stream = await self.getReading(questionValue, cards);
                     const reader = stream.getReader();
                     const decoder = new TextDecoder();
                     let fullText = '';
@@ -294,9 +335,20 @@ ${question ? `用户的问题是：${question}` : '这是一次综合运势的�
                 
             } catch (error) {
                 console.error('AI解读出错:', error);
+                // 不要在这里抛出错误，而是显示错误消息
+                const errorContainer = document.createElement('div');
+                errorContainer.className = 'error-message';
+                errorContainer.textContent = error.message;
+                document.querySelector('.result-container').appendChild(errorContainer);
             } finally {
-                aiBtn.textContent = 'AI解读';
-                aiBtn.disabled = false;
+                // 恢复按钮状态
+                if (currentMode === 'daily' && copyBtn) {
+                    copyBtn.textContent = '复制结果';
+                    copyBtn.disabled = false;
+                } else if (aiBtn) {
+                    aiBtn.textContent = 'AI解读';
+                    aiBtn.disabled = false;
+                }
             }
         }
     };
