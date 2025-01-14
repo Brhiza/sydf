@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大阿卡纳</title>
+    <link rel="stylesheet" href="dakn.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+</head>
+<body>
+    <h1 class="title">时月的大阿卡纳</h1>
+    <div class="main">
+        <div class="form">
+            1.写下您的问题
+            <br><br>
+            <input type="text" id="inputText" placeholder="只能提问能用Yes/No回答的问题哦" autofocus>
+            <br><br>
+            2.头脑中想着您的问题，并抽取 3 张塔罗牌
+            <br>
+        </div>
+        <main class="center">
+            <div class="deck" id="cardContainer"></div>
+            <div class="result" id="resultContainer"></div>
+            <div class="btns">
+                <button class="btn" id="copyButton" onclick="copyResult()" style="display: none;">复制结果</button>
+                <button class="btn" id="resetButton" onclick="resetCards()" style="display: none;">重新抽牌</button>
+                <button class="btn btn-ai" id="aiButton" onclick="aiInterpretation()" style="display: none;">AI解读</button>
+            </div>
+            <div class="output" id="outputText"></div>
+        </main>
+    </div>
+
+    <div class="bg" id="particles-js"></div>
+    <script src="dakn.js"></script>
+</body>
+</html>
