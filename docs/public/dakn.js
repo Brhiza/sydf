@@ -89,12 +89,13 @@ const cardDescriptions = [{
   }
 ];
 
-const cdnBaseUrl = "https://sydf.cc/img/images/";
 const defaultCardImage = `${cdnBaseUrl}00.jpg`;
 let cards = [];
 let drawnCards = [];
 let drawCount = 0;
 let isCardClickable = true;
+let currentController = null;
+let isAborting = false;
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -144,12 +145,12 @@ function displayCards() {
 }
 
 function generateResultContent(card) {
-  const imgPath = `${cdnBaseUrl}${card.number}.jpg`;
-  const transformStyle = card.reversed ? "rotate(180deg)" : "none";
-  const cardWidth = window.innerWidth <= 768 ? '5rem' : '11rem';
-  const cardHeight = window.innerWidth <= 768 ? '7.5rem' : '16.5rem';
-  const cardName = `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`;
-  return `<div style="display: flex; flex-direction: column; align-items: center;"><img src='${imgPath}' style='width: ${cardWidth}; height: ${cardHeight}; transform:${transformStyle}' alt='${cardName}'><p>${cardName}</p></div>`;
+    const imgPath = `${cdnBaseUrl}${parseInt(card.number) + 1}.jpg`;
+    const transformStyle = card.reversed ? "rotate(180deg)" : "none";
+    const cardWidth = window.innerWidth <= 768 ? '5rem' : '11rem';
+    const cardHeight = window.innerWidth <= 768 ? '7.5rem' : '16.5rem';
+    const cardName = `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`;
+    return `<div style="display: flex; flex-direction: column; align-items: center;"><img src='${imgPath}' style='width: ${cardWidth}; height: ${cardHeight}; transform:${transformStyle}' alt='${cardName}'><p>${cardName}</p></div>`;
 }
 
 function drawCard() {
@@ -223,21 +224,69 @@ function drawCard() {
 }
 
 function resetCards() {
-  drawnCards = [];
-  drawCount = 0;
-  isCardClickable = true;
+  // 设置中止标志
+  isAborting = true;
   
-  // 重置UI元素
-  ['resultContainer', 'outputText'].forEach(id => 
-      document.getElementById(id).innerHTML = '');
+  // 立即隐藏输出元素（在清空内容之前）
+  const outputText = document.getElementById('outputText');
+  const resultContainer = document.getElementById('resultContainer');
   
-  ['resetButton', 'copyButton', 'aiButton'].forEach(id => 
-      document.getElementById(id).style.display = 'none');
+  if (outputText) {
+    outputText.style.visibility = 'hidden';
+    outputText.style.display = 'none';
+  }
   
-  document.getElementById('inputText').value = '';
+  if (resultContainer) {
+    resultContainer.style.visibility = 'hidden';
+    resultContainer.style.display = 'none';
+  }
   
-  // 重新初始化卡片
-  initCards();
+  // 中止当前AI请求
+  if (currentController) {
+    currentController.abort();
+    currentController = null;
+  }
+
+  // 等待一小段时间后清空内容
+  setTimeout(() => {
+    if (outputText) outputText.innerHTML = '';
+    if (resultContainer) resultContainer.innerHTML = '';
+    
+    // 重置按钮状态
+    ['resetButton', 'copyButton', 'aiButton'].forEach(id => {
+      const element = document.getElementById(id);
+      if(element) {
+        element.style.display = 'none';
+        if(id === 'aiButton') {
+          element.classList.remove('loading');
+          element.textContent = 'AI解读';
+        }
+      }
+    });
+
+    // 重置输入
+    const inputText = document.getElementById('inputText');
+    if(inputText) {
+      inputText.value = '';
+    }
+
+    // 重置状态变量
+    drawnCards = [];
+    drawCount = 0;
+    isCardClickable = true;
+    
+    // 重新初始化卡片
+    initCards();
+
+    // 强制滚动到顶部
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+
+    // 最后重置中止标志
+    isAborting = false;
+  }, 50);
 }
 
 function copyResult() {
@@ -250,17 +299,57 @@ function copyResult() {
 }
 
 async function aiInterpretation() {
-  const inputText = document.getElementById('inputText').value;
-  const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`).join('、');
-  const cardDescriptionsText = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}：${card.description}`).join('\n');
-  
-  const prompt = `你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。\n 问题：${inputText}\n\n抽取的卡牌：\n${cardDescriptionsText}\n`;
+  if (isAborting) return;  // 如果正在重置，直接返回
 
+  // 获取必要的元素
   const outputText = document.getElementById('outputText');
   const aiButton = document.getElementById('aiButton');
-  outputText.style.display = 'none';
+  
+  if (!outputText || outputText.style.visibility === 'hidden') {
+    return; // 如果输出元素被隐藏，不执行解读
+  }
+
+  // 如果已有请求正在进行，先中止它
+  if (currentController) {
+    currentController.abort();
+    currentController = null;
+  }
+
+  // 设置初始状态
+  outputText.style.visibility = 'visible';
+  outputText.style.display = 'block';
+  outputText.innerHTML = ''; // 清空之前的内容
+  
   aiButton.classList.add('loading');
   aiButton.textContent = '';
+
+  // 创建新的 AbortController
+  currentController = new AbortController();
+  const signal = currentController.signal;
+
+  // 添加信号监听器
+  signal.addEventListener('abort', () => {
+    if (outputText) {
+      outputText.style.visibility = 'hidden';
+      outputText.style.display = 'none';
+      setTimeout(() => {
+        outputText.innerHTML = '';
+      }, 50);
+    }
+    
+    if (aiButton) {
+      aiButton.classList.remove('loading');
+      aiButton.textContent = 'AI解读';
+    }
+  });
+
+  // 准备提示文本
+  const inputText = document.getElementById('inputText').value;
+  const cardDescriptionsText = drawnCards.map(card => 
+      `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}：${card.description}`
+  ).join('\n');
+  
+  const prompt = `你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。\n 问题：${inputText}\n\n抽取的卡牌：\n${cardDescriptionsText}\n`;
 
   try {
     const response = await fetch('https://flow.ikun.jp/ai', {
@@ -271,7 +360,8 @@ async function aiInterpretation() {
       body: JSON.stringify({
         prompt: prompt,
         model: "deepseek-ai/DeepSeek-V2.5"
-      })
+      }),
+      signal
     });
 
     if (!response.ok) {
@@ -286,43 +376,78 @@ async function aiInterpretation() {
     const decoder = new TextDecoder();
     let accumulatedText = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (!isAborting) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const jsonData = JSON.parse(line.slice(6));
-            if (jsonData.choices && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
-              const content = jsonData.choices[0].delta.content;
-              accumulatedText += content;
-              outputText.style.display = 'block';
-              outputText.innerHTML = marked.parse(accumulatedText);
-              
-              const scrollTarget = document.documentElement.scrollHeight;
-              window.scrollTo({
-                top: scrollTarget,
-                behavior: 'smooth'
-              });
+        for (const line of lines) {
+          if (isAborting || signal.aborted) {
+            return;
+          }
+
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonData = JSON.parse(line.slice(6));
+              if (jsonData.choices && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
+                if (isAborting || signal.aborted) {
+                  return;
+                }
+                const content = jsonData.choices[0].delta.content;
+                accumulatedText += content;
+                if (!isAborting) {
+                  outputText.style.display = 'block';
+                  outputText.innerHTML = marked.parse(accumulatedText);
+                  
+                  window.scrollTo({
+                    top: document.documentElement.scrollHeight,
+                    behavior: 'smooth'
+                  });
+                }
+              }
+            } catch (e) {
+              console.debug('跳过非 JSON 数据:', line);
             }
-          } catch (e) {
-            console.debug('跳过非 JSON 数据:', line);
           }
         }
       }
+    } finally {
+      reader.cancel();
+    }
+
+    if (accumulatedText.trim() === '') {
+      throw new Error('AI未返回有效的解读结果');
     }
 
   } catch (error) {
-    console.error("AI解读失败: ", error);
-    alert("AI解读失败: " + error.message);
+    if (error.name === 'AbortError' || isAborting) {
+      console.log('AI请求已被中止');
+      return;
+    }
+    
+    if (!isAborting) {
+      console.error("AI解读失败: ", error);
+      outputText.style.display = 'block';
+      outputText.innerHTML = `<div style="color: #ff4081; padding: 10px; border: 1px solid #ff4081; border-radius: 5px; margin: 10px 0;">
+        <p>😔 AI解读遇到了一些问题：</p>
+        <p>${error.message}</p>
+        <p>您可以：</p>
+        <ul>
+          <li>检查网络连接</li>
+          <li>稍等片刻后重试</li>
+          <li>如果问题持续存在，请刷新页面</li>
+        </ul>
+      </div>`;
+    }
   } finally {
-    aiButton.classList.remove('loading');
-    aiButton.textContent = 'AI解读';
-    outputText.style.display = 'block';
+    if (!isAborting && !signal.aborted) {
+      aiButton.classList.remove('loading');
+      aiButton.textContent = 'AI解读';
+    }
+    currentController = null;
   }
 }
 
@@ -490,3 +615,49 @@ window.addEventListener('resize', () => {
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 updateParticles(); 
+
+// 从78张牌中随机抽取一张
+function drawOneCard() {
+    // 获取用户输入的问题
+    const question = document.getElementById('inputText').value;
+    if (!question) {
+        alert('请先输入您的问题！');
+        return;
+    }
+
+    // 随机选择一张牌
+    const randomIndex = Math.floor(Math.random() * window.tarotCards.length);
+    const selectedCard = window.tarotCards[randomIndex];
+    
+    // 随机决定正位还是逆位
+    const isReversed = Math.random() < 0.5;
+    
+    // 显示抽到的牌
+    const cardContainer = document.getElementById('cardContainer');
+    cardContainer.innerHTML = `
+        <div class="card ${isReversed ? 'reversed' : ''}">
+            <img src="${selectedCard.image}" alt="${selectedCard.name}">
+        </div>
+    `;
+
+    // 显示结果
+    const resultContainer = document.getElementById('resultContainer');
+    resultContainer.innerHTML = `
+        <h3>您抽到的是：${selectedCard.name} ${isReversed ? '(逆位)' : '(正位)'}</h3>
+        <p>含义：${isReversed ? selectedCard.meaning.reversed : selectedCard.meaning.upright}</p>
+    `;
+
+    // 显示按钮
+    document.getElementById('copyButton').style.display = 'inline-block';
+    document.getElementById('resetButton').style.display = 'inline-block';
+    document.getElementById('aiButton').style.display = 'inline-block';
+}
+
+// 添加页面卸载时的清理
+window.addEventListener('beforeunload', () => {
+  isAborting = true;
+  if (currentController) {
+    currentController.abort();
+    currentController = null;
+  }
+}); 

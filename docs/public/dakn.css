@@ -3,7 +3,7 @@
     --primary-gradient-hover: 45deg, rgba(255, 64, 129, 0.95), rgba(123, 31, 162, 0.95);
     --primary-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     --primary-color: #F5F5F5;
-    --primary-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --primary-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     --bg-gradient: to bottom right, #9370DB 0, #483D8B 100%;
     --glass-bg: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.1);
@@ -26,6 +26,13 @@ body {
     overflow: auto;
     position: relative;
     padding-top: 100px;
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 .bg {
@@ -72,6 +79,7 @@ body {
     padding: 0.5rem;
     box-sizing: border-box;
     max-width: 2000px;
+    touch-action: none;
 }
 
 .row {
@@ -179,9 +187,14 @@ body {
     gap: 1rem;
     margin-top: 2rem;
     flex-wrap: nowrap;
+    min-height: 44px;
+    width: 100%;
+    max-width: 800px;
 }
 
 .btn {
+    height: 44px;
+    min-width: 100px;
     padding: 12px 30px;
     font-size: 16px;
     color: var(--primary-color);
@@ -194,6 +207,9 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
     background: var(--glass-bg);
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn:hover {
@@ -256,11 +272,12 @@ body {
 }
 
 .title {
-    font-size: 48px;
+    font-size: 64px;
     color: var(--primary-color);
     margin-bottom: 30px;
     text-shadow: var(--text-shadow);
     text-align: center;
+    text-decoration: none;
 }
     
 .form {
@@ -293,22 +310,77 @@ body {
 
 .output {
     margin-top: 2rem;
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: var(--primary-color);
     padding: 1rem;
     border-radius: 5px;
+    width: 100%;
+    max-width: 800px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    color: var(--primary-color);
+    font-family: var(--primary-font);
 }
 
-.output strong {
-    font-size: 1.4rem;
-    font-weight: bold;
+.output h1, 
+.output h2, 
+.output h3, 
+.output h4, 
+.output h5, 
+.output h6 {
+    margin: 1.5rem 0 1rem;
+    line-height: 1.4;
+    color: var(--primary-color);
 }
 
-.output em {
-    font-size: 1.1rem;
-    font-style: italic;
-    color: #F5F5F5;
+.output h1 { font-size: 1.8rem; }
+.output h2 { font-size: 1.5rem; }
+.output h3 { font-size: 1.3rem; }
+.output h4 { font-size: 1.2rem; }
+.output h5 { font-size: 1.1rem; }
+.output h6 { font-size: 1rem; }
+
+.output p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    white-space: pre-wrap;
+}
+
+.output ul,
+.output ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
+}
+
+.output li {
+    margin-bottom: 0.5rem;
+}
+
+.output blockquote {
+    border-left: 4px solid var(--primary-color);
+    margin: 1rem 0;
+    padding-left: 1rem;
+    opacity: 0.9;
+}
+
+.output code {
+    font-family: monospace;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.output pre {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1rem;
+    border-radius: 5px;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+.output pre code {
+    background: none;
+    padding: 0;
 }
 
 /* 移动端样式 (max-width: 768px) */
@@ -352,7 +424,7 @@ body {
     }
 
     .title {
-        font-size: 32px;
+        font-size: 40px;
     }
 
     .btns {
@@ -362,17 +434,64 @@ body {
         flex-wrap: nowrap;
         width: calc(100% - 30px);
         justify-content: space-between;
+        min-height: 38px;
     }
 
     .btn {
-        padding: 12px 20px;
+        padding: 8px 15px;
         font-size: 14px;
         margin: 0;
-        min-width: auto;
+        min-width: 80px;
         white-space: nowrap;
         line-height: 1.4;
         flex: 0 1 auto;
         width: calc(33.33% - 8px);
+        height: 38px;
+    }
+
+    h2 {
+        font-size: 28px;
+    }
+
+    h3 {
+        font-size: 24px;
+    }
+
+    .output {
+        padding: 0.8rem;
+        font-size: 0.9rem;
+    }
+
+    .output p {
+        font-size: 0.9rem;
+    }
+
+    .output strong {
+        font-size: 1rem;
+    }
+
+    .output em {
+        font-size: 0.9rem;
+    }
+
+    .output h1 { font-size: 1.5rem; }
+    .output h2 { font-size: 1.3rem; }
+    .output h3 { font-size: 1.2rem; }
+    .output h4 { font-size: 1.1rem; }
+    .output h5,
+    .output h6 { font-size: 1rem; }
+
+    .output p,
+    .output li {
+        font-size: 0.9rem;
+    }
+
+    .output blockquote {
+        font-size: 0.9rem;
+    }
+
+    .output code {
+        font-size: 0.8em;
     }
 }
 
@@ -430,4 +549,115 @@ body {
     .btn {
         background-color: rgba(0, 0, 0, 0.6) !important;
     }
+} 
+
+a h1.title {
+    text-decoration: none;
+    color: #fff;
+} 
+
+/* 添加 h2 标题样式 */
+h2 {
+    font-size: 40px;
+    color: var(--primary-color);
+    margin: 25px 0;
+    text-shadow: var(--text-shadow);
+    text-align: center;
+    font-family: var(--primary-font);
+}
+
+/* 添加 h3 标题样式 */
+h3 {
+    font-size: 32px;
+    color: var(--primary-color);
+    margin: 20px 0;
+    text-shadow: var(--text-shadow);
+    text-align: center;
+    font-family: var(--primary-font);
+} 
+
+/* 添加原来在 wt.html 中的样式 */
+* {
+    box-sizing: border-box;
+    font-family: var(--primary-font);
+    margin: 0%;
+    padding: 0%;
+}
+
+body {
+    background: linear-gradient(to bottom right, #9370DB 0, #483D8B 100%);
+    overflow-x: hidden;
+    min-height: 100vh;
+    margin: 0;
+    position: relative;
+}
+
+#particles-js {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(to bottom right, #9370DB 0, #483D8B 100%);
+}
+
+.content {
+    padding-bottom: 5%;
+    padding-top: 8%;
+    position: relative;
+    z-index: 1;
+}
+
+.content div {
+    align-items: center;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    text-align: center;
+}
+
+.contenthead {
+    padding: 3px;
+}
+
+.contentheading {
+    display: flex;
+    font-family: inherit;
+    font-size: 20px;
+    justify-content: center;
+    margin: 0%;
+    padding: 5px;
+    text-shadow: 0 0 3px #fff;
+    font-family: var(--primary-font);
+}
+
+.animatedText {
+    font-size: 18px;
+    height: 5vh;
+    padding-bottom: 10px;
+    text-shadow: 0 0 5px #fff;
+    width: 100%;
+} 
+
+a {
+    text-decoration: none;
+} 
+
+/* 对于需要输入的元素允许所有触摸操作 */
+input, textarea {
+    touch-action: auto;
+    user-select: text;
+    -webkit-user-select: text;
+} 
+
+.card.reversed img {
+    transform: rotate(180deg);
+}
+
+.card img {
+    max-width: 200px;
+    transition: transform 0.3s ease;
 } 
