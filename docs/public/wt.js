@@ -650,7 +650,7 @@ function drawOneCard() {
     
     // 根据指定数量抽取卡牌
     for(let i = 0; i < cardCount; i++) {
-        const cardNumber = Math.floor(Math.random() * 22); // 只从大阿卡纳牌中选择
+        const cardNumber = Math.floor(Math.random() * 78); // 只从大阿卡纳牌中选择
         const isReversed = Math.random() < 0.5;
         
         drawnCards.push({
