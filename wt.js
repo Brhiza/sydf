@@ -530,7 +530,7 @@ async function aiInterpretation() {
       `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}：${card.description}`
   ).join('\n');
   
-  const prompt = `你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。\n 问题：${inputText}\n\n抽取的卡牌：\n${cardDescriptionsText}\n`;
+  const prompt = `你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题，200 字左右。\n 问题：${inputText}\n\n抽取的卡牌：\n${cardDescriptionsText}\n`;
 
   const outputText = document.getElementById('outputText');
   const aiButton = document.getElementById('aiButton');
