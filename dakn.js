@@ -352,7 +352,7 @@ async function aiInterpretation() {
   const prompt = `你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。\n 问题：${inputText}\n\n抽取的卡牌：\n${cardDescriptionsText}\n`;
 
   try {
-    const response = await fetch('https://flow.ikun.jp/ai', {
+    const response = await fetch('https://flow.onlyikun.com/ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
