@@ -702,134 +702,120 @@ const majorArcanaCardNames = ["愚人", "魔术师", "女祭司", "皇后", "皇
     }
 
 async function aiInterpretation() {
-  const inputText = document.getElementById('inputText').value;
-  const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`).join('、');
-  const prompt = `${cardNames}，${inputText}`;
+    let inputText = document.getElementById('inputText').value;
+    // 如果是默认问题，去掉（默认）后缀
+    inputText = inputText.replace('（默认）', '');
 
-  const outputText = document.getElementById('outputText');
-  const loadingAnimation = document.getElementById('loadingAnimation');
-  outputText.style.display = 'none';
-  loadingAnimation.style.display = 'block';
+    const cardNames = drawnCards.map(card =>
+        `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`
+    ).join('、');
+    const cardDescriptionsText = drawnCards.map(card =>
+        `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}：${card.description}`
+    ).join('\n');
 
-  async function aiInterpretation() {
-  const inputText = document.getElementById('inputText').value;
-  const cardNames = drawnCards.map(card => `${card.reversed ? "逆位" : ""}${majorArcanaCardNames[card.number]}`).join('、');
-  const prompt = `${cardNames}，${inputText}`;
+    const prompt = `你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题，\n 问题：${inputText}\n\n抽取的卡牌：\n${cardDescriptionsText}\n`;
 
-  const outputText = document.getElementById('outputText');
-  const loadingAnimation = document.getElementById('loadingAnimation');
-  outputText.style.display = 'none';
-  loadingAnimation.style.display = 'block';
+    const outputText = document.getElementById('outputText');
+    const aiButton = document.getElementById('aiButton');
+    outputText.style.display = 'none';
+    aiButton.classList.add('loading');
+    aiButton.textContent = '';
 
-  try {
-    const response = await fetch('https://api.onlyikun.com/api/ai-interpretation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        messages: [{
-            content: "你是一个专业的塔罗师，你会根据我的问题和抽的牌给我解决问题。",
-            role: "system"
-          },
-          {
-            content: prompt,
-            role: "user"
-          }
-        ],
-        model: "Pro/deepseek-ai/DeepSeek-R1",
-        frequency_penalty: 0,
-        max_tokens: 2048,
-        presence_penalty: 0,
-        response_format: {
-          type: "text"
-        },
-        stop: null,
-        stream: false, // 关闭流式数据
-        temperature: 1,
-        top_p: 1,
-        tools: null,
-        tool_choice: "none",
-        logprobs: false,
-        top_logprobs: null
-      })
-    });
+    try {
+        // 创建 AbortController 实例
+        const controller = new AbortController();
+        window.currentAIRequest = controller;
 
-    if (!response.ok) {
-      // Attempt to parse the error response as JSON, if possible
-      let errorText = await response.text(); // Default to text if JSON fails
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorText = errorJson.error || errorJson.message || errorText; //Try to get a meaningful error
-      } catch (jsonError) {
-        console.warn("Could not parse error response as JSON: ", jsonError);
-        // Use the original text error
-      }
+        const response = await fetch('https://flow.onlyikun.com/ai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prompt: prompt,
+                model: "Pro/deepseek-ai/DeepSeek-R1"
+            }),
+            signal: controller.signal // 添加 signal
+        });
 
-      console.error("AI解读失败: ", errorText);
-      alert("AI解读失败: " + errorText);
-      loadingAnimation.style.display = 'none';
-      outputText.style.display = 'block';
-      return;
-    }
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
 
-    // Parse the response as JSON
-    const responseData = await response.json();
+        if (!response.body) {
+            throw new Error('Response body is null');
+        }
 
-    //  Access the actual AI response from the JSON structure.
-    //  This assumes the API returns the response in a `choices` array,
-    //  similar to OpenAI's API.  Adjust the path if your API
-    //  uses a different structure.  Example possibilities:
-    //  - responseData.choices[0].message.content
-    //  - responseData.result (if the API returns the answer directly in a `result` field)
-    //  - responseData.data.text
-    let aiResponseText = '';
-    if (responseData && responseData.choices && responseData.choices.length > 0) {
-        aiResponseText = responseData.choices[0].message.content; // ADJUST THIS PATH!
-    } else {
-        console.error("Unexpected response structure from AI API:", responseData);
-        alert("Unexpected response from AI API. Check the console for details.");
-        loadingAnimation.style.display = 'none';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedText = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const jsonData = JSON.parse(line.slice(6));
+                        if (jsonData.choices && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
+                            const content = jsonData.choices[0].delta.content;
+                            accumulatedText += content;
+                            outputText.style.display = 'block';
+                            outputText.innerHTML = marked.parse(accumulatedText);
+
+                            const scrollTarget = document.documentElement.scrollHeight;
+                            window.scrollTo({
+                                top: scrollTarget,
+                                behavior: 'smooth'
+                            });
+                        }
+                    } catch (e) {
+                        console.debug('跳过非 JSON 数据:', line, e); // 打印错误信息，方便调试
+                    }
+                } else {
+                    console.debug('跳过非 data: 开头的行:', line); // 打印非 data: 开头的行，方便调试
+                }
+            }
+        }
+
+        // 只在没有收到任何内容时抛出错误
+        if (accumulatedText.trim() === '') {
+            throw new Error('AI未返回有效的解读结果');
+        }
+
+    } catch (error) {
+        // 如果是中止请求导致的错误，就不显示错误信息
+        if (error.name === 'AbortError') {
+            return;
+        }
+
+        console.error("AI解读失败: ", error);
         outputText.style.display = 'block';
-        return;
+        outputText.innerHTML = `<div style="color: #ff4081; padding: 10px; border: 1px solid #ff4081; border-radius: 5px; margin: 10px 0;">
+      <p>😔 AI解读遇到了一些问题：</p>
+      <p>${error.message}</p>
+      <p>您可以：</p>
+      <ul>
+        <li>检查网络连接</li>
+        <li>稍等片刻后重试</li>
+        <li>如果问题持续存在，请刷新页面</li>
+      </ul>
+    </div>`;
+    } finally {
+        // 清除当前请求引用
+        if (window.currentAIRequest) {
+            window.currentAIRequest = null;
+        }
+        aiButton.classList.remove('loading');
+        aiButton.textContent = 'AI解读';
     }
-
-    // Convert Markdown to HTML
-    const htmlContent = marked.parse(aiResponseText);
-
-    loadingAnimation.style.display = 'none';
-    outputText.style.display = 'block';
-    outputText.innerHTML = htmlContent;  // Set the HTML content directly
-
-    // Start the typewriter effect with the HTML content
-    typeWriter(htmlContent, outputText, 10, 40);
-
-  } catch (error) {
-    console.error("An unexpected error occurred:", error);
-    alert("AI解读失败: " + error.message);
-    loadingAnimation.style.display = 'none';
-    outputText.style.display = 'block';
-  }
-
-
-    const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
-
-    // 将Markdown转换为HTML
-    const htmlContent = marked.parse(aiResponse);
-
-    loadingAnimation.style.display = 'none';
-    outputText.style.display = 'block';
-    outputText.innerHTML = '';
-    typeWriter(aiResponse, outputText, 10, 40);
-  } catch (error) {
-    console.error("AI解读失败: ", error);
-    alert("AI解读失败: " + error.message);
-    loadingAnimation.style.display = 'none';
-    outputText.style.display = 'block';
-  }
 }
+
 
     function typeWriter(text, element, minSpeed = 10, maxSpeed = 40) {
       let i = 0;
