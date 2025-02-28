@@ -543,7 +543,7 @@ async function aiInterpretation() {
     const controller = new AbortController();
     window.currentAIRequest = controller;
 
-    const response = await fetch('https://flow.ikun.jp/ai', {
+    const response = await fetch('https://flow.onlyikun.com/ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
