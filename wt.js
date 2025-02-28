@@ -550,7 +550,7 @@ async function aiInterpretation() {
       },
       body: JSON.stringify({
         prompt: prompt,
-        model: "Qwen/Qwen2.5-7B-Instruct"
+        model: "Pro/deepseek-ai/DeepSeek-R1"
       }),
       signal: controller.signal // 添加 signal
     });
