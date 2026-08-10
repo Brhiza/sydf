@@ -27,13 +27,30 @@ afterEach(() => {
 });
 
 describe('0 基础 Agent 工具调用', () => {
-  it('内置 AI 未配置时通过隐藏备用渠道调用白名单工具', async () => {
+  const builtinEnv = {
+    AI_BASE_URL: 'https://primary.example/v1',
+    AI_API_KEY: 'primary-key',
+    AI_MODEL: 'primary-model',
+  };
+
+  it('内置 AI 未配置时不发起外部请求', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: {} });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'AI 服务尚未配置，请稍后再试。' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('内置 AI 通过正式配置调用白名单工具', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'read_bazi_ziwei', arguments: '{"fortune_scope":"full"}' } }] } }],
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await onRequestPost({ request: createRequest(), env: {} });
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
     const result = await response.json() as Record<string, unknown>;
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(String(init.body)) as Record<string, unknown>;
@@ -41,8 +58,8 @@ describe('0 基础 Agent 工具调用', () => {
 
     expect(response.status).toBe(200);
     expect(result).toEqual({ selection: { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' } } });
-    expect(url).toBe('https://opencode.ai/zen/v1/chat/completions');
-    expect(headers['x-opencode-client']).toBe('desktop');
+    expect(url).toBe('https://primary.example/v1/chat/completions');
+    expect(headers.Authorization).toBe('Bearer primary-key');
     expect(body.tool_choice).toBe('required');
     expect(Array.isArray(body.tools)).toBe(true);
     expect(JSON.stringify(body.tools)).toContain('cast_liuyao');
@@ -57,7 +74,7 @@ describe('0 基础 Agent 工具调用', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await onRequestPost({ request: createRequest(), env: {} });
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
 
     expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'wuyun-liuqi', wuyunYear: 2028 } });
   });
@@ -68,7 +85,7 @@ describe('0 基础 Agent 工具调用', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await onRequestPost({ request: createRequest(), env: {} });
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
 
     expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'huangji-jingshi', huangjiYear: 2028 } });
   });
@@ -79,7 +96,7 @@ describe('0 基础 Agent 工具调用', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await onRequestPost({ request: createRequest(), env: {} });
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
 
     expect(await response.json()).toEqual({ selection: { mode: 'chart', chartKind: 'qizheng' } });
   });
@@ -128,7 +145,7 @@ describe('0 基础 Agent 工具调用', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('自定义渠道不支持工具调用时不会转发到隐藏备用渠道', async () => {
+  it('自定义渠道不支持工具调用时不会调用内置渠道', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ choices: [{ message: { content: '普通文本' } }] }));
     vi.stubGlobal('fetch', fetchMock);
 

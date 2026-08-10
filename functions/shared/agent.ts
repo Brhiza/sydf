@@ -1,7 +1,6 @@
 import {
   getBuiltinAiConfig,
   getCustomAiConfig,
-  HIDDEN_FALLBACK_AI,
   requestProviderJson,
   type AiApiType,
   type AiEnv,
@@ -269,15 +268,10 @@ export async function handleAgentPost(context: { request: Request; env: AiEnv })
   }
 
   const builtinConfig = getBuiltinAiConfig(context.env);
-  if (builtinConfig) {
-    try {
-      return jsonResponse({ selection: await requestSelection(builtinConfig, userPrompt) });
-    } catch {
-      // 内置渠道不支持工具调用时继续使用隐藏备用渠道。
-    }
-  }
+  if (!builtinConfig) return jsonResponse({ error: 'AI 服务尚未配置，请稍后再试。' }, 503);
+
   try {
-    return jsonResponse({ selection: await requestSelection(HIDDEN_FALLBACK_AI, userPrompt) });
+    return jsonResponse({ selection: await requestSelection(builtinConfig, userPrompt) });
   } catch {
     return jsonResponse({ error: '暂时无法自动选择合适的方式。' }, 502);
   }

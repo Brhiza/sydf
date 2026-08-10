@@ -46,13 +46,6 @@ interface InterpretationPayload extends AiPromptPayload {
 }
 
 const MAX_QUESTION_LENGTH = 4000;
-export const HIDDEN_FALLBACK_AI: Readonly<AiProviderConfig> = Object.freeze({
-  apiType: 'chat',
-  apiKey: 'public',
-  model: 'deepseek-v4-flash-free',
-  url: 'https://opencode.ai/zen/v1/chat/completions',
-  headers: Object.freeze({ 'x-opencode-client': 'desktop' }),
-});
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -226,17 +219,10 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   }
 
   const builtinConfig = getBuiltinAiConfig(env);
-  if (builtinConfig) {
-    try {
-      const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature, maxTokens);
-      return jsonResponse({ content, provider });
-    } catch {
-      // 内置渠道不可用时继续尝试服务端备用渠道，不向浏览器暴露渠道信息。
-    }
-  }
+  if (!builtinConfig) return jsonResponse({ error: 'AI 服务尚未配置，请稍后再试。' }, 503);
 
   try {
-    const content = await requestProvider(HIDDEN_FALLBACK_AI, systemPrompt, providerMessages, messages, temperature, maxTokens);
+    const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature, maxTokens);
     return jsonResponse({ content, provider });
   } catch {
     return jsonResponse({ error: 'AI 解读暂时失败，请稍后再试。' }, 502);

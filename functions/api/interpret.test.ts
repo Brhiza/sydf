@@ -28,46 +28,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('内置 AI 服务端备用渠道', () => {
-  it('内置 AI 未配置时使用隐藏备用渠道且不向前端暴露配置', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(successfulUpstream());
+describe('内置 AI 服务', () => {
+  const builtinEnv = {
+    AI_BASE_URL: 'https://primary.example/v1',
+    AI_API_KEY: 'primary-key',
+    AI_MODEL: 'primary-model',
+  };
+
+  it('内置 AI 未配置时直接返回明确错误', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({ request: createRequest(), env: {} });
     const result = await response.json() as Record<string, unknown>;
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Record<string, string>;
-    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
 
-    expect(response.status).toBe(200);
-    expect(result).toEqual({ content: '测试成功', provider: 'builtin' });
-    expect(url).toBe('https://opencode.ai/zen/v1/chat/completions');
-    expect(headers['x-opencode-client']).toBe('desktop');
-    expect(headers.Authorization).toBe('Bearer public');
-    expect(body.model).toBe('deepseek-v4-flash-free');
+    expect(response.status).toBe(503);
+    expect(result.error).toBe('AI 服务尚未配置，请稍后再试。');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('内置 AI 请求失败后自动回退', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'failed' }), { status: 502 }))
-      .mockResolvedValueOnce(successfulUpstream('备用渠道返回'));
+  it('内置 AI 请求失败时不会调用其他渠道', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'failed' }), { status: 502 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
       request: createRequest(),
-      env: {
-        AI_BASE_URL: 'https://primary.example/v1',
-        AI_API_KEY: 'primary-key',
-        AI_MODEL: 'primary-model',
-      },
+      env: builtinEnv,
     });
     const result = await response.json() as Record<string, unknown>;
 
-    expect(response.status).toBe(200);
-    expect(result).toEqual({ content: '备用渠道返回', provider: 'builtin' });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(502);
+    expect(result.error).toBe('AI 解读暂时失败，请稍后再试。');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://primary.example/v1/chat/completions');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://opencode.ai/zen/v1/chat/completions');
   });
 
   it('三种解答框架使用匹配的输出预算', async () => {
@@ -80,7 +73,7 @@ describe('内置 AI 服务端备用渠道', () => {
       ['professional', 3000],
     ] as const;
     for (const [preference, maxTokens] of expectations) {
-      const response = await onRequestPost({ request: createRequest(undefined, preference), env: {} });
+      const response = await onRequestPost({ request: createRequest(undefined, preference), env: builtinEnv });
       expect(response.status).toBe(200);
       const call = fetchMock.mock.calls.at(-1) as [string, RequestInit] | undefined;
       const body = JSON.parse(String(call?.[1].body)) as Record<string, unknown>;
@@ -88,7 +81,7 @@ describe('内置 AI 服务端备用渠道', () => {
     }
   });
 
-  it('用户选择的第三方渠道失败时不会转发到隐藏备用渠道', async () => {
+  it('用户选择的第三方渠道失败时不会调用内置渠道', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('connection failed'));
     vi.stubGlobal('fetch', fetchMock);
 
