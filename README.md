@@ -41,13 +41,13 @@ pnpm dev
 
 开发服务器启动后，按照终端显示的本地地址访问即可。
 
-如需使用内置 AI，可在 Windows PowerShell 中复制环境变量示例，再填写自己的兼容接口配置：
+如需在 `pnpm dev` 中使用内置 AI，可在 Windows PowerShell 中复制环境变量示例，再填写自己的兼容接口配置：
 
 ```powershell
-Copy-Item .dev.vars.example .dev.vars
+Copy-Item .dev.vars.example .env.local
 ```
 
-`.dev.vars` 只用于本机，不应提交到仓库。未配置内置 AI 时，排盘和占卜功能仍可使用，也可以复制提示词交给其他在线 AI 解读。
+`.env.local` 只用于本机，不应提交到仓库。使用 Wrangler 本地运行时，可将同一份示例复制为 `.dev.vars`。未配置内置 AI 时，排盘和占卜功能仍可使用，也可以复制提示词交给其他在线 AI 解读。
 
 ## 检查与构建
 
@@ -58,13 +58,45 @@ pnpm build
 pnpm preview
 ```
 
-生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions 与 PWA，相关入口分别位于 `functions` 和 `vite.config.ts`。
+生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions、EdgeOne Cloud Functions 与 PWA。
+
+## 部署
+
+Cloudflare Pages 与 EdgeOne Pages 使用相同的前端构建设置：
+
+| 配置项 | 配置值 |
+| --- | --- |
+| 根目录 | `./` |
+| 安装命令 | `pnpm install` |
+| 构建命令 | `pnpm build` |
+| 输出目录 | `dist` |
+| Node.js | 20 或 22 |
+
+### Cloudflare Pages
+
+连接 Git 仓库并填写上述构建设置即可。Cloudflare 会自动识别 `functions/api`，提供 `/api/agent`、`/api/interpret` 和 `/api/models` 三个服务端接口。本地使用 Wrangler 时，将 `.dev.vars.example` 复制为 `.dev.vars` 并填写真实配置。
+
+### EdgeOne Pages
+
+连接 Git 仓库并填写上述构建设置。EdgeOne 会从 `cloud-functions/api` 部署同名接口；这些入口与 Cloudflare 共用 `functions/api` 中的处理逻辑。
+
+在「项目设置 → 环境管理」中分别编辑生产和预览环境，加入以下服务端环境变量。变量更新只对之后的新部署生效，修改后需要重新部署：
+
+```text
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_TYPE=chat
+AI_MODEL=gpt-4o-mini
+AI_API_KEY=replace-with-your-key
+```
+
+`AI_API_TYPE` 支持 `chat`、`responses` 和 `anthropic`。还可以按接口需要配置 `AI_API_URL`、`AI_MODELS_URL`、`AI_SYSTEM_PROMPT`、`AI_TEMPERATURE`、`AI_MAX_TOKENS`。密钥必须使用服务端变量名，不能添加 `VITE_` 前缀，也不要提交到仓库。
 
 ## 项目结构
 
 ```text
 src/             Vue 前端、业务逻辑与设计系统
-functions/       AI 解读与模型列表接口
+functions/       Cloudflare、本地开发及共享 AI 接口逻辑
+cloud-functions/ EdgeOne Cloud Functions 入口
 public/          图标、插图与 PWA 静态资源
 vendor/          当前接入的 mingyu-core 本地包
 ```
