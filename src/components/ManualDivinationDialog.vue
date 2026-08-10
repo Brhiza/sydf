@@ -98,22 +98,22 @@ function finish(result: ReadingResult) {
   emit('complete', { result, mode: castingMode.value });
 }
 
-function completeAuto() {
+async function completeAuto() {
   try {
-    finish(runAutomaticCasting(props.kind, new Date(), { qimenScope: props.qimenScope }));
+    finish(await runAutomaticCasting(props.kind, new Date(), { qimenScope: props.qimenScope }));
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '起课没有完成。';
   }
 }
 
-function completeManualNumber() {
+async function completeManualNumber() {
   const number = Number(manualNumber.value);
   if (!Number.isSafeInteger(number) || number <= 0) {
     formError.value = '请输入一个正整数。';
     return;
   }
-  if (props.kind === 'meihua') finish(runConfiguredMeihua('number', number, new Date()));
-  else finish(runConfiguredJinkoujue('number', number, new Date()));
+  if (props.kind === 'meihua') finish(await runConfiguredMeihua('number', number, new Date()));
+  else finish(await runConfiguredJinkoujue('number', number, new Date()));
 }
 
 function shakeYao() {
@@ -123,11 +123,11 @@ function shakeYao() {
   coinThrows.value = [...coinThrows.value, { coins, total }];
 }
 
-function completeManual() {
+async function completeManual() {
   formError.value = '';
   try {
     if (props.kind === 'meihua' || props.kind === 'jinkoujue') {
-      completeManualNumber();
+      await completeManualNumber();
       return;
     }
     if (props.kind === 'liuyao') {
@@ -135,11 +135,11 @@ function completeManual() {
         formError.value = '请先从初爻到上爻摇满六次。';
         return;
       }
-      finish(runManualLiuyao(coinThrows.value));
+      finish(await runManualLiuyao(coinThrows.value));
       return;
     }
-    if (props.kind === 'taiyi') finish(runTaiyiYear(currentYear));
-    if (isTimeOnlyKind.value) finish(runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', new Date(), { qimenScope: props.qimenScope }));
+    if (props.kind === 'taiyi') finish(await runTaiyiYear(currentYear));
+    if (isTimeOnlyKind.value) finish(await runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', new Date(), { qimenScope: props.qimenScope }));
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '起课没有完成。';
   }
@@ -151,20 +151,20 @@ function specifiedDate() {
   return date;
 }
 
-function completeSpecified() {
+async function completeSpecified() {
   formError.value = '';
   try {
     if (props.kind === 'taiyi') {
       const year = Number(specifiedYear.value);
       if (!Number.isSafeInteger(year) || year < 1 || year > 9999) throw new Error('请输入 1 至 9999 之间的公历年份。');
-      finish(runTaiyiYear(year));
+      finish(await runTaiyiYear(year));
       return;
     }
     const date = specifiedDate();
-    if (props.kind === 'meihua') finish(runConfiguredMeihua('time', undefined, date));
-    else if (props.kind === 'liuyao') finish(runSpecifiedLiuyao(specifiedYaos.value, date));
-    else if (props.kind === 'jinkoujue') finish(runConfiguredJinkoujue('time', undefined, date));
-    else finish(runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', date, { qimenScope: props.qimenScope }));
+    if (props.kind === 'meihua') finish(await runConfiguredMeihua('time', undefined, date));
+    else if (props.kind === 'liuyao') finish(await runSpecifiedLiuyao(specifiedYaos.value, date));
+    else if (props.kind === 'jinkoujue') finish(await runConfiguredJinkoujue('time', undefined, date));
+    else finish(await runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', date, { qimenScope: props.qimenScope }));
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '指定起课没有完成。';
   }
@@ -201,7 +201,7 @@ function yaoName(total: number) {
             <div v-for="position in [6, 5, 4, 3, 2, 1]" :key="position" class="yao-slot" :class="{ filled: coinThrows[position - 1] }">
               <span>{{ ['初', '二', '三', '四', '五', '上'][position - 1] }}爻</span>
               <template v-if="coinThrows[position - 1]">
-                <div class="coin-row"><img v-for="(coin, index) in coinThrows[position - 1].coins" :key="index" :src="coin === 3 ? '/coin-heads.png' : '/coin-tails.png'" :alt="coin === 3 ? '铜钱正面' : '铜钱背面'" /></div>
+                <div class="coin-row"><img v-for="(coin, index) in coinThrows[position - 1].coins" :key="index" :src="coin === 3 ? '/coin-heads.webp' : '/coin-tails.webp'" :alt="coin === 3 ? '铜钱正面' : '铜钱背面'" /></div>
                 <div class="mini-yao" :class="{ broken: coinThrows[position - 1].total === 6 || coinThrows[position - 1].total === 8, moving: coinThrows[position - 1].total === 6 || coinThrows[position - 1].total === 9 }"><b></b><b></b></div>
                 <strong>{{ coinThrows[position - 1].total }} · {{ yaoName(coinThrows[position - 1].total) }}</strong>
               </template>

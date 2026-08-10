@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
   ArrowLeft,
   ArrowUp,
@@ -73,10 +73,7 @@ import {
   type BirthPlaceCityOption,
   type BirthPlaceDistrictOption,
 } from 'mingyu-core/location';
-import {
-  buildAstrolabeScopeContext,
-  type AstrolabeScopeContext,
-} from 'mingyu-core/divination/astrolabe-scope';
+import type { AstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
 import {
   buildDivinationReadingPrompt,
   formatReadingSummary,
@@ -114,30 +111,17 @@ import {
   selectLocalAgentTool,
   type AgentToolSelection,
 } from './lib/agent';
-import {
-  buildBaziZiweiCombinedPrompt,
-  buildChartReadingPrompt,
-  type BaziFortuneRequest,
-  type ChartReadingPromptOptions,
-} from './lib/chartPrompt';
-import ManualDivinationDialog from './components/ManualDivinationDialog.vue';
+import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
 import AiPromptFallback from './components/AiPromptFallback.vue';
 import AiReadingActions from './components/AiReadingActions.vue';
 import ChatMarkdown from './components/ChatMarkdown.vue';
 import CaseMultiSelect from './components/CaseMultiSelect.vue';
-import FengShuiView from './components/FengShuiView.vue';
-import CompatibilityView from './components/CompatibilityView.vue';
-import DailyHexagramView from './components/DailyHexagramView.vue';
 import ChartCoreFacts from './components/ChartCoreFacts.vue';
 import ChartIdentityBar from './components/ChartIdentityBar.vue';
-import QizhengChart from './components/QizhengChart.vue';
-import XiaoliurenView from './components/XiaoliurenView.vue';
 import FortuneSkeleton from './components/FortuneSkeleton.vue';
 import FortuneResultView from './components/FortuneResultView.vue';
-import OracleView from './components/OracleView.vue';
 import TraditionalReading from './components/TraditionalReading.vue';
 import UIPickerView from './components/UIPickerView.vue';
-import LegacyHistoryDetail from './components/LegacyHistoryDetail.vue';
 import vAutoResize from './directives/autoResizeTextarea';
 import {
   UiActionBar,
@@ -168,13 +152,7 @@ import {
   type HistoryRecordEntry,
   type LegacyHistoryRecord,
 } from './lib/historyImport';
-import {
-  generateDailyFortune,
-  getCachedDailyFortune,
-  isDailyFortuneProfileComplete,
-  type DailyFortuneResult,
-  type FortunePeriod,
-} from './lib/dailyFortune';
+import type { DailyFortuneResult, FortunePeriod } from './lib/dailyFortune';
 import { getModernAlmanacHours, getModernAlmanacPersonalNotes, modernizeAlmanacDay } from './lib/modernAlmanac';
 import type { SelectableCaseProfile } from './lib/caseSelection';
 import {
@@ -196,6 +174,15 @@ import {
   type AlmanacPurpose,
   type AlmanacPurposeEvaluation,
 } from './lib/almanac';
+
+const ManualDivinationDialog = defineAsyncComponent(() => import('./components/ManualDivinationDialog.vue'));
+const FengShuiView = defineAsyncComponent(() => import('./components/FengShuiView.vue'));
+const CompatibilityView = defineAsyncComponent(() => import('./components/CompatibilityView.vue'));
+const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyHexagramView.vue'));
+const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChart.vue'));
+const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
+const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
+const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
 
 type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'charts' | 'compatibility' | 'cases' | 'settings';
 type SettingsSection = 'preferences' | 'ai';
@@ -3479,14 +3466,14 @@ function saveCurrentCase() {
   showCaseEditor.value = false;
 }
 
-function buildAiRequest(
+async function buildAiRequest(
   mode: AiInterpretationRequest['mode'],
   questionText: string,
   kind?: DivinationKind,
   result?: ReadingResult,
   channel: AiChannel = activeAiChannel.value,
   chartPromptOptions: ChartReadingPromptOptions = {},
-): AiInterpretationRequest {
+): Promise<AiInterpretationRequest> {
   const profile = currentCase.value;
   const request: AiInterpretationRequest = {
     mode,
@@ -3510,30 +3497,31 @@ function buildAiRequest(
     aiConfig: channelToAiConfig(channel),
   };
   if (result && kind) {
-    const corePrompt = mode === 'divination' ? buildDivinationReadingPrompt(kind, result) : undefined;
+    const corePrompt = mode === 'divination' ? await buildDivinationReadingPrompt(kind, result) : undefined;
+    const chartPrompt = mode === 'chart' && isChartReading(kind)
+      ? (await import('./lib/chartPrompt')).buildChartReadingPrompt(kind, result, { ...chartPromptOptions, question: questionText })
+      : undefined;
     request.reading = {
       summary: formatReadingSummary(kind, result),
       data: result,
-      prompt: mode === 'chart' && isChartReading(kind)
-        ? buildChartReadingPrompt(kind, result, { ...chartPromptOptions, question: questionText })
-        : corePrompt,
+      prompt: chartPrompt ?? corePrompt,
     };
   }
   return request;
 }
 
-function buildCombinedChartAiRequest(
+async function buildCombinedChartAiRequest(
   questionText: string,
   bazi: BaziChartResult,
   ziwei: ZiweiChartData,
   baziFortune?: BaziFortuneRequest | null,
 ) {
-  const request = buildAiRequest('chart', questionText);
+  const request = await buildAiRequest('chart', questionText);
   request.method = '八字紫微合参';
   request.reading = {
     summary: `八字：${formatReadingSummary('bazi', bazi)}；紫微：${formatReadingSummary('ziwei', ziwei)}`,
     data: { kind: 'bazi-ziwei' },
-    prompt: buildBaziZiweiCombinedPrompt(bazi, ziwei, { question: questionText, baziFortune }),
+    prompt: (await import('./lib/chartPrompt')).buildBaziZiweiCombinedPrompt(bazi, ziwei, { question: questionText, baziFortune }),
   };
   return request;
 }
@@ -3610,7 +3598,7 @@ async function testAiConnection() {
   resetAiTest();
   isTestingAi.value = true;
   try {
-    const response = await requestAiInterpretation(buildAiRequest('ask', '请只回复“连接成功”，不要补充其他内容。', undefined, undefined, channel));
+    const response = await requestAiInterpretation(await buildAiRequest('ask', '请只回复“连接成功”，不要补充其他内容。', undefined, undefined, channel));
     aiTestState.value = 'success';
     aiTestMessage.value = `连接成功 · ${response.model || '当前模型'}`;
   } catch (error) {
@@ -3656,7 +3644,7 @@ async function completeDivination(
     persistHistory();
   }
   await requestInterpretation(
-    buildAiRequest('divination', userQuestion, kind, result),
+    await buildAiRequest('divination', userQuestion, kind, result),
     appendToChat,
     sessionId,
     shouldStoreHistory ? record.id : null,
@@ -3703,7 +3691,7 @@ async function finishAutomaticReading(kind: ManualDivinationKind, userQuestion: 
   isReading.value = true;
   formError.value = '';
   try {
-    const result = runAutomaticCasting(kind, new Date(), { qimenScope: settings.qimenScope });
+    const result = await runAutomaticCasting(kind, new Date(), { qimenScope: settings.qimenScope });
     await completeDivination(kind, result, userQuestion, true, sessionId);
     if (sessionId === chatSessionId) selectedInspirationPrompt.value = '';
   } catch (error) {
@@ -3802,7 +3790,7 @@ async function beginReading() {
         history.value = [record, ...history.value].slice(0, HISTORY_LIMIT);
         persistHistory();
         if (sessionId !== chatSessionId) return;
-        await requestInterpretation(buildCombinedChartAiRequest(
+        await requestInterpretation(await buildCombinedChartAiRequest(
           chartAiQuestion,
           baziEntry.result,
           ziweiEntry.result,
@@ -3845,7 +3833,7 @@ async function beginReading() {
       }];
       history.value = [chartRecord.value, ...history.value].slice(0, HISTORY_LIMIT);
       persistHistory();
-      await requestInterpretation(buildAiRequest(
+      await requestInterpretation(await buildAiRequest(
         'chart',
         chartAiQuestion,
         kind,
@@ -3902,7 +3890,7 @@ async function beginReading() {
   await new Promise((resolve) => window.setTimeout(resolve, 320));
   if (sessionId !== chatSessionId) return;
   try {
-    const result = runDivination(selectedKind.value, new Date(), currentCase.value, {
+    const result = await runDivination(selectedKind.value, new Date(), currentCase.value, {
       qimenScope: settings.qimenScope,
       wuyunYear: selectedWuyunYear.value,
       huangjiYear: selectedHuangjiYear.value,
@@ -3919,8 +3907,9 @@ let chartRequestId = 0;
 
 async function calculateChart(kind: ChartKind, birth: CaseProfile): Promise<ReadingResult> {
   if (kind === 'ziwei') return await runZiweiChart(birth);
-  const result = runDivination(kind, new Date(), birth);
+  const result = await runDivination(kind, new Date(), birth);
   if (kind === 'astrolabe' && isAstrolabe(result)) {
+    const { buildAstrolabeScopeContext } = await import('mingyu-core/divination/astrolabe-scope');
     return {
       ...result,
       annualScope: buildAstrolabeScopeContext(result, 'yearly', String(new Date().getFullYear())),
@@ -4050,7 +4039,7 @@ async function interpretSelectedBaziFortune(scope: 'dayun' | 'year') {
   const questionText = scope === 'year'
     ? `请解读${selectedBaziYear.value}年流年，并结合所属${cycle.ganZhi}大运说明主要变化、触发条件和现实建议。`
     : `请解读${cycle.ganZhi}大运的整体主题、阶段变化、关键领域和现实建议。`;
-  await requestInterpretation(buildAiRequest(
+  await requestInterpretation(await buildAiRequest(
     'chart',
     questionText,
     'bazi',
@@ -4129,7 +4118,7 @@ async function runChart(shouldRecord = true) {
     }
     if (appPreferences.displayLevel === 'basic') {
       await requestInterpretation(
-        buildAiRequest('chart', `请用最容易理解的方式解读${currentCase.value.label}的${kindMeta[chartKind.value].label}。`, chartKind.value, result),
+        await buildAiRequest('chart', `请用最容易理解的方式解读${currentCase.value.label}的${kindMeta[chartKind.value].label}。`, chartKind.value, result),
         true,
         chatSessionId,
         shouldRecord ? `${createdAt}-chart` : null,
@@ -4146,7 +4135,18 @@ let fortuneRequestId = 0;
 let homeFortuneRequestId = 0;
 
 function activeFortuneProfile() {
-  return cases.value.length && isDailyFortuneProfileComplete(currentCase.value) ? currentCase.value : undefined;
+  const profile = currentCase.value;
+  if (!cases.value.length || !/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return undefined;
+  const [year, month, day] = profile.date.split('-').map(Number);
+  const [hour, minute] = profile.time.split(':').map(Number);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
+  return getBirthDateValidationMessage({
+    year,
+    month,
+    day,
+    dateType: profile.dateType,
+    isLeapMonth: profile.dateType === 'lunar' && profile.isLeapMonth,
+  }) ? undefined : profile;
 }
 
 async function refreshHomeFortunePreview() {
@@ -4154,6 +4154,7 @@ async function refreshHomeFortunePreview() {
   const now = new Date();
   const profile = activeFortuneProfile();
   try {
+    const { generateDailyFortune, getCachedDailyFortune } = await import('./lib/dailyFortune');
     const cached = getCachedDailyFortune(now, profile, 'today');
     if (cached) {
       if (requestId === homeFortuneRequestId) homeFortunePreview.value = cached;
@@ -4174,6 +4175,7 @@ async function refreshDailyFortune() {
   const profile = activeFortuneProfile();
   const period = selectedFortunePeriod.value;
   try {
+    const { generateDailyFortune, getCachedDailyFortune } = await import('./lib/dailyFortune');
     const cached = getCachedDailyFortune(referenceDate, profile, period);
     if (cached) {
       if (requestId === fortuneRequestId) {
@@ -4305,7 +4307,7 @@ function historyRecordMeta(record: HistoryRecordEntry) {
   return kindMeta[record.kind];
 }
 
-function openRecord(record: HistoryRecordEntry) {
+async function openRecord(record: HistoryRecordEntry) {
   showHistory.value = false;
   if (isLegacyHistoryRecord(record)) {
     selectedLegacyHistory.value = record;
@@ -4331,7 +4333,7 @@ function openRecord(record: HistoryRecordEntry) {
       { kind: 'reading', role: 'assistant', content: '', reading: relatedZiwei.result, method: 'ziwei', context: record.context },
       ...(record.interpretation ? [{ kind: 'text' as const, role: 'assistant' as const, content: record.interpretation }] : []),
     ];
-    lastAiRequest.value = buildCombinedChartAiRequest(record.question, record.result, relatedZiwei.result);
+    lastAiRequest.value = await buildCombinedChartAiRequest(record.question, record.result, relatedZiwei.result);
     lastAiHistoryRecordId.value = record.id;
     return;
   }
@@ -4368,7 +4370,7 @@ function openRecord(record: HistoryRecordEntry) {
       { kind: 'reading', role: 'assistant', content: '', reading: record.result, method: savedKind, context: record.context },
       ...(record.interpretation ? [{ kind: 'text' as const, role: 'assistant' as const, content: record.interpretation }] : []),
     ];
-    lastAiRequest.value = buildAiRequest('chart', record.question, record.kind, record.result);
+    lastAiRequest.value = await buildAiRequest('chart', record.question, record.kind, record.result);
     lastAiHistoryRecordId.value = record.id;
     return;
   }
@@ -4380,7 +4382,7 @@ function openRecord(record: HistoryRecordEntry) {
     oracleResult.value = record.result;
     aiAnswer.value = record.interpretation || '';
     aiError.value = '';
-    lastAiRequest.value = buildAiRequest('divination', record.question, record.kind, record.result);
+    lastAiRequest.value = await buildAiRequest('divination', record.question, record.kind, record.result);
     lastAiHistoryRecordId.value = record.id;
     return;
   }
@@ -4397,7 +4399,7 @@ function openRecord(record: HistoryRecordEntry) {
     { kind: 'reading', role: 'assistant', content: '', reading: record.result, method: record.kind },
     ...(record.interpretation ? [{ kind: 'text' as const, role: 'assistant' as const, content: record.interpretation }] : []),
   ];
-  lastAiRequest.value = buildAiRequest(
+  lastAiRequest.value = await buildAiRequest(
     isChartReading(record.kind) ? 'chart' : 'divination',
     record.question,
     record.kind,
@@ -4611,7 +4613,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 <template>
   <div class="app-shell" :class="{ 'mobile-nav-open': showMobileNav }">
     <aside class="sidebar" :class="{ 'mobile-sidebar-open': showMobileNav }">
-      <div class="sidebar-header"><button class="brand" type="button" @click="goView('tools')"><img class="brand-mark" src="/logo.jpg" alt="" aria-hidden="true" /><span><strong>时月东方</strong><small>东方术数</small></span></button><button class="mobile-sidebar-close" type="button" aria-label="关闭导航" @click="showMobileNav = false"><X :size="18" /></button></div>
+      <div class="sidebar-header"><button class="brand" type="button" @click="goView('tools')"><img class="brand-mark" src="/logo.webp" alt="" aria-hidden="true" /><span><strong>时月东方</strong><small>东方术数</small></span></button><button class="mobile-sidebar-close" type="button" aria-label="关闭导航" @click="showMobileNav = false"><X :size="18" /></button></div>
       <nav class="main-nav main-nav-primary" aria-label="主要功能">
         <button v-for="item in primaryNavItems" :key="item.key" type="button" :title="item.label" :class="{ active: activeView === item.key }" @click="goView(item.key)"><component :is="item.icon" :size="17" /><span>{{ item.label }}</span><ChevronRight v-if="activeView === item.key" :size="14" class="nav-arrow" /></button>
       </nav>
@@ -4680,7 +4682,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <UiPageShell v-if="activeView === 'tools'" width="reading" class="screen tools-screen" :class="{ 'is-chat': homeState === 'chat' }">
           <template v-if="homeState === 'default'">
             <section class="home-default">
-              <div class="default-hero"><img class="default-mark" src="/logo.jpg" alt="时月东方" /><h1><span>探索未来</span><span class="hero-multicolor">解读术数</span></h1><a class="merit-box-button" href="https://lk.sydf.cc/" target="_blank" rel="noopener noreferrer"><Heart :size="14" />功德箱</a></div>
+              <div class="default-hero"><img class="default-mark" src="/logo.webp" alt="时月东方" /><h1><span>探索未来</span><span class="hero-multicolor">解读术数</span></h1><a class="merit-box-button" href="https://lk.sydf.cc/" target="_blank" rel="noopener noreferrer"><Heart :size="14" />功德箱</a></div>
               <div class="chat-composer chat-composer-docked home-default-composer">
                 <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
                 <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
@@ -4695,7 +4697,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
           <template v-else>
             <div ref="chatConversationRef" class="chat-conversation" aria-live="polite">
-              <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" src="/logo.jpg" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
+              <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" src="/logo.webp" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
               <template v-for="(message, index) in chatMessages" :key="`${message.kind}-${message.role}-${index}`">
                 <div v-if="message.kind === 'reading'" class="chat-reading-message is-user"><button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button></div>
                 <div v-else-if="message.kind === 'text'" class="chat-message" :class="`is-${message.role}`">
@@ -5352,7 +5354,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
       <div v-if="showOnboarding" class="onboarding-layer">
         <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
           <header class="onboarding-header">
-            <div class="onboarding-brand"><img src="/logo.jpg" alt="" aria-hidden="true" /><div><span>首次设置</span><h2 id="onboarding-title">{{ onboardingSteps[onboardingStep] }}</h2></div></div>
+            <div class="onboarding-brand"><img src="/logo.webp" alt="" aria-hidden="true" /><div><span>首次设置</span><h2 id="onboarding-title">{{ onboardingSteps[onboardingStep] }}</h2></div></div>
             <small>{{ onboardingStep + 1 }} / {{ onboardingSteps.length }}</small>
           </header>
           <nav class="onboarding-progress" aria-label="设置进度">

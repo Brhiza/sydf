@@ -53,23 +53,23 @@ watch(() => props.initialQuestion, (value) => {
   resetRitual(false);
 });
 
-function drawSign() {
+async function drawSign() {
   ritualVersion.value += 1;
   const asked = question.value.trim() || '请赐予我当下的指引。';
   question.value = asked;
   showStoredResult.value = false;
   signSample.value = Math.random();
-  preview.value = previewInteractiveSsgw(signSample.value);
+  preview.value = await previewInteractiveSsgw(signSample.value);
   completedResult.value = null;
   cupSamples.value = [];
   throws.value = [];
   phase.value = 'drawn';
 }
 
-function beginOracleCasting() {
+async function beginOracleCasting() {
   oracleError.value = '';
   try {
-    drawSign();
+    await drawSign();
   } catch (error) {
     oracleError.value = error instanceof Error ? error.message : '求签没有完成。';
   }
@@ -91,7 +91,7 @@ function consecutiveYinCount(nextThrows: SsgwRitualThrow[]) {
 }
 
 function cupImage(face?: '阳面' | '阴面') {
-  return face === '阳面' ? '/shengbei-yang.png' : '/shengbei-yin.png';
+  return face === '阳面' ? '/shengbei-yang.webp' : '/shengbei-yin.webp';
 }
 
 async function throwCups() {
@@ -114,7 +114,7 @@ async function throwCups() {
     phase.value = 'confirming';
     await new Promise((resolve) => window.setTimeout(resolve, 1200));
     if (currentRitual !== ritualVersion.value || signSample.value === null) return;
-    const finalResult = finishInteractiveSsgw(signSample.value, cupSamples.value);
+    const finalResult = await finishInteractiveSsgw(signSample.value, cupSamples.value);
     completedResult.value = finalResult;
     phase.value = 'confirmed';
     emit('complete', { result: finalResult, question: question.value });
@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
   <UiPageShell width="reading" class="screen oracle-screen" :class="{ 'is-result': Boolean(displayResult) }">
     <UiWorkspaceSurface v-if="phase === 'idle' && !displayResult" class="oracle-workspace oracle-entry" padding="standard">
       <header class="oracle-intro">
-        <div class="oracle-portrait"><img src="/ssgw.jpg" alt="三山国王神像" /></div>
+        <div class="oracle-portrait"><img src="/ssgw.webp" alt="三山国王神像" /></div>
         <span>三山国王九十二签</span>
         <p class="oracle-description">为迷茫者指点迷津，解答人生困惑。三山是指揭西县河婆镇北面的三座山—巾山、明山、独山，随着当地移民向外扩展，成为香港、台湾及东南亚的汉人民间主要信仰。</p>
       </header>

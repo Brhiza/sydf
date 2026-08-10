@@ -7,13 +7,13 @@ export interface FortuneStatusMeta {
 }
 
 export const fortuneStatusMeta: Record<FortuneStatus, FortuneStatusMeta> = {
-  大吉: { label: '大吉', image: '/fortune-status/da-ji.png', tone: 'great' },
-  吉: { label: '吉', image: '/fortune-status/ji.png', tone: 'good' },
-  小吉: { label: '小吉', image: '/fortune-status/xiao-ji.png', tone: 'slight-good' },
-  平: { label: '平', image: '/fortune-status/ping.png', tone: 'neutral' },
-  小凶: { label: '小凶', image: '/fortune-status/xiao-xiong.png', tone: 'slight-bad' },
-  凶: { label: '凶', image: '/fortune-status/xiong.png', tone: 'bad' },
-  大凶: { label: '大凶', image: '/fortune-status/da-xiong.png', tone: 'great-bad' },
+  大吉: { label: '大吉', image: '/fortune-status/da-ji.webp', tone: 'great' },
+  吉: { label: '吉', image: '/fortune-status/ji.webp', tone: 'good' },
+  小吉: { label: '小吉', image: '/fortune-status/xiao-ji.webp', tone: 'slight-good' },
+  平: { label: '平', image: '/fortune-status/ping.webp', tone: 'neutral' },
+  小凶: { label: '小凶', image: '/fortune-status/xiao-xiong.webp', tone: 'slight-bad' },
+  凶: { label: '凶', image: '/fortune-status/xiong.webp', tone: 'bad' },
+  大凶: { label: '大凶', image: '/fortune-status/da-xiong.webp', tone: 'great-bad' },
 };
 
 export function fortuneStatusFromScore(score: number): FortuneStatus {

@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: [
         'favicon-32x32.png',
         'apple-touch-icon.png',
-        'logo.jpg',
+        'logo.webp',
       ],
       manifest: {
         id: '/',
@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => ({
         globIgnores: [
           'favicon-32x32.png',
           'apple-touch-icon.png',
-          'logo.jpg',
+          'logo.webp',
           'pwa-*.png',
         ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
@@ -84,4 +84,20 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const path = id.replace(/\\/g, '/');
+          if (path.includes('/node_modules/vue/') || path.includes('/node_modules/@vue/')) return 'vendor-vue';
+          if (path.includes('/node_modules/lucide-vue-next/')) return 'vendor-icons';
+          if (path.includes('/mingyu-core/dist/location/') || path.includes('/mingyu-core/dist/location.js')) return 'mingyu-location';
+          if (path.includes('/mingyu-core/dist/bazi/') || path.includes('/mingyu-core/dist/ganzhi/') || path.includes('/mingyu-core/dist/shensha/') || path.includes('/mingyu-core/dist/wuxing/')) return 'mingyu-bazi';
+          if (path.includes('/node_modules/tyme4ts/')) return 'vendor-tyme';
+          if (path.includes('/mingyu-core/dist/calendar/')) return 'mingyu-calendar';
+          return undefined;
+        },
+      },
+    },
+  },
 }));
