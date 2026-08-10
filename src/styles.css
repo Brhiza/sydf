@@ -4222,25 +4222,43 @@ body {
 @media (max-width: 720px) {
   .content:has(> .tools-screen.is-chat) {
     padding-bottom: 0;
-    padding-top: 8px;
+    padding-top: 0;
   }
-  .tools-screen.is-chat { gap: 0; height: calc(100dvh - 66px); min-height: 0; overflow: hidden; }
+  .tools-screen.is-chat { gap: 0; height: calc(100dvh - var(--ds-topbar-height)); min-height: 0; overflow: hidden; }
   .tools-screen.is-chat .chat-conversation {
     gap: 14px;
-    padding: 2px 1px max(154px, calc(env(safe-area-inset-bottom) + 140px));
-    scroll-padding-bottom: max(154px, calc(env(safe-area-inset-bottom) + 140px));
+    padding: 0 1px 8px;
+    scroll-padding-bottom: 8px;
+  }
+  .tools-screen.is-chat .chat-composer-docked {
+    bottom: auto;
+    left: auto;
+    margin: 0;
+    position: static;
+    right: auto;
+    width: 100%;
+  }
+  .tools-screen.is-chat .home-ai-disclaimer {
+    bottom: auto;
+    left: auto;
+    margin: 6px auto max(6px, env(safe-area-inset-bottom));
+    padding: 0 8px;
+    position: static;
+    right: auto;
+    width: 100%;
+    z-index: auto;
   }
   .tools-screen.is-chat .chat-selection-toolbar {
-    bottom: max(36px, calc(env(safe-area-inset-bottom) + 28px));
+    bottom: auto;
     display: grid;
     gap: 5px;
-    left: 12px;
+    left: auto;
     margin: 0;
     min-height: 0;
     padding: 8px 9px;
-    position: fixed;
-    right: 12px;
-    width: auto;
+    position: static;
+    right: auto;
+    width: 100%;
   }
   .chat-selection-summary { justify-content: space-between; }
   .chat-selection-summary button { padding-left: 5px; }
