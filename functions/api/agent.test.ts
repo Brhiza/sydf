@@ -63,6 +63,7 @@ describe('0 基础 Agent 工具调用', () => {
     expect(body.tool_choice).toBe('required');
     expect(Array.isArray(body.tools)).toBe(true);
     expect(JSON.stringify(body.tools)).toContain('cast_liuyao');
+    expect(JSON.stringify(body.tools)).toContain('cast_xiaoliuren');
     expect(JSON.stringify(body.tools)).toContain('calculate_wuyun_liuqi');
     expect(JSON.stringify(body.tools)).toContain('calculate_huangji_jingshi');
     expect(JSON.stringify(body.tools)).toContain('fortune_scope');
@@ -144,6 +145,17 @@ describe('0 基础 Agent 工具调用', () => {
     const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
 
     expect(await response.json()).toEqual({ selection: { mode: 'chart', chartKind: 'qizheng' } });
+  });
+
+  it('把小六壬工具选择传回前端', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'cast_xiaoliuren', arguments: '{}' } }] } }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'xiaoliuren' } });
   });
 
   it('兼容 Responses 工具调用结果', async () => {

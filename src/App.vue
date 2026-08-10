@@ -109,6 +109,7 @@ import {
   type DisplayLevel,
 } from './lib/ai';
 import {
+  getImmediateActiveDivinationSelection,
   requestAgentToolSelection,
   type AgentToolSelection,
   type AgentAstrolabeFortune,
@@ -1249,7 +1250,7 @@ const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiC
   aiChannels: createDefaultAiChannels(),
   answerPreference: 'fortune-master',
   displayLevel: 'beginner',
-  castingPreference: 'manual',
+  castingPreference: 'auto',
 });
 const visibleDivinationKinds = computed(() => appPreferences.displayLevel === 'master' ? masterDivinationKinds : beginnerDivinationKinds);
 
@@ -2652,14 +2653,17 @@ async function resolveAgentSelection(questionText: string) {
       .filter((message): message is ChatTextMessage => message.kind === 'text')
       .slice(-6)
       .map((message) => ({ role: message.role, content: message.content }));
+    const activeTool = appPreferences.displayLevel === 'basic'
+      ? undefined
+      : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value;
+    const immediateSelection = getImmediateActiveDivinationSelection(questionText, activeTool, chatMessages.value.length > 0);
+    if (immediateSelection) return immediateSelection;
     const selection = await requestAgentToolSelection({
       question: questionText,
       hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
       inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
       previousTool,
-      activeTool: appPreferences.displayLevel === 'basic'
-        ? undefined
-        : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value,
+      activeTool,
       castingPreference: appPreferences.castingPreference,
       conversation,
       aiConfig: activeAiRequestConfig.value,
