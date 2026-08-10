@@ -145,7 +145,7 @@ async function requestProvider(
   return content.trim();
 }
 
-export async function requestProviderJson(config: AiProviderConfig, body: Record<string, unknown>) {
+export async function requestProviderJson(config: AiProviderConfig, body: Record<string, unknown>, signal?: AbortSignal) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...config.headers,
@@ -160,6 +160,7 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    signal,
   });
   const result = await response.json().catch(() => null) as unknown;
   if (!response.ok) throw new Error('upstream response error');

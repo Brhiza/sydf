@@ -1,16 +1,27 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Check, Copy, Share2 } from 'lucide-vue-next';
+import { Check, Copy, Share2, Trash2 } from 'lucide-vue-next';
 import { writeClipboardText } from '../lib/clipboard';
 
 const props = withDefaults(defineProps<{
   content: string;
   title?: string;
   showInline?: boolean;
+  selectionEnabled?: boolean;
+  selectionMode?: boolean;
+  deletable?: boolean;
 }>(), {
   title: 'AI 解读',
   showInline: true,
+  selectionEnabled: false,
+  selectionMode: false,
+  deletable: false,
 });
+
+const emit = defineEmits<{
+  requestSelect: [];
+  requestDelete: [];
+}>();
 
 const menuRef = ref<HTMLElement | null>(null);
 const menuOpen = ref(false);
@@ -63,10 +74,10 @@ function closeMenuFromKeyboard(event: KeyboardEvent) {
 }
 
 function openMenu(clientX: number, clientY: number) {
-  if (!props.content) return;
+  if (!props.content || props.selectionMode) return;
   const viewportPadding = 8;
   const menuWidth = 156;
-  const menuHeight = 92;
+  const menuHeight = props.deletable ? 136 : 92;
   menuPosition.value = {
     left: `${Math.max(viewportPadding, Math.min(clientX, window.innerWidth - menuWidth - viewportPadding))}px`,
     top: `${Math.max(viewportPadding, Math.min(clientY, window.innerHeight - menuHeight - viewportPadding))}px`,
@@ -78,6 +89,7 @@ function openMenu(clientX: number, clientY: number) {
 
 function openContextMenu(event: MouseEvent) {
   event.preventDefault();
+  if (props.selectionMode) return;
   openMenu(event.clientX, event.clientY);
 }
 
@@ -89,7 +101,7 @@ function clearLongPress() {
 }
 
 function beginLongPress(event: PointerEvent) {
-  if (event.pointerType === 'mouse' || !props.content) return;
+  if (event.pointerType === 'mouse' || !props.content || props.selectionMode) return;
   clearLongPress();
   pressStart = { x: event.clientX, y: event.clientY };
   longPressTimer = window.setTimeout(() => {
@@ -122,6 +134,11 @@ async function copyReading() {
 }
 
 async function shareReading() {
+  if (props.selectionEnabled) {
+    emit('requestSelect');
+    closeMenu();
+    return;
+  }
   try {
     if (navigator.share) {
       await navigator.share({ title: props.title, text: props.content });
@@ -137,6 +154,11 @@ async function shareReading() {
   closeMenu();
   scheduleReset();
 }
+
+function deleteReading() {
+  closeMenu();
+  emit('requestDelete');
+}
 </script>
 
 <template>
@@ -150,7 +172,7 @@ async function shareReading() {
     @pointercancel="clearLongPress"
   >
     <slot />
-    <div v-if="showInline" class="ai-reading-actions" aria-label="解读操作">
+    <div v-if="showInline && !selectionMode" class="ai-reading-actions" aria-label="解读操作">
       <button
         type="button"
         class="ai-reading-action-button"
@@ -165,8 +187,8 @@ async function shareReading() {
       <button
         type="button"
         class="ai-reading-action-button"
-        :aria-label="actionState === 'shared' ? '已分享' : '分享解读'"
-        :title="actionState === 'shared' ? '已分享' : '分享'"
+        :aria-label="selectionEnabled ? '选择消息并分享' : actionState === 'shared' ? '已分享' : '分享解读'"
+        :title="selectionEnabled ? '多选分享' : actionState === 'shared' ? '已分享' : '分享'"
         :disabled="!content"
         @click="shareReading"
       >
@@ -188,7 +210,8 @@ async function shareReading() {
         @pointerdown.stop
       >
         <button type="button" role="menuitem" @click="copyReading"><Copy :size="15" /><span>{{ actionState === 'copied' ? '已复制' : '复制' }}</span></button>
-        <button type="button" role="menuitem" @click="shareReading"><Share2 :size="15" /><span>分享</span></button>
+        <button type="button" role="menuitem" @click="shareReading"><Share2 :size="15" /><span>{{ selectionEnabled ? '多选分享' : '分享' }}</span></button>
+        <button v-if="deletable" type="button" class="is-danger" role="menuitem" @click="deleteReading"><Trash2 :size="15" /><span>删除</span></button>
       </div>
     </Teleport>
   </div>
@@ -207,6 +230,10 @@ async function shareReading() {
 .ai-reading-context-menu button:hover,
 .ai-reading-context-menu button:focus-visible { background: var(--ds-accent-soft); color: var(--ds-text-primary); outline: 0; }
 .ai-reading-context-menu svg { color: var(--ds-text-tertiary); flex: 0 0 auto; }
+.ai-reading-context-menu button.is-danger { color: var(--ds-danger); }
+.ai-reading-context-menu button.is-danger svg { color: currentColor; }
+.ai-reading-context-menu button.is-danger:hover,
+.ai-reading-context-menu button.is-danger:focus-visible { background: color-mix(in srgb, var(--ds-danger) 10%, transparent); color: var(--ds-danger); }
 @media (prefers-reduced-motion: reduce) {
   .ai-reading-action-button { transition: none; }
 }

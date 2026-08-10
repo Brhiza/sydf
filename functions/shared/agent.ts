@@ -17,6 +17,7 @@ type AgentToolName =
   | 'read_qizheng'
   | 'cast_liuyao'
   | 'cast_meihua'
+  | 'cast_xiaoliuren'
   | 'cast_qimen'
   | 'cast_liuren'
   | 'cast_taiyi'
@@ -125,6 +126,7 @@ const agentTools: AgentToolDefinition[] = [
   { name: 'read_qizheng', description: '调用七政四余传统星命盘。仅用于明确提到七政四余、果老星宗、宿度、罗睺、计都、月孛或紫炁的问题。需要出生案例。', parameters: emptyParameters },
   { name: 'cast_liuyao', description: '调用六爻。适合有明确对象和时间范围的单件问事，如能否、成败、结果、进展、对方态度、关系走向、求职录取、交易或失物。', parameters: emptyParameters },
   { name: 'cast_meihua', description: '调用梅花易数。适合突发念头、宽泛问事、临时取象，或其他工具都不明显适合的问题。', parameters: emptyParameters },
+  { name: 'cast_xiaoliuren', description: '调用小六壬。适合明确提到小六壬，或希望以月、日、时快速判断眼前事项吉凶的问题。', parameters: emptyParameters },
   { name: 'cast_qimen', description: '调用奇门遁甲。适合行动时机、方位、出行、布局、谈判、竞争、寻找失物、决策策略。scope 按问题时间跨度选择。', parameters: { type: 'object', properties: { scope: { type: 'string', enum: ['hour', 'day', 'month', 'year'], description: '当下行动用 hour，某日用 day，月度用 month，年度用 year。' } }, required: ['scope'], additionalProperties: false } },
   { name: 'cast_liuren', description: '调用大六壬。适合人物关系复杂、过程多变的现实事件，尤其商业合作、官非纠纷、职场博弈、多人事件和事情来龙去脉。', parameters: emptyParameters },
   { name: 'cast_taiyi', description: '调用太乙神数。仅用于明确提到太乙，或宏观年度、群体、地区与大势问题，不用于普通个人小事。', parameters: emptyParameters },
@@ -327,6 +329,7 @@ function selectionFromCall(call: { name: AgentToolName; arguments: Record<string
   const divinationKind = ({
     cast_liuyao: 'liuyao',
     cast_meihua: 'meihua',
+    cast_xiaoliuren: 'xiaoliuren',
     cast_qimen: 'qimen',
     cast_liuren: 'liuren',
     cast_taiyi: 'taiyi',
@@ -341,10 +344,16 @@ function selectionFromCall(call: { name: AgentToolName; arguments: Record<string
 }
 
 async function requestSelection(config: AiProviderConfig, userPrompt: string) {
-  const result = await requestProviderJson(config, buildProviderBody(config, userPrompt));
-  const call = extractToolCall(result, config.apiType);
-  if (!call) throw new Error('model did not call an allowed tool');
-  return selectionFromCall(call);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const result = await requestProviderJson(config, buildProviderBody(config, userPrompt), controller.signal);
+    const call = extractToolCall(result, config.apiType);
+    if (!call) throw new Error('model did not call an allowed tool');
+    return selectionFromCall(call);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function handleAgentPost(context: { request: Request; env: AiEnv }) {

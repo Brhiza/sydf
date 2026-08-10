@@ -46,11 +46,36 @@ interface AgentSelectionRequest {
 }
 
 const chartKinds = new Set<AgentChartKind>(['bazi', 'ziwei', 'astrolabe', 'qizheng', 'bazi-ziwei']);
-const divinationKinds = new Set<DivinationKind>(['meihua', 'liuyao', 'ssgw', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi', 'almanac']);
+const divinationKinds = new Set<DivinationKind>(['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi', 'almanac']);
+const directlyCastableKinds = new Set<DivinationKind>(['meihua', 'liuyao', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi']);
 const qimenScopes = new Set<AgentQimenScope>(['hour', 'day', 'month', 'year']);
 const baziFortuneScopes = new Set<AgentBaziFortuneScope>(['natal', 'full', 'dayun', 'year']);
 const ziweiFortuneScopes = new Set<AgentZiweiFortuneScope>(['origin', 'full', 'decadal', 'yearly']);
 const astrolabeFortuneScopes = new Set<AgentAstrolabeFortuneScope>(['natal', 'full', 'yearly', 'monthly', 'daily']);
+const explicitlyNamedTools: Array<{ tool: string; pattern: RegExp }> = [
+  { tool: 'bazi', pattern: /八字|四柱/ },
+  { tool: 'ziwei', pattern: /紫[微薇]|斗数/ },
+  { tool: 'astrolabe', pattern: /西方占星|星盘|占星/ },
+  { tool: 'qizheng', pattern: /七政四余|果老星宗/ },
+  { tool: 'liuyao', pattern: /六爻/ },
+  { tool: 'meihua', pattern: /梅花易数|梅花/ },
+  { tool: 'xiaoliuren', pattern: /小六壬/ },
+  { tool: 'jinkoujue', pattern: /金口诀/ },
+  { tool: 'qimen', pattern: /奇门遁甲|奇门/ },
+  { tool: 'liuren', pattern: /大六壬/ },
+  { tool: 'taiyi', pattern: /太乙神数|太乙/ },
+  { tool: 'wuyun-liuqi', pattern: /五运六气/ },
+  { tool: 'huangji-jingshi', pattern: /皇极经世/ },
+  { tool: 'almanac', pattern: /黄历|择日/ },
+  { tool: 'ssgw', pattern: /三山国王|灵签|求签|抽签/ },
+];
+
+export function getImmediateActiveDivinationSelection(question: string, activeTool: string | undefined, hasConversation: boolean): AgentToolSelection | null {
+  if (hasConversation || !directlyCastableKinds.has(activeTool as DivinationKind)) return null;
+  const namedTools = explicitlyNamedTools.filter(({ pattern }) => pattern.test(question)).map(({ tool }) => tool);
+  if (namedTools.some((tool) => tool !== activeTool)) return null;
+  return { mode: 'divination', divinationKind: activeTool as DivinationKind };
+}
 
 function validYear(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1900 && value <= 2199 ? value : undefined;
@@ -149,15 +174,32 @@ function responseError(payload: unknown, status: number) {
   return status === 404 ? '工具选择服务尚未接入当前环境。' : 'AI 暂时无法选择术式。';
 }
 
-export async function requestAgentToolSelection(payload: AgentSelectionRequest, signal?: AbortSignal): Promise<AgentToolSelection> {
-  const response = await fetch('/api/agent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal,
-  });
-  const result = await response.json().catch(() => null) as unknown;
-  if (!response.ok) throw new Error(responseError(result, response.status));
-  if (!result || typeof result !== 'object' || !('selection' in result)) throw new Error('AI 工具选择结果无法识别。');
-  return parseSelection(result.selection);
+export async function requestAgentToolSelection(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 15_000): Promise<AgentToolSelection> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromCaller = () => controller.abort(signal?.reason);
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener('abort', abortFromCaller, { once: true });
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const response = await fetch('/api/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const result = await response.json().catch(() => null) as unknown;
+    if (!response.ok) throw new Error(responseError(result, response.status));
+    if (!result || typeof result !== 'object' || !('selection' in result)) throw new Error('AI 工具选择结果无法识别。');
+    return parseSelection(result.selection);
+  } catch (error) {
+    if (timedOut) throw new Error('AI 选择工具等待超时，请重试。');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abortFromCaller);
+  }
 }
