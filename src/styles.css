@@ -4030,31 +4030,36 @@ body {
 /* 对话终版：统一消息阅读节奏、Markdown 排版与输入区安全距离。 */
 .tools-screen.is-chat { gap: 18px; }
 .tools-screen.is-chat .chat-conversation {
-  gap: 20px;
-  padding: 8px 4px 22px;
-  scroll-padding-bottom: 22px;
+  gap: 16px;
+  padding: 10px 4px 24px;
+  scroll-padding-bottom: 24px;
 }
 .tools-screen.is-chat .chat-composer-docked {
   margin: 0 auto;
 }
-.chat-message.is-assistant { justify-self: start; width: min(700px, 92%); }
-.chat-message > span { font-size: var(--type-caption); margin-bottom: 6px; }
+.chat-message { min-width: 0; }
+.chat-message.is-assistant { justify-self: start; max-width: none; width: min(720px, 94%); }
+.chat-message.is-user { max-width: min(560px, 82%); }
 .chat-message p,
-.chat-message .chat-markdown {
+.chat-message .ai-reading-action-host {
   background: var(--accent-soft);
-  border-radius: 4px 14px 14px 14px;
+  border-radius: 5px 15px 15px 15px;
   color: var(--ink);
-  font-size: 13px;
-  line-height: 1.82;
+  font-size: var(--type-body);
+  line-break: strict;
+  line-height: 1.86;
   margin: 0;
   overflow-wrap: anywhere;
-  padding: 12px 14px;
+  padding: 13px 15px;
+  text-wrap: pretty;
 }
 .chat-message.is-user p {
   background: color-mix(in srgb, var(--accent-soft) 78%, var(--accent) 22%);
   color: var(--ink);
+  line-height: 1.76;
   white-space: pre-wrap;
 }
+.chat-message .chat-markdown { background: transparent; border-radius: 0; padding: 0; }
 .chat-markdown > :first-child { margin-top: 0; }
 .chat-markdown > :last-child { margin-bottom: 0; }
 .chat-markdown p { background: transparent; border-radius: 0; padding: 0; }
@@ -4077,6 +4082,7 @@ body {
 .chat-markdown h2 { font-size: 16px; }
 .chat-markdown h3,
 .chat-markdown h4 { font-size: 14px; }
+.chat-markdown strong { color: color-mix(in srgb, var(--ink) 92%, var(--accent-strong)); font-weight: 680; }
 .chat-markdown ul,
 .chat-markdown ol { padding-left: 1.45em; }
 .chat-markdown li + li { margin-top: 4px; }
@@ -4130,14 +4136,16 @@ body {
   }
   .tools-screen.is-chat { gap: 0; }
   .tools-screen.is-chat .chat-conversation {
-    gap: 17px;
-    padding: 0 1px max(158px, calc(env(safe-area-inset-bottom) + 144px));
-    scroll-padding-bottom: max(158px, calc(env(safe-area-inset-bottom) + 144px));
+    gap: 14px;
+    padding: 2px 1px max(184px, calc(env(safe-area-inset-bottom) + 170px));
+    scroll-padding-bottom: max(184px, calc(env(safe-area-inset-bottom) + 170px));
   }
-  .chat-message.is-assistant { width: min(100%, 94%); }
+  .chat-message.is-assistant { width: 100%; }
+  .chat-message.is-user { max-width: 86%; }
   .chat-message p,
-  .chat-message .chat-markdown { font-size: 13px; line-height: 1.76; padding: 11px 12px; }
+  .chat-message .ai-reading-action-host { font-size: 13px; line-height: 1.82; padding: 12px 13px; }
   .chat-markdown p { padding: 0; }
+  .tools-screen.is-chat .composer-textarea { max-height: 132px; }
 }
 
 /* 八字排盘：原局四柱与当前四级岁运合为一张传统盘，完整岁运浏览置于底部。 */

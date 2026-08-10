@@ -212,6 +212,13 @@ const selectedType = computed(() => compatibilityTypeOptions.find((item) => item
 const hasEnoughCases = computed(() => props.cases.length >= 2);
 const loading = computed(() => Boolean(loadingPhase.value));
 const canSend = computed(() => Boolean(reading.value && question.value.trim() && !loading.value && !pendingQuestion.value));
+const lastAssistantMessageId = computed(() => {
+  for (let index = messages.value.length - 1; index >= 0; index -= 1) {
+    const message = messages.value[index];
+    if (message?.role === 'assistant') return message.id;
+  }
+  return null;
+});
 const casesSignature = computed(() => props.cases.map((item) => [
   item.id,
   item.label,
@@ -699,21 +706,17 @@ function genderLabel(profile: CompatibilityCase) {
           class="compatibility-message"
           :class="[`is-${message.role}`, { 'is-failed': message.failed }]"
         >
-          <span>{{ message.role === 'user' ? '你' : '时月东方' }}</span>
           <p v-if="message.role === 'user'">{{ message.content }}</p>
-          <div v-else class="compatibility-answer-bubble">
+          <AiReadingActions v-else class="compatibility-answer-bubble" :content="message.content" :title="`${selectedType.label}合盘解读`" :show-inline="message.id === lastAssistantMessageId">
             <ChatMarkdown class="compatibility-markdown" :content="message.content" />
-            <AiReadingActions :content="message.content" :title="`${selectedType.label}合盘解读`" />
-          </div>
+          </AiReadingActions>
         </div>
 
         <div v-if="loading" class="compatibility-message is-assistant">
-          <span>时月东方</span>
           <p class="compatibility-typing"><LoaderCircle class="spin" :size="14" />{{ loadingPhase === 'calculating' ? '正在准备双方合盘资料……' : loadingPhase === 'following-up' ? '正在结合上文回答……' : '正在生成合盘解读……' }}</p>
         </div>
 
         <div v-if="error" class="compatibility-message is-assistant">
-          <span>时月东方</span>
           <div class="compatibility-error-bubble" role="alert"><p>{{ error }}</p><AiPromptFallback v-if="lastAiRequest" :request="lastAiRequest" @retry="retryPendingQuestion" /></div>
         </div>
         <div ref="chatEnd" class="compatibility-chat-end" aria-hidden="true"></div>
@@ -791,15 +794,13 @@ function genderLabel(profile: CompatibilityCase) {
 .compatibility-case-bubble > svg { color: var(--ds-text-tertiary); flex: 0 0 auto; }
 .compatibility-case-link-icon { color: var(--ds-accent); flex: 0 0 auto; }
 .compatibility-chat-type { background: var(--ds-accent-soft); border-radius: 999px; color: var(--ds-accent-strong); flex: 0 0 auto; font-size: var(--ds-text-xs); padding: 4px 9px; }
-.compatibility-chat-stream { align-content: start; display: grid; flex: 1 1 auto; gap: 17px; min-height: 0; overflow-y: auto; padding: 7px 2px 18px; scroll-padding-bottom: 18px; scrollbar-width: none; width: 100%; }
+.compatibility-chat-stream { align-content: start; display: grid; flex: 1 1 auto; gap: 15px; min-height: 0; overflow-y: auto; padding: 7px 2px 20px; scroll-padding-bottom: 20px; scrollbar-width: none; width: 100%; }
 .compatibility-chat-stream::-webkit-scrollbar { display: none; }
-.compatibility-message { max-width: min(700px, 88%); }
-.compatibility-message > span { color: var(--ds-text-tertiary); display: block; font-size: var(--ds-text-xs); margin: 0 8px 5px; }
-.compatibility-message > p, .compatibility-answer-bubble, .compatibility-error-bubble { background: var(--ds-surface-muted); border-radius: 4px var(--ds-radius-md) var(--ds-radius-md) var(--ds-radius-md); color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: 1.75; margin: 0; padding: 12px 14px; }
+.compatibility-message { max-width: min(720px, 94%); min-width: 0; }
+.compatibility-message > p, .compatibility-answer-bubble, .compatibility-error-bubble { background: var(--ds-surface-muted); border-radius: 5px var(--ds-radius-md) var(--ds-radius-md) var(--ds-radius-md); color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: 1.82; margin: 0; overflow-wrap: anywhere; padding: 13px 15px; }
 .compatibility-answer-bubble :deep(.compatibility-markdown) { color: inherit; }
 .compatibility-message > p { white-space: pre-wrap; }
-.compatibility-message.is-user { justify-self: end; }
-.compatibility-message.is-user > span { text-align: right; }
+.compatibility-message.is-user { justify-self: end; max-width: min(560px, 82%); }
 .compatibility-message.is-user > p { background: var(--ds-accent-soft); border-radius: var(--ds-radius-md) 4px var(--ds-radius-md) var(--ds-radius-md); color: var(--ds-text-primary); }
 .compatibility-message.is-failed > p { border: 1px solid color-mix(in srgb, var(--ds-danger) 35%, var(--ds-line)); opacity: .78; }
 .compatibility-typing { align-items: center; display: flex; gap: 8px; }
@@ -847,8 +848,10 @@ function genderLabel(profile: CompatibilityCase) {
   .compatibility-case-copy strong { font-size: 12px; }
   .compatibility-case-link-icon { height: 14px; width: 14px; }
   .compatibility-chat-type { font-size: 11px; padding: 4px 7px; }
-  .compatibility-chat-stream { padding-top: 3px; }
-  .compatibility-message { max-width: 92%; }
+  .compatibility-chat-stream { gap: 14px; padding-top: 3px; }
+  .compatibility-message { max-width: 100%; }
+  .compatibility-message.is-user { max-width: 86%; }
+  .compatibility-message > p, .compatibility-answer-bubble, .compatibility-error-bubble { padding: 12px 13px; }
 }
 
 @media (prefers-color-scheme: dark) {

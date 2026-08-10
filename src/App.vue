@@ -1080,6 +1080,13 @@ const pendingCastingQuestion = ref('');
 const oracleInitialQuestion = ref('');
 const oracleResult = ref<SsgwData | null>(null);
 const chatMessages = ref<ChatMessage[]>([]);
+const lastAssistantTextMessageIndex = computed(() => {
+  for (let index = chatMessages.value.length - 1; index >= 0; index -= 1) {
+    const message = chatMessages.value[index];
+    if (message?.kind === 'text' && message.role === 'assistant') return index;
+  }
+  return -1;
+});
 const aiAnswer = ref('');
 const aiError = ref('');
 const lastAiRequest = ref<AiInterpretationRequest | null>(null);
@@ -4844,13 +4851,12 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <template v-for="(message, index) in chatMessages" :key="`${message.kind}-${message.role}-${index}`">
                 <div v-if="message.kind === 'reading'" class="chat-reading-message is-user"><button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button></div>
                 <div v-else-if="message.kind === 'text'" class="chat-message" :class="`is-${message.role}`">
-                  <span>{{ message.role === 'user' ? '你' : '时月东方' }}</span>
                   <p v-if="message.role === 'user'">{{ message.content }}</p>
-                  <template v-else><ChatMarkdown :content="message.content" /><AiReadingActions :content="message.content" title="时月东方解读" /></template>
+                  <AiReadingActions v-else :content="message.content" title="时月东方解读" :show-inline="index === lastAssistantTextMessageIndex"><ChatMarkdown :content="message.content" /></AiReadingActions>
                 </div>
               </template>
-              <div v-if="isInterpreting" class="chat-message is-assistant"><span>时月东方</span><p class="ai-typing">正在观象……</p></div>
-              <div v-if="aiError" class="chat-message is-assistant"><span>时月东方</span><p class="ai-error">{{ aiError }}</p><AiPromptFallback v-if="lastAiRequest" :request="lastAiRequest" @retry="retryLastInterpretation" /></div>
+              <div v-if="isInterpreting" class="chat-message is-assistant"><p class="ai-typing">正在观象……</p></div>
+              <div v-if="aiError" class="chat-message is-assistant"><p class="ai-error">{{ aiError }}</p><AiPromptFallback v-if="lastAiRequest" :request="lastAiRequest" @retry="retryLastInterpretation" /></div>
             </div>
 
             <div class="chat-composer chat-composer-docked">
