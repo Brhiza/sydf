@@ -1034,7 +1034,7 @@ body {
 .chat-composer-docked {
   background: rgba(255, 255, 255, .94);
   border-color: #d8d4de;
-  box-shadow: 0 16px 36px rgba(48, 42, 57, .1);
+  box-shadow: var(--ds-shadow-sm);
 }
 .chat-composer textarea,
 .inspiration-search,
@@ -1135,7 +1135,7 @@ body {
   .chat-composer-docked {
     background: rgba(37, 34, 43, .96);
     border-color: #494450;
-    box-shadow: 0 18px 46px rgba(0, 0, 0, .35);
+    box-shadow: var(--ds-shadow-sm);
   }
   .chat-composer textarea,
 .inspiration-search,
@@ -4041,7 +4041,7 @@ body {
 .tools-screen.is-chat { gap: 7px; }
 .tools-screen.is-chat .chat-conversation {
   gap: 16px;
-  padding: 2px 4px 0;
+  padding: 18px 4px 0;
   scroll-padding-bottom: 8px;
 }
 .tools-screen.is-chat .chat-composer-docked {
@@ -4227,7 +4227,7 @@ body {
   .tools-screen.is-chat { gap: 0; height: calc(100dvh - var(--ds-topbar-height)); min-height: 0; overflow: hidden; }
   .tools-screen.is-chat .chat-conversation {
     gap: 14px;
-    padding: 0 1px 8px;
+    padding: 14px 1px 8px;
     scroll-padding-bottom: 8px;
   }
   .tools-screen.is-chat .chat-composer-docked {
