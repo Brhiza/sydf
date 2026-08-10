@@ -73,6 +73,19 @@ export interface AiInterpretationResponse {
   provider?: string;
 }
 
+export function buildAiInterpretationRequestBody(payload: AiInterpretationRequest) {
+  const reading = payload.reading
+    ? {
+        summary: payload.reading.summary,
+        ...(payload.reading.prompt ? { prompt: payload.reading.prompt } : {}),
+      }
+    : undefined;
+  return {
+    ...payload,
+    ...(reading ? { reading } : {}),
+  };
+}
+
 export async function requestAiModels(aiConfig: AiCustomConfig, signal?: AbortSignal): Promise<string[]> {
   const response = await fetch('/api/models', {
     method: 'POST',
@@ -97,7 +110,9 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
   const response = await fetch('/api/interpret', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    // 排盘原始对象可能带有数万字的计算链和审计依据。模型只需要已经筛选过的 prompt；
+    // 在网络边界统一剔除 data，避免调用方遗漏清理。
+    body: JSON.stringify(buildAiInterpretationRequestBody(payload)),
     signal,
   });
   const result = await response.json().catch(() => null) as unknown;
