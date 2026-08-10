@@ -24,7 +24,7 @@
   .birth-picker-trigger > svg:last-child { color: #8f8795; }
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 #app, #app * { font-family: var(--font-sans); }
 html, body, #app { height: 100%; min-height: 100%; }
 html { min-width: 320px; scroll-behavior: smooth; }
@@ -1000,8 +1000,8 @@ h1, h2, h3, p { margin-top: 0; }
 
 @media (max-width: 360px) {
   .topbar { padding-left: 8px; padding-right: 8px; }
-  .topbar-ai-picker { max-width: 35vw; }
-  .topbar-ai-trigger { padding-left: 5px; padding-right: 5px; }
+  .topbar-ai-picker { max-width: 38vw; }
+  .topbar-ai-trigger { grid-template-columns: minmax(0, 1fr); padding-left: 5px; padding-right: 5px; }
   .topbar-ai-trigger > svg:first-child, .topbar-ai-trigger > svg:last-child { display: none; }
   .topbar-ai-trigger > span { max-width: 100%; }
   .case-trigger span, .history-trigger span { display: none; }
@@ -1730,7 +1730,7 @@ body {
   }
   .home-default { padding-bottom: 190px; }
   .home-default .chat-composer-docked,
-  .tools-screen.is-chat .chat-composer-docked { bottom: max(34px, calc(env(safe-area-inset-bottom) + 26px)); }
+  .tools-screen.is-chat .chat-composer-docked { bottom: max(48px, calc(env(safe-area-inset-bottom) + 40px)); }
   .tools-screen.is-chat { padding-bottom: 27px; }
   .onboarding-layer { align-items: stretch; padding: 0; }
   .onboarding-dialog { border: 0; border-radius: 0; height: 100dvh; max-height: none; width: 100%; }
@@ -2131,22 +2131,22 @@ body {
 .onboarding-ai-current > svg { flex: 0 0 auto; }
 
 @media (max-width: 720px) {
-  .topbar-ai-picker { max-width: min(34vw, 126px); }
-  .topbar-ai-trigger { min-height: 38px; padding-left: 22px; padding-right: 22px; }
-  .topbar-ai-trigger-copy { max-width: 78px; }
+  .topbar-ai-picker { max-width: min(38vw, 150px); }
+  .topbar-ai-trigger { min-height: 38px; padding-left: 10px; padding-right: 10px; width: 100%; }
+  .topbar-ai-trigger-copy { max-width: 104px; }
   .topbar-ai-trigger-copy strong,
-  .topbar-ai-trigger-copy small { max-width: 78px; }
+  .topbar-ai-trigger-copy small { max-width: 104px; }
   .topbar-ai-menu { left: 50%; max-height: calc(100dvh - 66px); overflow-y: auto; position: absolute; top: calc(100% + 8px); transform: translateX(-50%); width: min(320px, calc(100vw - 20px)); }
   .onboarding-model-row { align-items: stretch; grid-template-columns: 1fr; }
 }
 
 @media (max-width: 390px) {
-  .topbar-ai-picker { max-width: 30vw; }
-  .topbar-ai-trigger { grid-template-columns: minmax(0, auto); padding-left: 8px; padding-right: 8px; }
+  .topbar-ai-picker { max-width: 38vw; }
+  .topbar-ai-trigger { grid-template-columns: minmax(0, 1fr) 13px; padding-left: 8px; padding-right: 8px; }
   .topbar-ai-trigger::before { display: none; }
   .topbar-ai-trigger-copy,
   .topbar-ai-trigger-copy strong,
-  .topbar-ai-trigger-copy small { max-width: 82px; }
+  .topbar-ai-trigger-copy small { max-width: 104px; }
 }
 
 @media (prefers-color-scheme: dark) {

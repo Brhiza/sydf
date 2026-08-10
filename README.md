@@ -58,11 +58,11 @@ pnpm build
 pnpm preview
 ```
 
-生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions、EdgeOne Cloud Functions 与 PWA。
+生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions 与 PWA。
 
 ## 部署
 
-Cloudflare Pages 与 EdgeOne Pages 使用相同的前端构建设置：
+Cloudflare Pages 使用以下构建设置：
 
 | 配置项 | 配置值 |
 | --- | --- |
@@ -75,10 +75,6 @@ Cloudflare Pages 与 EdgeOne Pages 使用相同的前端构建设置：
 ### Cloudflare Pages
 
 连接 Git 仓库并填写上述构建设置即可。Cloudflare 会自动识别 `functions/api`，提供 `/api/agent`、`/api/interpret` 和 `/api/models` 三个服务端接口。本地使用 Wrangler 时，将 `.dev.vars.example` 复制为 `.dev.vars` 并填写真实配置。
-
-### EdgeOne Pages
-
-连接 Git 仓库并填写上述构建设置。EdgeOne 会从 `cloud-functions/api` 部署同名接口；EdgeOne 与 Cloudflare 的平台入口分别保持独立，并共用 `functions/shared` 中的处理逻辑。
 
 在「项目设置 → 环境管理」中分别编辑生产和预览环境，加入以下服务端环境变量。变量更新只对之后的新部署生效，修改后需要重新部署：
 
@@ -96,8 +92,7 @@ AI_API_KEY=replace-with-your-key
 ```text
 src/              Vue 前端、业务逻辑与设计系统
 functions/api/    Cloudflare Pages Functions 入口
-functions/shared/ Cloudflare 与 EdgeOne 共用的 AI 接口逻辑
-cloud-functions/  EdgeOne Cloud Functions 入口
+functions/shared/ AI 接口共用逻辑
 public/          图标、插图与 PWA 静态资源
 vendor/          当前接入的 mingyu-core 本地包
 ```
