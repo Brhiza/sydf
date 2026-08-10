@@ -2,7 +2,53 @@ import { describe, expect, it } from 'vitest';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import type { BaziChartResult } from 'mingyu-core/bazi';
-import { buildDivinationReadingPrompt, formatReadingSummary, runDivination } from './divination';
+import { buildDivinationReadingPrompt, formatReadingSummary, runDivination, runZiweiChart, type BirthForm } from './divination';
+
+const testBirth: BirthForm = {
+  name: '测试案例',
+  gender: 'female',
+  date: '1990-06-15',
+  dateType: 'solar',
+  isLeapMonth: false,
+  time: '12:00',
+  timeBasis: 'clock',
+  locationName: '北京市 东城区',
+  latitude: '39.9042',
+  longitude: '116.4074',
+  timezone: '8',
+};
+
+describe('紫微大限流年前端链路', () => {
+  it('使用指定年份计算紫微流年并生成对应提示词', async () => {
+    const result = await runZiweiChart(testBirth, {
+      scope: 'yearly',
+      year: 2028,
+      currentTime: new Date('2026-08-09T12:00:00+08:00'),
+    });
+
+    expect(result.ziweiFortuneScope).toBe('yearly');
+    expect(result.fortuneDate).toBe('2028-08-09');
+    expect(result.payloadByScope.origin).toBeTruthy();
+    expect(result.payloadByScope.decadal).toBeTruthy();
+    expect(result.payloadByScope.yearly).toBeTruthy();
+    expect(result.payload).toBe(result.payloadByScope.yearly);
+    expect(result.prompt).toContain('2028');
+    expect(result.prompt).toContain('流年');
+  });
+
+  it('只请求原局时不会混入大限与流年范围', async () => {
+    const result = await runZiweiChart(testBirth, {
+      scope: 'origin',
+      currentTime: new Date('2026-08-09T12:00:00+08:00'),
+    });
+
+    expect(result.payloadByScope.origin).toBeTruthy();
+    expect(result.payloadByScope.decadal).toBeUndefined();
+    expect(result.payloadByScope.yearly).toBeUndefined();
+    expect(result.prompt).not.toContain('【大限盘】');
+    expect(result.prompt).not.toContain('【流年盘】');
+  });
+});
 
 describe('八字新版神煞范围适配', () => {
   it('排盘保留完整神煞，交由展示层筛选', async () => {

@@ -12,5 +12,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "vite-plugin-pwa/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "functions/**/*.ts", "cloud-functions/**/*.ts", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "functions/**/*.ts", "vite.config.ts"]
 }

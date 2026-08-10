@@ -108,8 +108,9 @@ import {
 } from './lib/ai';
 import {
   requestAgentToolSelection,
-  selectLocalAgentTool,
   type AgentToolSelection,
+  type AgentAstrolabeFortune,
+  type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
 import AiPromptFallback from './components/AiPromptFallback.vue';
@@ -320,6 +321,8 @@ interface CachedChart {
 }
 
 type AstrolabeChartData = AstrolabeData & {
+  fortuneScope?: AstrolabeScopeContext;
+  /** 兼容旧缓存。 */
   annualScope?: AstrolabeScopeContext;
 };
 
@@ -466,6 +469,16 @@ const matterInspirationGroups: InspirationGroup[] = [
     q('上下级关系', '我该怎样处理与领导、下属或同事的关系？'),
     q('职场冲突', '眼前的职场冲突应该正面处理还是暂时回避？'),
   ] },
+  { key: 'matter-retirement', label: '退休、返聘与人生转型', icon: '休', description: '退休时机、收入安排、生活重心与第二职业', questions: [
+    q('退休时机', '我现阶段适合按计划退休、延后退休，还是提前做过渡安排？'),
+    q('返聘选择', '这次返聘、顾问或兼职机会适合接受吗，边界应该怎样约定？'),
+    q('第二职业', '退休或离开原行业后，我适合发展怎样的第二职业？', '再就业 退休创业 顾问 兼职'),
+    q('收入衔接', '从工作收入转向养老金和储蓄后，我最需要先调整什么？'),
+    q('生活重心', '退休后的生活重心应该放在家庭、兴趣、社交还是继续工作？'),
+    q('退休居所', '退休后继续留在当前城市、回乡还是换一个地方生活更合适？'),
+    q('家庭协商', '退休安排会怎样影响伴侣与家人，哪些现实问题需要提前谈清楚？'),
+    q('照护准备', '进入退休阶段前，我应怎样准备健康管理、长期照护和紧急支持？'),
+  ] },
   { key: 'matter-business', label: '创业、项目与经营', icon: '商', description: '立项、合伙、客户、团队与经营节奏', questions: [
     q('是否创业', '我现在适合开始创业或独立经营吗？'),
     q('项目立项', '这个项目值得立项推进吗，关键风险是什么？'),
@@ -491,6 +504,16 @@ const matterInspirationGroups: InspirationGroup[] = [
     q('回款到账', '这笔款项的回收会遇到什么阻力，如何推进？'),
     q('大额消费', '这笔大额支出现在值得做吗？'),
     q('交易签约', '这次买卖或交易适合成交吗，需要核对什么？'),
+  ] },
+  { key: 'matter-protection', label: '保险、社保与长期保障', icon: '保', description: '投保理赔、医保社保、养老金与家庭保障', questions: [
+    q('投保判断', '这份保险是否符合我的实际保障缺口，投保前最需要核对什么？'),
+    q('险种取舍', '面对几种保障方案，我应该优先覆盖哪类风险？', '医疗险 重疾险 意外险 寿险'),
+    q('理赔进展', '这次保险理赔可能卡在哪个环节，我应该补齐哪些现实材料？'),
+    q('医保社保', '当前医保、社保或灵活就业参保安排最需要先处理什么？'),
+    q('公积金安排', '这次公积金提取、贷款或账户转移应该怎样安排更稳妥？'),
+    q('养老储备', '现阶段的养老金和长期储蓄准备是否需要调整重点？'),
+    q('家庭保障', '家庭成员之间应该怎样分配保障预算和紧急备用金？'),
+    q('受益人安排', '保单受益人和家庭财务安排有哪些关系需要提前说明？'),
   ] },
   { key: 'matter-study', label: '学业、考试与进修', icon: '学', description: '择校、专业、考试、考证与深造', questions: [
     q('专业选择', '我更适合选择哪个专业或学习方向？'),
@@ -552,6 +575,17 @@ const matterInspirationGroups: InspirationGroup[] = [
     q('室友相处', '这位室友或合租安排是否合适？'),
     q('邻里问题', '当前邻里或居住纠纷应该怎样处理？'),
     q('空间调整', '我最需要先调整家中哪个空间或生活动线？'),
+  ] },
+  { key: 'matter-vehicle', label: '车辆、驾考与交通工具', icon: '车', description: '买卖车辆、驾考上路、维修事故与长途出行', questions: [
+    q('买车选择', '我现阶段适合买车吗，应该优先考虑预算、用途还是使用成本？'),
+    q('车辆判断', '这辆新车或二手车值得购买吗，现实中最需要检查什么？'),
+    q('卖车换车', '当前适合出售或更换车辆吗，怎样安排损失更小？'),
+    q('驾考安排', '这次驾考的准备重点在哪里，考试前怎样调整更稳？'),
+    q('新手上路', '我近期开始独立驾驶最需要注意哪些安全与心理问题？'),
+    q('维修取舍', '这辆车更适合继续维修、处理后出售还是直接更换？'),
+    q('事故处理', '发生交通事故后，我应先按什么顺序处理安全、证据、保险和沟通？'),
+    q('牌照过户', '这次上牌、过户、年检或手续办理会卡在哪里？'),
+    q('长途自驾', '这次长途自驾是否适合按原计划进行，应重点检查哪些车辆与路线条件？'),
   ] },
   { key: 'matter-travel', label: '出行、换城与远行', icon: '行', description: '旅行、差旅、迁居、留学与异地发展', questions: [
     q('近期出行', '这次出行适合按原计划进行吗？'),
@@ -657,6 +691,16 @@ const matterInspirationGroups: InspirationGroup[] = [
     q('申诉复核', '这次复核、申诉或重新申请应该调整什么？'),
     q('办理时机', '这项手续现在办理合适，还是换一个时间更顺？'),
   ] },
+  { key: 'matter-digital', label: '数码、账号与平台事务', icon: '网', description: '账号申诉、数据设备、网购纠纷与线上合作', questions: [
+    q('账号申诉', '账号被限制、封禁或误判后，我应该怎样准备材料并推进申诉？', '封号 限流 平台处罚'),
+    q('数据恢复', '面对文件、照片或聊天记录丢失，我应该先采取哪些安全的恢复措施？'),
+    q('设备更换', '这台手机、电脑或数码设备适合维修、升级还是更换？'),
+    q('网购纠纷', '这次网购、二手交易或平台纠纷应该怎样保留证据并推进处理？'),
+    q('线上合作', '这次远程合作、网络签约或线上接单值得推进吗，怎样明确交付边界？'),
+    q('隐私处置', '发现账号或个人信息可能泄露后，我应该先完成哪些止损和安全设置？'),
+    q('网络骗局', '这个链接、客服、投资或兼职信息是否可疑，我应核验哪些证据再行动？', '钓鱼 盗号 刷单 虚假客服'),
+    q('平台变现', '当前平台上的内容、店铺或服务适合继续投入并尝试变现吗？'),
+  ] },
   { key: 'matter-timing', label: '日期、时机与行动安排', icon: '时', description: '婚礼、搬家、开业、签约与重要行动', questions: [
     q('结婚领证', '结婚、领证或办婚礼应该怎样选择日期？'),
     q('搬家入宅', '搬家或入宅应该怎样选择合适时间？'),
@@ -716,6 +760,12 @@ const natalInspirationGroups: InspirationGroup[] = [
   { key: 'natal-character', label: '性格与天赋', icon: '性', description: '人格底色、能力优势、盲点与成长路线', questions: [
     n('性格与天赋', '请完整解读我的性格、天赋与成长课题', '内在驱动力、思维情绪与沟通方式、决策和压力反应、稳定天赋与可迁移能力、容易过度使用的优势、认知和关系盲点，以及成长和环境选择', '性格 天赋 优势 盲点 成长 人格 能力'),
   ] },
+  { key: 'natal-emotion', label: '情绪模式与心理韧性', icon: '心', description: '安全感、压力反应、内耗来源与恢复方式', questions: [
+    n('情绪模式与心理韧性', '请完整解读我的情绪模式、内在安全感与心理韧性', '情绪感受和表达方式、安全感来源、压力与冲突反应、反复内耗的触发条件、独处和关系中的恢复方式、可依赖的心理资源，以及容易失衡和逐渐成熟的阶段', '情绪 心理 安全感 内耗 焦虑 压力 韧性 恢复'),
+  ] },
+  { key: 'natal-creativity', label: '才艺、创作与表达能力', icon: '艺', description: '审美灵感、语言表演、作品路线与长期积累', questions: [
+    n('才艺、创作与表达能力', '请完整解读我的才艺、创作与表达能力', '审美和灵感来源、文字语言、音乐表演、视觉设计或手工实作等倾向，创作纪律、公开表达和被看见的方式，兴趣与职业化的边界，以及作品积累、突破和形成影响力的阶段', '才艺 艺术 创作 写作 音乐 表演 设计 表达 灵感 作品'),
+  ] },
   { key: 'natal-family', label: '祖业、父母与家庭起点', icon: '亲', description: '家境根基、父母关系、祖业资源与早年塑造', questions: [
     n('祖业、父母与家庭起点', '请完整解读我的祖业、父母与原生家庭', '家庭资源与文化氛围、祖业和迁徙背景、父母各自的角色及亲疏模式、早年支持和限制、代际影响、离家独立、继承分配与后续照护责任', '祖业 父母 家境 原生家庭 长辈 家族 祖荫'),
   ] },
@@ -728,11 +778,17 @@ const natalInspirationGroups: InspirationGroup[] = [
   { key: 'natal-career', label: '事业、权责与社会成就', icon: '业', description: '职业赛道、组织位置、权力责任与成就上限', questions: [
     n('事业、权责与社会成就', '请完整解读我的事业格局与社会成就', '适合的行业、职能、组织和工作方式，技术、管理、顾问、创作、运营或自由职业的适配度，领导执行与资源整合能力，职位和成就条件，以及入行、升迁、跳槽、转型和收获阶段', '事业 职业 工作 行业 升迁 权力 地位 成就 官禄'),
   ] },
+  { key: 'natal-career-fit', label: '适合行业与工作方式', icon: '职', description: '行业选择、岗位角色、组织环境与职业适配', questions: [
+    n('适合行业与工作方式', '请具体解读我适合的行业、岗位与工作方式', '更能发挥优势的行业属性和职能角色，适合技术、管理、销售、顾问、创作、运营或自由职业的条件，大组织与小团队、稳定路径与高变化环境的适配度，容易消耗的工作模式，以及择业和转型的验证标准', '适合行业 职业方向 岗位 工作方式 上班 创业 自由职业 转行'),
+  ] },
   { key: 'natal-business', label: '创业、经营与合伙', icon: '商', description: '商业能力、经营模式、团队合伙与成败条件', questions: [
     n('创业、经营与合伙', '请完整解读我的创业、经营与合伙格局', '适合承担的创业角色、产品和客户判断、获客品牌、现金流与成本纪律、团队和控制权、适合的经营模式、常见合伙及扩张风险，以及立项、融资、开业、转型和退出节奏', '创业 经商 生意 经营 合伙 公司 团队 商业模式'),
   ] },
   { key: 'natal-wealth', label: '财富与资产', icon: '财', description: '收入结构、守财能力、经营投资与积累周期', questions: [
     n('财富与资产', '请完整解读我的财富结构与资产运势', '主要收入来源及稳定性、赚钱和守财方式、消费储蓄、现金流、杠杆借贷、共同财务与投资风险，以及收入增长、资产积累、债务压力、破财和收缩阶段', '财富 财运 收入 资产 投资 守财 财库 破财 现金流'),
+  ] },
+  { key: 'natal-wealth-style', label: '财库、守财与风险偏好', icon: '库', description: '财富留存、消费习惯、投资边界与破财条件', questions: [
+    n('财库、守财与风险偏好', '请具体解读我的财库、守财能力与风险偏好', '收入留存和现金流习惯、消费与储蓄驱动力、适合主动经营还是稳健积累、投资和杠杆的承受边界、共同财务及人情借贷风险、容易破财的情境，以及改善财富纪律和积累效率的阶段', '财库 守财 存钱 消费 投资 风险偏好 破财 借贷 现金流'),
   ] },
   { key: 'natal-property', label: '田宅、置业与家产', icon: '宅', description: '房产缘、居住环境、继承分配与不动产周期', questions: [
     n('田宅、置业与家产', '请完整解读我的田宅、置业与家产运势', '稳定居所和不动产倾向、置业与持有方式、居住环境、家庭出资和共同产权、祖宅继承与分配争议，以及购置、出售、搬迁、装修和资产重组阶段', '田宅 房产 买房 卖房 置业 祖宅 家产 继承 居住'),
@@ -743,11 +799,17 @@ const natalInspirationGroups: InspirationGroup[] = [
   { key: 'natal-love', label: '婚恋与伴侣', icon: '缘', description: '情感模式、适配对象、婚缘节奏与婚后课题', questions: [
     n('婚恋与伴侣', '请完整解读我的婚恋、伴侣与亲密关系', '吸引和依恋模式、情绪沟通与亲密边界、适配伴侣的性格及生活条件、短期吸引和长期适配、婚期婚后分工、家庭经济与异地影响，以及相识、承诺、危机、分合和再婚倾向', '婚恋 感情 伴侣 婚姻 桃花 配偶 夫妻宫 早婚 晚婚 离婚 再婚'),
   ] },
+  { key: 'natal-partner-profile', label: '正缘画像与婚恋时机', icon: '侣', description: '对象特征、相识环境、关系识别与婚期窗口', questions: [
+    n('正缘画像与婚恋时机', '请具体解读我的适配伴侣、相识方式与婚恋时机', '长期适配对象的性格、价值观、生活方式和现实条件，容易相识的环境与关系路径，短期吸引和稳定关系的识别信号，关系中的互补与冲突，以及较适合相识、确认、结婚和重新选择的阶段', '正缘 配偶画像 对象特征 相识 桃花 婚期 结婚 早婚 晚婚'),
+  ] },
   { key: 'natal-children', label: '生育、子息与传承', icon: '子', description: '子息缘、孕育节律、数量象意、亲子教育与传承', questions: [
     n('生育、子息与传承', '请完整解读我的生育、子息与家庭传承', '子息缘和生育意愿、孕育承载与阻力、数量和性别的传统象意、晚育再育或收养等可能、备孕孕产的现实配合、亲子关系和教育方式，以及孕育养育和关系变化阶段', '子女 子息 生育 怀孕 备孕 数量 性别 晚育 流产 亲子 传承'),
   ] },
   { key: 'natal-health', label: '疾厄、体质与疾病风险', icon: '疾', description: '易感系统、疾病象意、情绪身心与恢复能力', questions: [
     n('疾厄、体质与疾病风险', '请完整解读我的体质、疾厄与疾病风险', '先天体质与恢复倾向、主要和次要易感系统、慢性急性、外伤手术、睡眠情绪与压力反应，以及容易失衡、反复和恢复的阶段与现实检查方向', '健康 疾病 病灶 体质 脏腑 慢性病 手术 心理 疾厄'),
+  ] },
+  { key: 'natal-lifestyle', label: '饮食、作息与生活方式', icon: '养', description: '精力节律、饮食睡眠、运动习惯与环境调整', questions: [
+    n('饮食、作息与生活方式', '请完整解读适合我的饮食、作息与生活方式', '精力高低和恢复节律、饮食偏好与容易失衡的习惯、睡眠压力、运动和体重管理、工作休息边界、适合的居住及自然环境，以及不同年龄阶段需要优先调整的生活方式；不替代医学诊断和营养建议', '饮食 作息 睡眠 运动 生活习惯 养生 精力 体重 环境'),
   ] },
   { key: 'natal-longevity', label: '寿元与生命节律', icon: '寿', description: '生命力、寿元层次、健康承载与关键关口', questions: [
     n('寿元与生命节律', '请按传统体系完整解读我的寿元与生命节律', '先天生命力、恢复力与寿元层次的传统倾向，童年到晚年的生命节律，健康和安全压力较高的阶段、保护因素和可调整条件；资料不足时不确定具体死亡年龄', '寿命 寿元 阳寿 长寿 短寿 夭寿 生死关 生命力'),
@@ -761,14 +823,29 @@ const natalInspirationGroups: InspirationGroup[] = [
   { key: 'natal-social', label: '人际、贵人与合作', icon: '交', description: '社交圈层、贵人小人、合作角色与利益边界', questions: [
     n('人际、贵人与合作', '请完整解读我的人际、贵人与合作格局', '社交需求、信任沟通与人情边界，贵人和消耗型关系的特征，团队中的适合角色、授权协商、利益分配、朋友借贷与长期合作风险，以及圈层变化和合作成败阶段', '人际 贵人 小人 合作 团队 社交 朋友 圈层 信任'),
   ] },
+  { key: 'natal-support-network', label: '贵人、小人与关键人脉', icon: '助', description: '助力来源、消耗型关系、识人边界与合作年份', questions: [
+    n('贵人、小人与关键人脉', '请具体解读我的贵人、小人与关键人脉', '容易提供机会、资源或保护的贵人特征和相识场景，消耗型、竞争型或失信关系的识别信号，自己在关系中的盲点，适合的社交圈层与合作边界，以及贵人出现、关系洗牌和合作风险较高的阶段', '贵人 小人 人脉 圈层 朋友 合作 助力 背叛 识人'),
+  ] },
   { key: 'natal-migration', label: '迁移、海外与环境适配', icon: '迁', description: '离乡发展、城市选择、远行海外与安居条件', questions: [
     n('迁移、海外与环境适配', '请完整解读我的迁移、异地与环境发展', '留乡、换城、跨区域、留学外派或海外发展的适配条件，迁移对事业、财富、关系和身心的影响，不同城市环境与生活节奏的选择，以及远行、搬迁、定居和回流阶段', '迁移 换城 异地 海外 留学 移民 外派 定居 环境 驿马'),
+  ] },
+  { key: 'natal-location-fit', label: '适合城市、方位与气候', icon: '方', description: '地域属性、生活节奏、气候环境与长期定居', questions: [
+    n('适合城市、方位与气候', '请具体解读我适合的城市、方位与生活环境', '更适配的地域属性、城市规模、产业结构、生活节奏、气候湿燥寒热和自然环境，留乡与离乡、内陆与沿海、国内与海外的现实取舍，环境对事业关系和身心的影响，以及迁居和定居的有利阶段', '城市 方位 地域 气候 沿海 内陆 南方 北方 定居 环境'),
   ] },
   { key: 'natal-spiritual', label: '精神世界与玄学缘分', icon: '玄', description: '直觉梦境、信仰修行、艺术灵感与内在安顿', questions: [
     n('精神世界与玄学缘分', '请完整解读我的精神世界、信仰与玄学缘分', '直觉梦境、想象和艺术感受，独处与意义追问，对宗教哲学、传统文化、心理学或术数的亲近方式，洞察和焦虑投射的区别，以及适合的学习边界和精神转折阶段', '玄学 宗教 信仰 修行 灵性 梦境 直觉 华盖 偏印'),
   ] },
+  { key: 'natal-fortune', label: '福德、享受与生活品质', icon: '福', description: '满足感、福分承载、休闲方式与精神富足', questions: [
+    n('福德、享受与生活品质', '请完整解读我的福德、满足感与生活品质', '感受幸福和放松的方式、物质享受与精神满足的平衡、兴趣休闲和独处能力、获得支持与承接好运的条件、容易空耗或过度追逐的部分，以及生活品质提升、内在安定和福分积累的阶段', '福德 福气 享受 幸福感 生活品质 兴趣 休闲 精神富足'),
+  ] },
   { key: 'natal-later-life', label: '晚年、养老与人生收束', icon: '归', description: '晚景质量、养老资源、子女支持与精神归宿', questions: [
     n('晚年、养老与人生收束', '请完整解读我的晚年、养老与人生归宿', '中晚年的物质和居住基础、伴侣子女与社交支持、健康照护和自主能力、适合的生活形态、孤独与代际边界，以及退休转换、资产收束、养老地点、照护预案和传承安排', '晚年 晚景 养老 退休 归宿 子女照护 遗嘱 传承'),
+  ] },
+  { key: 'natal-retirement', label: '退休转型与第二人生', icon: '休', description: '退出职场、角色转换、第二事业与生活重建', questions: [
+    n('退休转型与第二人生', '请完整解读我的退休转型与第二人生', '适合离开主职或降低工作强度的条件，退休前后的身份和收入转换，返聘、顾问、兴趣事业或公益参与的适配度，伴侣家庭和社交关系的重新分配，以及退休准备、第二成长和生活稳定的阶段', '退休 返聘 第二职业 第二人生 顾问 兴趣事业 生活转型'),
+  ] },
+  { key: 'natal-timing', label: '关键年份与重要应期', icon: '期', description: '人生转折、事件触发、验证线索与提前准备', questions: [
+    n('关键年份与重要应期', '请梳理我的关键年份、人生转折与重要应期', '学业、事业、财富、婚恋、家庭、迁移和健康安全等领域的重要阶段，事件被触发的盘面条件、前兆与现实验证线索，区分机会窗口、压力测试和结果落地，并重点说明已经历阶段、当前阶段和未来可准备的年份', '关键年份 应期 转折点 大事 时间节点 过去验证 未来阶段'),
   ] },
   { key: 'natal-decadal', label: '大运与人生阶段', icon: '运', description: '十年周期、阶段主线、转折与资源变化', questions: [
     n('大运与人生阶段', '请完整解读我的大运与人生阶段', '每一主要人生周期的核心主题、身份和资源变化，事业财富、关系家庭、健康安全与迁移重点，起步、上升、转换、压力、收获和休整阶段，并详解当前与下一阶段的转折和行动重点', '大运 十年运 人生阶段 转折 起伏 当前大运 下一大运'),
@@ -893,6 +970,8 @@ const selectedZiweiScope = ref<ZiweiScope>('origin');
 const selectedZiweiPalaceIndex = ref(0);
 const dailyFortune = ref<DailyFortuneResult | null>(null);
 const agentBaziFortune = ref<BaziFortuneRequest | null>(null);
+const agentZiweiFortune = ref<AgentZiweiFortune | null>(null);
+const agentAstrolabeFortune = ref<AgentAstrolabeFortune | null>(null);
 const selectedWuyunYear = ref(new Date().getFullYear());
 const selectedHuangjiYear = ref(new Date().getFullYear());
 let chatSessionId = 1;
@@ -1001,6 +1080,13 @@ const pendingCastingQuestion = ref('');
 const oracleInitialQuestion = ref('');
 const oracleResult = ref<SsgwData | null>(null);
 const chatMessages = ref<ChatMessage[]>([]);
+const lastAssistantTextMessageIndex = computed(() => {
+  for (let index = chatMessages.value.length - 1; index >= 0; index -= 1) {
+    const message = chatMessages.value[index];
+    if (message?.kind === 'text' && message.role === 'assistant') return index;
+  }
+  return -1;
+});
 const aiAnswer = ref('');
 const aiError = ref('');
 const lastAiRequest = ref<AiInterpretationRequest | null>(null);
@@ -2410,13 +2496,18 @@ function inferAlmanacTopic(text: string): AlmanacPurpose | '' {
 }
 
 function applyAgentSelection(selection: AgentToolSelection, questionText: string) {
+  if (selection.mode === 'continue') return;
   homeMode.value = selection.mode;
   if (selection.mode === 'chart') {
     homeChartKind.value = selection.chartKind;
     agentBaziFortune.value = selection.baziFortune || null;
+    agentZiweiFortune.value = selection.ziweiFortune || null;
+    agentAstrolabeFortune.value = selection.astrolabeFortune || null;
     return;
   }
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   selectedKind.value = selection.divinationKind;
   if (selection.divinationKind === 'qimen' && selection.qimenScope) settings.qimenScope = selection.qimenScope;
   if (selection.divinationKind === 'wuyun-liuqi') selectedWuyunYear.value = selection.wuyunYear || new Date().getFullYear();
@@ -2425,15 +2516,14 @@ function applyAgentSelection(selection: AgentToolSelection, questionText: string
 }
 
 async function resolveAgentSelection(questionText: string) {
-  const localSelection = selectLocalAgentTool(questionText);
+  const previousTool = homeState.value === 'chat' && chatMessages.value.length
+    ? homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value
+    : undefined;
   const sessionId = chatSessionId;
   agentAbortController?.abort();
   const controller = new AbortController();
   agentAbortController = controller;
   try {
-    const previousTool = homeState.value === 'chat' && chatMessages.value.length
-      ? homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value
-      : undefined;
     const conversation = chatMessages.value
       .filter((message): message is ChatTextMessage => message.kind === 'text')
       .slice(-6)
@@ -2443,15 +2533,15 @@ async function resolveAgentSelection(questionText: string) {
       hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
       inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
       previousTool,
+      activeTool: appPreferences.displayLevel === 'basic'
+        ? undefined
+        : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value,
       castingPreference: appPreferences.castingPreference,
       conversation,
       aiConfig: activeAiRequestConfig.value,
     }, controller.signal);
     if (sessionId !== chatSessionId || controller.signal.aborted) throw new DOMException('会话已结束', 'AbortError');
     return selection;
-  } catch (error) {
-    if (sessionId !== chatSessionId || controller.signal.aborted) throw error;
-    return localSelection;
   } finally {
     if (agentAbortController === controller) agentAbortController = null;
   }
@@ -2714,6 +2804,8 @@ function chooseTool(kind: DivinationKind) {
   selectedKind.value = kind;
   homeMode.value = 'divination';
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   showToolPicker.value = false;
   formError.value = '';
 }
@@ -2826,6 +2918,8 @@ function leaveChat() {
   homeState.value = 'default';
   homeMode.value = 'divination';
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   question.value = '';
   currentResult.value = null;
   currentRecord.value = null;
@@ -2843,6 +2937,8 @@ function chooseHomeChart(kind: HomeChartKind) {
   homeMode.value = 'chart';
   homeChartKind.value = kind;
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   showToolPicker.value = false;
   closeManualReading();
   chartError.value = '';
@@ -3726,22 +3822,24 @@ async function beginReading() {
     formError.value = '请先写下想问的事，或从问题灵感中选择。';
     return;
   }
-  if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading')) {
-    if (await continueCurrentReading(requestedQuestion)) return;
-  }
   const sessionId = chatSessionId;
-  if (appPreferences.displayLevel === 'basic') {
-    isReading.value = true;
-    try {
-      const selection = await resolveAgentSelection(requestedQuestion);
-      if (sessionId !== chatSessionId) return;
-      applyAgentSelection(selection, requestedQuestion);
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading');
+  isReading.value = true;
+  try {
+    const selection = await resolveAgentSelection(requestedQuestion);
+    if (sessionId !== chatSessionId) return;
+    if (selection.mode === 'continue') {
+      if (hasCurrentReading && await continueCurrentReading(requestedQuestion)) return;
+      formError.value = '当前没有可继续追问的盘面，请换一种问法。';
       return;
-    } finally {
-      if (sessionId === chatSessionId) isReading.value = false;
     }
+    applyAgentSelection(selection, requestedQuestion);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    formError.value = error instanceof Error ? error.message : 'AI 暂时无法选择合适的工具。';
+    return;
+  } finally {
+    if (sessionId === chatSessionId) isReading.value = false;
   }
   if (homeMode.value === 'chart') {
     if (!cases.value.length || !currentCase.value?.date || !currentCase.value?.time) {
@@ -3764,7 +3862,9 @@ async function beginReading() {
       if (kind === 'bazi-ziwei') {
         const [baziEntry, ziweiEntry] = await Promise.all([
           calculateCachedChart('bazi', currentCase.value),
-          calculateCachedChart('ziwei', currentCase.value),
+          agentZiweiFortune.value
+            ? calculateUncachedChart('ziwei', currentCase.value, { ziweiFortune: agentZiweiFortune.value })
+            : calculateCachedChart('ziwei', currentCase.value),
         ]);
         if (!isBazi(baziEntry.result) || !isZiwei(ziweiEntry.result)) throw new Error('合参盘面数据无法识别，请稍后重试。');
         const context = {
@@ -3801,7 +3901,11 @@ async function beginReading() {
         selectedInspirationPrompt.value = '';
         return;
       }
-      const chartEntry = await calculateCachedChart(kind, currentCase.value);
+      const chartEntry = kind === 'ziwei' && agentZiweiFortune.value
+        ? await calculateUncachedChart(kind, currentCase.value, { ziweiFortune: agentZiweiFortune.value })
+        : kind === 'astrolabe' && agentAstrolabeFortune.value
+          ? await calculateUncachedChart(kind, currentCase.value, { astrolabeFortune: agentAstrolabeFortune.value })
+          : await calculateCachedChart(kind, currentCase.value);
       if (sessionId !== chatSessionId) return;
       const result = chartEntry.result;
       const createdAt = Date.now();
@@ -3907,17 +4011,56 @@ async function beginReading() {
 
 let chartRequestId = 0;
 
-async function calculateChart(kind: ChartKind, birth: CaseProfile): Promise<ReadingResult> {
-  if (kind === 'ziwei') return await runZiweiChart(birth);
+interface AgentChartCalculationOptions {
+  ziweiFortune?: AgentZiweiFortune | null;
+  astrolabeFortune?: AgentAstrolabeFortune | null;
+}
+
+function localTodayKey() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function astrolabeTargetDate(fortune?: AgentAstrolabeFortune | null) {
+  if (!fortune || fortune.scope === 'natal') return '';
+  if (fortune.date) return fortune.date;
+  const today = localTodayKey();
+  if (fortune.scope === 'yearly') return today.slice(0, 4);
+  if (fortune.scope === 'monthly') return today.slice(0, 7);
+  return today;
+}
+
+async function calculateChart(kind: ChartKind, birth: CaseProfile, options: AgentChartCalculationOptions = {}): Promise<ReadingResult> {
+  if (kind === 'ziwei') return await runZiweiChart(birth, options.ziweiFortune || { scope: 'full' });
   const result = await runDivination(kind, new Date(), birth);
   if (kind === 'astrolabe' && isAstrolabe(result)) {
-    const { buildAstrolabeScopeContext } = await import('mingyu-core/divination/astrolabe-scope');
+    const { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } = await import('mingyu-core/divination/astrolabe-scope');
+    const fortune = options.astrolabeFortune || { scope: 'yearly' as const, date: String(new Date().getFullYear()) };
+    const targetDate = astrolabeTargetDate(fortune);
+    let fortuneScope = buildAstrolabeScopeContext(result, fortune.scope, targetDate);
+    if (fortune.scope === 'full') {
+      const contexts = buildAstrolabeFullScopeContexts(result, targetDate);
+      fortuneScope = {
+        ...fortuneScope,
+        promptText: [contexts.natal, contexts.yearly, contexts.monthly, contexts.daily]
+          .map((context) => context.promptText)
+          .filter(Boolean)
+          .join('\n\n'),
+        solarReturnEvidence: contexts.yearly.solarReturnEvidence,
+        secondaryProgressionEvidence: contexts.yearly.secondaryProgressionEvidence,
+        solarArcEvidence: contexts.yearly.solarArcEvidence,
+      };
+    }
     return {
       ...result,
-      annualScope: buildAstrolabeScopeContext(result, 'yearly', String(new Date().getFullYear())),
+      fortuneScope,
     } as AstrolabeChartData;
   }
   return result;
+}
+
+async function calculateUncachedChart(kind: ChartKind, birth: CaseProfile, options: AgentChartCalculationOptions) {
+  return { result: await calculateChart(kind, birth, options), createdAt: Date.now() };
 }
 
 async function calculateCachedChart(kind: ChartKind, birth: CaseProfile) {
@@ -4073,7 +4216,12 @@ function centerZiweiChart() {
 }
 
 function astroAnnualScope(result: AstrolabeData) {
-  return (result as AstrolabeChartData).annualScope || null;
+  const context = (result as AstrolabeChartData).fortuneScope || (result as AstrolabeChartData).annualScope || null;
+  return context?.scope === 'yearly' ? context : null;
+}
+
+function astroFortuneYear(result: AstrolabeData) {
+  return Number(astroAnnualScope(result)?.dateStr.slice(0, 4)) || currentFortuneYear;
 }
 
 function formatAstroAnnualDate(value?: string) {
@@ -4703,13 +4851,12 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <template v-for="(message, index) in chatMessages" :key="`${message.kind}-${message.role}-${index}`">
                 <div v-if="message.kind === 'reading'" class="chat-reading-message is-user"><button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button></div>
                 <div v-else-if="message.kind === 'text'" class="chat-message" :class="`is-${message.role}`">
-                  <span>{{ message.role === 'user' ? '你' : '时月东方' }}</span>
                   <p v-if="message.role === 'user'">{{ message.content }}</p>
-                  <template v-else><ChatMarkdown :content="message.content" /><AiReadingActions :content="message.content" title="时月东方解读" /></template>
+                  <AiReadingActions v-else :content="message.content" title="时月东方解读" :show-inline="index === lastAssistantTextMessageIndex"><ChatMarkdown :content="message.content" /></AiReadingActions>
                 </div>
               </template>
-              <div v-if="isInterpreting" class="chat-message is-assistant"><span>时月东方</span><p class="ai-typing">正在观象……</p></div>
-              <div v-if="aiError" class="chat-message is-assistant"><span>时月东方</span><p class="ai-error">{{ aiError }}</p><AiPromptFallback v-if="lastAiRequest" :request="lastAiRequest" @retry="retryLastInterpretation" /></div>
+              <div v-if="isInterpreting" class="chat-message is-assistant"><p class="ai-typing">正在观象……</p></div>
+              <div v-if="aiError" class="chat-message is-assistant"><p class="ai-error">{{ aiError }}</p><AiPromptFallback v-if="lastAiRequest" :request="lastAiRequest" @retry="retryLastInterpretation" /></div>
             </div>
 
             <div class="chat-composer chat-composer-docked">
@@ -4916,7 +5063,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           />
         </UiToolPage>
 
-        <UiToolPage v-else-if="activeView === 'charts'" width="wide" class="screen charts-screen" toolbar-label="排盘类型" toolbar-class="chart-toolbar">
+        <template v-else-if="activeView === 'charts'">
+          <UiPageShell v-if="!cases.length" width="standard" class="screen charts-screen">
+            <UiWorkspaceSurface padding="standard">
+              <UiEmptyState title="需要一份案例" description="请先在案例中保存出生资料。" compact>
+                <template #icon><UserRound :size="24" /></template>
+                <template #action><UiButton @click="openCases"><BookOpen :size="15" />前往案例</UiButton></template>
+              </UiEmptyState>
+            </UiWorkspaceSurface>
+          </UiPageShell>
+
+          <UiToolPage v-else width="wide" class="screen charts-screen" toolbar-label="排盘类型" toolbar-class="chart-toolbar">
             <template #toolbar-primary>
               <UiSegmentedControl class="chart-mode-tabs ui-tool-tabs" :model-value="chartKind" :items="chartKindTabs" label="排盘类型" compact @update:model-value="chooseChart($event as ChartKind)" />
             </template>
@@ -4929,9 +5086,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 </div>
               </div>
             </template>
-          <UiNotice v-if="chartError" class="chart-notice" tone="error" compact>{{ chartError }}</UiNotice>
-          <UiEmptyState v-if="!chartResult && chartLoading" class="chart-empty" title="正在生成传统盘面" description="请稍候" busy compact><template #icon><Moon :size="22" /></template></UiEmptyState>
-        </UiToolPage>
+            <UiNotice v-if="chartError" class="chart-notice" tone="error" compact>{{ chartError }}</UiNotice>
+            <UiEmptyState v-if="!chartResult && chartLoading" class="chart-empty" title="正在生成传统盘面" description="请稍候" busy compact><template #icon><Moon :size="22" /></template></UiEmptyState>
+          </UiToolPage>
+        </template>
 
         <CompatibilityView
           v-else-if="activeView === 'compatibility'"
@@ -5213,7 +5371,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   </section>
                   <aside class="astro-chart-side">
                     <section class="astro-side-block astro-planet-block"><div class="astro-side-heading"><span>行星重点</span><small>水星至土星</small></div><div class="astro-planet-grid"><div v-for="item in astroSupportingPlanets(displayResult)" :key="`support-${item.point.name}`"><b>{{ astroPointSymbol(item.point) }}</b><span><small>{{ item.meaning }}</small><strong>{{ item.point.label }} · {{ astroPointPosition(item.point) }}</strong></span><em v-if="item.point.retrograde">逆行</em></div></div></section>
-                    <section v-if="astroAnnualScope(displayResult)" class="astro-side-block astro-transit-block"><div class="astro-side-heading"><span>{{ currentFortuneYear }} 流年</span><small>返照 · 次限 · 太阳弧</small></div><div class="astro-transit-grid"><div><span>太阳返照</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.solarReturnEvidence?.dateTime) || '本年无可用时刻' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarReturnEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>次限推进</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.progressedDateTime) || '本年无可用日期' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>太阳弧</span><strong>{{ astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees === undefined ? '本年无可用弧度' : `${astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees?.toFixed(2)}°` }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarArcEvidence?.aspects) || '主要相位待合参' }}</small></div></div></section>
+                    <section v-if="astroAnnualScope(displayResult)" class="astro-side-block astro-transit-block"><div class="astro-side-heading"><span>{{ astroFortuneYear(displayResult) }} 流年</span><small>返照 · 次限 · 太阳弧</small></div><div class="astro-transit-grid"><div><span>太阳返照</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.solarReturnEvidence?.dateTime) || '本年无可用时刻' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarReturnEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>次限推进</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.progressedDateTime) || '本年无可用日期' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>太阳弧</span><strong>{{ astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees === undefined ? '本年无可用弧度' : `${astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees?.toFixed(2)}°` }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarArcEvidence?.aspects) || '主要相位待合参' }}</small></div></div></section>
                     <section class="astro-side-block astro-axis-block"><div class="astro-side-heading"><span>四轴定位</span><small>上升 · 天底 · 下降 · 天顶</small></div><div class="astro-axis-compact"><div v-for="angle in displayResult.angles" :key="angle.name"><span>{{ astroAxisLabel(angle) }} · {{ angle.label }}</span><strong>{{ astroPointPosition(angle, false) }}</strong></div></div></section>
                     <details class="astro-data-fold"><summary><span>完整落点与宫位</span><small>{{ displayResult.planets.length + displayResult.houses.length }} 项</small><ChevronDown :size="14" /></summary><div class="astro-detail-list"><div v-for="point in displayResult.planets" :key="`detail-planet-${point.name}`"><span>{{ astroPointSymbol(point) }} {{ point.label }}<i v-if="point.retrograde">逆</i></span><strong>{{ astroPointPosition(point) }}</strong></div><div v-for="house in displayResult.houses" :key="`detail-house-${house.name}`"><span>第{{ house.house }}宫</span><strong>{{ astroPointPosition(house, false) }}</strong></div></div></details>
                     <details class="astro-data-fold"><summary><span>主要相位</span><small>{{ astroMajorAspects(displayResult).length }} 组</small><ChevronDown :size="14" /></summary><div class="astro-aspect-list"><div v-for="aspect in astroMajorAspects(displayResult)" :key="`aspect-${aspect.body1}-${aspect.body2}-${aspect.type}`"><span>{{ astroAspectBodyLabel(displayResult, aspect.body1) }} {{ aspect.symbol }} {{ astroAspectBodyLabel(displayResult, aspect.body2) }}</span><small :style="{ color: astroAspectColor(aspect.type) }">{{ aspect.type }} · 容许度 {{ aspect.orb.toFixed(1) }}°</small></div></div></details>

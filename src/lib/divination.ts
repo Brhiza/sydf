@@ -18,6 +18,7 @@ import type {
   TaiyiResult,
   XiaoliurenData,
   AnalysisPayloadV1,
+  ScopeType,
 } from 'mingyu-core/types';
 import { compactReadingPrompt } from './aiPrompt';
 
@@ -56,13 +57,11 @@ export interface BirthCalendarInfo {
 export interface ZiweiChartData {
   kind: 'ziwei';
   payload: AnalysisPayloadV1;
-  payloadByScope: {
-    origin: AnalysisPayloadV1;
-    decadal: AnalysisPayloadV1;
-    yearly: AnalysisPayloadV1;
-  };
+  payloadByScope: Partial<Record<ScopeType, AnalysisPayloadV1>> & { origin: AnalysisPayloadV1 };
   decadalTimeline: DecadalTimelineOption[];
   prompt?: string;
+  ziweiFortuneScope?: ZiweiFortuneRequest['scope'];
+  fortuneDate?: string;
   birth: {
     name: string;
     gender: 'male' | 'female';
@@ -71,6 +70,12 @@ export interface ZiweiChartData {
     locationName: string;
   };
   calendar: BirthCalendarInfo;
+}
+
+export interface ZiweiFortuneRequest {
+  scope: 'origin' | 'full' | 'decadal' | 'yearly';
+  year?: number;
+  currentTime?: Date;
 }
 
 export interface QizhengChartData extends QizhengResult {
@@ -513,8 +518,21 @@ export async function finishInteractiveSsgw(
   return (await import('mingyu-core/divination/ssgw')).drawRandomSign(now, { replay: [signSample, ...cupSamples] });
 }
 
-export async function runZiweiChart(birth: BirthForm): Promise<ZiweiChartData> {
-  const [{ buildZiweiChartInput, calculateZiweiChart }, { buildZiweiPrompt }] = await Promise.all([
+function ziweiTargetDate(currentTime: Date, targetYear?: number) {
+  const year = Number.isInteger(targetYear) && targetYear! >= 1900 && targetYear! <= 2199
+    ? targetYear!
+    : currentTime.getFullYear();
+  const month = currentTime.getMonth();
+  const day = Math.min(currentTime.getDate(), new Date(year, month + 1, 0).getDate());
+  return new Date(year, month, day, currentTime.getHours(), currentTime.getMinutes(), 0, 0);
+}
+
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export async function runZiweiChart(birth: BirthForm, options: ZiweiFortuneRequest = { scope: 'full' }): Promise<ZiweiChartData> {
+  const [{ buildZiweiChartInput, calculateZiweiChart }, { buildZiweiPrompt, getZiweiPromptCalculationScopes }] = await Promise.all([
     import('mingyu-core/ziwei/iztro'),
     import('mingyu-core/prompt'),
   ]);
@@ -535,11 +553,19 @@ export async function runZiweiChart(birth: BirthForm): Promise<ZiweiChartData> {
     timezone: Number(birth.timezone) || 8,
     applyChinaDst: true,
   });
-  const now = new Date();
-  const horoscopeDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const horoscopeTimeIndex = hourIndex(now.getHours());
+  const currentTime = options.currentTime ?? new Date();
+  const targetTime = ziweiTargetDate(currentTime, options.year);
+  const horoscopeDate = localDateKey(targetTime);
+  const horoscopeTimeIndex = hourIndex(targetTime.getHours());
+  const scopes: ScopeType[] = options.scope === 'origin'
+    ? ['origin']
+    : options.scope === 'decadal'
+      ? ['origin', 'decadal']
+      : options.scope === 'yearly'
+        ? ['origin', 'decadal', 'yearly']
+        : getZiweiPromptCalculationScopes(options.scope);
   const runtime = await calculateZiweiChart(input, {
-    scopes: ['origin', 'decadal', 'yearly'],
+    scopes,
     skipAnalysis: true,
     horoscopeContext: {
       dateStr: horoscopeDate,
@@ -547,7 +573,10 @@ export async function runZiweiChart(birth: BirthForm): Promise<ZiweiChartData> {
     },
   });
   const payloadByScope = runtime.payloadByScope as ZiweiChartData['payloadByScope'];
-  const payload = payloadByScope.origin;
+  const requestedPayload = options.scope === 'decadal' || options.scope === 'yearly'
+    ? payloadByScope[options.scope]
+    : undefined;
+  const payload = requestedPayload || payloadByScope.origin;
 
   return {
     kind: 'ziwei',
@@ -556,9 +585,11 @@ export async function runZiweiChart(birth: BirthForm): Promise<ZiweiChartData> {
     decadalTimeline: runtime.decadalTimeline,
     prompt: compactReadingPrompt(buildZiweiPrompt({
       runtime,
-      scope: 'full',
-      currentTime: now,
+      scope: options.scope,
+      currentTime: targetTime,
     })),
+    ziweiFortuneScope: options.scope,
+    fortuneDate: horoscopeDate,
     birth: {
       name: birth.name || '未命名',
       gender: birth.gender,
