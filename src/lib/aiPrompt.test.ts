@@ -214,9 +214,9 @@ describe('AI 降级提示词', () => {
     }
   });
 
-  it('占卜资料只保留可用于解读的盘面信息', () => {
+  it('占卜资料只保留可用于解读的盘面信息', async () => {
     const result = generateMeihua(new Date('2026-08-08T12:00:00+08:00'), { method: 'number', number: 8 });
-    const prompt = buildDivinationReadingPrompt('meihua', result);
+    const prompt = await buildDivinationReadingPrompt('meihua', result);
     expect(prompt).toContain('核心结构：');
     expect(prompt).toContain('体用关系：');
     expect(prompt).not.toContain('结构明细：');

@@ -1,34 +1,10 @@
-import { baziCalculator } from 'mingyu-core/bazi';
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import { LunarUtil, resolveTrueSolarBirthTime } from 'mingyu-core/calendar';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
-import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
-import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { generateQimen } from 'mingyu-core/divination/qimen';
-import { drawRandomSign, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { generateTaiyi } from 'mingyu-core/taiyi';
-import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
-import {
-  calculateWuyunLiuqi,
-  buildWuyunLiuqiPrompt,
-  type WuyunLiuqiResult,
-} from 'mingyu-core/wuyun-liuqi';
-import {
-  calculateHuangjiJingshi,
-  buildHuangjiJingshiPrompt,
-  type HuangjiJingshiResult,
-} from 'mingyu-core/huangji-jingshi';
-import { summarizeDivinationResult } from 'mingyu-core/divination/session';
-import { buildZiweiPrompt } from 'mingyu-core/prompt';
-import {
-  buildZiweiChartInput,
-  calculateZiweiChart,
-  type DecadalTimelineOption,
-} from 'mingyu-core/ziwei/iztro';
+import type { QizhengResult } from 'mingyu-core/qizheng';
+import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import type { DecadalTimelineOption } from 'mingyu-core/ziwei/iztro';
 import type {
   AlmanacData,
   AlmanacTopic,
@@ -285,29 +261,30 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-export function runDivination(
+export async function runDivination(
   kind: DivinationKind,
   now = new Date(),
   birth?: BirthForm,
   options: DivinationOptions = {},
-): ReadingResult {
+): Promise<ReadingResult> {
   switch (kind) {
-    case 'meihua': return generateMeihua(now, { method: 'random' });
-    case 'liuyao': return generateLiuyao(now, { method: 'time' });
-    case 'ssgw': return drawRandomSign(now);
-    case 'xiaoliuren': return generateXiaoliuren({ method: 'time', customDate: now });
-    case 'jinkoujue': return generateJinkoujue({ method: 'time', customDate: now });
-    case 'qimen': return generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
-    case 'liuren': return generateLiuren(now);
-    case 'taiyi': return generateTaiyi({ year: options.taiyiYear ?? now.getFullYear(), scope: 'year' });
-    case 'wuyun-liuqi': return calculateWuyunLiuqi({ year: options.wuyunYear ?? now.getFullYear() });
-    case 'huangji-jingshi': return calculateHuangjiJingshi({ year: options.huangjiYear ?? now.getFullYear() });
+    case 'meihua': return (await import('mingyu-core/divination/meihua')).generateMeihua(now, { method: 'random' });
+    case 'liuyao': return (await import('mingyu-core/divination/liuyao')).generateLiuyao(now, { method: 'time' });
+    case 'ssgw': return (await import('mingyu-core/divination/ssgw')).drawRandomSign(now);
+    case 'xiaoliuren': return (await import('mingyu-core/divination/xiaoliuren')).generateXiaoliuren({ method: 'time', customDate: now });
+    case 'jinkoujue': return (await import('mingyu-core/divination/jinkoujue')).generateJinkoujue({ method: 'time', customDate: now });
+    case 'qimen': return (await import('mingyu-core/divination/qimen')).generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
+    case 'liuren': return (await import('mingyu-core/divination/liuren')).generateLiuren(now);
+    case 'taiyi': return (await import('mingyu-core/taiyi')).generateTaiyi({ year: options.taiyiYear ?? now.getFullYear(), scope: 'year' });
+    case 'wuyun-liuqi': return (await import('mingyu-core/wuyun-liuqi')).calculateWuyunLiuqi({ year: options.wuyunYear ?? now.getFullYear() });
+    case 'huangji-jingshi': return (await import('mingyu-core/huangji-jingshi')).calculateHuangjiJingshi({ year: options.huangjiYear ?? now.getFullYear() });
     case 'almanac': {
       const startDate = options.almanacStartDate ?? toDateOnly(now);
       const endDate = options.almanacEndDate ?? toDateOnly(addDays(new Date(`${startDate}T12:00:00`), 6));
       return generateAlmanacSelection({ topic: options.almanacTopic ?? 'study', startDate, endDate });
     }
     case 'bazi': {
+      const { baziCalculator } = await import('mingyu-core/bazi');
       if (!birth) throw new Error('请先填写出生资料。');
       const { year, month, day, hour, minute } = parseBirthDate(birth);
       return baziCalculator.calculateBazi({
@@ -329,6 +306,7 @@ export function runDivination(
       });
     }
     case 'astrolabe': {
+      const { generateAstrolabe } = await import('mingyu-core/divination/astrolabe');
       if (!birth) throw new Error('请先填写出生资料。');
       const { year, month, day, hour, minute } = resolveBirthTime(birth).solarClockTime;
       return generateAstrolabe({
@@ -347,6 +325,7 @@ export function runDivination(
       });
     }
     case 'qizheng': {
+      const { generateQizheng } = await import('mingyu-core/qizheng');
       if (!birth) throw new Error('请先填写出生资料。');
       const { year, month, day, hour, minute } = resolveBirthTime(birth).solarClockTime;
       const latitude = Number(birth.latitude);
@@ -379,9 +358,7 @@ export function runDivination(
   }
 }
 
-type CoreDivinationSummary = ReturnType<typeof summarizeDivinationResult>;
-
-function formatCoreDivinationSummary(kind: DivinationKind, summary: CoreDivinationSummary) {
+function formatCoreDivinationSummary(kind: DivinationKind, summary: { tags: string[]; lines: string[] }) {
   const tags = summary.tags
     .map((item) => item.trim())
     .filter(Boolean)
@@ -403,10 +380,11 @@ function formatCoreDivinationSummary(kind: DivinationKind, summary: CoreDivinati
   return [tags.length ? `核心结构：${tags.join('；')}` : '', ...lines].filter(Boolean);
 }
 
-export function buildDivinationReadingPrompt(kind: DivinationKind, result: ReadingResult) {
+export async function buildDivinationReadingPrompt(kind: DivinationKind, result: ReadingResult) {
   if (kind === 'bazi' || kind === 'ziwei' || kind === 'astrolabe') return '';
-  if (kind === 'wuyun-liuqi') return compactReadingPrompt(buildWuyunLiuqiPrompt(result as WuyunLiuqiResult));
-  if (kind === 'huangji-jingshi') return compactReadingPrompt(buildHuangjiJingshiPrompt(result as HuangjiJingshiResult));
+  if (kind === 'wuyun-liuqi') return compactReadingPrompt((await import('mingyu-core/wuyun-liuqi')).buildWuyunLiuqiPrompt(result as WuyunLiuqiResult));
+  if (kind === 'huangji-jingshi') return compactReadingPrompt((await import('mingyu-core/huangji-jingshi')).buildHuangjiJingshiPrompt(result as HuangjiJingshiResult));
+  const { summarizeDivinationResult } = await import('mingyu-core/divination/session');
   const summary = summarizeDivinationResult(
     kind as Parameters<typeof summarizeDivinationResult>[0],
     result as Parameters<typeof summarizeDivinationResult>[1],
@@ -414,76 +392,80 @@ export function buildDivinationReadingPrompt(kind: DivinationKind, result: Readi
   return compactReadingPrompt(formatCoreDivinationSummary(kind, summary).join('\n'));
 }
 
-export function runManualLiuyao(coinThrows: readonly LiuyaoCoinThrow[], now = new Date()): LiuyaoData {
-  return generateLiuyao(now, { method: 'coins', coinThrows });
+export async function runManualLiuyao(coinThrows: readonly LiuyaoCoinThrow[], now = new Date()): Promise<LiuyaoData> {
+  return (await import('mingyu-core/divination/liuyao')).generateLiuyao(now, { method: 'coins', coinThrows });
 }
 
-export function runSpecifiedLiuyao(yaos: readonly (6 | 7 | 8 | 9)[], now = new Date()): LiuyaoData {
+export async function runSpecifiedLiuyao(yaos: readonly (6 | 7 | 8 | 9)[], now = new Date()): Promise<LiuyaoData> {
   if (yaos.length !== 6) throw new Error('请依初爻至上爻填写六个爻值。');
-  return generateLiuyao(now, { method: 'manual', yaos });
+  return (await import('mingyu-core/divination/liuyao')).generateLiuyao(now, { method: 'manual', yaos });
 }
 
-export function runConfiguredMeihua(
+export async function runConfiguredMeihua(
   method: 'time' | 'number' | 'random',
   number?: number,
   now = new Date(),
-): MeihuaData {
-  return generateMeihua(now, method === 'number' ? { method, number } : { method });
+): Promise<MeihuaData> {
+  return (await import('mingyu-core/divination/meihua')).generateMeihua(now, method === 'number' ? { method, number } : { method });
 }
 
-export function runConfiguredJinkoujue(
+export async function runConfiguredJinkoujue(
   method: 'time' | 'number' | 'random',
   number?: number,
   now = new Date(),
-): JinkoujueData {
-  return generateJinkoujue(method === 'number'
+): Promise<JinkoujueData> {
+  return (await import('mingyu-core/divination/jinkoujue')).generateJinkoujue(method === 'number'
     ? { method, number, customDate: now }
     : { method, customDate: now });
 }
 
-export function runAutomaticCasting(
+export async function runAutomaticCasting(
   kind: CastingDivinationKind,
   now = new Date(),
   options: DivinationOptions = {},
-): ReadingResult {
-  if (kind === 'jinkoujue') return runConfiguredJinkoujue('random', undefined, now);
+): Promise<ReadingResult> {
+  if (kind === 'jinkoujue') return await runConfiguredJinkoujue('random', undefined, now);
   return runDivination(kind, now, undefined, options);
 }
 
-export function runTimeCasting(
+export async function runTimeCasting(
   kind: 'xiaoliuren' | 'qimen' | 'liuren',
   now = new Date(),
   options: DivinationOptions = {},
-): XiaoliurenData | QimenData | LiurenData {
-  if (kind === 'xiaoliuren') return generateXiaoliuren({ method: 'time', customDate: now });
-  if (kind === 'qimen') return generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
-  return generateLiuren(now);
+): Promise<XiaoliurenData | QimenData | LiurenData> {
+  if (kind === 'xiaoliuren') return (await import('mingyu-core/divination/xiaoliuren')).generateXiaoliuren({ method: 'time', customDate: now });
+  if (kind === 'qimen') return (await import('mingyu-core/divination/qimen')).generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
+  return (await import('mingyu-core/divination/liuren')).generateLiuren(now);
 }
 
-export function runTaiyiYear(year: number): TaiyiResult {
-  return generateTaiyi({ year, scope: 'year' });
+export async function runTaiyiYear(year: number): Promise<TaiyiResult> {
+  return (await import('mingyu-core/taiyi')).generateTaiyi({ year, scope: 'year' });
 }
 
-export function runSpecifiedSsgw(number: number, now = new Date()): SsgwData {
+export async function runSpecifiedSsgw(number: number, now = new Date()): Promise<SsgwData> {
   if (!Number.isInteger(number) || number < 1 || number > 92) throw new Error('签号应在 1 至 92 之间。');
-  return resolveSignByNumber(number, now);
+  return (await import('mingyu-core/divination/ssgw')).resolveSignByNumber(number, now);
 }
 
-export function previewInteractiveSsgw(signSample: number, now = new Date()): SsgwData {
+export async function previewInteractiveSsgw(signSample: number, now = new Date()): Promise<SsgwData> {
   if (!Number.isFinite(signSample) || signSample < 0 || signSample >= 1) throw new Error('抽签随机样本无效。');
-  return resolveSignByNumber(Math.floor(signSample * 92) + 1, now);
+  return (await import('mingyu-core/divination/ssgw')).resolveSignByNumber(Math.floor(signSample * 92) + 1, now);
 }
 
-export function finishInteractiveSsgw(
+export async function finishInteractiveSsgw(
   signSample: number,
   cupSamples: readonly number[],
   now = new Date(),
-): SsgwData {
+): Promise<SsgwData> {
   if (cupSamples.length % 2 !== 0) throw new Error('每次掷杯必须包含两枚杯面。');
-  return drawRandomSign(now, { replay: [signSample, ...cupSamples] });
+  return (await import('mingyu-core/divination/ssgw')).drawRandomSign(now, { replay: [signSample, ...cupSamples] });
 }
 
 export async function runZiweiChart(birth: BirthForm): Promise<ZiweiChartData> {
+  const [{ buildZiweiChartInput, calculateZiweiChart }, { buildZiweiPrompt }] = await Promise.all([
+    import('mingyu-core/ziwei/iztro'),
+    import('mingyu-core/prompt'),
+  ]);
   const { year, month, day, hour, minute } = parseBirthDate(birth);
   const input = buildZiweiChartInput({
     name: birth.name || '未命名',

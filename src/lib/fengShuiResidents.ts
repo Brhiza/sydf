@@ -1,7 +1,6 @@
-import type { BaziChartResult } from 'mingyu-core/bazi';
+import { baziCalculator } from 'mingyu-core/bazi';
 import { buildChartReadingPrompt } from './chartPrompt';
 import { caseBirthSummary, caseDisplayName, type SelectableCaseProfile } from './caseSelection';
-import { runDivination } from './divination';
 
 export interface FengShuiResidentBaziEntry {
   id: string;
@@ -34,7 +33,24 @@ export function buildFengShuiResidentBaziContext(profiles: readonly SelectableCa
   for (const profile of uniqueProfiles) {
     if (remaining <= 600) break;
     try {
-      const result = runDivination('bazi', new Date(), profile) as BaziChartResult;
+      const [year, month, day] = profile.date.split('-').map(Number);
+      const [hour, minute] = profile.time.split(':').map(Number);
+      const result = baziCalculator.calculateBazi({
+        year,
+        month,
+        day,
+        timeIndex: Math.floor(((hour + 1) % 24) / 2),
+        birthHour: hour,
+        birthMinute: minute,
+        gender: profile.gender,
+        isLunar: profile.dateType === 'lunar',
+        isLeapMonth: profile.dateType === 'lunar' && profile.isLeapMonth,
+        useTrueSolarTime: profile.timeBasis === 'trueSolar',
+        birthPlace: profile.locationName,
+        birthLongitude: Number(profile.longitude),
+        timezone: Number(profile.timezone) || 8,
+        shenShaScope: 'all',
+      });
       const prompt = compactPrompt(buildChartReadingPrompt('bazi', result), Math.min(MAX_ENTRY_LENGTH, remaining));
       entries.push({
         id: profile.id,

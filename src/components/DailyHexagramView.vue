@@ -423,7 +423,7 @@ function resetDailyHexagramForTesting() {
             <div class="shake-result">
               <Transition name="shake-visual" mode="out-in">
                 <div v-if="isShaking" key="shell" class="shell-animation">
-                  <img src="/liuyao-shell-transparent.png" alt="龟壳正在摇卦" />
+                  <img src="/liuyao-shell-transparent.webp" alt="龟壳正在摇卦" />
                   <span>正在摇{{ nextLineName }}</span>
                 </div>
                 <div v-else-if="latestThrow" key="coins" class="coin-result">
@@ -431,14 +431,14 @@ function resetDailyHexagramForTesting() {
                     <img
                       v-for="(coin, coinIndex) in latestThrow.coins"
                       :key="`${session.coinThrows.length}-${coinIndex}`"
-                      :src="coin === 3 ? '/liuyao-coin-heads-transparent.png' : '/liuyao-coin-tails-transparent.png'"
+                      :src="coin === 3 ? '/liuyao-coin-heads-transparent.webp' : '/liuyao-coin-tails-transparent.webp'"
                       :alt="coin === 3 ? '铜钱正面' : '铜钱背面'"
                     />
                   </div>
                   <p><strong>{{ dailyHexagramYaoLabel(latestThrow.total) }}</strong><span>{{ latestThrow.total }} 点 · {{ latestThrowName }}</span></p>
                 </div>
                 <div v-else key="empty" class="empty-result">
-                  <img src="/liuyao-shell-transparent.png" alt="起卦龟壳" />
+                  <img src="/liuyao-shell-transparent.webp" alt="起卦龟壳" />
                   <span>等待摇出初爻</span>
                 </div>
               </Transition>
