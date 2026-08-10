@@ -78,7 +78,7 @@ Cloudflare Pages 与 EdgeOne Pages 使用相同的前端构建设置：
 
 ### EdgeOne Pages
 
-连接 Git 仓库并填写上述构建设置。EdgeOne 会从 `cloud-functions/api` 部署同名接口；这些入口与 Cloudflare 共用 `functions/api` 中的处理逻辑。
+连接 Git 仓库并填写上述构建设置。EdgeOne 会从 `cloud-functions/api` 部署同名接口；EdgeOne 与 Cloudflare 的平台入口分别保持独立，并共用 `functions/shared` 中的处理逻辑。
 
 在「项目设置 → 环境管理」中分别编辑生产和预览环境，加入以下服务端环境变量。变量更新只对之后的新部署生效，修改后需要重新部署：
 
@@ -94,9 +94,10 @@ AI_API_KEY=replace-with-your-key
 ## 项目结构
 
 ```text
-src/             Vue 前端、业务逻辑与设计系统
-functions/       Cloudflare、本地开发及共享 AI 接口逻辑
-cloud-functions/ EdgeOne Cloud Functions 入口
+src/              Vue 前端、业务逻辑与设计系统
+functions/api/    Cloudflare Pages Functions 入口
+functions/shared/ Cloudflare 与 EdgeOne 共用的 AI 接口逻辑
+cloud-functions/  EdgeOne Cloud Functions 入口
 public/          图标、插图与 PWA 静态资源
 vendor/          当前接入的 mingyu-core 本地包
 ```
