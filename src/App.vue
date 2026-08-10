@@ -16,6 +16,7 @@ import {
   HeartHandshake,
   History,
   House,
+  ImageDown,
   LoaderCircle,
   MapPin,
   Menu,
@@ -26,6 +27,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  FileText,
   ScrollText,
   Sparkles,
   Sun,
@@ -113,6 +115,12 @@ import {
   type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
+import {
+  createChatDocument,
+  createChatShareImage,
+  downloadChatFile,
+  type ChatExportItem,
+} from './lib/chatExport';
 import AiPromptFallback from './components/AiPromptFallback.vue';
 import AiReadingActions from './components/AiReadingActions.vue';
 import ChatMarkdown from './components/ChatMarkdown.vue';
@@ -1080,6 +1088,16 @@ const pendingCastingQuestion = ref('');
 const oracleInitialQuestion = ref('');
 const oracleResult = ref<SsgwData | null>(null);
 const chatMessages = ref<ChatMessage[]>([]);
+const chatSelectionMode = ref(false);
+const selectedChatMessageIndexes = ref<number[]>([]);
+const selectedChatMessageSet = computed(() => new Set(selectedChatMessageIndexes.value));
+const selectedChatExportItems = computed(() => selectedChatMessageIndexes.value
+  .slice()
+  .sort((left, right) => left - right)
+  .flatMap((index) => {
+    const message = chatMessages.value[index];
+    return message ? [chatMessageExportItem(message)] : [];
+  }));
 const lastAssistantTextMessageIndex = computed(() => {
   for (let index = chatMessages.value.length - 1; index >= 0; index -= 1) {
     const message = chatMessages.value[index];
@@ -1955,6 +1973,7 @@ function toggleBaziFortuneColumn(key: BaziFortuneColumnKey) {
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
+  document.addEventListener('keydown', closeChatSelectionFromKeyboard);
   try {
     const storedBaziColumns = localStorage.getItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY);
     if (storedBaziColumns) {
@@ -2055,6 +2074,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
+  document.removeEventListener('keydown', closeChatSelectionFromKeyboard);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
@@ -2103,6 +2123,110 @@ function showToast(message: string) {
     toastMessage.value = '';
     toastTimer = undefined;
   }, 4200);
+}
+
+function chatMessageExportItem(message: ChatMessage): ChatExportItem {
+  if (message.kind === 'reading') {
+    return {
+      role: 'reading',
+      label: kindMeta[message.method].label,
+      content: `${readingDisplayTitle(message)}\n${readingDisplaySubtitle(message)}`,
+    };
+  }
+  return {
+    role: message.role,
+    label: message.role === 'user' ? '我' : 'AI 解答',
+    content: message.content,
+  };
+}
+
+function cancelChatSelection() {
+  chatSelectionMode.value = false;
+  selectedChatMessageIndexes.value = [];
+}
+
+function startChatSelection(index: number) {
+  if (!chatMessages.value[index]) return;
+  chatSelectionMode.value = true;
+  selectedChatMessageIndexes.value = [index];
+}
+
+function toggleChatMessageSelection(index: number) {
+  if (!chatMessages.value[index]) return;
+  const selected = selectedChatMessageIndexes.value;
+  selectedChatMessageIndexes.value = selected.includes(index)
+    ? selected.filter((item) => item !== index)
+    : [...selected, index];
+}
+
+function handleChatSelectionClick(event: MouseEvent, index: number) {
+  if (!chatSelectionMode.value) return;
+  event.preventDefault();
+  event.stopPropagation();
+  toggleChatMessageSelection(index);
+}
+
+function handleChatSelectionKey(event: KeyboardEvent, index: number) {
+  if (!chatSelectionMode.value || (event.key !== 'Enter' && event.key !== ' ')) return;
+  event.preventDefault();
+  toggleChatMessageSelection(index);
+}
+
+function toggleSelectAllChatMessages() {
+  selectedChatMessageIndexes.value = selectedChatMessageIndexes.value.length === chatMessages.value.length
+    ? []
+    : chatMessages.value.map((_, index) => index);
+}
+
+function deleteChatMessage(index: number) {
+  if (!chatMessages.value[index]) return;
+  chatMessages.value = chatMessages.value.filter((_, messageIndex) => messageIndex !== index);
+  cancelChatSelection();
+  showToast('消息已删除。');
+}
+
+function deleteSelectedChatMessages() {
+  const count = selectedChatMessageIndexes.value.length;
+  if (!count) return;
+  if (!window.confirm(`删除选中的 ${count} 条消息？`)) return;
+  const selected = selectedChatMessageSet.value;
+  chatMessages.value = chatMessages.value.filter((_, index) => !selected.has(index));
+  cancelChatSelection();
+  showToast(`已删除 ${count} 条消息。`);
+}
+
+async function shareSelectedChatImage() {
+  try {
+    const { blob, filename } = createChatShareImage(selectedChatExportItems.value);
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ title: '时月东方对话摘录', files: [file] });
+      cancelChatSelection();
+      showToast('分享图片已准备完成。');
+      return;
+    }
+    downloadChatFile(blob, filename);
+    cancelChatSelection();
+    showToast('分享图片已下载。');
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    showToast(error instanceof Error ? error.message : '分享图片生成失败，请稍后重试。');
+  }
+}
+
+function exportSelectedChatDocument() {
+  try {
+    const { blob, filename } = createChatDocument(selectedChatExportItems.value);
+    downloadChatFile(blob, filename);
+    cancelChatSelection();
+    showToast('对话文档已导出。');
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '文档导出失败，请稍后重试。');
+  }
+}
+
+function closeChatSelectionFromKeyboard(event: KeyboardEvent) {
+  if (event.key === 'Escape' && chatSelectionMode.value) cancelChatSelection();
 }
 
 function notifyBackgroundTasksForView(view: AppView) {
@@ -2912,6 +3036,7 @@ async function submitHomePrompt() {
 }
 
 function leaveChat() {
+  cancelChatSelection();
   chatSessionId += 1;
   agentAbortController?.abort();
   agentAbortController = null;
@@ -4848,18 +4973,58 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <template v-else>
             <div ref="chatConversationRef" class="chat-conversation" aria-live="polite">
               <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" src="/logo.webp" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
-              <template v-for="(message, index) in chatMessages" :key="`${message.kind}-${message.role}-${index}`">
-                <div v-if="message.kind === 'reading'" class="chat-reading-message is-user"><button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button></div>
-                <div v-else-if="message.kind === 'text'" class="chat-message" :class="`is-${message.role}`">
-                  <p v-if="message.role === 'user'">{{ message.content }}</p>
-                  <AiReadingActions v-else :content="message.content" title="时月东方解读" :show-inline="index === lastAssistantTextMessageIndex"><ChatMarkdown :content="message.content" /></AiReadingActions>
+              <div
+                v-for="(message, index) in chatMessages"
+                :key="`${message.kind}-${message.role}-${index}`"
+                class="chat-message-row"
+                :class="{ 'is-selection-mode': chatSelectionMode, 'is-selected': selectedChatMessageSet.has(index) }"
+                :role="chatSelectionMode ? 'checkbox' : undefined"
+                :tabindex="chatSelectionMode ? 0 : undefined"
+                :aria-checked="chatSelectionMode ? selectedChatMessageSet.has(index) : undefined"
+                @click.capture="handleChatSelectionClick($event, index)"
+                @keydown="handleChatSelectionKey($event, index)"
+              >
+                <span v-if="chatSelectionMode" class="chat-message-check" aria-hidden="true"><Check v-if="selectedChatMessageSet.has(index)" :size="15" /></span>
+                <div v-if="message.kind === 'reading'" class="chat-reading-message is-user">
+                  <AiReadingActions
+                    class="reading-action-host"
+                    :content="chatMessageExportItem(message).content"
+                    :show-inline="false"
+                    selection-enabled
+                    :selection-mode="chatSelectionMode"
+                    deletable
+                    @request-select="startChatSelection(index)"
+                    @request-delete="deleteChatMessage(index)"
+                  >
+                    <button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button>
+                  </AiReadingActions>
                 </div>
-              </template>
+                <div v-else class="chat-message" :class="`is-${message.role}`">
+                  <AiReadingActions
+                    :content="message.content"
+                    :title="message.role === 'user' ? '我的消息' : '时月东方解读'"
+                    :show-inline="message.role === 'assistant' && index === lastAssistantTextMessageIndex"
+                    selection-enabled
+                    :selection-mode="chatSelectionMode"
+                    deletable
+                    @request-select="startChatSelection(index)"
+                    @request-delete="deleteChatMessage(index)"
+                  >
+                    <p v-if="message.role === 'user'">{{ message.content }}</p>
+                    <ChatMarkdown v-else :content="message.content" />
+                  </AiReadingActions>
+                </div>
+              </div>
               <div v-if="isInterpreting" class="chat-message is-assistant"><p class="ai-typing">正在观象……</p></div>
               <div v-if="aiError" class="chat-message is-assistant"><p class="ai-error">{{ aiError }}</p><AiPromptFallback v-if="lastAiRequest" :request="lastAiRequest" @retry="retryLastInterpretation" /></div>
             </div>
 
-            <div class="chat-composer chat-composer-docked">
+            <div v-if="chatSelectionMode" class="chat-selection-toolbar" aria-label="消息多选操作">
+              <div class="chat-selection-summary"><button type="button" @click="cancelChatSelection"><X :size="16" /><span>取消</span></button><strong>已选 {{ selectedChatMessageIndexes.length }} 条</strong></div>
+              <div class="chat-selection-actions"><button type="button" @click="toggleSelectAllChatMessages"><Check :size="16" /><span>{{ selectedChatMessageIndexes.length === chatMessages.length ? '取消全选' : '全选' }}</span></button><button type="button" :disabled="!selectedChatMessageIndexes.length" @click="shareSelectedChatImage"><ImageDown :size="17" /><span>分享图片</span></button><button type="button" :disabled="!selectedChatMessageIndexes.length" @click="exportSelectedChatDocument"><FileText :size="17" /><span>导出文档</span></button><button type="button" class="is-danger" :disabled="!selectedChatMessageIndexes.length" @click="deleteSelectedChatMessages"><Trash2 :size="17" /><span>删除</span></button></div>
+            </div>
+
+            <div v-else class="chat-composer chat-composer-docked">
               <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
               <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
               <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
