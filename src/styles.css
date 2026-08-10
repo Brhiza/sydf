@@ -654,8 +654,9 @@ h1, h2, h3, p { margin-top: 0; }
 /* 顶栏中央仅保留当前模型名称，详细切换收进轻量菜单 */
 .topbar-ai-picker { grid-column: 2; grid-row: 1; justify-self: center; min-width: 0; position: relative; }
 .topbar-page-title { color: var(--ink); font-size: 16px; font-weight: 650; grid-column: 2; grid-row: 1; justify-self: center; letter-spacing: .08em; margin: 0; max-width: min(40vw, 260px); min-width: 0; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.topbar-ai-trigger { align-items: center; background: rgba(255, 253, 255, .58); border: 1px solid transparent; border-radius: 9px; color: #70617e; font-size: 10px; gap: 6px; max-width: 220px; padding: 7px 10px; }
+.topbar-ai-trigger { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 9px; color: #70617e; font-size: 10px; gap: 6px; max-width: 220px; padding: 7px 10px; }
 .topbar-ai-trigger:hover, .topbar-ai-trigger[aria-expanded='true'] { background: #eee5f7; border-color: #d9c9e9; color: var(--accent-strong); }
+.topbar-ai-trigger:focus-visible { background: #eee5f7; border-color: #d9c9e9; outline: 2px solid color-mix(in srgb, var(--accent) 48%, transparent); outline-offset: 2px; }
 .topbar-ai-trigger > svg:first-child { color: var(--accent-strong); flex: 0 0 auto; }
 .topbar-ai-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar-ai-menu { background: rgba(255, 253, 255, .98); border: 1px solid #ded2ea; border-radius: 13px; box-shadow: 0 14px 32px rgba(70, 50, 106, .14); display: grid; left: 50%; min-width: 230px; padding: 12px; position: absolute; top: calc(100% + 10px); transform: translateX(-50%); z-index: 9; }
@@ -1120,9 +1121,10 @@ body {
   .mobile-nav-scrim,
   .drawer-layer { background: rgba(4, 3, 7, .62); }
 
-  .topbar-ai-trigger { background: rgba(43, 39, 49, .76); color: #bdb5c4; }
+  .topbar-ai-trigger { background: transparent; color: #bdb5c4; }
   .topbar-ai-trigger:hover,
   .topbar-ai-trigger[aria-expanded='true'] { background: #332e3c; border-color: #4a4255; color: var(--accent-strong); }
+  .topbar-ai-trigger:focus-visible { background: #332e3c; border-color: #4a4255; }
   .case-trigger,
   .history-trigger,
   .mobile-nav-toggle,
@@ -1746,7 +1748,7 @@ body {
   }
   .home-default { padding-bottom: 190px; }
   .home-default .chat-composer-docked,
-  .tools-screen.is-chat .chat-composer-docked { bottom: max(40px, calc(env(safe-area-inset-bottom) + 32px)); }
+  .tools-screen.is-chat .chat-composer-docked { bottom: max(36px, calc(env(safe-area-inset-bottom) + 28px)); }
   .tools-screen.is-chat { padding-bottom: 0; }
   .onboarding-layer { align-items: stretch; padding: 0; }
   .onboarding-dialog { border: 0; border-radius: 0; height: 100dvh; max-height: none; width: 100%; }
@@ -4028,15 +4030,17 @@ body {
 }
 
 /* 对话终版：统一消息阅读节奏、Markdown 排版与输入区安全距离。 */
-.tools-screen.is-chat { gap: 18px; }
+.content:has(> .tools-screen.is-chat) { padding-bottom: 8px; padding-top: 8px; }
+.tools-screen.is-chat { gap: 7px; }
 .tools-screen.is-chat .chat-conversation {
   gap: 16px;
-  padding: 10px 4px 24px;
-  scroll-padding-bottom: 24px;
+  padding: 2px 4px 0;
+  scroll-padding-bottom: 8px;
 }
 .tools-screen.is-chat .chat-composer-docked {
   margin: 0 auto;
 }
+.tools-screen.is-chat .home-ai-disclaimer { margin-top: 0; }
 .chat-message { min-width: 0; }
 .chat-message.is-assistant { justify-self: start; max-width: none; width: min(720px, 94%); }
 .chat-message.is-user { max-width: min(560px, 82%); }
@@ -4115,7 +4119,7 @@ body {
 
 @media (min-width: 721px) {
   .tools-screen.is-chat {
-    height: calc(100dvh - 128px);
+    height: calc(100dvh - var(--ds-topbar-height) - 16px);
     min-height: 0;
     overflow: hidden;
   }
@@ -4134,11 +4138,11 @@ body {
     padding-bottom: 0;
     padding-top: 8px;
   }
-  .tools-screen.is-chat { gap: 0; }
+  .tools-screen.is-chat { gap: 0; height: calc(100dvh - 66px); min-height: 0; overflow: hidden; }
   .tools-screen.is-chat .chat-conversation {
     gap: 14px;
-    padding: 2px 1px max(184px, calc(env(safe-area-inset-bottom) + 170px));
-    scroll-padding-bottom: max(184px, calc(env(safe-area-inset-bottom) + 170px));
+    padding: 2px 1px max(154px, calc(env(safe-area-inset-bottom) + 140px));
+    scroll-padding-bottom: max(154px, calc(env(safe-area-inset-bottom) + 140px));
   }
   .chat-message.is-assistant { width: 100%; }
   .chat-message.is-user { max-width: 86%; }
