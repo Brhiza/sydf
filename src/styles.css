@@ -1339,13 +1339,26 @@ body {
   min-height: 30px;
   padding: 0 2px;
 }
-.composer-shortcut-hint { bottom: 15px; color: var(--subtle); font-size: var(--type-caption); line-height: 1; pointer-events: none; position: absolute; right: 54px; white-space: nowrap; }
+.composer-shortcut-hint { display: none; }
+.chat-composer-docked .composer-toolbar::after {
+  color: var(--subtle);
+  content: 'Enter 发送 · Shift + Enter 换行';
+  flex: 0 0 auto;
+  font-size: var(--type-caption);
+  line-height: 1;
+  margin-left: auto;
+  order: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
 .chat-composer-docked .chat-send-button {
   bottom: auto;
   flex: 0 0 auto;
   height: 34px;
   position: static;
   right: auto;
+  margin-left: 8px;
+  order: 2;
   width: 34px;
 }
 .chat-composer-docked .tool-picker-button {
@@ -1391,7 +1404,10 @@ body {
 .setting-row .wuyun-year-input:focus { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 18%, transparent); }
 
 @media (max-width: 720px) {
-  .composer-shortcut-hint { display: none; }
+  .chat-composer-docked .composer-toolbar::after {
+    content: 'Enter 发送';
+    font-size: 9px;
+  }
   .home-default-composer,
   .tools-screen.is-chat .chat-composer-docked { padding: 8px 9px 7px; }
   .home-default-composer .composer-textarea,
@@ -1730,8 +1746,8 @@ body {
   }
   .home-default { padding-bottom: 190px; }
   .home-default .chat-composer-docked,
-  .tools-screen.is-chat .chat-composer-docked { bottom: max(48px, calc(env(safe-area-inset-bottom) + 40px)); }
-  .tools-screen.is-chat { padding-bottom: 27px; }
+  .tools-screen.is-chat .chat-composer-docked { bottom: max(40px, calc(env(safe-area-inset-bottom) + 32px)); }
+  .tools-screen.is-chat { padding-bottom: 0; }
   .onboarding-layer { align-items: stretch; padding: 0; }
   .onboarding-dialog { border: 0; border-radius: 0; height: 100dvh; max-height: none; width: 100%; }
   .onboarding-header { padding: max(14px, env(safe-area-inset-top)) 16px 13px; }
@@ -4108,11 +4124,15 @@ body {
 }
 
 @media (max-width: 720px) {
+  .content:has(> .tools-screen.is-chat) {
+    padding-bottom: 0;
+    padding-top: 8px;
+  }
   .tools-screen.is-chat { gap: 0; }
   .tools-screen.is-chat .chat-conversation {
     gap: 17px;
-    padding: 6px 1px max(190px, calc(env(safe-area-inset-bottom) + 176px));
-    scroll-padding-bottom: max(190px, calc(env(safe-area-inset-bottom) + 176px));
+    padding: 0 1px max(158px, calc(env(safe-area-inset-bottom) + 144px));
+    scroll-padding-bottom: max(158px, calc(env(safe-area-inset-bottom) + 144px));
   }
   .chat-message.is-assistant { width: min(100%, 94%); }
   .chat-message p,

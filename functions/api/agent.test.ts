@@ -57,7 +57,7 @@ describe('0 基础 Agent 工具调用', () => {
     const headers = init.headers as Record<string, string>;
 
     expect(response.status).toBe(200);
-    expect(result).toEqual({ selection: { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' } } });
+    expect(result).toEqual({ selection: { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' }, ziweiFortune: { scope: 'full' } } });
     expect(url).toBe('https://primary.example/v1/chat/completions');
     expect(headers.Authorization).toBe('Bearer primary-key');
     expect(body.tool_choice).toBe('required');
@@ -66,6 +66,51 @@ describe('0 基础 Agent 工具调用', () => {
     expect(JSON.stringify(body.tools)).toContain('calculate_wuyun_liuqi');
     expect(JSON.stringify(body.tools)).toContain('calculate_huangji_jingshi');
     expect(JSON.stringify(body.tools)).toContain('fortune_scope');
+    expect(JSON.stringify(body.tools)).toContain('target_date');
+  });
+
+  it('把紫微目标流年传回前端', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'read_ziwei', arguments: '{"fortune_scope":"yearly","target_year":2028}' } }] } }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(await response.json()).toEqual({ selection: { mode: 'chart', chartKind: 'ziwei', ziweiFortune: { scope: 'yearly', year: 2028 } } });
+  });
+
+  it('允许模型沿用上一轮盘面继续解释', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'continue_reading', arguments: '{}' } }] } }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(await response.json()).toEqual({ selection: { mode: 'continue' } });
+  });
+
+  it('把指定八字大运干支传回前端', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'read_bazi', arguments: '{"fortune_scope":"dayun","target_dayun_ganzhi":"庚午"}' } }] } }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(await response.json()).toEqual({ selection: { mode: 'chart', chartKind: 'bazi', baziFortune: { scope: 'dayun', ganZhi: '庚午' } } });
+  });
+
+  it('把星盘月度推运日期传回前端', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'read_astrolabe', arguments: '{"fortune_scope":"monthly","target_date":"2028-05"}' } }] } }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(await response.json()).toEqual({ selection: { mode: 'chart', chartKind: 'astrolabe', astrolabeFortune: { scope: 'monthly', date: '2028-05' } } });
   });
 
   it('把五运六气工具年份传回前端', async () => {

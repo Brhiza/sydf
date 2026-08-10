@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { baziCalculator } from 'mingyu-core/bazi';
+import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
+import type { AstrolabeData } from 'mingyu-core/types';
 import { buildChartReadingPrompt, inferBaziFortuneRequest } from './chartPrompt';
+import { runDivination, type BirthForm } from './divination';
 
 const chart = baziCalculator.calculateBazi({
   year: 1990,
@@ -11,6 +14,35 @@ const chart = baziCalculator.calculateBazi({
   birthMinute: 0,
   gender: 'male',
   isLunar: false,
+});
+
+describe('星盘推运提示词', () => {
+  it('把模型选择的目标年份写入真实年度推运资料', async () => {
+    const birth: BirthForm = {
+      name: '测试案例',
+      gender: 'male',
+      date: '1990-06-15',
+      dateType: 'solar',
+      isLeapMonth: false,
+      time: '12:00',
+      timeBasis: 'clock',
+      locationName: '北京市 东城区',
+      latitude: '39.9042',
+      longitude: '116.4074',
+      timezone: '8',
+    };
+    const result = await runDivination('astrolabe', new Date('2026-08-09T12:00:00+08:00'), birth) as AstrolabeData;
+    const fortuneScope = buildAstrolabeScopeContext(result, 'yearly', '2028');
+    const scopedResult = { ...result, fortuneScope } as AstrolabeData;
+    const prompt = buildChartReadingPrompt('astrolabe', scopedResult, { question: '请看 2028 年事业行运' });
+
+    expect(fortuneScope.dateStr).toBe('2028');
+    expect(prompt).toContain('【流年2028】');
+    expect(prompt).toContain('太阳返照');
+    expect(prompt).toContain('次限');
+    expect(prompt).toContain('太阳弧');
+    expect(prompt).not.toContain('2026 年度推运');
+  });
 });
 
 describe('八字岁运提示词', () => {

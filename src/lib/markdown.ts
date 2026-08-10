@@ -65,12 +65,22 @@ renderer.link = function ({ href, title, tokens }) {
   return `<a href="${escapeHtml(safeHref)}"${titleAttribute} target="_blank" rel="noopener noreferrer">${label}</a>`;
 };
 
+function removeOrphanedStrongMarkers(html: string) {
+  // marked 会消费合法的粗体标记；渲染后仍留在普通文本节点里的 ** / __
+  // 都是模型生成的残缺标记。保留标签属性以及 code/pre 中的原始内容。
+  return html
+    .split(/(<pre\b[\s\S]*?<\/pre>|<code\b[\s\S]*?<\/code>|<[^>]+>)/gi)
+    .map((part) => (part.startsWith('<') ? part : part.replace(/\*\*|__/g, '')))
+    .join('');
+}
+
 export function renderChatMarkdown(source: string) {
   if (!source.trim()) return '';
-  return markdown.parse(source, {
+  const html = markdown.parse(source, {
     async: false,
     breaks: true,
     gfm: true,
     renderer,
   });
+  return removeOrphanedStrongMarkers(html);
 }

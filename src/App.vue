@@ -108,8 +108,9 @@ import {
 } from './lib/ai';
 import {
   requestAgentToolSelection,
-  selectLocalAgentTool,
   type AgentToolSelection,
+  type AgentAstrolabeFortune,
+  type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
 import AiPromptFallback from './components/AiPromptFallback.vue';
@@ -320,6 +321,8 @@ interface CachedChart {
 }
 
 type AstrolabeChartData = AstrolabeData & {
+  fortuneScope?: AstrolabeScopeContext;
+  /** 兼容旧缓存。 */
   annualScope?: AstrolabeScopeContext;
 };
 
@@ -967,6 +970,8 @@ const selectedZiweiScope = ref<ZiweiScope>('origin');
 const selectedZiweiPalaceIndex = ref(0);
 const dailyFortune = ref<DailyFortuneResult | null>(null);
 const agentBaziFortune = ref<BaziFortuneRequest | null>(null);
+const agentZiweiFortune = ref<AgentZiweiFortune | null>(null);
+const agentAstrolabeFortune = ref<AgentAstrolabeFortune | null>(null);
 const selectedWuyunYear = ref(new Date().getFullYear());
 const selectedHuangjiYear = ref(new Date().getFullYear());
 let chatSessionId = 1;
@@ -2484,13 +2489,18 @@ function inferAlmanacTopic(text: string): AlmanacPurpose | '' {
 }
 
 function applyAgentSelection(selection: AgentToolSelection, questionText: string) {
+  if (selection.mode === 'continue') return;
   homeMode.value = selection.mode;
   if (selection.mode === 'chart') {
     homeChartKind.value = selection.chartKind;
     agentBaziFortune.value = selection.baziFortune || null;
+    agentZiweiFortune.value = selection.ziweiFortune || null;
+    agentAstrolabeFortune.value = selection.astrolabeFortune || null;
     return;
   }
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   selectedKind.value = selection.divinationKind;
   if (selection.divinationKind === 'qimen' && selection.qimenScope) settings.qimenScope = selection.qimenScope;
   if (selection.divinationKind === 'wuyun-liuqi') selectedWuyunYear.value = selection.wuyunYear || new Date().getFullYear();
@@ -2499,15 +2509,14 @@ function applyAgentSelection(selection: AgentToolSelection, questionText: string
 }
 
 async function resolveAgentSelection(questionText: string) {
-  const localSelection = selectLocalAgentTool(questionText);
+  const previousTool = homeState.value === 'chat' && chatMessages.value.length
+    ? homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value
+    : undefined;
   const sessionId = chatSessionId;
   agentAbortController?.abort();
   const controller = new AbortController();
   agentAbortController = controller;
   try {
-    const previousTool = homeState.value === 'chat' && chatMessages.value.length
-      ? homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value
-      : undefined;
     const conversation = chatMessages.value
       .filter((message): message is ChatTextMessage => message.kind === 'text')
       .slice(-6)
@@ -2517,15 +2526,15 @@ async function resolveAgentSelection(questionText: string) {
       hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
       inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
       previousTool,
+      activeTool: appPreferences.displayLevel === 'basic'
+        ? undefined
+        : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value,
       castingPreference: appPreferences.castingPreference,
       conversation,
       aiConfig: activeAiRequestConfig.value,
     }, controller.signal);
     if (sessionId !== chatSessionId || controller.signal.aborted) throw new DOMException('会话已结束', 'AbortError');
     return selection;
-  } catch (error) {
-    if (sessionId !== chatSessionId || controller.signal.aborted) throw error;
-    return localSelection;
   } finally {
     if (agentAbortController === controller) agentAbortController = null;
   }
@@ -2788,6 +2797,8 @@ function chooseTool(kind: DivinationKind) {
   selectedKind.value = kind;
   homeMode.value = 'divination';
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   showToolPicker.value = false;
   formError.value = '';
 }
@@ -2900,6 +2911,8 @@ function leaveChat() {
   homeState.value = 'default';
   homeMode.value = 'divination';
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   question.value = '';
   currentResult.value = null;
   currentRecord.value = null;
@@ -2917,6 +2930,8 @@ function chooseHomeChart(kind: HomeChartKind) {
   homeMode.value = 'chart';
   homeChartKind.value = kind;
   agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
   showToolPicker.value = false;
   closeManualReading();
   chartError.value = '';
@@ -3800,22 +3815,24 @@ async function beginReading() {
     formError.value = '请先写下想问的事，或从问题灵感中选择。';
     return;
   }
-  if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading')) {
-    if (await continueCurrentReading(requestedQuestion)) return;
-  }
   const sessionId = chatSessionId;
-  if (appPreferences.displayLevel === 'basic') {
-    isReading.value = true;
-    try {
-      const selection = await resolveAgentSelection(requestedQuestion);
-      if (sessionId !== chatSessionId) return;
-      applyAgentSelection(selection, requestedQuestion);
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading');
+  isReading.value = true;
+  try {
+    const selection = await resolveAgentSelection(requestedQuestion);
+    if (sessionId !== chatSessionId) return;
+    if (selection.mode === 'continue') {
+      if (hasCurrentReading && await continueCurrentReading(requestedQuestion)) return;
+      formError.value = '当前没有可继续追问的盘面，请换一种问法。';
       return;
-    } finally {
-      if (sessionId === chatSessionId) isReading.value = false;
     }
+    applyAgentSelection(selection, requestedQuestion);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    formError.value = error instanceof Error ? error.message : 'AI 暂时无法选择合适的工具。';
+    return;
+  } finally {
+    if (sessionId === chatSessionId) isReading.value = false;
   }
   if (homeMode.value === 'chart') {
     if (!cases.value.length || !currentCase.value?.date || !currentCase.value?.time) {
@@ -3838,7 +3855,9 @@ async function beginReading() {
       if (kind === 'bazi-ziwei') {
         const [baziEntry, ziweiEntry] = await Promise.all([
           calculateCachedChart('bazi', currentCase.value),
-          calculateCachedChart('ziwei', currentCase.value),
+          agentZiweiFortune.value
+            ? calculateUncachedChart('ziwei', currentCase.value, { ziweiFortune: agentZiweiFortune.value })
+            : calculateCachedChart('ziwei', currentCase.value),
         ]);
         if (!isBazi(baziEntry.result) || !isZiwei(ziweiEntry.result)) throw new Error('合参盘面数据无法识别，请稍后重试。');
         const context = {
@@ -3875,7 +3894,11 @@ async function beginReading() {
         selectedInspirationPrompt.value = '';
         return;
       }
-      const chartEntry = await calculateCachedChart(kind, currentCase.value);
+      const chartEntry = kind === 'ziwei' && agentZiweiFortune.value
+        ? await calculateUncachedChart(kind, currentCase.value, { ziweiFortune: agentZiweiFortune.value })
+        : kind === 'astrolabe' && agentAstrolabeFortune.value
+          ? await calculateUncachedChart(kind, currentCase.value, { astrolabeFortune: agentAstrolabeFortune.value })
+          : await calculateCachedChart(kind, currentCase.value);
       if (sessionId !== chatSessionId) return;
       const result = chartEntry.result;
       const createdAt = Date.now();
@@ -3981,17 +4004,56 @@ async function beginReading() {
 
 let chartRequestId = 0;
 
-async function calculateChart(kind: ChartKind, birth: CaseProfile): Promise<ReadingResult> {
-  if (kind === 'ziwei') return await runZiweiChart(birth);
+interface AgentChartCalculationOptions {
+  ziweiFortune?: AgentZiweiFortune | null;
+  astrolabeFortune?: AgentAstrolabeFortune | null;
+}
+
+function localTodayKey() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function astrolabeTargetDate(fortune?: AgentAstrolabeFortune | null) {
+  if (!fortune || fortune.scope === 'natal') return '';
+  if (fortune.date) return fortune.date;
+  const today = localTodayKey();
+  if (fortune.scope === 'yearly') return today.slice(0, 4);
+  if (fortune.scope === 'monthly') return today.slice(0, 7);
+  return today;
+}
+
+async function calculateChart(kind: ChartKind, birth: CaseProfile, options: AgentChartCalculationOptions = {}): Promise<ReadingResult> {
+  if (kind === 'ziwei') return await runZiweiChart(birth, options.ziweiFortune || { scope: 'full' });
   const result = await runDivination(kind, new Date(), birth);
   if (kind === 'astrolabe' && isAstrolabe(result)) {
-    const { buildAstrolabeScopeContext } = await import('mingyu-core/divination/astrolabe-scope');
+    const { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } = await import('mingyu-core/divination/astrolabe-scope');
+    const fortune = options.astrolabeFortune || { scope: 'yearly' as const, date: String(new Date().getFullYear()) };
+    const targetDate = astrolabeTargetDate(fortune);
+    let fortuneScope = buildAstrolabeScopeContext(result, fortune.scope, targetDate);
+    if (fortune.scope === 'full') {
+      const contexts = buildAstrolabeFullScopeContexts(result, targetDate);
+      fortuneScope = {
+        ...fortuneScope,
+        promptText: [contexts.natal, contexts.yearly, contexts.monthly, contexts.daily]
+          .map((context) => context.promptText)
+          .filter(Boolean)
+          .join('\n\n'),
+        solarReturnEvidence: contexts.yearly.solarReturnEvidence,
+        secondaryProgressionEvidence: contexts.yearly.secondaryProgressionEvidence,
+        solarArcEvidence: contexts.yearly.solarArcEvidence,
+      };
+    }
     return {
       ...result,
-      annualScope: buildAstrolabeScopeContext(result, 'yearly', String(new Date().getFullYear())),
+      fortuneScope,
     } as AstrolabeChartData;
   }
   return result;
+}
+
+async function calculateUncachedChart(kind: ChartKind, birth: CaseProfile, options: AgentChartCalculationOptions) {
+  return { result: await calculateChart(kind, birth, options), createdAt: Date.now() };
 }
 
 async function calculateCachedChart(kind: ChartKind, birth: CaseProfile) {
@@ -4147,7 +4209,12 @@ function centerZiweiChart() {
 }
 
 function astroAnnualScope(result: AstrolabeData) {
-  return (result as AstrolabeChartData).annualScope || null;
+  const context = (result as AstrolabeChartData).fortuneScope || (result as AstrolabeChartData).annualScope || null;
+  return context?.scope === 'yearly' ? context : null;
+}
+
+function astroFortuneYear(result: AstrolabeData) {
+  return Number(astroAnnualScope(result)?.dateStr.slice(0, 4)) || currentFortuneYear;
 }
 
 function formatAstroAnnualDate(value?: string) {
@@ -5298,7 +5365,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   </section>
                   <aside class="astro-chart-side">
                     <section class="astro-side-block astro-planet-block"><div class="astro-side-heading"><span>行星重点</span><small>水星至土星</small></div><div class="astro-planet-grid"><div v-for="item in astroSupportingPlanets(displayResult)" :key="`support-${item.point.name}`"><b>{{ astroPointSymbol(item.point) }}</b><span><small>{{ item.meaning }}</small><strong>{{ item.point.label }} · {{ astroPointPosition(item.point) }}</strong></span><em v-if="item.point.retrograde">逆行</em></div></div></section>
-                    <section v-if="astroAnnualScope(displayResult)" class="astro-side-block astro-transit-block"><div class="astro-side-heading"><span>{{ currentFortuneYear }} 流年</span><small>返照 · 次限 · 太阳弧</small></div><div class="astro-transit-grid"><div><span>太阳返照</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.solarReturnEvidence?.dateTime) || '本年无可用时刻' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarReturnEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>次限推进</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.progressedDateTime) || '本年无可用日期' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>太阳弧</span><strong>{{ astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees === undefined ? '本年无可用弧度' : `${astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees?.toFixed(2)}°` }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarArcEvidence?.aspects) || '主要相位待合参' }}</small></div></div></section>
+                    <section v-if="astroAnnualScope(displayResult)" class="astro-side-block astro-transit-block"><div class="astro-side-heading"><span>{{ astroFortuneYear(displayResult) }} 流年</span><small>返照 · 次限 · 太阳弧</small></div><div class="astro-transit-grid"><div><span>太阳返照</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.solarReturnEvidence?.dateTime) || '本年无可用时刻' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarReturnEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>次限推进</span><strong>{{ formatAstroAnnualDate(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.progressedDateTime) || '本年无可用日期' }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.secondaryProgressionEvidence?.aspects) || '主要相位待合参' }}</small></div><div><span>太阳弧</span><strong>{{ astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees === undefined ? '本年无可用弧度' : `${astroAnnualScope(displayResult)?.solarArcEvidence?.arcDegrees?.toFixed(2)}°` }}</strong><small>{{ formatAstroAnnualAspects(astroAnnualScope(displayResult)?.solarArcEvidence?.aspects) || '主要相位待合参' }}</small></div></div></section>
                     <section class="astro-side-block astro-axis-block"><div class="astro-side-heading"><span>四轴定位</span><small>上升 · 天底 · 下降 · 天顶</small></div><div class="astro-axis-compact"><div v-for="angle in displayResult.angles" :key="angle.name"><span>{{ astroAxisLabel(angle) }} · {{ angle.label }}</span><strong>{{ astroPointPosition(angle, false) }}</strong></div></div></section>
                     <details class="astro-data-fold"><summary><span>完整落点与宫位</span><small>{{ displayResult.planets.length + displayResult.houses.length }} 项</small><ChevronDown :size="14" /></summary><div class="astro-detail-list"><div v-for="point in displayResult.planets" :key="`detail-planet-${point.name}`"><span>{{ astroPointSymbol(point) }} {{ point.label }}<i v-if="point.retrograde">逆</i></span><strong>{{ astroPointPosition(point) }}</strong></div><div v-for="house in displayResult.houses" :key="`detail-house-${house.name}`"><span>第{{ house.house }}宫</span><strong>{{ astroPointPosition(house, false) }}</strong></div></div></details>
                     <details class="astro-data-fold"><summary><span>主要相位</span><small>{{ astroMajorAspects(displayResult).length }} 组</small><ChevronDown :size="14" /></summary><div class="astro-aspect-list"><div v-for="aspect in astroMajorAspects(displayResult)" :key="`aspect-${aspect.body1}-${aspect.body2}-${aspect.type}`"><span>{{ astroAspectBodyLabel(displayResult, aspect.body1) }} {{ aspect.symbol }} {{ astroAspectBodyLabel(displayResult, aspect.body2) }}</span><small :style="{ color: astroAspectColor(aspect.type) }">{{ aspect.type }} · 容许度 {{ aspect.orb.toFixed(1) }}°</small></div></div></details>

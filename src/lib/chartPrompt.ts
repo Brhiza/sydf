@@ -20,6 +20,7 @@ export interface BaziFortuneRequest {
   scope: 'natal' | 'full' | 'dayun' | 'year';
   cycleIndex?: number;
   year?: number;
+  ganZhi?: string;
 }
 
 export interface ChartReadingPromptOptions {
@@ -29,8 +30,14 @@ export interface ChartReadingPromptOptions {
 }
 
 type AstrolabePromptData = AstrolabeData & {
+  fortuneScope?: {
+    displayText?: string;
+    displayLabel?: string;
+    promptText?: string;
+  };
   annualScope?: {
     displayText?: string;
+    displayLabel?: string;
     promptText?: string;
   };
 };
@@ -92,6 +99,13 @@ function completeBaziFortuneSelection(
     };
   }
   if (requested.cycleIndex !== undefined) return { scope: 'dayun', cycleIndex: requested.cycleIndex };
+  const requestedCycleIndex = result.luckInfo.cycles.findIndex((cycle) => {
+    if (requested.ganZhi && cycle.ganZhi === requested.ganZhi) return true;
+    if (!requested.year) return false;
+    const years = cycle.resolvedYears?.length ? cycle.resolvedYears : cycle.years;
+    return years?.some((item) => item.year === requested.year);
+  });
+  if (requestedCycleIndex >= 0) return { scope: 'dayun', cycleIndex: requestedCycleIndex };
   const currentSelection = buildCurrentBaziFortuneSelection(result, currentTime);
   return currentSelection?.cycleIndex === undefined
     ? { scope: 'natal' }
@@ -130,9 +144,10 @@ function formatAstrolabePrompt(result: AstrolabePromptData, options: ChartReadin
     currentTime: options.currentTime,
     question: options.question,
   }));
+  const fortuneScope = result.fortuneScope || result.annualScope;
   return [
     chartPrompt,
-    result.annualScope?.promptText ? `【当前年度推运】\n${result.annualScope.promptText}` : '',
+    fortuneScope?.promptText ? `【${fortuneScope.displayLabel || '推运资料'}】\n${fortuneScope.promptText}` : '',
   ].filter(Boolean).join('\n\n');
 }
 
