@@ -11,6 +11,17 @@ describe('AI 解读请求', () => {
     mode: 'divination',
     question: '我的项目怎么样',
     method: '梅花易数',
+    profile: {
+      label: '不应发送的案例',
+      name: '不应发送的姓名',
+      gender: 'male',
+      date: '1999-06-20',
+      dateType: 'solar',
+      isLeapMonth: false,
+      time: '06:00',
+      locationName: '北京市 东城区',
+      timeBasis: 'trueSolar',
+    },
     reading: {
       summary: '主卦离为火，变卦火山旅。',
       data: {
@@ -23,15 +34,17 @@ describe('AI 解读请求', () => {
     },
   };
 
-  it('在网络边界移除原始排盘和审计依据', () => {
+  it('占卜请求只发送完整提示词，移除案例、摘要、原始排盘和审计依据', () => {
     const body = buildAiInterpretationRequestBody(request);
     const serialized = JSON.stringify(body);
 
     expect(body.reading).toEqual({
-      summary: request.reading?.summary,
       prompt: request.reading?.prompt,
     });
     expect(serialized).toContain('体用关系');
+    expect(serialized).not.toContain('主卦离为火，变卦火山旅。');
+    expect(serialized).not.toContain('不应发送的案例');
+    expect(serialized).not.toContain('1999-06-20');
     expect(serialized).not.toContain('evidenceAnalysis');
     expect(serialized).not.toContain('calculationChain');
     expect(serialized).not.toContain('不应发送');
@@ -51,5 +64,22 @@ describe('AI 解读请求', () => {
     expect(serialized).toContain('体用关系');
     expect(serialized).not.toContain('evidenceAnalysis');
     expect(serialized).not.toContain('calculationChain');
+  });
+
+  it('命盘请求仍保留案例，有提示词时不重复发送摘要', () => {
+    const body = buildAiInterpretationRequestBody({ ...request, mode: 'chart' });
+
+    expect(body.profile).toEqual(request.profile);
+    expect(body.reading).toEqual({ prompt: request.reading?.prompt });
+  });
+
+  it('没有提示词时回退发送摘要', () => {
+    const body = buildAiInterpretationRequestBody({
+      ...request,
+      reading: { summary: '仅有摘要', data: { ignored: true } },
+    });
+
+    expect(body.reading).toEqual({ summary: '仅有摘要' });
+    expect(JSON.stringify(body)).not.toContain('ignored');
   });
 });

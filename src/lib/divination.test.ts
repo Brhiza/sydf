@@ -78,23 +78,46 @@ describe('皇极经世前端链路', () => {
 describe('占卜解读提示词清理', () => {
   const now = new Date('2026-08-09T12:00:00+08:00');
 
-  it('六爻保留卦名、动爻与世应，不再展开完整证据资料', async () => {
-    const prompt = await buildDivinationReadingPrompt('liuyao', await runDivination('liuyao', now));
+  it('梅花保留完整主互变卦、卦爻辞与体用，不发送起卦过程', async () => {
+    const prompt = await buildDivinationReadingPrompt('meihua', await runDivination('meihua', now));
 
-    expect(prompt).toContain('主卦：');
-    expect(prompt).toContain('动爻：');
-    expect(prompt).toContain('卦宫：');
+    expect(prompt).toContain('盘面干支：');
+    expect(prompt).toContain('主卦（当前）：');
+    expect(prompt).toContain('互卦（过程）：');
+    expect(prompt).toContain('变卦（结果）：');
+    expect(prompt.match(/- 卦辞：/g)).toHaveLength(3);
+    expect(prompt).toContain('- 爻辞：');
+    expect(prompt).toContain('主卦体用：');
+    expect(prompt).toContain('过程体用：');
+    expect(prompt).toContain('结果体用：');
+    expect(prompt).toContain('月令旺衰：');
+    expect(prompt).not.toContain('随机起卦法');
+    expect(prompt).not.toContain('数字起卦法');
+    expect(prompt).not.toContain('起卦数字');
+    expect(prompt).not.toContain('计算链');
+    expect(prompt).not.toContain('证据链');
+    expect(prompt).not.toContain('evidenceAnalysis');
+  });
+
+  it('六爻按问题选取用神，并保留动变、世应和月日触发', async () => {
+    const prompt = await buildDivinationReadingPrompt('liuyao', await runDivination('liuyao', now), { question: '我的项目能推进吗' });
+
+    expect(prompt).toContain('核心结构：主卦');
+    expect(prompt).toContain('用神：官鬼');
     expect(prompt).toContain('世应：');
-    expect(prompt).not.toContain('六爻明细：');
+    expect(prompt).toContain('动变：');
+    expect(prompt).toContain('月日触发：');
     expect(prompt).not.toContain('证据：');
     expect(prompt).not.toContain('证据链');
   });
 
-  it('直接使用新版奇门摘要，不再展开完整判断依据', async () => {
+  it('奇门保留核心宫、值符值使、时干、旬空与马星', async () => {
     const prompt = await buildDivinationReadingPrompt('qimen', await runDivination('qimen', now));
 
-    expect(prompt).toContain('主轴：');
-    expect(prompt).toContain('格局：');
+    expect(prompt).toContain('取用主线：');
+    expect(prompt).toContain('门星神干：');
+    expect(prompt).toContain('值符值使与时干：');
+    expect(prompt).toContain('旬空与马星：');
     expect(prompt).not.toContain('判断依据：');
     expect(prompt).not.toContain('证据：');
     expect(prompt).not.toContain('节气交接：');
@@ -124,15 +147,19 @@ describe('占卜解读提示词清理', () => {
   it('太乙资料不附带内部模型描述', async () => {
     const prompt = await buildDivinationReadingPrompt('taiyi', await runDivination('taiyi', now, undefined, { taiyiYear: 2026 }));
 
-    expect(prompt).toContain('太乙在');
+    expect(prompt).toContain('太乙：');
+    expect(prompt).toContain('主客定算：');
+    expect(prompt).toContain('将参：');
     expect(prompt).not.toContain('模型：');
   });
 
-  it('小六壬只保留落宫和顺数轨迹，不重复输出起课口径', async () => {
+  it('小六壬保留盘面时间、落宫轨迹和最终歌诀', async () => {
     const prompt = await buildDivinationReadingPrompt('xiaoliuren', await runDivination('xiaoliuren', now));
 
-    expect(prompt).toContain('占得宫：');
-    expect(prompt).toContain('顺数轨迹：');
+    expect(prompt).toContain('盘面干支：');
+    expect(prompt).toContain('落宫轨迹：月宫');
+    expect(prompt).toContain('最终落宫：');
+    expect(prompt).toContain('落宫歌诀：');
     expect(prompt).not.toContain('起课方式：');
     expect(prompt).not.toContain('历法口径：');
   });
@@ -148,16 +175,18 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).not.toContain('传统依据：');
   });
 
-  it('择日只传递事项、日期范围和候选日，不复制计算链', async () => {
+  it('择日传递事项、日期范围、候选日课和可用时辰，不复制计算链', async () => {
     const prompt = await buildDivinationReadingPrompt('almanac', await runDivination('almanac', now, undefined, {
       almanacTopic: 'study',
       almanacStartDate: '2026-08-09',
       almanacEndDate: '2026-08-15',
     }));
 
-    expect(prompt).toContain('事项：');
-    expect(prompt).toContain('范围：2026-08-09至2026-08-15');
-    expect(prompt).toContain('2026-08-09：');
+    expect(prompt).toContain('择日事项：考试学习');
+    expect(prompt).toContain('候选日期：2026-08-09 至 2026-08-15');
+    expect(prompt).toContain('候选日期明细：');
+    expect(prompt).toContain('日课：');
+    expect(prompt).toContain('可用时辰');
     expect(prompt).not.toContain('证据：');
     expect(prompt).not.toContain('计算链');
   });

@@ -217,15 +217,23 @@ describe('AI 降级提示词', () => {
   it('占卜资料只保留可用于解读的盘面信息', async () => {
     const result = generateMeihua(new Date('2026-08-08T12:00:00+08:00'), { method: 'number', number: 8 });
     const prompt = await buildDivinationReadingPrompt('meihua', result);
-    expect(prompt).toContain('核心结构：');
-    expect(prompt).toContain('体用关系：');
+    expect(prompt).toContain('主卦（当前）：');
+    expect(prompt).toContain('互卦（过程）：');
+    expect(prompt).toContain('变卦（结果）：');
+    expect(prompt).toContain('主卦体用：');
+    expect(prompt).toContain('过程体用：');
+    expect(prompt).toContain('结果体用：');
+    expect(prompt).toContain('月令旺衰：');
+    expect(prompt).toContain('- 卦辞：');
+    expect(prompt).toContain('- 爻辞：');
     expect(prompt).not.toContain('结构明细：');
     expect(prompt).not.toContain('卦辞分类：');
     expect(prompt).not.toContain('证据链');
     expect(prompt).not.toContain('证据：');
     expect(prompt).not.toContain('计算链');
     expect(prompt).not.toContain('应期资料：');
-    expect(prompt).not.toContain('起卦数字8可作卦数旁证');
+    expect(prompt).not.toContain('起卦数字');
+    expect(prompt).not.toContain('数字起卦法');
   });
 
   it('八字紫微合参保留两套体系的核心关系，不输出取证模板', () => {

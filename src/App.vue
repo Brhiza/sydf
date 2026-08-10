@@ -3479,17 +3479,19 @@ async function buildAiRequest(
     mode,
     question: questionText,
     method: kind ? kindMeta[kind].label : undefined,
-    profile: {
-      label: profile.label,
-      name: profile.name,
-      gender: profile.gender,
-      date: profile.date,
-      dateType: profile.dateType,
-      isLeapMonth: profile.isLeapMonth,
-      time: profile.time,
-      locationName: profile.locationName,
-      timeBasis: profile.timeBasis,
-    },
+    ...(mode === 'chart' ? {
+      profile: {
+        label: profile.label,
+        name: profile.name,
+        gender: profile.gender,
+        date: profile.date,
+        dateType: profile.dateType,
+        isLeapMonth: profile.isLeapMonth,
+        time: profile.time,
+        locationName: profile.locationName,
+        timeBasis: profile.timeBasis,
+      },
+    } : {}),
     preferences: {
       answerPreference: appPreferences.answerPreference,
       displayLevel: appPreferences.displayLevel,
@@ -3497,7 +3499,7 @@ async function buildAiRequest(
     aiConfig: channelToAiConfig(channel),
   };
   if (result && kind) {
-    const corePrompt = mode === 'divination' ? await buildDivinationReadingPrompt(kind, result) : undefined;
+    const corePrompt = mode === 'divination' ? await buildDivinationReadingPrompt(kind, result, { question: questionText }) : undefined;
     const chartPrompt = mode === 'chart' && isChartReading(kind)
       ? (await import('./lib/chartPrompt')).buildChartReadingPrompt(kind, result, { ...chartPromptOptions, question: questionText })
       : undefined;
