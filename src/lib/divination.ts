@@ -1,0 +1,621 @@
+import { baziCalculator } from 'mingyu-core/bazi';
+import type { BaziChartResult } from 'mingyu-core/bazi';
+import { LunarUtil, resolveTrueSolarBirthTime } from 'mingyu-core/calendar';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
+import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateMeihua } from 'mingyu-core/divination/meihua';
+import { generateQimen } from 'mingyu-core/divination/qimen';
+import { drawRandomSign, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
+import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateTaiyi } from 'mingyu-core/taiyi';
+import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
+import {
+  calculateWuyunLiuqi,
+  buildWuyunLiuqiPrompt,
+  type WuyunLiuqiResult,
+} from 'mingyu-core/wuyun-liuqi';
+import {
+  calculateHuangjiJingshi,
+  buildHuangjiJingshiPrompt,
+  type HuangjiJingshiResult,
+} from 'mingyu-core/huangji-jingshi';
+import { summarizeDivinationResult } from 'mingyu-core/divination/session';
+import { buildZiweiPrompt } from 'mingyu-core/prompt';
+import {
+  buildZiweiChartInput,
+  calculateZiweiChart,
+  type DecadalTimelineOption,
+} from 'mingyu-core/ziwei/iztro';
+import type {
+  AlmanacData,
+  AlmanacTopic,
+  AstrolabeData,
+  JinkoujueData,
+  LiurenData,
+  LiuyaoData,
+  MeihuaData,
+  QimenData,
+  SsgwData,
+  TaiyiResult,
+  XiaoliurenData,
+  AnalysisPayloadV1,
+} from 'mingyu-core/types';
+import { compactReadingPrompt } from './aiPrompt';
+
+export type DivinationKind =
+  | 'meihua'
+  | 'liuyao'
+  | 'ssgw'
+  | 'xiaoliuren'
+  | 'jinkoujue'
+  | 'qimen'
+  | 'liuren'
+  | 'taiyi'
+  | 'wuyun-liuqi'
+  | 'huangji-jingshi'
+  | 'almanac'
+  | 'bazi'
+  | 'astrolabe'
+  | 'qizheng'
+  | 'ziwei';
+
+export interface BirthCalendarInfo {
+  solar: string;
+  lunar: string;
+  ganzhi: string;
+  shichen: string;
+  jieqi: string;
+  trueSolar?: {
+    correctedDateTime: string;
+    shichen: string;
+    totalCorrectionMinutes: number;
+    longitudeCorrectionMinutes: number;
+    equationOfTimeMinutes: number;
+  };
+}
+
+export interface ZiweiChartData {
+  kind: 'ziwei';
+  payload: AnalysisPayloadV1;
+  payloadByScope: {
+    origin: AnalysisPayloadV1;
+    decadal: AnalysisPayloadV1;
+    yearly: AnalysisPayloadV1;
+  };
+  decadalTimeline: DecadalTimelineOption[];
+  prompt?: string;
+  birth: {
+    name: string;
+    gender: 'male' | 'female';
+    date: string;
+    time: string;
+    locationName: string;
+  };
+  calendar: BirthCalendarInfo;
+}
+
+export interface QizhengChartData extends QizhengResult {
+  kind: 'qizheng';
+  birth: {
+    name: string;
+    gender: 'male' | 'female';
+    date: string;
+    time: string;
+    locationName: string;
+  };
+  calendar: BirthCalendarInfo;
+}
+
+export type ReadingResult =
+  | MeihuaData
+  | LiuyaoData
+  | SsgwData
+  | XiaoliurenData
+  | JinkoujueData
+  | QimenData
+  | LiurenData
+  | TaiyiResult
+  | WuyunLiuqiResult
+  | HuangjiJingshiResult
+  | AlmanacData
+  | BaziChartResult
+  | AstrolabeData
+  | QizhengChartData
+  | ZiweiChartData;
+
+export interface BirthForm {
+  name: string;
+  gender: 'male' | 'female';
+  date: string;
+  dateType: 'solar' | 'lunar';
+  isLeapMonth: boolean;
+  time: string;
+  timeBasis: 'clock' | 'trueSolar';
+  locationName: string;
+  latitude: string;
+  longitude: string;
+  timezone: string;
+}
+
+export interface DivinationOptions {
+  almanacTopic?: AlmanacTopic;
+  almanacStartDate?: string;
+  almanacEndDate?: string;
+  qimenScope?: 'hour' | 'day' | 'month' | 'year';
+  taiyiYear?: number;
+  wuyunYear?: number;
+  huangjiYear?: number;
+}
+
+export interface LiuyaoCoinThrow {
+  coins: [2 | 3, 2 | 3, 2 | 3];
+  total: 6 | 7 | 8 | 9;
+}
+
+export type CastingMode = 'auto' | 'manual' | 'specified';
+export type CastingPreference = Exclude<CastingMode, 'specified'>;
+export type CastingDivinationKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 'liuren' | 'taiyi';
+
+export interface CompatibilityRecordData {
+  type: string;
+  primaryCaseId: string;
+  partnerCaseId: string;
+  primaryLabel: string;
+  partnerLabel: string;
+  reading: {
+    summary: string;
+    data: unknown;
+    prompt?: string;
+    method: string;
+  };
+}
+
+export interface ReadingRecord {
+  id: string;
+  kind: DivinationKind;
+  methodLabel: string;
+  question: string;
+  createdAt: number;
+  result: ReadingResult;
+  relatedResults?: Array<{
+    kind: DivinationKind;
+    result: ReadingResult;
+  }>;
+  context?: {
+    label: string;
+    date: string;
+    time: string;
+    locationName: string;
+  };
+  /** 合盘记录恢复结果页与继续追问所需的上下文。 */
+  compatibility?: CompatibilityRecordData;
+  /** 从旧版历史迁移而来的 AI 解读。 */
+  interpretation?: string;
+}
+
+export interface ToolMeta {
+  label: string;
+  eyebrow: string;
+  description: string;
+  icon: string;
+  accent: string;
+  group: '常用' | '古法' | '命盘' | '择日';
+  needsBirth?: boolean;
+}
+
+export const kindMeta: Record<DivinationKind, ToolMeta> = {
+  meihua: { label: '梅花易数', eyebrow: '多法起卦', description: '从当下的时间与数字里寻找脉络。', icon: '梅', accent: 'terracotta', group: '常用' },
+  liuyao: { label: '六爻', eyebrow: '手动摇卦', description: '看事情的发展、变化与可行方向。', icon: '爻', accent: 'indigo', group: '常用' },
+  ssgw: { label: '三山国王灵签', eyebrow: '抽签掷杯', description: '让一支签回应此刻的犹豫。', icon: '签', accent: 'gold', group: '常用' },
+  xiaoliuren: { label: '小六壬', eyebrow: '六宫掌诀', description: '以月、日、时推看眼前吉凶。', icon: '六', accent: 'green', group: '古法' },
+  jinkoujue: { label: '金口诀', eyebrow: '四位起课', description: '以人元、贵神、将神、地分取象。', icon: '金', accent: 'amber', group: '古法' },
+  qimen: { label: '奇门遁甲', eyebrow: '九宫排盘', description: '看时势、方位和行动节奏。', icon: '奇', accent: 'blue', group: '古法' },
+  liuren: { label: '大六壬', eyebrow: '四课三传', description: '从四课三传观察事情如何推进。', icon: '壬', accent: 'teal', group: '古法' },
+  taiyi: { label: '太乙神数', eyebrow: '年计七十二局', description: '以太乙、主客定算观察年度大势。', icon: '乙', accent: 'plum', group: '古法' },
+  'wuyun-liuqi': { label: '五运六气', eyebrow: '年度气运', description: '查看一年的中运、司天在泉与六步气候节奏。', icon: '气', accent: 'teal', group: '古法' },
+  'huangji-jingshi': { label: '皇极经世', eyebrow: '公元值年卦', description: '从值年卦与十年、六十年周期观察一年的时代节奏。', icon: '皇', accent: 'gold', group: '古法' },
+  almanac: { label: '黄历择日', eyebrow: '日期筛选', description: '比较未来几天适合做什么事。', icon: '历', accent: 'orange', group: '择日' },
+  bazi: { label: '八字排盘', eyebrow: '出生资料', description: '查看四柱、日主和五行结构。', icon: '命', accent: 'plum', group: '命盘', needsBirth: true },
+  astrolabe: { label: '西洋星盘', eyebrow: '出生资料', description: '查看星体、上升与主要相位。', icon: '星', accent: 'sky', group: '命盘', needsBirth: true },
+  qizheng: { label: '七政四余', eyebrow: '传统星命', description: '查看七政四余、二十八宿与命身十二宫。', icon: '政', accent: 'indigo', group: '命盘', needsBirth: true },
+  ziwei: { label: '紫微斗数', eyebrow: '十二宫盘', description: '查看命宫、星曜与十二宫结构。', icon: '紫', accent: 'plum', group: '命盘', needsBirth: true },
+};
+
+function parseBirthDate(birth: BirthForm) {
+  const [year, month, day] = birth.date.split('-').map(Number);
+  const [hour, minute] = birth.time.split(':').map(Number);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) throw new Error('请填写完整的出生日期和时间。');
+  return { year, month, day, hour, minute };
+}
+
+function formatDateTimeParts(value: { year: number; month: number; day: number; hour: number; minute: number }) {
+  return `${value.year}年${String(value.month).padStart(2, '0')}月${String(value.day).padStart(2, '0')}日 ${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`;
+}
+
+function resolveBirthTime(birth: BirthForm) {
+  const parsed = parseBirthDate(birth);
+  return resolveTrueSolarBirthTime({
+    dateType: birth.dateType === 'lunar' ? 'lunar' : 'solar',
+    ...parsed,
+    isLeapMonth: birth.dateType === 'lunar' && birth.isLeapMonth,
+    longitude: Number(birth.longitude),
+    timezone: Number(birth.timezone) || 8,
+    applyChinaDst: true,
+  });
+}
+
+export function getBirthCalendarInfo(birth: BirthForm): BirthCalendarInfo {
+  const resolved = resolveBirthTime(birth);
+  const { year, month, day, hour, minute } = resolved.solarClockTime;
+  const info = LunarUtil.getTimeInfo(new Date(year, month - 1, day, hour, minute));
+  const calendar: BirthCalendarInfo = {
+    solar: formatDateTimeParts(info.solar),
+    lunar: `农历${info.lunar.yearInChinese}${info.lunar.monthInChinese}${info.lunar.dayInChinese}`,
+    ganzhi: info.eightChar.year + '年 ' + info.eightChar.month + '月 ' + info.eightChar.day + '日 ' + info.eightChar.hour + '时',
+    shichen: info.lunar.hourInChinese,
+    jieqi: info.jieQi,
+  };
+
+  if (birth.timeBasis === 'trueSolar') {
+    calendar.trueSolar = {
+      correctedDateTime: resolved.correctedDateTime,
+      shichen: resolved.shichen.name,
+      totalCorrectionMinutes: resolved.totalCorrectionMinutes,
+      longitudeCorrectionMinutes: resolved.longitudeCorrectionMinutes,
+      equationOfTimeMinutes: resolved.equationOfTimeMinutes,
+    };
+  }
+  return calendar;
+}
+
+function hourIndex(hour: number) {
+  return Math.floor(((hour + 1) % 24) / 2);
+}
+
+function toDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+export function runDivination(
+  kind: DivinationKind,
+  now = new Date(),
+  birth?: BirthForm,
+  options: DivinationOptions = {},
+): ReadingResult {
+  switch (kind) {
+    case 'meihua': return generateMeihua(now, { method: 'random' });
+    case 'liuyao': return generateLiuyao(now, { method: 'time' });
+    case 'ssgw': return drawRandomSign(now);
+    case 'xiaoliuren': return generateXiaoliuren({ method: 'time', customDate: now });
+    case 'jinkoujue': return generateJinkoujue({ method: 'time', customDate: now });
+    case 'qimen': return generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
+    case 'liuren': return generateLiuren(now);
+    case 'taiyi': return generateTaiyi({ year: options.taiyiYear ?? now.getFullYear(), scope: 'year' });
+    case 'wuyun-liuqi': return calculateWuyunLiuqi({ year: options.wuyunYear ?? now.getFullYear() });
+    case 'huangji-jingshi': return calculateHuangjiJingshi({ year: options.huangjiYear ?? now.getFullYear() });
+    case 'almanac': {
+      const startDate = options.almanacStartDate ?? toDateOnly(now);
+      const endDate = options.almanacEndDate ?? toDateOnly(addDays(new Date(`${startDate}T12:00:00`), 6));
+      return generateAlmanacSelection({ topic: options.almanacTopic ?? 'study', startDate, endDate });
+    }
+    case 'bazi': {
+      if (!birth) throw new Error('请先填写出生资料。');
+      const { year, month, day, hour, minute } = parseBirthDate(birth);
+      return baziCalculator.calculateBazi({
+        year,
+        month,
+        day,
+        timeIndex: hourIndex(hour),
+        birthHour: hour,
+        birthMinute: minute,
+        gender: birth.gender,
+        isLunar: birth.dateType === 'lunar',
+        isLeapMonth: birth.dateType === 'lunar' && birth.isLeapMonth,
+        useTrueSolarTime: birth.timeBasis === 'trueSolar',
+        birthPlace: birth.locationName,
+        birthLongitude: Number(birth.longitude),
+        timezone: Number(birth.timezone) || 8,
+        // 页面已有更贴合产品定位的展示筛选，底层需保留完整结果。
+        shenShaScope: 'all',
+      });
+    }
+    case 'astrolabe': {
+      if (!birth) throw new Error('请先填写出生资料。');
+      const { year, month, day, hour, minute } = resolveBirthTime(birth).solarClockTime;
+      return generateAstrolabe({
+        name: birth.name || '未命名',
+        gender: birth.gender === 'male' ? '男' : '女',
+        year: String(year),
+        month: String(month),
+        day: String(day),
+        hour: String(hour),
+        minute: String(minute),
+        latitude: birth.latitude,
+        longitude: birth.longitude,
+        timezone: birth.timezone,
+        locationName: birth.locationName,
+        useTrueSolarTime: birth.timeBasis === 'trueSolar',
+      });
+    }
+    case 'qizheng': {
+      if (!birth) throw new Error('请先填写出生资料。');
+      const { year, month, day, hour, minute } = resolveBirthTime(birth).solarClockTime;
+      const latitude = Number(birth.latitude);
+      const longitude = Number(birth.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error('七政四余需要完整的出生地区。');
+      return {
+        ...generateQizheng({
+          year,
+          month,
+          day,
+          hour,
+          minute,
+          latitude,
+          longitude,
+          timezone: Number(birth.timezone) || 8,
+          useTrueSolarTime: birth.timeBasis === 'trueSolar',
+        }),
+        kind: 'qizheng',
+        birth: {
+          name: birth.name || '未命名',
+          gender: birth.gender,
+          date: birth.date,
+          time: birth.time,
+          locationName: birth.locationName,
+        },
+        calendar: getBirthCalendarInfo(birth),
+      };
+    }
+    case 'ziwei': throw new Error('紫微斗数请从排盘页生成。');
+  }
+}
+
+type CoreDivinationSummary = ReturnType<typeof summarizeDivinationResult>;
+
+function formatCoreDivinationSummary(kind: DivinationKind, summary: CoreDivinationSummary) {
+  const tags = summary.tags
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !(['xiaoliuren', 'jinkoujue'] as DivinationKind[]).includes(kind) || !/^起课方式[：:]/.test(item));
+  let lines = summary.lines
+    .map((item) => item.trim())
+    .filter(Boolean)
+    // 核心包的结构化证据用于审计，不重复混入面向用户的解读提示词。
+    .filter((item) => !/^(?:证据|盘面证据)[：:]/.test(item))
+    .filter((item) => !/^古籍依据[：:]/.test(item))
+    .filter((item) => kind !== 'xiaoliuren' || !/^历法口径[：:]/.test(item))
+    .filter((item) => kind !== 'liuren' || !/^(?:取传说明|四课关系|三传主线)[：:]/.test(item));
+  if (kind === 'jinkoujue') {
+    const activation = lines
+      .filter((item) => /^阴阳发用[：:]/.test(item))
+      .sort((left, right) => left.length - right.length)[0];
+    lines = [activation || '', ...lines.filter((item) => !/^阴阳发用[：:]/.test(item))].filter(Boolean);
+  }
+  return [tags.length ? `核心结构：${tags.join('；')}` : '', ...lines].filter(Boolean);
+}
+
+export function buildDivinationReadingPrompt(kind: DivinationKind, result: ReadingResult) {
+  if (kind === 'bazi' || kind === 'ziwei' || kind === 'astrolabe') return '';
+  if (kind === 'wuyun-liuqi') return compactReadingPrompt(buildWuyunLiuqiPrompt(result as WuyunLiuqiResult));
+  if (kind === 'huangji-jingshi') return compactReadingPrompt(buildHuangjiJingshiPrompt(result as HuangjiJingshiResult));
+  const summary = summarizeDivinationResult(
+    kind as Parameters<typeof summarizeDivinationResult>[0],
+    result as Parameters<typeof summarizeDivinationResult>[1],
+  );
+  return compactReadingPrompt(formatCoreDivinationSummary(kind, summary).join('\n'));
+}
+
+export function runManualLiuyao(coinThrows: readonly LiuyaoCoinThrow[], now = new Date()): LiuyaoData {
+  return generateLiuyao(now, { method: 'coins', coinThrows });
+}
+
+export function runSpecifiedLiuyao(yaos: readonly (6 | 7 | 8 | 9)[], now = new Date()): LiuyaoData {
+  if (yaos.length !== 6) throw new Error('请依初爻至上爻填写六个爻值。');
+  return generateLiuyao(now, { method: 'manual', yaos });
+}
+
+export function runConfiguredMeihua(
+  method: 'time' | 'number' | 'random',
+  number?: number,
+  now = new Date(),
+): MeihuaData {
+  return generateMeihua(now, method === 'number' ? { method, number } : { method });
+}
+
+export function runConfiguredJinkoujue(
+  method: 'time' | 'number' | 'random',
+  number?: number,
+  now = new Date(),
+): JinkoujueData {
+  return generateJinkoujue(method === 'number'
+    ? { method, number, customDate: now }
+    : { method, customDate: now });
+}
+
+export function runAutomaticCasting(
+  kind: CastingDivinationKind,
+  now = new Date(),
+  options: DivinationOptions = {},
+): ReadingResult {
+  if (kind === 'jinkoujue') return runConfiguredJinkoujue('random', undefined, now);
+  return runDivination(kind, now, undefined, options);
+}
+
+export function runTimeCasting(
+  kind: 'xiaoliuren' | 'qimen' | 'liuren',
+  now = new Date(),
+  options: DivinationOptions = {},
+): XiaoliurenData | QimenData | LiurenData {
+  if (kind === 'xiaoliuren') return generateXiaoliuren({ method: 'time', customDate: now });
+  if (kind === 'qimen') return generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
+  return generateLiuren(now);
+}
+
+export function runTaiyiYear(year: number): TaiyiResult {
+  return generateTaiyi({ year, scope: 'year' });
+}
+
+export function runSpecifiedSsgw(number: number, now = new Date()): SsgwData {
+  if (!Number.isInteger(number) || number < 1 || number > 92) throw new Error('签号应在 1 至 92 之间。');
+  return resolveSignByNumber(number, now);
+}
+
+export function previewInteractiveSsgw(signSample: number, now = new Date()): SsgwData {
+  if (!Number.isFinite(signSample) || signSample < 0 || signSample >= 1) throw new Error('抽签随机样本无效。');
+  return resolveSignByNumber(Math.floor(signSample * 92) + 1, now);
+}
+
+export function finishInteractiveSsgw(
+  signSample: number,
+  cupSamples: readonly number[],
+  now = new Date(),
+): SsgwData {
+  if (cupSamples.length % 2 !== 0) throw new Error('每次掷杯必须包含两枚杯面。');
+  return drawRandomSign(now, { replay: [signSample, ...cupSamples] });
+}
+
+export async function runZiweiChart(birth: BirthForm): Promise<ZiweiChartData> {
+  const { year, month, day, hour, minute } = parseBirthDate(birth);
+  const input = buildZiweiChartInput({
+    name: birth.name || '未命名',
+    gender: birth.gender,
+    dateType: birth.dateType === 'lunar' ? 'lunar' : 'solar',
+    year,
+    month,
+    day,
+    timeIndex: hourIndex(hour),
+    isLeapMonth: birth.dateType === 'lunar' && birth.isLeapMonth,
+    useTrueSolarTime: birth.timeBasis === 'trueSolar',
+    birthHour: hour,
+    birthMinute: minute,
+    birthLongitude: birth.longitude,
+    timezone: Number(birth.timezone) || 8,
+    applyChinaDst: true,
+  });
+  const now = new Date();
+  const horoscopeDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const horoscopeTimeIndex = hourIndex(now.getHours());
+  const runtime = await calculateZiweiChart(input, {
+    scopes: ['origin', 'decadal', 'yearly'],
+    skipAnalysis: true,
+    horoscopeContext: {
+      dateStr: horoscopeDate,
+      hourIndex: horoscopeTimeIndex,
+    },
+  });
+  const payloadByScope = runtime.payloadByScope as ZiweiChartData['payloadByScope'];
+  const payload = payloadByScope.origin;
+
+  return {
+    kind: 'ziwei',
+    payload,
+    payloadByScope,
+    decadalTimeline: runtime.decadalTimeline,
+    prompt: compactReadingPrompt(buildZiweiPrompt({
+      runtime,
+      scope: 'full',
+      currentTime: now,
+    })),
+    birth: {
+      name: birth.name || '未命名',
+      gender: birth.gender,
+      date: birth.date,
+      time: birth.time,
+      locationName: birth.locationName,
+    },
+    calendar: getBirthCalendarInfo(birth),
+  };
+}
+
+export function formatReadingSummary(kind: DivinationKind, result: ReadingResult): string {
+  if (kind === 'meihua') {
+    const reading = result as MeihuaData;
+    return `主卦「${reading.mainHexagram.name}」${reading.changedHexagram ? `变「${reading.changedHexagram.name}」` : ''}，体用关系为${reading.analysis.tiYongRelation}。${reading.mainHexagram.description}`;
+  }
+  if (kind === 'liuyao') {
+    const reading = result as LiuyaoData;
+    return `本卦「${reading.originalName}」${reading.changedName ? `，动而化「${reading.changedName}」` : '，此卦暂无动爻'}。${reading.specialAdvice || '世爻与动爻信息已纳入本次排盘。'}`;
+  }
+  if (kind === 'ssgw') {
+    const reading = result as SsgwData;
+    return `第 ${reading.number} 签 · ${reading.title}。${reading.poem}`;
+  }
+  if (kind === 'xiaoliuren') {
+    const reading = result as XiaoliurenData;
+    return `月宫${reading.sequence.month.name}、日宫${reading.sequence.day.name}、时宫${reading.sequence.hour.name}，以${reading.primary.name}为本课主象。${reading.primary.verse}`;
+  }
+  if (kind === 'jinkoujue') {
+    return (result as JinkoujueData).summary;
+  }
+  if (kind === 'qimen') {
+    const reading = result as QimenData;
+    const tags = reading.patternTags?.slice(0, 2).join('、');
+    return `${reading.isYangDun ? '阳遁' : '阴遁'}${reading.juShu}局，值符${reading.zhiFu}、值使${reading.zhiShi}${tags ? `，盘面见${tags}` : ''}。${reading.yingQi?.description || '先看用神宫与方位建议，再决定行动节奏。'}`;
+  }
+  if (kind === 'liuren') {
+    const reading = result as LiurenData;
+    return `${reading.transmissionRule || '四课三传'}：${reading.threeTransmissions.map((item) => `${item.stage}${item.branch}`).join('、')}。${reading.transmissionSummary || reading.lessonSummary || '从初传到末传观察事情的推进层次。'}`;
+  }
+  if (kind === 'taiyi') {
+    const reading = result as TaiyiResult;
+    const conditions = reading.judgments.slice(0, 2).map((item) => item.split('；')[0]).join('；');
+    return `${reading.ganZhi}年太乙${reading.yinYang}第${reading.bureau}局，太乙在${reading.taiyiPosition}，文昌在${reading.wenChangPosition}，始击在${reading.shiJiPosition}。主算${reading.lordCount}、客算${reading.guestCount}、定算${reading.setCount}${conditions ? `；${conditions}` : ''}。`;
+  }
+  if (kind === 'wuyun-liuqi') {
+    const reading = result as WuyunLiuqiResult;
+    const conformities = reading.annualConformities.names.join('、');
+    return `${reading.input.yearGanZhi}年中运${reading.annualMovement.name}${reading.annualMovement.strength}，${reading.sitian.name}司天、${reading.zaiquan.name}在泉，气运关系为${reading.annualRelation.kind}${conformities ? `，岁气见${conformities}` : ''}。`;
+  }
+  if (kind === 'huangji-jingshi') {
+    const reading = result as HuangjiJingshiResult;
+    const forecast = reading.forecast;
+    if (!forecast) return `${reading.input.year} 年位于本元第 ${reading.position.hui.indexInYuan} 会、第 ${reading.position.yun.indexInYuan} 运、第 ${reading.position.shi.indexInYuan} 世。`;
+    return `${reading.input.year}年（${forecast.hexagrams.annual.ganzhi}）值年卦为${forecast.hexagrams.annual.name}，当前处于${forecast.hexagrams.decade.hexagram.shortName}十年卦、${forecast.hexagrams.sixtyYear.hexagram.shortName}六十年统卦与${forecast.hexagrams.yun.hexagram.shortName}运卦周期。`;
+  }
+  if (kind === 'almanac') {
+    const reading = result as AlmanacData;
+    const first = reading.days[0];
+    return first ? `${reading.topicLabel}可优先看 ${first.date}（${first.weekday}），${first.highlights.slice(0, 2).join('；') || '宜结合当天宜忌与个人安排判断。'}` : '这段日期内没有可展示的择日结果。';
+  }
+  if (kind === 'bazi') {
+    const reading = result as BaziChartResult;
+    const missing = reading.wuxingStrength.missing.length ? `，五行缺${reading.wuxingStrength.missing.join('、')}` : '';
+    return `四柱为${reading.pillars.year.ganZhi} ${reading.pillars.month.ganZhi} ${reading.pillars.day.ganZhi} ${reading.pillars.hour.ganZhi}，日主属${reading.dayMaster.element}${missing}。`;
+  }
+  if (kind === 'ziwei') {
+    const reading = result as ZiweiChartData;
+    const basic = reading.payload.basic_info;
+    return `${reading.birth.name}为${basic.gender}，命宫在${basic.soul_palace_branch || '本命'}，身宫在${basic.body_palace_branch || '身命'}，十二宫盘已完成。`;
+  }
+  if (kind === 'qizheng') {
+    const reading = result as QizhengChartData;
+    const emphasized = reading.stars.filter((star) => star.dignity && star.dignity !== '平' && star.dignity !== '—');
+    return `${reading.birth.name}的七政四余盘已完成，命主${reading.mingZhu}，十一星分布于二十八宿与十二宫${emphasized.length ? `，其中${emphasized.slice(0, 3).map((star) => `${star.name}${star.dignity}`).join('、')}` : ''}。`;
+  }
+  const reading = result as AstrolabeData;
+  const sun = reading.planets.find((point) => point.label === '太阳');
+  const rising = reading.angles.find((point) => point.label === '上升');
+  return `${reading.birth.name}的太阳位于${sun?.sign || '未知'}，上升位于${rising?.sign || '未知'}，本命盘共计算 ${reading.aspects.length} 个主要相位。`;
+}
+
+export function getReadingTimestamp(result: ReadingResult, fallback = Date.now()) {
+  return 'timestamp' in result && typeof result.timestamp === 'number' ? result.timestamp : fallback;
+}
+
+export function formatReadingTime(timestamp: number): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(timestamp));
+}

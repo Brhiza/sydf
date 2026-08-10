@@ -1,0 +1,31 @@
+{
+  "name": "sydf3-divination",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "celestine": "^0.2.1",
+    "iztro": "^2.5.8",
+    "lucide-vue-next": "^0.468.0",
+    "marked": "^16.4.2",
+    "mingyu-core": "file:vendor\\mingyu-core-0.1.28.tgz",
+    "vue": "^3.5.22"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10",
+    "vue-tsc": "^2.2.0",
+    "workbox-window": "^7.4.1"
+  }
+}

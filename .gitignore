@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+
+# Local tooling and test artifacts
+.playwright-cli/
+.wrangler/
+output/
+coverage/
+
+# Local environment files (keep documented examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Logs and editor/OS files
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Keep only the mingyu-core package used by package.json
+vendor/*.tgz
+!vendor/mingyu-core-0.1.28.tgz
