@@ -4916,7 +4916,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           />
         </UiToolPage>
 
-        <UiToolPage v-else-if="activeView === 'charts'" width="wide" class="screen charts-screen" toolbar-label="排盘类型" toolbar-class="chart-toolbar">
+        <template v-else-if="activeView === 'charts'">
+          <UiPageShell v-if="!cases.length" width="standard" class="screen charts-screen">
+            <UiWorkspaceSurface padding="standard">
+              <UiEmptyState title="需要一份案例" description="请先在案例中保存出生资料。" compact>
+                <template #icon><UserRound :size="24" /></template>
+                <template #action><UiButton @click="openCases"><BookOpen :size="15" />前往案例</UiButton></template>
+              </UiEmptyState>
+            </UiWorkspaceSurface>
+          </UiPageShell>
+
+          <UiToolPage v-else width="wide" class="screen charts-screen" toolbar-label="排盘类型" toolbar-class="chart-toolbar">
             <template #toolbar-primary>
               <UiSegmentedControl class="chart-mode-tabs ui-tool-tabs" :model-value="chartKind" :items="chartKindTabs" label="排盘类型" compact @update:model-value="chooseChart($event as ChartKind)" />
             </template>
@@ -4929,9 +4939,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 </div>
               </div>
             </template>
-          <UiNotice v-if="chartError" class="chart-notice" tone="error" compact>{{ chartError }}</UiNotice>
-          <UiEmptyState v-if="!chartResult && chartLoading" class="chart-empty" title="正在生成传统盘面" description="请稍候" busy compact><template #icon><Moon :size="22" /></template></UiEmptyState>
-        </UiToolPage>
+            <UiNotice v-if="chartError" class="chart-notice" tone="error" compact>{{ chartError }}</UiNotice>
+            <UiEmptyState v-if="!chartResult && chartLoading" class="chart-empty" title="正在生成传统盘面" description="请稍候" busy compact><template #icon><Moon :size="22" /></template></UiEmptyState>
+          </UiToolPage>
+        </template>
 
         <CompatibilityView
           v-else-if="activeView === 'compatibility'"
