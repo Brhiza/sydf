@@ -1407,13 +1407,20 @@ body {
 
 @media (max-width: 720px) {
   .chat-composer-docked .composer-toolbar::after {
-    content: 'Enter 发送';
-    font-size: 9px;
+    content: none;
+    display: none;
   }
   .home-default-composer,
   .tools-screen.is-chat .chat-composer-docked { padding: 8px 9px 7px; }
   .home-default-composer .composer-textarea,
   .tools-screen.is-chat .composer-textarea { min-height: 54px; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .chat-composer-docked .composer-toolbar::after {
+    content: none;
+    display: none;
+  }
 }
 
 /* 首页主视觉居中，品牌名称不再重复占位。 */
