@@ -358,38 +358,90 @@ export async function runDivination(
   }
 }
 
-function formatCoreDivinationSummary(kind: DivinationKind, summary: { tags: string[]; lines: string[] }) {
-  const tags = summary.tags
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item) => !(['xiaoliuren', 'jinkoujue'] as DivinationKind[]).includes(kind) || !/^起课方式[：:]/.test(item));
-  let lines = summary.lines
-    .map((item) => item.trim())
-    .filter(Boolean)
-    // 核心包的结构化证据用于审计，不重复混入面向用户的解读提示词。
-    .filter((item) => !/^(?:证据|盘面证据)[：:]/.test(item))
-    .filter((item) => !/^古籍依据[：:]/.test(item))
-    .filter((item) => kind !== 'xiaoliuren' || !/^历法口径[：:]/.test(item))
-    .filter((item) => kind !== 'liuren' || !/^(?:取传说明|四课关系|三传主线)[：:]/.test(item));
-  if (kind === 'jinkoujue') {
-    const activation = lines
-      .filter((item) => /^阴阳发用[：:]/.test(item))
-      .sort((left, right) => left.length - right.length)[0];
-    lines = [activation || '', ...lines.filter((item) => !/^阴阳发用[：:]/.test(item))].filter(Boolean);
-  }
-  return [tags.length ? `核心结构：${tags.join('；')}` : '', ...lines].filter(Boolean);
+export interface DivinationReadingPromptOptions {
+  question?: string;
 }
 
-export async function buildDivinationReadingPrompt(kind: DivinationKind, result: ReadingResult) {
-  if (kind === 'bazi' || kind === 'ziwei' || kind === 'astrolabe') return '';
+function formatGanzhi(ganzhi: { year: string; month: string; day: string; hour: string }) {
+  return `${ganzhi.year}年 ${ganzhi.month}月 ${ganzhi.day}日 ${ganzhi.hour}时`;
+}
+
+function formatMeihuaHexagram(
+  label: string,
+  hexagram: MeihuaData['mainHexagram'] | NonNullable<MeihuaData['interHexagram']> | NonNullable<MeihuaData['changedHexagram']>,
+) {
+  return [
+    `${label}：${hexagram.name}${hexagram.symbol ? ` ${hexagram.symbol}` : ''}（上${hexagram.upper}下${hexagram.lower}）`,
+    hexagram.description ? `- 卦辞：${hexagram.description}` : '',
+    hexagram.yongCi ? `- 用辞：${hexagram.yongCi}` : '',
+  ].filter(Boolean);
+}
+
+function formatMeihuaReadingPrompt(data: MeihuaData) {
+  const interHexagram = data.interHexagram;
+  const changedHexagram = data.changedHexagram;
+  const timingClues = (data.analysis.yingQi ?? [])
+    // 起卦方法、取数和数字索引只能复核盘面如何生成，不能帮助模型解读。
+    .filter((item) => !/(?:起卦|取数|卦数|数字|随机|索引)/u.test(item));
+  return [
+    `盘面干支：${formatGanzhi(data.ganzhi)}`,
+    ...formatMeihuaHexagram('主卦（当前）', data.mainHexagram),
+    ...(interHexagram ? formatMeihuaHexagram('互卦（过程）', interHexagram) : []),
+    ...(changedHexagram ? formatMeihuaHexagram('变卦（结果）', changedHexagram) : []),
+    `动爻：第${data.movingYao.position}爻（${data.movingYao.yaoName}）`,
+    data.mainHexagram.movingYaoCi ? `- 爻辞：${data.mainHexagram.movingYaoCi}` : '',
+    `主卦体用：体卦${data.tiGua.name}（${data.tiGua.nature}，${data.tiGua.element}）；用卦${data.yongGua.name}（${data.yongGua.nature}，${data.yongGua.element}）；关系${data.analysis.tiYongRelation}`,
+    data.interTiGua && data.interYongGua
+      ? `过程体用：体互${data.interTiGua.name}（${data.interTiGua.nature}，${data.interTiGua.element}）；用互${data.interYongGua.name}（${data.interYongGua.nature}，${data.interYongGua.element}）；${data.analysis.inter1Relation}；${data.analysis.inter2Relation}`
+      : '',
+    data.changedTiGua && data.changedYongGua
+      ? `结果体用：体卦${data.changedTiGua.name}（${data.changedTiGua.nature}，${data.changedTiGua.element}）；用卦${data.changedYongGua.name}（${data.changedYongGua.nature}，${data.changedYongGua.element}）；关系${data.analysis.changedTiYongRelation || data.analysis.changedRelation}`
+      : `结果关系：${data.analysis.changedRelation}`,
+    `月令旺衰：${data.analysis.monthBranch && data.analysis.monthElement ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）` : `${data.analysis.season}季`}；体卦${data.analysis.tiSeasonState}；用卦${data.analysis.yongSeasonState}`,
+    timingClues.length ? `应期线索：${timingClues.join('；')}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function formatXiaoliurenReadingPrompt(data: XiaoliurenData) {
+  return [
+    `盘面干支：${formatGanzhi(data.ganzhi)}`,
+    `落宫轨迹：月宫${data.sequence.month.name} → 日宫${data.sequence.day.name} → 时宫${data.sequence.hour.name}`,
+    `最终落宫：${data.primary.name}`,
+    `落宫歌诀：${data.primary.verse}`,
+  ].join('\n');
+}
+
+function inferLiuyaoTemplate(question = ''): 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' {
+  if (/(?:鬼神|灵异|怪事|邪祟|闹鬼)/u.test(question)) return 'guaishen';
+  if (/(?:感情|恋爱|婚姻|复合|桃花|对象|前任|伴侣|关系)/u.test(question)) return 'ganqing';
+  if (/(?:财运|财富|钱|收入|收益|投资|交易|买卖|生意|回款)/u.test(question)) return 'caifu';
+  if (/(?:事业|工作|求职|面试|升职|项目|创业|考试|学业)/u.test(question)) return 'shiye';
+  return 'general';
+}
+
+function stripRedundantDivinationLabel(value: string) {
+  return value.replace(/^占法：[^\n]+\n?/u, '').trim();
+}
+
+export async function buildDivinationReadingPrompt(
+  kind: DivinationKind,
+  result: ReadingResult,
+  options: DivinationReadingPromptOptions = {},
+) {
+  if (kind === 'bazi' || kind === 'ziwei' || kind === 'astrolabe' || kind === 'qizheng') return '';
   if (kind === 'wuyun-liuqi') return compactReadingPrompt((await import('mingyu-core/wuyun-liuqi')).buildWuyunLiuqiPrompt(result as WuyunLiuqiResult));
   if (kind === 'huangji-jingshi') return compactReadingPrompt((await import('mingyu-core/huangji-jingshi')).buildHuangjiJingshiPrompt(result as HuangjiJingshiResult));
-  const { summarizeDivinationResult } = await import('mingyu-core/divination/session');
-  const summary = summarizeDivinationResult(
-    kind as Parameters<typeof summarizeDivinationResult>[0],
-    result as Parameters<typeof summarizeDivinationResult>[1],
+  if (kind === 'meihua') return compactReadingPrompt(formatMeihuaReadingPrompt(result as MeihuaData));
+  if (kind === 'xiaoliuren') return compactReadingPrompt(formatXiaoliurenReadingPrompt(result as XiaoliurenData));
+  const { formatEnhancedDivinationInfo } = await import('mingyu-core/prompt/divination-enhanced');
+  const prompt = formatEnhancedDivinationInfo(
+    kind as Parameters<typeof formatEnhancedDivinationInfo>[0],
+    result as Parameters<typeof formatEnhancedDivinationInfo>[1],
+    options.question,
+    undefined,
+    kind === 'liuyao' ? { liuyaoTemplate: inferLiuyaoTemplate(options.question) } : undefined,
   );
-  return compactReadingPrompt(formatCoreDivinationSummary(kind, summary).join('\n'));
+  return compactReadingPrompt(stripRedundantDivinationLabel(prompt));
 }
 
 export async function runManualLiuyao(coinThrows: readonly LiuyaoCoinThrow[], now = new Date()): Promise<LiuyaoData> {

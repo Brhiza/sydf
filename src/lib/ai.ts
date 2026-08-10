@@ -74,14 +74,13 @@ export interface AiInterpretationResponse {
 }
 
 export function buildAiInterpretationRequestBody(payload: AiInterpretationRequest) {
-  const reading = payload.reading
-    ? {
-        summary: payload.reading.summary,
-        ...(payload.reading.prompt ? { prompt: payload.reading.prompt } : {}),
-      }
-    : undefined;
+  const { profile, reading: sourceReading, ...request } = payload;
+  const prompt = sourceReading?.prompt?.trim();
+  const summary = sourceReading?.summary?.trim();
+  const reading = prompt ? { prompt } : summary ? { summary } : undefined;
   return {
-    ...payload,
+    ...request,
+    ...(payload.mode === 'chart' && profile ? { profile } : {}),
     ...(reading ? { reading } : {}),
   };
 }
