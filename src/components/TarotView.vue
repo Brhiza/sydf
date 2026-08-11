@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RotateCcw } from 'lucide-vue-next';
 
 const TOTAL_CARDS = 78;
@@ -7,28 +7,71 @@ const DRAW_THRESHOLD = 44;
 const cardNumbers = Array.from({ length: TOTAL_CARDS }, (_, index) => index + 1);
 
 const deckRef = ref<HTMLElement | null>(null);
+const deckTrackRef = ref<HTMLElement | null>(null);
 const selectedCard = ref<number | null>(null);
 const draggingCard = ref<number | null>(null);
 const dragOffset = ref(0);
 const pointerId = ref<number | null>(null);
 const pointerStart = ref({ x: 0, y: 0 });
 const pointerMode = ref<'pending' | 'horizontal' | 'vertical'>('pending');
+const fanPoses = ref<Record<number, { angle: number; lift: number }>>({});
+const initialScrollLeft = ref(0);
+let fanFrame = 0;
+let fanResizeObserver: ResizeObserver | null = null;
+let deckPositioned = false;
 
 const guidance = computed(() => selectedCard.value === null
   ? '左右滑动牌阵，点击或向上拖动一张牌'
   : `你抽出了第 ${selectedCard.value} 张牌`);
 
-function cardAngle(card: number) {
-  const cycle = ((card - 1) % 13) - 6;
-  return cycle * 0.55;
+function updateFanLayout() {
+  const scroller = deckRef.value;
+  const track = deckTrackRef.value;
+  if (!scroller || !track) return;
+  const cards = Array.from(track.querySelectorAll<HTMLElement>('.tarot-card'));
+  if (!cards.length) return;
+
+  const cardWidth = cards[0]!.offsetWidth;
+  const edgeSpace = Math.max(28, (scroller.clientWidth - cardWidth) / 2);
+  track.style.setProperty('--fan-edge-space', `${edgeSpace}px`);
+
+  if (!deckPositioned) {
+    const step = cards[1] ? cards[1]!.offsetLeft - cards[0]!.offsetLeft : cardWidth;
+    const visibleCards = Math.max(1, Math.floor(scroller.clientWidth / Math.max(1, step)));
+    const startingCenter = cards[Math.min(cards.length - 1, Math.floor(visibleCards / 2))]!;
+    initialScrollLeft.value = Math.max(0, startingCenter.offsetLeft + startingCenter.offsetWidth / 2 - scroller.clientWidth / 2);
+    scroller.scrollLeft = initialScrollLeft.value;
+    deckPositioned = true;
+  }
+
+  const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
+  const arcHalfWidth = Math.max(150, scroller.clientWidth * .48);
+  const poses: Record<number, { angle: number; lift: number }> = {};
+  cards.forEach((element, index) => {
+    const cardCenter = element.offsetLeft + element.offsetWidth / 2;
+    const position = Math.max(-1.15, Math.min(1.15, (cardCenter - viewportCenter) / arcHalfWidth));
+    const edgeProgress = Math.min(1, Math.abs(position));
+    poses[index + 1] = {
+      angle: position * 20,
+      lift: -42 * (1 - edgeProgress * edgeProgress),
+    };
+  });
+  fanPoses.value = poses;
+}
+
+function scheduleFanUpdate() {
+  cancelAnimationFrame(fanFrame);
+  fanFrame = requestAnimationFrame(updateFanLayout);
 }
 
 function cardStyle(card: number) {
   const isDragging = draggingCard.value === card;
   const isSelected = selectedCard.value === card;
+  const pose = fanPoses.value[card] || { angle: 0, lift: 0 };
+  const interactionLift = isSelected ? -68 : isDragging ? Math.min(0, dragOffset.value) : 0;
   return {
-    '--card-angle': `${isSelected ? 0 : cardAngle(card)}deg`,
-    '--card-lift': isSelected ? '-68px' : isDragging ? `${Math.min(0, dragOffset.value)}px` : '0px',
+    '--card-angle': `${isSelected ? 0 : pose.angle}deg`,
+    '--card-lift': `${pose.lift + interactionLift}px`,
     '--card-seed': `${(card * 17) % 47}px`,
   };
 }
@@ -83,8 +126,19 @@ function finishPointer(event: PointerEvent) {
 
 function resetSelection() {
   selectedCard.value = null;
-  deckRef.value?.scrollTo({ left: 0, behavior: 'smooth' });
+  deckRef.value?.scrollTo({ left: initialScrollLeft.value, behavior: 'smooth' });
 }
+
+onMounted(() => {
+  nextTick(updateFanLayout);
+  fanResizeObserver = new ResizeObserver(scheduleFanUpdate);
+  if (deckRef.value) fanResizeObserver.observe(deckRef.value);
+});
+
+onBeforeUnmount(() => {
+  cancelAnimationFrame(fanFrame);
+  fanResizeObserver?.disconnect();
+});
 </script>
 
 <template>
@@ -114,8 +168,9 @@ function resetSelection() {
         class="tarot-deck-scroll"
         role="group"
         aria-label="78 张塔罗牌，可左右滑动"
+        @scroll="scheduleFanUpdate"
       >
-        <div class="tarot-deck">
+        <div ref="deckTrackRef" class="tarot-deck">
           <button
             v-for="card in cardNumbers"
             :key="card"
@@ -192,9 +247,10 @@ function resetSelection() {
 .tarot-deck-meta > span { color: rgba(242, 226, 255, .7); font-size: 12px; letter-spacing: .08em; }
 .tarot-deck-meta button { align-items: center; background: rgba(255,255,255,.08); border: 1px solid rgba(230, 210, 244, .18); border-radius: 999px; color: #eee1f8; display: inline-flex; font-size: 12px; gap: 6px; min-height: 32px; padding: 0 12px; }
 .tarot-deck-meta button:hover { background: rgba(255,255,255,.14); }
-.tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 86px max(32px, calc((100vw - 980px) / 2)) 28px; scrollbar-width: none; touch-action: pan-x; }
+.tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 112px 0 28px; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
-.tarot-deck { display: flex; min-width: max-content; padding: 0 44px; }
+.tarot-deck { --fan-edge-space: 44px; display: flex; min-width: max-content; }
+.tarot-deck::before, .tarot-deck::after { content: ''; flex: 0 0 var(--fan-edge-space); }
 .tarot-card {
   --card-angle: 0deg;
   --card-lift: 0px;
@@ -206,8 +262,8 @@ function resetSelection() {
   padding: 0;
   position: relative;
   transform: translateY(var(--card-lift)) rotate(var(--card-angle));
-  transform-origin: 50% 115%;
-  transition: transform .26s cubic-bezier(.2,.8,.2,1), filter .2s;
+  transform-origin: 50% 118%;
+  transition: transform .14s ease-out, filter .2s;
   user-select: none;
   z-index: 1;
 }
@@ -258,8 +314,7 @@ function resetSelection() {
   .tarot-moon { height: 76px; width: 76px; }
   .tarot-moon::after { height: 57px; width: 57px; }
   .tarot-deck-meta { padding: 0 18px; }
-  .tarot-deck-scroll { padding-bottom: 16px; padding-left: 18px; padding-right: 18px; padding-top: 82px; }
-  .tarot-deck { padding: 0 34px; }
+  .tarot-deck-scroll { padding-bottom: 16px; padding-top: 104px; }
   .tarot-card { flex-basis: 72px; height: 116px; margin-left: -32px; }
   .tarot-card-inner { height: 116px; width: 72px; }
   .tarot-card-orbit { left: 15px; top: 38px; }
