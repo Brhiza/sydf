@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
 
 <template>
   <UiToolPage width="wide" class="screen tarot-screen">
-    <UiWorkspaceSurface as="article" class="tarot-workspace" padding="standard">
+    <UiWorkspaceSurface as="article" class="tarot-workspace" :class="{ 'is-drawing': phase === 'drawing' }" padding="standard">
       <UiSectionHeading
         eyebrow="塔罗牌"
         :title="phase === 'setup' ? '静心想好你的问题' : phase === 'method' ? '选择抽牌方式' : phase === 'drawing' ? '专注于此刻' : '你的牌阵'"
@@ -554,6 +554,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .tarot-screen { min-width: 0; }
 .tarot-workspace { min-width: 0; }
+.tarot-workspace.is-drawing { display: flex; flex-direction: column; min-height: calc(100dvh - var(--ds-topbar-height) - var(--ds-space-7) - var(--ds-space-8)); }
 .tarot-workspace > :first-child { margin-bottom: var(--ds-space-6); }
 .tarot-setup { display: grid; gap: var(--ds-space-5); grid-template-columns: minmax(0, 1fr) 280px; margin: 0 auto var(--ds-space-4); max-width: 880px; }
 .tarot-setup label { display: flex; flex-direction: column; gap: 8px; }
@@ -619,7 +620,7 @@ onBeforeUnmount(() => {
 .tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) > .tarot-orientation { margin: 0; position: absolute; top: 310px; }
 .tarot-result-action { display: flex; justify-content: center; padding: 18px 0 4px; }
 .tarot-notice { margin: 14px auto; max-width: 880px; }
-.tarot-draw-workspace { margin: 16px auto 0; }
+.tarot-draw-workspace { display: flex; flex: 1; flex-direction: column; margin: 16px auto 0; min-height: 0; width: 100%; }
 .tarot-confirmed-strip { display: flex; gap: 9px; justify-content: center; margin: 0 auto 16px; max-width: 900px; overflow-x: auto; padding: 3px; }
 .tarot-confirmed-strip > span { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); display: grid; flex: 0 0 auto; gap: 3px; min-width: 86px; padding: 8px 10px; text-align: center; }
 .tarot-confirmed-strip small { color: var(--ds-text-tertiary); font-size: 9px; }
@@ -627,7 +628,7 @@ onBeforeUnmount(() => {
 .tarot-manual-heading { display: grid; gap: 5px; margin: 0 auto; max-width: 900px; text-align: center; }
 .tarot-manual-heading span { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 650; }
 .tarot-manual-heading small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
-.tarot-deck-region { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); margin-top: var(--ds-space-4); min-width: 0; padding-bottom: var(--ds-space-4); position: relative; }
+.tarot-deck-region { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); flex: 0 0 auto; margin-top: auto; min-width: 0; padding-bottom: var(--ds-space-4); position: relative; }
 .tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 170px 0 58px; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
 .tarot-deck { --fan-edge-space: 44px; display: flex; min-width: max-content; }
@@ -655,6 +656,7 @@ onBeforeUnmount(() => {
 .tarot-number-draw label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
 
 @media (max-width: 720px) {
+  .tarot-workspace.is-drawing { min-height: calc(100dvh - var(--ds-topbar-height) - var(--ds-space-3) - var(--ds-space-7) - env(safe-area-inset-bottom)); }
   .tarot-workspace > :first-child { margin-bottom: var(--ds-space-5); }
   .tarot-setup { grid-template-columns: 1fr; }
   .tarot-question-field textarea { min-height: 76px; }
