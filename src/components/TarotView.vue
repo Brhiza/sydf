@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Check, Hash, Hand, RotateCcw, Sparkles } from 'lucide-vue-next';
+import { Hash, Hand, RotateCcw, Sparkles } from 'lucide-vue-next';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotCardResult, TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
 import { UiButton, UiNotice, UiSectionHeading, UiToolPage, UiWorkspaceSurface } from './ui';
@@ -97,7 +97,6 @@ const selectedSpread = computed(() => spreadOptions.find((item) => item.value ==
 const requiredCards = computed(() => selectedSpread.value.count);
 const remainingCards = computed(() => Math.max(0, requiredCards.value - confirmedNumbers.value.length));
 const canBegin = computed(() => Boolean(question.value.trim()) && !isDrawing.value);
-const candidateText = computed(() => candidateCard.value === null ? '' : `这是第 ${candidateCard.value} 张牌`);
 const progressText = computed(() => confirmedNumbers.value.length
   ? `已确认 ${confirmedNumbers.value.length} 张，还需 ${remainingCards.value} 张`
   : `需要抽取 ${requiredCards.value} 张牌`);
@@ -176,7 +175,15 @@ function setCandidate(card: number) {
 }
 
 function handleCardClick(event: MouseEvent, card: number) {
-  if (event.detail === 0) setCandidate(card);
+  if (event.detail === 0) activateCard(card);
+}
+
+function activateCard(card: number) {
+  if (candidateCard.value === card) {
+    void confirmCandidate();
+    return;
+  }
+  setCandidate(card);
 }
 
 function handlePointerDown(event: PointerEvent, card: number) {
@@ -204,12 +211,15 @@ function handlePointerMove(event: PointerEvent) {
 function finishPointer(event: PointerEvent) {
   if (pointerId.value !== event.pointerId) return;
   const card = draggingCard.value;
-  const shouldChoose = card !== null && ((pointerMode.value === 'vertical' && dragOffset.value <= -DRAW_THRESHOLD) || pointerMode.value === 'pending');
-  if (shouldChoose && card !== null) setCandidate(card);
+  const isTap = pointerMode.value === 'pending';
+  const shouldDraw = pointerMode.value === 'vertical' && dragOffset.value <= -DRAW_THRESHOLD;
   pointerId.value = null;
   pointerMode.value = 'pending';
   draggingCard.value = null;
   dragOffset.value = 0;
+  if (card === null) return;
+  if (isTap) activateCard(card);
+  else if (shouldDraw) setCandidate(card);
 }
 
 async function confirmCandidate() {
@@ -494,7 +504,7 @@ onBeforeUnmount(() => {
                   :style="cardStyle(card)"
                   :data-card="card"
                   :disabled="confirmedNumbers.includes(card) || isDrawing"
-                  :aria-label="`查看第 ${card} 张牌`"
+                  :aria-label="candidateCard === card ? `确认牌组中的第 ${card} 张牌` : `抽出牌组中的第 ${card} 张牌`"
                   :aria-pressed="candidateCard === card"
                   @click="handleCardClick($event, card)"
                   @pointerdown="handlePointerDown($event, card)"
@@ -507,11 +517,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="tarot-candidate-panel" aria-live="polite">
-              <template v-if="candidateCard !== null">
-                <strong>{{ candidateText }}</strong>
-                <UiButton size="small" @click="confirmCandidate"><Check :size="15" />确定</UiButton>
-              </template>
-              <span v-else>{{ question.trim() ? '选择后在这里确认' : '先写下问题，再选择一张牌' }}</span>
+              <span v-if="candidateCard !== null" :aria-label="`已抽出牌组中的第 ${candidateCard} 张，再次点击这张牌确认`">{{ candidateCard }}</span>
             </div>
           </div>
         </section>
@@ -628,8 +634,8 @@ onBeforeUnmount(() => {
 .tarot-manual-heading { display: grid; gap: 5px; margin: 0 auto; max-width: 900px; text-align: center; }
 .tarot-manual-heading span { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 650; }
 .tarot-manual-heading small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
-.tarot-deck-region { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); flex: 0 0 auto; margin-top: auto; min-width: 0; padding-bottom: var(--ds-space-4); position: relative; }
-.tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 170px 0 58px; scrollbar-width: none; touch-action: pan-x; }
+.tarot-deck-region { flex: 0 0 auto; margin: auto calc(0px - var(--ds-space-6)) calc(0px - var(--ds-space-6)); min-width: 0; position: relative; }
+.tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 150px 0 0; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
 .tarot-deck { --fan-edge-space: 44px; display: flex; min-width: max-content; }
 .tarot-deck::before, .tarot-deck::after { content: ''; flex: 0 0 var(--fan-edge-space); }
@@ -637,14 +643,13 @@ onBeforeUnmount(() => {
 .tarot-card:first-child { margin-left: 0; }
 .tarot-card:hover { filter: brightness(1.13); }
 .tarot-card.is-dragging { cursor: grabbing; transition: none; z-index: 90; }
-.tarot-card.is-candidate { filter: brightness(1.12); z-index: 100; }
+.tarot-card.is-candidate { cursor: pointer; filter: brightness(1.12); z-index: 100; }
 .tarot-card.is-confirmed { opacity: .2; }
 .tarot-card:focus-visible { outline: none; z-index: 101; }
 .tarot-card:focus-visible .tarot-card-inner { box-shadow: var(--ds-focus-ring), 0 12px 28px rgba(41,33,52,.24); }
 .tarot-card-inner { border: 3px solid #d9c69b; border-radius: 7px; box-shadow: 0 9px 23px rgba(41,33,52,.24); display: block; height: 142px; overflow: hidden; position: relative; width: 88px; }
-.tarot-candidate-panel { align-items: center; display: flex; gap: 14px; justify-content: center; min-height: 42px; text-align: center; }
-.tarot-candidate-panel strong { color: var(--ds-accent-strong); font-size: var(--ds-text-lg); font-weight: 650; }
-.tarot-candidate-panel > span { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
+.tarot-candidate-panel { bottom: 5px; display: flex; justify-content: center; left: 50%; pointer-events: none; position: absolute; text-align: center; transform: translateX(-50%); z-index: 110; }
+.tarot-candidate-panel > span { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; font-size: 10px; font-weight: 650; height: 18px; justify-content: center; min-width: 18px; padding: 0 4px; }
 .tarot-method-chooser { display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin: var(--ds-space-6) auto 0; max-width: 720px; }
 .tarot-method-option { align-items: center; background: var(--ds-surface-raised); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); color: var(--ds-text-primary); cursor: pointer; display: flex; flex-direction: column; min-height: 180px; padding: var(--ds-space-5); text-align: center; transition: border-color .18s, box-shadow .18s, transform .18s; }
 .tarot-method-option:hover, .tarot-method-option.active { border-color: var(--ds-accent); box-shadow: 0 8px 28px color-mix(in srgb, var(--ds-accent) 12%, transparent); transform: translateY(-2px); }
@@ -667,7 +672,8 @@ onBeforeUnmount(() => {
   .tarot-spread-board.spread-single { min-width: 290px; }
   .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { min-width: 590px; }
   .tarot-result-heading p { max-width: 230px; }
-  .tarot-deck-scroll { padding-bottom: 38px; padding-top: 115px; }
+  .tarot-deck-region { margin-inline: calc(0px - var(--ds-space-4)); margin-bottom: calc(0px - var(--ds-space-4)); }
+  .tarot-deck-scroll { padding-bottom: 0; padding-top: 105px; }
   .tarot-card { flex-basis: 72px; height: 116px; margin-left: -32px; transform-origin: 50% 132%; }
   .tarot-card-inner { height: 116px; width: 72px; }
 }
