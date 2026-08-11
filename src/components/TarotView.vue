@@ -1,22 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Hash, Hand, RotateCcw, Sparkles } from 'lucide-vue-next';
+import { buildDivinationPrompt } from 'mingyu-core/prompt/divination';
+import { drawTarotSpread, tarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotCardResult, TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
 import { UiButton, UiNotice, UiSectionHeading, UiToolPage, UiWorkspaceSurface } from './ui';
 
 type DrawMode = 'manual' | 'number';
 type SpreadType = TarotSpreadType;
-
-interface TarotPromptResponse {
-  ok: boolean;
-  data?: {
-    result?: TarotReadingResult;
-    summary?: { title?: string; tags?: string[]; lines?: string[] };
-    prompt?: string;
-  };
-  error?: string;
-}
 
 const props = defineProps<{
   preferences?: AiPreferences;
@@ -73,6 +65,8 @@ const phase = ref<'setup' | 'method' | 'drawing' | 'result'>('setup');
 const numberInput = ref('');
 const candidateCard = ref<number | null>(null);
 const confirmedNumbers = ref<number[]>([]);
+const shuffledCardIds = ref<number[]>([]);
+const reversedPositions = ref<boolean[]>([]);
 const tarotReading = ref<TarotReadingResult | null>(null);
 const apiPrompt = ref('');
 const flowError = ref('');
@@ -86,12 +80,10 @@ const pointerStart = ref({ x: 0, y: 0 });
 const pointerMode = ref<'pending' | 'horizontal' | 'vertical'>('pending');
 const fanPoses = ref<Record<number, { angle: number; lift: number }>>({});
 const initialScrollLeft = ref(0);
-const sessionNonce = ref(createNonce());
 let fanFrame = 0;
 let fanResizeObserver: ResizeObserver | null = null;
 let deckPositioned = false;
 let requestId = 0;
-let activeController: AbortController | null = null;
 
 const selectedSpread = computed(() => spreadOptions.find((item) => item.value === spreadType.value) ?? spreadOptions[0]!);
 const requiredCards = computed(() => selectedSpread.value.count);
@@ -101,15 +93,16 @@ const progressText = computed(() => confirmedNumbers.value.length
   ? `已确认 ${confirmedNumbers.value.length} 张，还需 ${remainingCards.value} 张`
   : `需要抽取 ${requiredCards.value} 张牌`);
 const denseSpread = computed(() => requiredCards.value >= 7);
-
-function createNonce() {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const values = new Uint32Array(3);
-    crypto.getRandomValues(values);
-    return Array.from(values).join('-');
-  }
-  return `${Date.now()}-${Math.random()}`;
-}
+const confirmedCards = computed(() => confirmedNumbers.value.map((number, index) => {
+  const id = shuffledCardIds.value[number - 1];
+  const card = tarotCards.find((item) => item.number === id);
+  return {
+    number,
+    position: tarotSpreads[spreadType.value].positions[index] || `牌位 ${index + 1}`,
+    name: card?.name || `牌 ${id}`,
+    reversed: reversedPositions.value[number - 1] || false,
+  };
+}));
 
 function updateFanLayout() {
   const scroller = deckRef.value;
@@ -257,9 +250,17 @@ function secureShuffle() {
   return pool;
 }
 
+function prepareDeck() {
+  shuffledCardIds.value = secureShuffle();
+  const random = new Uint32Array(TOTAL_CARDS);
+  crypto.getRandomValues(random);
+  reversedPositions.value = Array.from(random, value => (value & 1) === 0);
+}
+
 async function automaticDraw() {
   if (!validateQuestion()) return;
-  confirmedNumbers.value = secureShuffle().slice(0, requiredCards.value);
+  if (!shuffledCardIds.value.length) prepareDeck();
+  confirmedNumbers.value = cardNumbers.slice(0, requiredCards.value);
   await resolveReading();
   if (tarotReading.value) phase.value = 'result';
 }
@@ -286,6 +287,7 @@ async function drawByNumbers() {
 
 async function beginDraw() {
   if (!validateQuestion()) return;
+  prepareDeck();
   if (props.castingPreference === 'auto') {
     await automaticDraw();
     return;
@@ -320,38 +322,42 @@ function validateQuestion() {
 async function resolveReading() {
   if (!validateQuestion() || confirmedNumbers.value.length !== requiredCards.value) return;
   const currentRequest = ++requestId;
-  activeController?.abort();
-  const controller = new AbortController();
-  activeController = controller;
-  const timeout = window.setTimeout(() => controller.abort(), 30000);
   isDrawing.value = true;
   flowError.value = '';
   tarotReading.value = null;
   apiPrompt.value = '';
   try {
-    const seed = `sydf-tarot|${sessionNonce.value}|${spreadType.value}|${confirmedNumbers.value.join('.')}`;
-    const response = await fetch('https://aov.cc/api/v1/divination/tarot/prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: question.value.trim(), spreadType: spreadType.value, seed, responseMode: 'full' }),
-      signal: controller.signal,
+    if (!shuffledCardIds.value.length) prepareDeck();
+    const manualCards = confirmedNumbers.value.map((number) => {
+      const id = shuffledCardIds.value[number - 1];
+      if (!id) throw new Error('抽取的牌位无效，请重新抽牌。');
+      return { id, reversed: reversedPositions.value[number - 1] || false };
     });
-    const payload = await response.json().catch(() => null) as TarotPromptResponse | null;
-    if (!response.ok || !payload?.ok) throw new Error(payload?.error || `塔罗排牌暂时不可用（${response.status}）。`);
-    const result = payload.data?.result;
-    const prompt = payload.data?.prompt?.trim();
-    if (!result || result.cards.length !== requiredCards.value || !prompt) throw new Error('塔罗排牌返回的数据不完整，请重新抽牌。');
+    const coreResult = drawTarotSpread(spreadType.value, { manualCards });
+    if (coreResult.cards.length !== requiredCards.value) throw new Error('塔罗排牌返回的数据不完整，请重新抽牌。');
+    const result: TarotReadingResult = {
+      spreadType: spreadType.value,
+      spreadName: coreResult.spreadName,
+      cards: coreResult.cards,
+      timestamp: coreResult.timestamp,
+      meta: coreResult.meta,
+      draw: coreResult.draw,
+    };
+    const prompt = buildDivinationPrompt({
+      method: 'tarot',
+      data: coreResult,
+      question: question.value.trim(),
+      isCustomQuestion: true,
+    }).trim();
+    if (!prompt) throw new Error('塔罗解读资料生成失败，请重新抽牌。');
     if (currentRequest !== requestId) return;
     tarotReading.value = result;
     apiPrompt.value = prompt;
     isDrawing.value = false;
   } catch (error) {
     if (currentRequest !== requestId) return;
-    flowError.value = error instanceof DOMException && error.name === 'AbortError'
-      ? '排牌请求超时，请重试。'
-      : error instanceof Error ? error.message : '塔罗排牌暂时失败，请稍后重试。';
+    flowError.value = error instanceof Error ? error.message : '塔罗排牌暂时失败，请稍后重试。';
   } finally {
-    window.clearTimeout(timeout);
     if (currentRequest === requestId) isDrawing.value = false;
   }
 }
@@ -384,10 +390,10 @@ function startInterpretation() {
 
 function resetReading() {
   requestId += 1;
-  activeController?.abort();
-  activeController = null;
   candidateCard.value = null;
   confirmedNumbers.value = [];
+  shuffledCardIds.value = [];
+  reversedPositions.value = [];
   tarotReading.value = null;
   apiPrompt.value = '';
   flowError.value = '';
@@ -395,7 +401,6 @@ function resetReading() {
   phase.value = 'setup';
   drawMode.value = null;
   numberInput.value = '';
-  sessionNonce.value = createNonce();
   deckRef.value?.scrollTo({ left: initialScrollLeft.value, behavior: 'smooth' });
 }
 
@@ -432,7 +437,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   requestId += 1;
-  activeController?.abort();
   cancelAnimationFrame(fanFrame);
   fanResizeObserver?.disconnect();
 });
@@ -442,8 +446,9 @@ onBeforeUnmount(() => {
   <UiToolPage width="wide" class="screen tarot-screen">
     <UiWorkspaceSurface as="article" class="tarot-workspace" :class="{ 'is-drawing': phase === 'drawing' }" padding="standard">
       <UiSectionHeading
+        v-if="phase !== 'drawing'"
         eyebrow="塔罗牌"
-        :title="phase === 'setup' ? '静心想好你的问题' : phase === 'method' ? '选择抽牌方式' : phase === 'drawing' ? '专注于此刻' : '你的牌阵'"
+        :title="phase === 'setup' ? '静心想好你的问题' : phase === 'method' ? '选择抽牌方式' : '你的牌阵'"
       />
 
       <template v-if="phase === 'setup'">
@@ -497,14 +502,14 @@ onBeforeUnmount(() => {
       <template v-else-if="phase === 'drawing'">
         <div class="tarot-stage-toolbar">
           <div><strong>{{ selectedSpread.label }}</strong><small>{{ question }}</small></div>
-          <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新设置</UiButton>
+          <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新开始</UiButton>
         </div>
 
         <section class="tarot-draw-workspace">
           <div v-if="confirmedNumbers.length" class="tarot-confirmed-strip" aria-label="已确认的牌">
-            <span v-for="(number, index) in confirmedNumbers" :key="number"><small>第 {{ index + 1 }} 张</small><strong>第 {{ number }} 张牌</strong></span>
+            <span v-for="card in confirmedCards" :key="card.number"><small>{{ card.position }} · {{ card.reversed ? '逆位' : '正位' }}</small><strong>{{ card.name }}</strong></span>
           </div>
-          <div class="tarot-manual-heading"><span>{{ progressText }}</span><small>左右滑动牌组，点击中间牌确认</small></div>
+          <div class="tarot-manual-heading"><span>{{ progressText }}</span></div>
           <div class="tarot-deck-region">
             <div ref="deckRef" class="tarot-deck-scroll" role="group" aria-label="塔罗牌扇形牌阵，可左右滑动" @scroll="scheduleFanUpdate">
               <div ref="deckTrackRef" class="tarot-deck">
@@ -575,6 +580,7 @@ onBeforeUnmount(() => {
 .tarot-workspace { min-width: 0; }
 .tarot-workspace.is-drawing { display: flex; flex-direction: column; min-height: calc(100dvh - var(--ds-topbar-height) - var(--ds-space-7) - var(--ds-space-8)); }
 .tarot-workspace > :first-child { margin-bottom: var(--ds-space-6); }
+.tarot-workspace.is-drawing > .tarot-stage-toolbar { background: transparent; margin: 0; max-width: none; padding: 0; width: 100%; }
 .tarot-setup { display: grid; gap: var(--ds-space-5); grid-template-columns: minmax(0, 1fr) 280px; margin: 0 auto var(--ds-space-4); max-width: 880px; }
 .tarot-setup label { display: flex; flex-direction: column; gap: 8px; }
 .tarot-setup label > span, .tarot-number-draw label > span { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; }
@@ -646,7 +652,6 @@ onBeforeUnmount(() => {
 .tarot-confirmed-strip strong { color: var(--ds-accent-strong); font-size: 11px; }
 .tarot-manual-heading { display: grid; gap: 5px; margin: 0 auto; max-width: 900px; text-align: center; }
 .tarot-manual-heading span { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 650; }
-.tarot-manual-heading small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
 .tarot-deck-region { flex: 0 0 auto; margin: auto calc(0px - var(--ds-space-6)) calc(0px - var(--ds-space-6)); min-width: 0; position: relative; }
 .tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 150px 0 0; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
