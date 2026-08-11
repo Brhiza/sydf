@@ -116,6 +116,7 @@ import {
   type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
+import type { TarotInterpretationPayload, TarotReadingResult } from './lib/tarot';
 import {
   createChatDocument,
   createChatShareImage,
@@ -290,7 +291,14 @@ interface ChatReadingMessage {
   };
 }
 
-type ChatMessage = ChatTextMessage | ChatReadingMessage;
+interface ChatTarotMessage {
+  kind: 'tarot';
+  role: 'assistant';
+  content: '';
+  reading: TarotReadingResult;
+}
+
+type ChatMessage = ChatTextMessage | ChatReadingMessage | ChatTarotMessage;
 
 interface ReadingDetailRow {
   label: string;
@@ -1954,7 +1962,10 @@ const onboardingCalendar = computed(() => {
   }
 });
 const homeChartMeta = computed(() => homeChartOptions.find((item) => item.kind === homeChartKind.value) || homeChartOptions[0]!);
-const homeModeLabel = computed(() => homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label);
+const homeModeLabel = computed(() => {
+  if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '塔罗牌';
+  return homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label;
+});
 const manualDivinationKinds: ManualDivinationKind[] = ['meihua', 'liuyao', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi'];
 const isManualDivinationKind = (kind: DivinationKind): kind is ManualDivinationKind => manualDivinationKinds.includes(kind as ManualDivinationKind);
 
@@ -2134,6 +2145,13 @@ function chatMessageExportItem(message: ChatMessage): ChatExportItem {
       role: 'reading',
       label: kindMeta[message.method].label,
       content: `${readingDisplayTitle(message)}\n${readingDisplaySubtitle(message)}`,
+    };
+  }
+  if (message.kind === 'tarot') {
+    return {
+      role: 'reading',
+      label: '塔罗牌',
+      content: `${message.reading.spreadName}\n${message.reading.cards.map((card) => `${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}`).join('\n')}`,
     };
   }
   return {
@@ -3944,6 +3962,21 @@ async function completeOracleReading(payload: { result: SsgwData; question: stri
   }
 }
 
+function startTarotInterpretation(payload: TarotInterpretationPayload) {
+  goView('tools');
+  const sessionId = chatSessionId;
+  homeMode.value = 'divination';
+  homeState.value = 'chat';
+  question.value = '';
+  formError.value = '';
+  aiError.value = '';
+  chatMessages.value = [
+    { kind: 'text', role: 'user', content: payload.question },
+    { kind: 'tarot', role: 'assistant', content: '', reading: payload.reading },
+  ];
+  void requestInterpretation(payload.request, true, sessionId, null);
+}
+
 async function beginReading() {
   if (isReading.value || isInterpreting.value || chartLoading.value) return;
   formError.value = '';
@@ -3954,7 +3987,7 @@ async function beginReading() {
     return;
   }
   const sessionId = chatSessionId;
-  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading');
+  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading' || message.kind === 'tarot');
   isReading.value = true;
   try {
     const selection = await resolveAgentSelection(requestedQuestion);
@@ -5005,6 +5038,20 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                     <button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button>
                   </AiReadingActions>
                 </div>
+                <div v-else-if="message.kind === 'tarot'" class="chat-reading-message is-user">
+                  <AiReadingActions
+                    class="reading-action-host"
+                    :content="chatMessageExportItem(message).content"
+                    :show-inline="false"
+                    selection-enabled
+                    :selection-mode="chatSelectionMode"
+                    deletable
+                    @request-select="startChatSelection(index)"
+                    @request-delete="deleteChatMessage(index)"
+                  >
+                    <div class="reading-bubble tarot-reading-bubble"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>塔罗牌</strong><small>{{ message.reading.spreadName }} · {{ message.reading.cards.length }} 张牌</small></span></div>
+                  </AiReadingActions>
+                </div>
                 <div v-else class="chat-message" :class="`is-${message.role}`">
                   <AiReadingActions
                     :content="message.content"
@@ -5206,6 +5253,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
           :ai-config="activeAiRequestConfig"
           :casting-preference="appPreferences.castingPreference"
+          @interpret="startTarotInterpretation"
         />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />

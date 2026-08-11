@@ -1,32 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Check, LoaderCircle, RefreshCw, RotateCcw, Sparkles } from 'lucide-vue-next';
-import { requestAiInterpretation, type AiCustomConfig, type AiPreferences } from '../lib/ai';
-import AiReadingActions from './AiReadingActions.vue';
-import ChatMarkdown from './ChatMarkdown.vue';
-import { UiButton, UiNotice, UiSectionHeading, UiSegmentedControl, UiToolPage, UiWorkspaceSurface } from './ui';
+import { Check, Hash, Hand, RotateCcw, Sparkles } from 'lucide-vue-next';
+import type { AiCustomConfig, AiPreferences } from '../lib/ai';
+import type { TarotCardResult, TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
+import { UiButton, UiNotice, UiSectionHeading, UiToolPage, UiWorkspaceSurface } from './ui';
 
-type DrawMode = 'manual' | 'auto' | 'number';
-type SpreadType = 'single' | 'three' | 'love' | 'career' | 'decision' | 'celtic' | 'chakra' | 'year' | 'mindBodySpirit' | 'horseshoe';
-
-interface TarotCardResult {
-  id: number;
-  name: string;
-  position: string;
-  reversed: boolean;
-  keywords: string[];
-  element?: string;
-  archetype?: string;
-}
-
-interface TarotReadingResult {
-  spreadType: SpreadType;
-  spreadName: string;
-  cards: TarotCardResult[];
-  timestamp?: number;
-  meta?: unknown;
-  draw?: unknown;
-}
+type DrawMode = 'manual' | 'number';
+type SpreadType = TarotSpreadType;
 
 interface TarotPromptResponse {
   ok: boolean;
@@ -44,6 +24,10 @@ const props = defineProps<{
   castingPreference?: 'auto' | 'manual';
 }>();
 
+const emit = defineEmits<{
+  interpret: [payload: TarotInterpretationPayload];
+}>();
+
 const TOTAL_CARDS = 78;
 const DRAW_THRESHOLD = 44;
 const cardNumbers = Array.from({ length: TOTAL_CARDS }, (_, index) => index + 1);
@@ -59,27 +43,40 @@ const spreadOptions: Array<{ value: SpreadType; label: string; count: number; de
   { value: 'celtic', label: '凯尔特十字', count: 10, description: '完整分析现状与发展' },
   { value: 'year', label: '年运牌阵', count: 12, description: '全年节奏与重点领域' },
 ];
-const drawModeOptions = [
-  { value: 'manual', label: '手动抽牌' },
-  { value: 'auto', label: '自动抽牌' },
-  { value: 'number', label: '指定数字' },
-];
+interface SpreadPose { x: number; y: number; rotation?: number; layer?: number }
+
+const spreadLayouts: Record<SpreadType, SpreadPose[]> = {
+  single: [{ x: 50, y: 50 }],
+  three: [{ x: 18, y: 50 }, { x: 50, y: 50 }, { x: 82, y: 50 }],
+  mindBodySpirit: [{ x: 18, y: 50 }, { x: 50, y: 50 }, { x: 82, y: 50 }],
+  love: [{ x: 50, y: 18 }, { x: 19, y: 50 }, { x: 50, y: 50 }, { x: 81, y: 50 }, { x: 50, y: 82 }],
+  career: [{ x: 20, y: 20 }, { x: 50, y: 20 }, { x: 80, y: 20 }, { x: 34, y: 53 }, { x: 66, y: 53 }, { x: 50, y: 83 }],
+  decision: [{ x: 38, y: 17 }, { x: 23, y: 50 }, { x: 12, y: 84 }, { x: 62, y: 17 }, { x: 77, y: 50 }, { x: 88, y: 84 }],
+  chakra: [{ x: 50, y: 7 }, { x: 50, y: 21 }, { x: 50, y: 36 }, { x: 50, y: 50 }, { x: 50, y: 64 }, { x: 50, y: 79 }, { x: 50, y: 93 }],
+  horseshoe: [{ x: 9, y: 80 }, { x: 21, y: 47 }, { x: 35, y: 23 }, { x: 50, y: 15 }, { x: 65, y: 23 }, { x: 79, y: 47 }, { x: 91, y: 80 }],
+  celtic: [
+    { x: 38, y: 50, layer: 2 }, { x: 38, y: 50, rotation: 90, layer: 3 },
+    { x: 38, y: 16 }, { x: 59, y: 50 }, { x: 38, y: 84 }, { x: 17, y: 50 },
+    { x: 84, y: 86 }, { x: 84, y: 62 }, { x: 84, y: 38 }, { x: 84, y: 14 },
+  ],
+  year: [
+    { x: 50, y: 14 }, { x: 69, y: 18 }, { x: 83, y: 31 }, { x: 89, y: 50 },
+    { x: 83, y: 69 }, { x: 69, y: 82 }, { x: 50, y: 86 }, { x: 31, y: 82 },
+    { x: 17, y: 69 }, { x: 11, y: 50 }, { x: 17, y: 31 }, { x: 31, y: 18 },
+  ],
+};
 
 const question = ref('');
 const spreadType = ref<SpreadType>('single');
-const drawMode = ref<DrawMode>(props.castingPreference === 'auto' ? 'auto' : 'manual');
-const phase = ref<'setup' | 'drawing' | 'result' | 'interpretation'>('setup');
-const animationPhase = ref<'idle' | 'shuffle' | 'stack' | 'deal'>('idle');
+const drawMode = ref<DrawMode | null>(null);
+const phase = ref<'setup' | 'method' | 'drawing' | 'result'>('setup');
 const numberInput = ref('');
 const candidateCard = ref<number | null>(null);
 const confirmedNumbers = ref<number[]>([]);
 const tarotReading = ref<TarotReadingResult | null>(null);
 const apiPrompt = ref('');
-const aiAnswer = ref('');
 const flowError = ref('');
-const aiError = ref('');
 const isDrawing = ref(false);
-const isInterpreting = ref(false);
 const deckRef = ref<HTMLElement | null>(null);
 const deckTrackRef = ref<HTMLElement | null>(null);
 const draggingCard = ref<number | null>(null);
@@ -95,17 +92,16 @@ let fanResizeObserver: ResizeObserver | null = null;
 let deckPositioned = false;
 let requestId = 0;
 let activeController: AbortController | null = null;
-let animationId = 0;
-const animationTimers = new Set<number>();
 
 const selectedSpread = computed(() => spreadOptions.find((item) => item.value === spreadType.value) ?? spreadOptions[0]!);
 const requiredCards = computed(() => selectedSpread.value.count);
 const remainingCards = computed(() => Math.max(0, requiredCards.value - confirmedNumbers.value.length));
-const canBegin = computed(() => Boolean(question.value.trim()) && !isDrawing.value && !isInterpreting.value);
+const canBegin = computed(() => Boolean(question.value.trim()) && !isDrawing.value);
 const candidateText = computed(() => candidateCard.value === null ? '' : `这是第 ${candidateCard.value} 张牌`);
 const progressText = computed(() => confirmedNumbers.value.length
   ? `已确认 ${confirmedNumbers.value.length} 张，还需 ${remainingCards.value} 张`
   : `需要抽取 ${requiredCards.value} 张牌`);
+const denseSpread = computed(() => requiredCards.value >= 7);
 
 function createNonce() {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -238,31 +234,11 @@ function secureShuffle() {
   return pool;
 }
 
-function waitForAnimation(duration: number) {
-  return new Promise<void>((resolve) => {
-    const timer = window.setTimeout(() => {
-      animationTimers.delete(timer);
-      resolve();
-    }, duration);
-    animationTimers.add(timer);
-  });
-}
-
 async function automaticDraw() {
   if (!validateQuestion()) return;
-  const currentAnimation = ++animationId;
   confirmedNumbers.value = secureShuffle().slice(0, requiredCards.value);
-  phase.value = 'drawing';
-  animationPhase.value = 'shuffle';
-  const readingPromise = resolveReading();
-  await waitForAnimation(900);
-  if (currentAnimation !== animationId || phase.value !== 'drawing') return;
-  animationPhase.value = 'stack';
-  await waitForAnimation(700);
-  if (currentAnimation !== animationId || phase.value !== 'drawing') return;
-  animationPhase.value = 'deal';
-  await Promise.all([readingPromise, waitForAnimation(650)]);
-  if (currentAnimation === animationId && tarotReading.value) phase.value = 'result';
+  await resolveReading();
+  if (tarotReading.value) phase.value = 'result';
 }
 
 function parseSpecifiedNumbers() {
@@ -278,8 +254,6 @@ async function drawByNumbers() {
   try {
     confirmedNumbers.value = parseSpecifiedNumbers();
     flowError.value = '';
-    phase.value = 'drawing';
-    animationPhase.value = 'stack';
     await resolveReading();
     if (tarotReading.value) phase.value = 'result';
   } catch (error) {
@@ -289,20 +263,29 @@ async function drawByNumbers() {
 
 async function beginDraw() {
   if (!validateQuestion()) return;
-  if (drawMode.value === 'auto') {
+  if (props.castingPreference === 'auto') {
     await automaticDraw();
     return;
   }
-  if (drawMode.value === 'number') {
-    await drawByNumbers();
-    return;
-  }
+  drawMode.value = null;
+  phase.value = 'method';
+  flowError.value = '';
+}
+
+async function beginManualDraw() {
+  drawMode.value = 'manual';
   phase.value = 'drawing';
   flowError.value = '';
   await nextTick();
   deckPositioned = false;
   updateFanLayout();
   if (deckRef.value) fanResizeObserver?.observe(deckRef.value);
+}
+
+function chooseNumberDraw() {
+  drawMode.value = 'number';
+  flowError.value = '';
+  nextTick(() => document.querySelector<HTMLInputElement>('.tarot-number-draw input')?.focus());
 }
 
 function validateQuestion() {
@@ -320,8 +303,6 @@ async function resolveReading() {
   const timeout = window.setTimeout(() => controller.abort(), 30000);
   isDrawing.value = true;
   flowError.value = '';
-  aiError.value = '';
-  aiAnswer.value = '';
   tarotReading.value = null;
   apiPrompt.value = '';
   try {
@@ -352,61 +333,44 @@ async function resolveReading() {
   }
 }
 
-async function startInterpretation() {
-  if (!tarotReading.value) return;
-  phase.value = 'interpretation';
-  await nextTick();
-  await interpretReading();
-}
-
 async function retryReading() {
   await resolveReading();
   if (tarotReading.value) phase.value = 'result';
 }
 
-async function interpretReading(currentRequest = requestId) {
+function startInterpretation() {
   if (!tarotReading.value || !apiPrompt.value) return;
-  isInterpreting.value = true;
-  aiError.value = '';
-  try {
-    const response = await requestAiInterpretation({
+  const summary = `${tarotReading.value.spreadName}：${tarotReading.value.cards.map((card) => `${card.position}${card.name}${card.reversed ? '逆位' : '正位'}`).join('；')}`;
+  emit('interpret', {
+    question: question.value.trim(),
+    reading: tarotReading.value,
+    request: {
       mode: 'divination',
       question: question.value.trim(),
       method: '塔罗牌',
       reading: {
-        summary: `${tarotReading.value.spreadName}：${tarotReading.value.cards.map((card) => `${card.position}${card.name}${card.reversed ? '逆位' : '正位'}`).join('；')}`,
+        summary,
         data: tarotReading.value,
         prompt: apiPrompt.value,
       },
       preferences: props.preferences,
       aiConfig: props.aiConfig,
-    });
-    if (currentRequest !== requestId) return;
-    aiAnswer.value = response.content;
-  } catch (error) {
-    if (currentRequest !== requestId) return;
-    aiError.value = error instanceof Error ? error.message : 'AI 解读暂时失败，请稍后重试。';
-  } finally {
-    if (currentRequest === requestId) isInterpreting.value = false;
-  }
+    },
+  });
 }
 
 function resetReading() {
   requestId += 1;
-  animationId += 1;
   activeController?.abort();
   activeController = null;
   candidateCard.value = null;
   confirmedNumbers.value = [];
   tarotReading.value = null;
   apiPrompt.value = '';
-  aiAnswer.value = '';
   flowError.value = '';
-  aiError.value = '';
   isDrawing.value = false;
-  isInterpreting.value = false;
   phase.value = 'setup';
-  animationPhase.value = 'idle';
+  drawMode.value = null;
   numberInput.value = '';
   sessionNonce.value = createNonce();
   deckRef.value?.scrollTo({ left: initialScrollLeft.value, behavior: 'smooth' });
@@ -417,11 +381,6 @@ function chooseSpread(value: string) {
   spreadType.value = value as SpreadType;
 }
 
-function chooseDrawMode(value: string) {
-  if (value === drawMode.value) return;
-  drawMode.value = value as DrawMode;
-}
-
 function cardSymbol(card: TarotCardResult) {
   if (card.name.includes('权杖')) return '火';
   if (card.name.includes('圣杯')) return '水';
@@ -430,10 +389,17 @@ function cardSymbol(card: TarotCardResult) {
   return '✦';
 }
 
-watch([spreadType, drawMode], resetReading);
-watch(() => props.castingPreference, (preference) => {
-  if (phase.value === 'setup' && !confirmedNumbers.value.length) drawMode.value = preference === 'auto' ? 'auto' : 'manual';
-});
+function spreadCardStyle(index: number) {
+  const pose = spreadLayouts[spreadType.value][index] || { x: 50, y: 50 };
+  return {
+    '--spread-x': `${pose.x}%`,
+    '--spread-y': `${pose.y}%`,
+    '--spread-rotation': `${pose.rotation || 0}deg`,
+    zIndex: pose.layer || 1,
+  };
+}
+
+watch(spreadType, resetReading);
 
 onMounted(() => {
   nextTick(updateFanLayout);
@@ -446,8 +412,6 @@ onBeforeUnmount(() => {
   activeController?.abort();
   cancelAnimationFrame(fanFrame);
   fanResizeObserver?.disconnect();
-  animationTimers.forEach((timer) => window.clearTimeout(timer));
-  animationTimers.clear();
 });
 </script>
 
@@ -456,7 +420,7 @@ onBeforeUnmount(() => {
     <UiWorkspaceSurface as="article" class="tarot-workspace" padding="standard">
       <UiSectionHeading
         eyebrow="塔罗牌"
-        :title="phase === 'setup' ? '静心想好你的问题' : phase === 'drawing' ? '专注于此刻' : phase === 'result' ? '你的牌阵' : '塔罗解读'"
+        :title="phase === 'setup' ? '静心想好你的问题' : phase === 'method' ? '选择抽牌方式' : phase === 'drawing' ? '专注于此刻' : '你的牌阵'"
       />
 
       <template v-if="phase === 'setup'">
@@ -474,32 +438,46 @@ onBeforeUnmount(() => {
           </label>
         </section>
 
-        <UiSegmentedControl v-if="castingPreference !== 'auto'" class="tarot-mode-tabs ui-tool-tabs" :model-value="drawMode" :items="drawModeOptions" label="抽牌方式" equal @update:model-value="chooseDrawMode" />
+        <UiNotice v-if="flowError" class="tarot-notice" tone="error" compact>{{ flowError }}</UiNotice>
+        <div class="tarot-setup-action">
+          <UiButton size="large" :loading="isDrawing" :disabled="!canBegin" @click="beginDraw"><Sparkles v-if="!isDrawing" :size="16" />{{ isDrawing ? '正在排牌…' : '进入抽牌' }}</UiButton>
+        </div>
+      </template>
 
-        <div v-if="drawMode === 'number'" class="tarot-number-draw tarot-number-setup">
+      <template v-else-if="phase === 'method'">
+        <div class="tarot-stage-toolbar">
+          <div><strong>{{ selectedSpread.label }} · {{ requiredCards }} 张</strong><small>{{ question }}</small></div>
+          <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />返回修改</UiButton>
+        </div>
+
+        <section class="tarot-method-chooser" aria-label="选择抽牌方式">
+          <button type="button" class="tarot-method-option" @click="beginManualDraw">
+            <span><Hand :size="22" /></span><strong>手动抽牌</strong><small>展开完整牌组，凭直觉逐张选择</small>
+          </button>
+          <button type="button" class="tarot-method-option" :class="{ active: drawMode === 'number' }" @click="chooseNumberDraw">
+            <span><Hash :size="22" /></span><strong>指定数字</strong><small>输入 {{ requiredCards }} 个不重复的数字完成抽牌</small>
+          </button>
+        </section>
+
+        <div v-if="drawMode === 'number'" class="tarot-number-draw">
           <label>
             <span>指定 {{ requiredCards }} 个数字</span>
             <input v-model="numberInput" inputmode="numeric" autocomplete="off" :placeholder="requiredCards === 1 ? '输入 1 到 78 的数字' : `用逗号分隔，例如 ${Array.from({ length: Math.min(requiredCards, 4) }, (_, index) => index + 3).join('，')}`" @input="flowError = ''" />
             <small>范围 1–78，数字不可重复</small>
           </label>
+          <UiButton :loading="isDrawing" :disabled="!numberInput.trim() || isDrawing" @click="drawByNumbers"><Sparkles v-if="!isDrawing" :size="15" />{{ isDrawing ? '正在排牌…' : '确认数字并抽牌' }}</UiButton>
         </div>
 
         <UiNotice v-if="flowError" class="tarot-notice" tone="error" compact>{{ flowError }}</UiNotice>
-        <div class="tarot-setup-action">
-          <UiButton size="large" :disabled="!canBegin || (drawMode === 'number' && !numberInput.trim())" @click="beginDraw">
-            <Sparkles v-if="drawMode === 'auto'" :size="16" />
-            {{ drawMode === 'auto' ? '开始自动抽牌' : drawMode === 'number' ? '确认数字并抽牌' : '进入抽牌' }}
-          </UiButton>
-        </div>
       </template>
 
       <template v-else-if="phase === 'drawing'">
         <div class="tarot-stage-toolbar">
           <div><strong>{{ selectedSpread.label }}</strong><small>{{ question }}</small></div>
-          <UiButton variant="ghost" size="small" :disabled="drawMode !== 'manual' && !flowError" @click="resetReading"><RotateCcw :size="14" />重新设置</UiButton>
+          <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新设置</UiButton>
         </div>
 
-        <section v-if="drawMode === 'manual'" class="tarot-draw-workspace">
+        <section class="tarot-draw-workspace">
           <div v-if="confirmedNumbers.length" class="tarot-confirmed-strip" aria-label="已确认的牌">
             <span v-for="(number, index) in confirmedNumbers" :key="number"><small>第 {{ index + 1 }} 张</small><strong>第 {{ number }} 张牌</strong></span>
           </div>
@@ -538,64 +516,35 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <section v-else class="tarot-auto-stage" aria-live="polite">
-          <div class="tarot-shuffle-stage" :class="`is-${animationPhase}`" aria-hidden="true">
-            <span
-              v-for="index in 14"
-              :key="index"
-              class="tarot-animation-card"
-              :class="{ 'is-dealt': index <= requiredCards }"
-              :style="{
-                '--shuffle-x': `${((index * 37) % 9 - 4) * 26}px`,
-                '--shuffle-y': `${((index * 23) % 7 - 3) * 17}px`,
-                '--shuffle-r': `${((index * 19) % 31) - 15}deg`,
-                '--stack-r': `${(index - 7) * .45}deg`,
-                '--deal-x': `${(index - (requiredCards + 1) / 2) * Math.min(92, 700 / requiredCards)}px`,
-                '--deal-mobile-x': `${(index - (requiredCards + 1) / 2) * Math.min(52, 330 / requiredCards)}px`,
-              }"
-            ><span class="tarot-card-corners"></span><span class="tarot-card-orbit"><i></i></span></span>
-          </div>
-          <strong>{{ animationPhase === 'shuffle' ? '正在洗牌' : animationPhase === 'stack' ? '正在收拢牌组' : '正在按牌位抽牌' }}</strong>
-          <small>{{ selectedSpread.label }} · {{ requiredCards }} 张</small>
-        </section>
-
         <UiNotice v-if="flowError" class="tarot-notice" tone="error" compact>
           {{ flowError }}
           <template #action><UiButton variant="secondary" size="small" @click="retryReading">重试排牌</UiButton></template>
         </UiNotice>
       </template>
 
-      <template v-else>
-        <section v-if="tarotReading" class="tarot-result-section" :class="{ 'is-interpretation': phase === 'interpretation' }" aria-live="polite">
+      <template v-else-if="phase === 'result'">
+        <section v-if="tarotReading" class="tarot-result-section" aria-live="polite">
           <div class="tarot-result-heading">
-            <div><small>{{ tarotReading.spreadName }}</small><strong>{{ phase === 'result' ? '牌面已揭示' : question }}</strong></div>
-            <UiButton v-if="phase === 'result'" variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新开始</UiButton>
+            <div><small>{{ tarotReading.spreadName }} · {{ requiredCards }} 张</small><strong>牌面已揭示</strong><p>{{ question }}</p></div>
+            <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新开始</UiButton>
           </div>
-          <div class="tarot-result-deck" :class="{ 'is-many': requiredCards > 7 }">
-            <article v-for="(card, index) in tarotReading.cards" :key="`${card.id}-${index}`" class="tarot-result-item">
-              <span class="tarot-position">{{ card.position }}</span>
-              <div class="tarot-face" :class="{ 'is-reversed': card.reversed }">
-                <span class="tarot-face-frame"></span>
-                <div class="tarot-face-art"><small>{{ card.id }}</small><b>{{ cardSymbol(card) }}</b><i>✦</i></div>
-              </div>
-              <strong>{{ card.name }}</strong>
-              <span class="tarot-orientation" :class="{ reversed: card.reversed }">{{ card.reversed ? '逆位' : '正位' }}</span>
-              <p>{{ card.keywords.join(' · ') }}</p>
-            </article>
+          <div class="tarot-spread-scroll">
+            <div class="tarot-spread-board" :class="[`spread-${spreadType}`, { 'is-dense': denseSpread }]" :aria-label="`${tarotReading.spreadName}牌阵`">
+              <article v-for="(card, index) in tarotReading.cards" :key="`${card.id}-${index}`" class="tarot-result-item" :style="spreadCardStyle(index)" :aria-label="`${card.position}，${card.name}，${card.reversed ? '逆位' : '正位'}`">
+                <span class="tarot-position"><i>{{ index + 1 }}</i>{{ card.position }}</span>
+                <div class="tarot-face" :class="{ 'is-reversed': card.reversed }">
+                  <span class="tarot-face-frame"></span>
+                  <div class="tarot-face-art"><small>{{ card.id }}</small><b>{{ cardSymbol(card) }}</b><i>✦</i></div>
+                </div>
+                <strong>{{ card.name }}</strong>
+                <span class="tarot-orientation" :class="{ reversed: card.reversed }">{{ card.reversed ? '逆位' : '正位' }}</span>
+                <p>{{ card.keywords.join(' · ') }}</p>
+              </article>
+            </div>
           </div>
-          <div v-if="phase === 'result'" class="tarot-result-action">
+          <div class="tarot-result-action">
             <UiButton size="large" @click="startInterpretation"><Sparkles :size="16" />开始解读</UiButton>
           </div>
-        </section>
-
-        <section v-if="phase === 'interpretation'" class="tarot-ai-section" aria-live="polite">
-          <div class="tarot-ai-heading"><span><Sparkles :size="17" />AI 解读</span><small>结合问题、牌位、正逆位与整组牌序</small></div>
-          <div v-if="isInterpreting" class="tarot-ai-loading"><LoaderCircle class="spin" :size="20" /><span>正在整理这组牌给你的提示…</span></div>
-          <UiNotice v-else-if="aiError" tone="error" compact>
-            {{ aiError }}
-            <template #action><UiButton variant="secondary" size="small" @click="interpretReading()"><RefreshCw :size="14" />重试解读</UiButton></template>
-          </UiNotice>
-          <AiReadingActions v-else-if="aiAnswer" :content="aiAnswer" title="塔罗牌解读"><ChatMarkdown class="tarot-ai-markdown" :content="aiAnswer" /></AiReadingActions>
         </section>
       </template>
     </UiWorkspaceSurface>
@@ -615,27 +564,37 @@ onBeforeUnmount(() => {
 .tarot-setup textarea:focus, .tarot-setup select:focus, .tarot-number-draw input:focus { background: var(--ds-surface-raised); border-color: var(--ds-accent); box-shadow: var(--ds-focus-ring); }
 .tarot-setup textarea:disabled, .tarot-setup select:disabled { opacity: .66; }
 .tarot-setup small, .tarot-number-draw small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
-.tarot-mode-tabs { margin: 0 auto var(--ds-space-5) !important; max-width: 570px !important; }
 .tarot-setup-action { display: flex; justify-content: center; margin-top: var(--ds-space-5); }
-.tarot-number-setup { margin-bottom: 0; margin-top: var(--ds-space-4); max-width: 570px; }
 .tarot-stage-toolbar { align-items: center; background: var(--ds-surface-muted); border-radius: var(--ds-radius-md); display: flex; justify-content: space-between; margin: 0 auto var(--ds-space-4); max-width: 900px; padding: var(--ds-space-3) var(--ds-space-4); }
 .tarot-stage-toolbar > div { display: grid; gap: 4px; min-width: 0; }
 .tarot-stage-toolbar strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); }
 .tarot-stage-toolbar small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tarot-result-section { margin: 0 auto; max-width: 1080px; }
-.tarot-result-section.is-interpretation { margin-bottom: var(--ds-space-5); }
 .tarot-result-heading { align-items: center; display: flex; justify-content: space-between; margin-bottom: 18px; }
 .tarot-result-heading > div { display: grid; gap: 4px; }
 .tarot-result-heading small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); letter-spacing: .08em; }
 .tarot-result-heading strong { color: var(--ds-text-primary); font-size: var(--ds-heading-sm); font-weight: 650; }
-.tarot-result-deck { display: flex; gap: 18px; justify-content: center; overflow-x: auto; padding: 8px 4px 14px; scrollbar-width: thin; }
-.tarot-result-deck.is-many { justify-content: flex-start; }
-.tarot-result-item { align-items: center; display: flex; flex: 0 0 124px; flex-direction: column; min-width: 0; text-align: center; }
-.tarot-position { color: var(--ds-accent-strong); font-size: var(--ds-text-xs); height: 32px; line-height: 1.25; }
+.tarot-result-heading p { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: 1.5; margin: 3px 0 0; max-width: 720px; }
+.tarot-spread-scroll { overflow-x: auto; padding: 6px 2px 16px; scrollbar-width: thin; }
+.tarot-spread-board { background: color-mix(in srgb, var(--ds-surface-muted) 88%, var(--ds-accent-soft)); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); height: 820px; margin-inline: auto; min-width: 720px; overflow: hidden; position: relative; }
+.tarot-spread-board::before { border: 1px solid color-mix(in srgb, var(--ds-accent) 14%, transparent); border-radius: 50%; content: ''; height: 44%; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 44%; }
+.tarot-spread-board.spread-single, .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { height: 340px; }
+.tarot-spread-board.spread-single { min-width: 320px; width: min(100%, 520px); }
+.tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { min-width: 650px; }
+.tarot-spread-board.spread-love { height: 920px; }
+.tarot-spread-board.spread-career { height: 900px; }
+.tarot-spread-board.spread-decision { height: 880px; min-width: 820px; }
+.tarot-spread-board.spread-horseshoe { height: 800px; min-width: 820px; }
+.tarot-spread-board.spread-chakra { height: 1950px; min-width: 360px; width: min(100%, 560px); }
+.tarot-spread-board.spread-celtic { height: 1150px; min-width: 900px; }
+.tarot-spread-board.spread-year { height: 1500px; min-width: 1000px; }
+.tarot-result-item { align-items: center; display: flex; flex-direction: column; left: var(--spread-x); min-width: 0; position: absolute; text-align: center; top: var(--spread-y); transform: translate(-50%, -50%); width: 124px; }
+.tarot-position { align-items: center; color: var(--ds-accent-strong); display: flex; font-size: var(--ds-text-xs); gap: 5px; height: 32px; justify-content: center; line-height: 1.2; width: 150px; }
+.tarot-position i { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; flex: 0 0 auto; font-size: 9px; font-style: normal; height: 18px; justify-content: center; width: 18px; }
 .tarot-face, .tarot-result-back { border: 3px solid #d9c69b; border-radius: 8px; box-shadow: 0 11px 24px rgba(41,33,52,.2); height: 184px; overflow: hidden; position: relative; width: 112px; }
 .tarot-result-back, .tarot-card-inner { background: radial-gradient(circle at 65% 24%, rgba(255,255,255,.5) 0 1px, transparent 1.5px), radial-gradient(circle at 26% 74%, rgba(255,255,255,.42) 0 1.2px, transparent 1.7px), linear-gradient(155deg, #3d264b, #191b36 72%); }
 .tarot-result-back::before, .tarot-card-inner::before { background-image: radial-gradient(circle, #efe3bb 0 1.1px, transparent 1.8px); background-position: 4px 5px; background-size: 19px 21px; content: ''; inset: 5px; opacity: .48; position: absolute; }
-.tarot-face { background: radial-gradient(circle at 50% 34%, rgba(253,236,184,.34), transparent 34%), linear-gradient(155deg, #805c73, #26264a 70%); }
+.tarot-face { background: radial-gradient(circle at 50% 34%, rgba(253,236,184,.34), transparent 34%), linear-gradient(155deg, #805c73, #26264a 70%); transform: rotate(var(--spread-rotation)); }
 .tarot-face-frame { border: 1px solid rgba(246,225,171,.68); inset: 6px; position: absolute; }
 .tarot-face-art { align-items: center; display: flex; flex-direction: column; inset: 11px; justify-content: center; position: absolute; transition: transform .3s; }
 .tarot-face.is-reversed .tarot-face-art { transform: rotate(180deg); }
@@ -653,6 +612,11 @@ onBeforeUnmount(() => {
 .tarot-orientation { background: var(--ds-success-soft); border-radius: var(--ds-radius-round); color: var(--ds-success); font-size: 10px; margin-top: 5px; padding: 2px 7px; }
 .tarot-orientation.reversed { background: var(--ds-danger-soft); color: var(--ds-danger); }
 .tarot-result-item p { color: var(--ds-text-tertiary); font-size: 10px; line-height: 1.45; margin: 6px 0 0; }
+.tarot-spread-board.is-dense .tarot-result-item p { display: none; }
+.tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) { height: 270px; }
+.tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) .tarot-position { left: 50%; position: absolute; top: 254px; transform: translateX(-50%); }
+.tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) > strong { margin: 0; position: absolute; top: 286px; }
+.tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) > .tarot-orientation { margin: 0; position: absolute; top: 310px; }
 .tarot-result-action { display: flex; justify-content: center; padding: 18px 0 4px; }
 .tarot-notice { margin: 14px auto; max-width: 880px; }
 .tarot-draw-workspace { margin: 16px auto 0; }
@@ -680,47 +644,31 @@ onBeforeUnmount(() => {
 .tarot-candidate-panel { align-items: center; display: flex; gap: 14px; justify-content: center; min-height: 42px; text-align: center; }
 .tarot-candidate-panel strong { color: var(--ds-accent-strong); font-size: var(--ds-text-lg); font-weight: 650; }
 .tarot-candidate-panel > span { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
-.tarot-auto-stage { align-items: center; background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); display: flex; flex-direction: column; margin: var(--ds-space-5) auto; min-height: 430px; padding: var(--ds-space-6) 0; text-align: center; }
-.tarot-auto-stage > strong { color: var(--ds-text-primary); font-size: var(--ds-heading-sm); font-weight: 650; margin-top: var(--ds-space-4); }
-.tarot-auto-stage > small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); margin-top: var(--ds-space-1); }
-.tarot-shuffle-stage { height: 310px; max-width: 900px; position: relative; width: 100%; }
-.tarot-animation-card { background: radial-gradient(circle at 65% 24%, rgba(255,255,255,.5) 0 1px, transparent 1.5px), radial-gradient(circle at 26% 74%, rgba(255,255,255,.42) 0 1.2px, transparent 1.7px), linear-gradient(155deg, #3d264b, #191b36 72%); border: 3px solid #d9c69b; border-radius: 7px; box-shadow: 0 11px 28px rgba(5,3,11,.38); height: 150px; left: 50%; margin-left: -46px; margin-top: -75px; overflow: hidden; position: absolute; top: 50%; transform: translate(0, 0); transition: transform .68s cubic-bezier(.22,.78,.24,1), opacity .4s; width: 92px; }
-.tarot-animation-card::before { background-image: radial-gradient(circle, #efe3bb 0 1.1px, transparent 1.8px); background-position: 4px 5px; background-size: 19px 21px; content: ''; inset: 5px; opacity: .48; position: absolute; }
-.tarot-shuffle-stage.is-shuffle .tarot-animation-card { animation: tarot-shuffle-pulse .45s ease-in-out infinite alternate; transform: translate(var(--shuffle-x), var(--shuffle-y)) rotate(var(--shuffle-r)); }
-.tarot-shuffle-stage.is-stack .tarot-animation-card { animation: none; transform: translate(0, 0) rotate(var(--stack-r)); }
-.tarot-shuffle-stage.is-deal .tarot-animation-card { animation: none; transform: translate(0, 16px) rotate(var(--stack-r)); }
-.tarot-shuffle-stage.is-deal .tarot-animation-card.is-dealt { transform: translate(var(--deal-x), -52px) rotate(0deg); }
-@keyframes tarot-shuffle-pulse { from { margin-top: -80px; } to { margin-top: -70px; } }
+.tarot-method-chooser { display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin: var(--ds-space-6) auto 0; max-width: 720px; }
+.tarot-method-option { align-items: center; background: var(--ds-surface-raised); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); color: var(--ds-text-primary); cursor: pointer; display: flex; flex-direction: column; min-height: 180px; padding: var(--ds-space-5); text-align: center; transition: border-color .18s, box-shadow .18s, transform .18s; }
+.tarot-method-option:hover, .tarot-method-option.active { border-color: var(--ds-accent); box-shadow: 0 8px 28px color-mix(in srgb, var(--ds-accent) 12%, transparent); transform: translateY(-2px); }
+.tarot-method-option:focus-visible { box-shadow: var(--ds-focus-ring); outline: none; }
+.tarot-method-option > span { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: flex; height: 48px; justify-content: center; margin-bottom: var(--ds-space-3); width: 48px; }
+.tarot-method-option strong { font-size: var(--ds-text-md); }
+.tarot-method-option small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); line-height: 1.55; margin-top: 7px; }
 .tarot-number-draw { align-items: stretch; background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); display: flex; flex-direction: column; margin: var(--ds-space-5) auto; max-width: 650px; padding: var(--ds-space-5); text-align: left; }
 .tarot-number-draw label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-.tarot-ai-section { border-top: 1px solid var(--ds-line); margin: var(--ds-space-6) auto 0; max-width: 880px; padding-top: var(--ds-space-5); }
-.tarot-ai-heading { align-items: flex-end; display: flex; justify-content: space-between; margin-bottom: var(--ds-space-4); }
-.tarot-ai-heading > span { align-items: center; color: var(--ds-text-primary); display: flex; font-size: var(--ds-heading-sm); font-weight: 650; gap: var(--ds-space-2); }
-.tarot-ai-heading small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
-.tarot-ai-loading { align-items: center; color: var(--ds-text-secondary); display: flex; font-size: var(--ds-text-sm); gap: var(--ds-space-2); padding: var(--ds-space-4) 0; }
-.tarot-ai-markdown { color: var(--ds-text-primary); font-size: var(--ds-text-md); line-height: var(--ds-line-relaxed); }
-.spin { animation: tarot-spin 1s linear infinite; }
-@keyframes tarot-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 720px) {
   .tarot-workspace > :first-child { margin-bottom: var(--ds-space-5); }
   .tarot-setup { grid-template-columns: 1fr; }
   .tarot-question-field textarea { min-height: 76px; }
-  .tarot-mode-tabs { overflow-x: auto; }
-  .tarot-stage-toolbar { align-items: flex-start; }
-  .tarot-result-heading { align-items: flex-start; }
-  .tarot-result-deck { justify-content: flex-start; }
-  .tarot-result-item { flex-basis: 108px; }
-  .tarot-face, .tarot-result-back { height: 164px; width: 100px; }
+  .tarot-stage-toolbar, .tarot-result-heading { align-items: flex-start; gap: var(--ds-space-3); }
+  .tarot-stage-toolbar small { max-width: 210px; }
+  .tarot-method-chooser { grid-template-columns: 1fr; margin-top: var(--ds-space-4); }
+  .tarot-method-option { min-height: 142px; padding: var(--ds-space-4); }
+  .tarot-spread-board.spread-single { min-width: 290px; }
+  .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { min-width: 590px; }
+  .tarot-result-heading p { max-width: 230px; }
   .tarot-deck-scroll { padding-bottom: 38px; padding-top: 115px; }
   .tarot-card { flex-basis: 72px; height: 116px; margin-left: -32px; transform-origin: 50% 132%; }
   .tarot-card-inner { height: 116px; width: 72px; }
-  .tarot-ai-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
-  .tarot-auto-stage { min-height: 350px; }
-  .tarot-shuffle-stage { height: 250px; }
-  .tarot-animation-card { height: 126px; margin-left: -39px; margin-top: -63px; width: 78px; }
-  .tarot-shuffle-stage.is-deal .tarot-animation-card.is-dealt { transform: translate(var(--deal-mobile-x), -42px) rotate(0deg); }
 }
 
-@media (prefers-reduced-motion: reduce) { .tarot-card { transition: none; } .spin { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tarot-card, .tarot-method-option { transition: none; } }
 </style>
