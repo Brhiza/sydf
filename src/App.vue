@@ -5201,7 +5201,12 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           @retry-interpretation="retryLastInterpretation"
         />
 
-        <TarotView v-else-if="activeView === 'tarot'" />
+        <TarotView
+          v-else-if="activeView === 'tarot'"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :ai-config="activeAiRequestConfig"
+          :casting-preference="appPreferences.castingPreference"
+        />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
 
