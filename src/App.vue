@@ -192,9 +192,10 @@ const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyH
 const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChart.vue'));
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
+const TarotView = defineAsyncComponent(() => import('./components/TarotView.vue'));
 const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
 
-type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'charts' | 'compatibility' | 'cases' | 'settings';
+type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'tarot' | 'charts' | 'compatibility' | 'cases' | 'settings';
 type SettingsSection = 'preferences' | 'ai';
 type CasesSection = 'input' | 'records';
 type ChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng';
@@ -1267,6 +1268,7 @@ const primaryNavItems = [
   { key: 'charts' as const, label: '排盘', icon: Orbit },
   { key: 'compatibility' as const, label: '合盘', icon: HeartHandshake },
   { key: 'oracle' as const, label: '灵签', icon: ScrollText },
+  { key: 'tarot' as const, label: '塔罗牌', icon: Sparkles },
   { key: 'xiaoliuren' as const, label: '小六壬', icon: Moon },
   { key: 'daily-hexagram' as const, label: '每日一卦', icon: Coins },
   { key: 'fortune' as const, label: '今日运势', icon: Sun },
@@ -5198,6 +5200,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           @complete="completeOracleReading"
           @retry-interpretation="retryLastInterpretation"
         />
+
+        <TarotView v-else-if="activeView === 'tarot'" />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
 
