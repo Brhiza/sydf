@@ -822,6 +822,7 @@ h1, h2, h3, p { margin-top: 0; }
 .reading-modal::-webkit-scrollbar { display: none; }
 .reading-modal { animation: editor-in .2s ease-out; background: rgba(255, 253,255, .98); border: 1px solid #e0d6eb; border-radius: 20px; box-shadow: 0 24px 70px rgba(46, 32, 70, .2); max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: none; width: min(680px, 100%); }
 .reading-modal.traditional-reading-modal { width: min(860px, 100%); }
+.reading-modal.tarot-reading-modal { width: min(1120px, 100%); }
 .reading-modal-summary { align-items: flex-start; background: #f2eafa; border: 1px solid #e5d9ef; border-radius: 12px; color: #6e5b80; display: flex; gap: 8px; line-height: 1.75; margin-top: 18px; padding: 11px 12px; }
 .reading-modal-summary svg { color: #8062a8; flex: 0 0 auto; margin-top: 2px; }
 .reading-detail-grid { display: grid; gap: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }

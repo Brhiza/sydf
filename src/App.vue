@@ -194,6 +194,7 @@ const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChar
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
 const TarotView = defineAsyncComponent(() => import('./components/TarotView.vue'));
+const TarotSpreadBoard = defineAsyncComponent(() => import('./components/TarotSpreadBoard.vue'));
 const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
 
 type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'tarot' | 'charts' | 'compatibility' | 'cases' | 'settings';
@@ -1092,6 +1093,8 @@ const showMobileNav = ref(false);
 const expandedInspirationGroups = ref<string[]>(['matter-life']);
 const selectedReadingMessage = ref<ChatReadingMessage | null>(null);
 const showReadingModal = ref(false);
+const selectedTarotMessage = ref<ChatTarotMessage | null>(null);
+const showTarotModal = ref(false);
 type ManualDivinationKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 'liuren' | 'taiyi';
 const pendingManualKind = ref<ManualDivinationKind | null>(null);
 const pendingCastingQuestion = ref('');
@@ -2740,6 +2743,7 @@ function resetAlmanacPageState() {
 function closeNavigationOverlays() {
   closeInspirationModal();
   closeReadingModal();
+  closeTarotModal();
   closeFortuneDatePicker();
   if (!showOnboarding.value) closeBirthPicker();
 }
@@ -3017,6 +3021,11 @@ function openReadingModal(message: ChatReadingMessage) {
   showReadingModal.value = true;
 }
 
+function openTarotModal(message: ChatTarotMessage) {
+  selectedTarotMessage.value = message;
+  showTarotModal.value = true;
+}
+
 function wuyunReading(message: ChatReadingMessage) {
   return message.method === 'wuyun-liuqi' ? message.reading as WuyunLiuqiResult : null;
 }
@@ -3055,6 +3064,11 @@ function closeReadingModal() {
   selectedReadingMessage.value = null;
 }
 
+function closeTarotModal() {
+  showTarotModal.value = false;
+  selectedTarotMessage.value = null;
+}
+
 async function submitHomePrompt() {
   await beginReading();
 }
@@ -3080,6 +3094,7 @@ function leaveChat() {
   showToolPicker.value = false;
   closeManualReading();
   closeReadingModal();
+  closeTarotModal();
 }
 
 function chooseHomeChart(kind: HomeChartKind) {
@@ -5049,7 +5064,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                     @request-select="startChatSelection(index)"
                     @request-delete="deleteChatMessage(index)"
                   >
-                    <div class="reading-bubble tarot-reading-bubble"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>塔罗牌</strong><small>{{ message.reading.spreadName }} · {{ message.reading.cards.length }} 张牌</small></span></div>
+                    <button type="button" class="reading-bubble tarot-reading-bubble" @click="openTarotModal(message)"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>塔罗牌</strong><small>{{ message.reading.spreadName }} · 点击查看牌阵</small></span><ChevronRight :size="14" /></button>
                   </AiReadingActions>
                 </div>
                 <div v-else class="chat-message" :class="`is-${message.role}`">
@@ -5640,6 +5655,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div class="reading-modal-summary"><Sparkles :size="15" /><span>{{ formatReadingSummary(selectedReadingMessage.method, selectedReadingMessage.reading) }}</span></div>
             <div class="reading-detail-grid"><div v-for="row in readingModalRows" :key="row.label" class="reading-detail-row"><span>{{ row.label }}</span><strong>{{ row.value }}</strong></div></div>
           </template>
+      </UiDialogShell>
+
+      <UiDialogShell v-if="showTarotModal && selectedTarotMessage" aria-label="查看塔罗牌阵" size="wide" :panel-class="{ 'reading-modal': true, 'tarot-reading-modal': true }" @close="closeTarotModal">
+          <UiDialogHeader
+            :title="selectedTarotMessage.reading.spreadName"
+            eyebrow="塔罗牌"
+            :description="`${selectedTarotMessage.reading.cards.length} 张牌`"
+            close-label="关闭塔罗牌阵"
+            @close="closeTarotModal"
+          />
+          <TarotSpreadBoard :reading="selectedTarotMessage.reading" />
       </UiDialogShell>
 
       <UiDialogShell v-if="showInspirationModal" aria-label="问题灵感" panel-class="inspiration-modal" @close="closeInspirationModal">
