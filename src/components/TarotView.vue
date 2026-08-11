@@ -132,16 +132,25 @@ function updateFanLayout() {
   const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
   const arcHalfWidth = Math.max(desktop ? 280 : 155, scroller.clientWidth * .48);
   const poses: Record<number, { angle: number; lift: number }> = {};
+  let centeredCard: number | null = null;
+  let centeredDistance = Number.POSITIVE_INFINITY;
   cards.forEach((element, index) => {
     const cardCenter = element.offsetLeft + element.offsetWidth / 2;
+    const cardNumber = index + 1;
+    const distance = Math.abs(cardCenter - viewportCenter);
+    if (!confirmedNumbers.value.includes(cardNumber) && distance < centeredDistance) {
+      centeredCard = cardNumber;
+      centeredDistance = distance;
+    }
     const position = Math.max(-1.15, Math.min(1.15, (cardCenter - viewportCenter) / arcHalfWidth));
     const edgeProgress = Math.min(1, Math.abs(position));
-    poses[index + 1] = {
+    poses[cardNumber] = {
       angle: position * (desktop ? 34 : 22),
       lift: -(desktop ? 92 : 50) * (1 - edgeProgress * edgeProgress),
     };
   });
   fanPoses.value = poses;
+  candidateCard.value = centeredCard;
 }
 
 function scheduleFanUpdate() {
@@ -230,7 +239,11 @@ async function confirmCandidate() {
   if (confirmedNumbers.value.length >= requiredCards.value) {
     await resolveReading();
     if (tarotReading.value) phase.value = 'result';
+    return;
   }
+  const nextCard = cardNumbers.find((number) => number > card && !confirmedNumbers.value.includes(number))
+    ?? cardNumbers.find((number) => !confirmedNumbers.value.includes(number));
+  if (nextCard) nextTick(() => setCandidate(nextCard));
 }
 
 function secureShuffle() {
@@ -491,7 +504,7 @@ onBeforeUnmount(() => {
           <div v-if="confirmedNumbers.length" class="tarot-confirmed-strip" aria-label="已确认的牌">
             <span v-for="(number, index) in confirmedNumbers" :key="number"><small>第 {{ index + 1 }} 张</small><strong>第 {{ number }} 张牌</strong></span>
           </div>
-          <div class="tarot-manual-heading"><span>{{ progressText }}</span><small>左右滑动，点击或向上拖动一张牌</small></div>
+          <div class="tarot-manual-heading"><span>{{ progressText }}</span><small>左右滑动牌组，点击中间牌确认</small></div>
           <div class="tarot-deck-region">
             <div ref="deckRef" class="tarot-deck-scroll" role="group" aria-label="塔罗牌扇形牌阵，可左右滑动" @scroll="scheduleFanUpdate">
               <div ref="deckTrackRef" class="tarot-deck">
