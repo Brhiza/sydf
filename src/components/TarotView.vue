@@ -5,6 +5,7 @@ import { buildDivinationPrompt } from 'mingyu-core/prompt/divination';
 import { drawTarotSpread, getCardEvidence, tarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
+import { getShiyueTarotName, tarotCardBackUrl } from '../lib/tarotDeck';
 import TarotSpreadBoard from './TarotSpreadBoard.vue';
 import { UiButton, UiNotice, UiSectionHeading, UiToolPage, UiWorkspaceSurface } from './ui';
 
@@ -78,12 +79,12 @@ const partialReading = computed<TarotReadingResult | null>(() => {
     cards: confirmedNumbers.value.flatMap((number, index) => {
       const id = shuffledCardIds.value[number - 1];
       const card = tarotCards.find((item) => item.number === id);
-      if (!id || !card) return [];
+      if (id === undefined || !card) return [];
       const evidence = getCardEvidence(card.name);
       return [{
         id,
         position: tarotSpreads[spreadType.value].positions[index] || `牌位 ${index + 1}`,
-        name: card.name,
+        name: getShiyueTarotName(id) || card.name,
         reversed: reversedPositions.value[number - 1] || false,
         keywords: evidence.keywords,
         element: evidence.element,
@@ -326,7 +327,7 @@ async function resolveReading() {
     const result: TarotReadingResult = {
       spreadType: spreadType.value,
       spreadName: coreResult.spreadName,
-      cards: coreResult.cards,
+      cards: coreResult.cards.map(card => ({ ...card, name: getShiyueTarotName(card.id) || card.name })),
       timestamp: coreResult.timestamp,
       meta: coreResult.meta,
       draw: coreResult.draw,
@@ -498,7 +499,7 @@ onBeforeUnmount(() => {
                   @pointerup="finishPointer"
                   @pointercancel="finishPointer"
                 >
-                  <span class="tarot-card-inner" aria-hidden="true"><span class="tarot-card-corners"></span><span class="tarot-card-orbit"><i></i></span></span>
+                  <span class="tarot-card-inner" aria-hidden="true"><img :src="tarotCardBackUrl" alt="" draggable="false" /></span>
                 </button>
               </div>
             </div>
@@ -559,12 +560,6 @@ onBeforeUnmount(() => {
 .tarot-result-heading small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); letter-spacing: .08em; }
 .tarot-result-heading strong { color: var(--ds-text-primary); font-size: var(--ds-heading-sm); font-weight: 650; }
 .tarot-result-heading p { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: 1.5; margin: 3px 0 0; max-width: 720px; }
-.tarot-card-corners { border: 1px solid rgba(231, 212, 164, .68); inset: 6px; position: absolute; }
-.tarot-card-orbit { border: 1px solid rgba(232, 213, 168, .75); border-radius: 50%; height: 38px; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%) rotate(-25deg); width: 38px; }
-.tarot-card-orbit::before, .tarot-card-orbit::after { background: #e7d49f; content: ''; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%) rotate(45deg); }
-.tarot-card-orbit::before { height: 12px; width: 12px; }
-.tarot-card-orbit::after { background: #2d243d; height: 7px; width: 7px; }
-.tarot-card-orbit i { border: 1px solid rgba(232, 213, 168, .6); border-radius: 50%; inset: 8px; position: absolute; }
 .tarot-result-action { display: flex; justify-content: center; padding: 18px 0 4px; }
 .tarot-notice { margin: 14px auto; max-width: 880px; }
 .tarot-draw-workspace { display: flex; flex: 1; flex-direction: column; margin: 16px auto 0; min-height: 0; width: 100%; }
@@ -585,8 +580,8 @@ onBeforeUnmount(() => {
 .tarot-card.is-confirmed { opacity: .2; }
 .tarot-card:focus-visible { outline: none; z-index: 101; }
 .tarot-card:focus-visible .tarot-card-inner { box-shadow: var(--ds-focus-ring), 0 12px 28px rgba(41,33,52,.24); }
-.tarot-card-inner { background: radial-gradient(circle at 65% 24%, rgba(255,255,255,.5) 0 1px, transparent 1.5px), radial-gradient(circle at 26% 74%, rgba(255,255,255,.42) 0 1.2px, transparent 1.7px), linear-gradient(155deg, #3d264b, #191b36 72%); border: 3px solid #d9c69b; border-radius: 7px; box-shadow: 0 9px 23px rgba(41,33,52,.24); display: block; height: 142px; overflow: hidden; position: relative; width: 88px; }
-.tarot-card-inner::before { background-image: radial-gradient(circle, #efe3bb 0 1.1px, transparent 1.8px); background-position: 4px 5px; background-size: 19px 21px; content: ''; inset: 5px; opacity: .48; position: absolute; }
+.tarot-card-inner { border-radius: 7px; box-shadow: 0 9px 23px rgba(41,33,52,.24); display: block; height: 142px; overflow: hidden; position: relative; width: 88px; }
+.tarot-card-inner img { display: block; height: 100%; object-fit: cover; pointer-events: none; user-select: none; width: 100%; }
 .tarot-candidate-panel { bottom: 5px; display: flex; justify-content: center; left: 50%; pointer-events: none; position: absolute; text-align: center; transform: translateX(-50%); z-index: 110; }
 .tarot-candidate-panel > span { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; font-size: 10px; font-weight: 650; height: 18px; justify-content: center; min-width: 18px; padding: 0 4px; }
 .tarot-method-chooser { display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin: var(--ds-space-6) auto 0; max-width: 720px; }

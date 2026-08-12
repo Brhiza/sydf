@@ -5630,7 +5630,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         @complete="finishManualReading"
       />
 
-      <UiDialogShell v-if="showReadingModal && selectedReadingMessage" aria-label="查看排盘详情" size="wide" :panel-class="{ 'reading-modal': true, 'traditional-reading-modal': ['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi'].includes(selectedReadingMessage.method) }" @close="closeReadingModal">
+      <UiDialogShell v-if="showReadingModal && selectedReadingMessage" aria-label="查看排盘详情" size="wide" :panel-class="{ 'reading-modal': true, 'traditional-reading-modal': ['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi'].includes(selectedReadingMessage.method), 'liuyao-reading-modal': selectedReadingMessage.method === 'liuyao' }" @close="closeReadingModal">
           <UiDialogHeader
             :title="readingDisplayTitle(selectedReadingMessage)"
             :eyebrow="kindMeta[selectedReadingMessage.method].label"

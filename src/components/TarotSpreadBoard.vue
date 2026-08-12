@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { TarotCardResult, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
+import { getShiyueTarotCard, getShiyueTarotName } from '../lib/tarotDeck';
 
 interface SpreadPose {
   x: number;
@@ -38,14 +39,6 @@ const spreadLayouts: Record<TarotSpreadType, SpreadPose[]> = {
 
 const denseSpread = computed(() => props.reading.cards.length >= 7);
 
-function cardSymbol(card: TarotCardResult) {
-  if (card.name.includes('权杖')) return '火';
-  if (card.name.includes('圣杯')) return '水';
-  if (card.name.includes('宝剑')) return '风';
-  if (card.name.includes('钱币')) return '土';
-  return '✦';
-}
-
 function spreadCardStyle(index: number) {
   const pose = spreadLayouts[props.reading.spreadType][index] || { x: 50, y: 50 };
   return {
@@ -69,14 +62,13 @@ function spreadCardStyle(index: number) {
         :key="`${card.id}-${index}`"
         class="tarot-result-item"
         :style="spreadCardStyle(index)"
-        :aria-label="`${card.position}，${card.name}，${card.reversed ? '逆位' : '正位'}`"
+        :aria-label="`${card.position}，${getShiyueTarotName(card.id) || card.name}，${card.reversed ? '逆位' : '正位'}`"
       >
         <span class="tarot-position"><i>{{ index + 1 }}</i>{{ card.position }}</span>
         <div class="tarot-face" :class="{ 'is-reversed': card.reversed }">
-          <span class="tarot-face-frame"></span>
-          <div class="tarot-face-art"><small>{{ card.id }}</small><b>{{ cardSymbol(card) }}</b><i>✦</i></div>
+          <img :src="getShiyueTarotCard(card.id)?.imageUrl" alt="" draggable="false" />
         </div>
-        <strong>{{ card.name }}</strong>
+        <strong>{{ getShiyueTarotName(card.id) || card.name }}</strong>
         <span class="tarot-orientation" :class="{ reversed: card.reversed }">{{ card.reversed ? '逆位' : '正位' }}</span>
         <p>{{ card.keywords.join(' · ') }}</p>
       </article>
@@ -98,13 +90,9 @@ function spreadCardStyle(index: number) {
 .tarot-result-item { align-items: center; display: flex; flex-direction: column; left: var(--spread-x); min-width: 0; position: absolute; text-align: center; top: var(--spread-y); transform: translate(-50%, -50%) scale(var(--spread-card-scale)); width: 124px; }
 .tarot-position { align-items: center; color: var(--ds-accent-strong); display: flex; font-size: var(--ds-text-xs); gap: 5px; height: 32px; justify-content: center; line-height: 1.2; width: 150px; }
 .tarot-position i { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; flex: 0 0 auto; font-size: 9px; font-style: normal; height: 18px; justify-content: center; width: 18px; }
-.tarot-face { background: radial-gradient(circle at 50% 34%, rgba(253,236,184,.34), transparent 34%), linear-gradient(155deg, #805c73, #26264a 70%); border: 3px solid #d9c69b; border-radius: 8px; box-shadow: 0 11px 24px rgba(41,33,52,.2); height: 184px; overflow: hidden; position: relative; transform: rotate(var(--spread-rotation)); width: 112px; }
-.tarot-face-frame { border: 1px solid rgba(246,225,171,.68); inset: 6px; position: absolute; }
-.tarot-face-art { align-items: center; display: flex; flex-direction: column; inset: 11px; justify-content: center; position: absolute; transition: transform .3s; }
-.tarot-face.is-reversed .tarot-face-art { transform: rotate(180deg); }
-.tarot-face-art small { color: #f1ddb0; font-size: 10px; left: 3px; position: absolute; top: 1px; }
-.tarot-face-art b { align-items: center; border: 1px solid rgba(244,224,171,.7); border-radius: 50%; color: #f6e3b5; display: flex; font-family: 'Noto Serif SC', serif; font-size: 32px; font-weight: 500; height: 67px; justify-content: center; text-shadow: 0 0 18px rgba(255,225,153,.35); width: 67px; }
-.tarot-face-art i { color: #ead096; font-size: 13px; font-style: normal; margin-top: 10px; }
+.tarot-face { border-radius: 8px; box-shadow: 0 11px 24px rgba(41,33,52,.2); height: 184px; overflow: hidden; position: relative; transform: rotate(var(--spread-rotation)); width: 112px; }
+.tarot-face img { display: block; height: 100%; object-fit: cover; transition: transform .3s; user-select: none; width: 100%; }
+.tarot-face.is-reversed img { transform: rotate(180deg); }
 .tarot-result-item > strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); margin-top: 9px; }
 .tarot-orientation { background: var(--ds-success-soft); border-radius: var(--ds-radius-round); color: var(--ds-success); font-size: 10px; margin-top: 5px; padding: 2px 7px; }
 .tarot-orientation.reversed { background: var(--ds-danger-soft); color: var(--ds-danger); }

@@ -308,7 +308,7 @@ async function completeSpecified() {
 .manual-liuyao-progress i { display: grid; gap: 3px; grid-column: 1 / -1; grid-template-columns: repeat(6, 1fr); width: 80px; }
 .manual-liuyao-progress em { background: var(--line); border-radius: 99px; height: 3px; }
 .manual-liuyao-progress em.done { background: var(--accent); }
-.manual-liuyao-layout { display: grid; grid-template-columns: minmax(260px, .92fr) minmax(300px, 1.08fr); min-height: 340px; }
+.manual-liuyao-layout { display: grid; grid-template-columns: minmax(260px, .92fr) minmax(300px, 1.08fr); min-height: 310px; }
 .manual-liuyao-lines { padding: 22px 24px 18px 2px; }
 .manual-liuyao-lines > header, .manual-liuyao-stage > header { align-items: baseline; display: flex; justify-content: space-between; }
 .manual-liuyao-lines > header strong, .manual-liuyao-stage > header strong { color: var(--ink); font-size: var(--type-small); }
@@ -329,7 +329,7 @@ async function completeSpecified() {
 .manual-yao-placeholder { align-items: center; display: flex; height: 8px; }
 .manual-yao-placeholder i { border-top: 1px dashed var(--line); width: 100%; }
 .manual-liuyao-stage { background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-soft) 72%, transparent), transparent 52%), var(--surface-muted); border-left: 1px solid var(--line); display: flex; flex-direction: column; margin: 0 -24px -24px 0; padding: 22px 24px 18px; }
-.manual-shake-result { align-items: center; display: flex; flex: 1 1 auto; justify-content: center; min-height: 200px; overflow: hidden; padding: 8px 0; }
+.manual-shake-result { align-items: center; display: flex; flex: 1 1 auto; justify-content: center; min-height: 170px; overflow: hidden; padding: 6px 0; }
 .manual-shell-animation, .manual-shell-empty, .manual-coin-result { align-items: center; display: flex; flex-direction: column; justify-content: center; width: 100%; }
 .manual-shell-animation img, .manual-shell-empty img { filter: drop-shadow(0 10px 16px color-mix(in srgb, var(--accent) 18%, transparent)); height: 118px; object-fit: contain; width: 110px; }
 .manual-shell-animation img { animation: manual-shell-shake .68s ease-in-out infinite; }
@@ -345,7 +345,8 @@ async function completeSpecified() {
 .taiyi-year-pane > small { color: var(--muted); display: block; font-size: 11px; line-height: 1.6; margin-top: 8px; }
 @media (max-width: 720px) {
   .casting-tabs .ui-segmented-control__copy small { display: none; }.specified-yaos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .manual-dialog.kind-liuyao { border-radius: 0; height: 100dvh; max-height: none; width: 100%; }
+  .ui-dialog-layer:has(.manual-dialog.kind-liuyao) { align-items: center; padding: 10px; }
+  .manual-dialog.kind-liuyao { border: 1px solid var(--line-strong); border-radius: var(--ds-radius-lg); box-shadow: var(--ds-shadow-overlay); height: auto; max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); width: min(560px, calc(100vw - 20px)); }
   .manual-dialog.kind-liuyao .casting-guide { display: none; }
   .manual-liuyao-intro { padding-bottom: 10px; }
   .manual-liuyao-intro strong { font-size: 16px; }
@@ -353,8 +354,8 @@ async function completeSpecified() {
   .manual-liuyao-lines { padding: 14px 2px 12px; }
   .manual-hexagram-lines { gap: 5px; margin-top: 9px; }
   .manual-hexagram-line { grid-template-columns: 32px minmax(110px, 1fr) 42px; min-height: 23px; padding-block: 2px; }
-  .manual-liuyao-stage { border-left: 0; border-top: 1px solid var(--line); flex: 1 1 auto; margin: 0 -16px -16px; min-height: 250px; padding: 13px 16px calc(14px + env(safe-area-inset-bottom)); }
-  .manual-shake-result { min-height: 128px; padding: 3px 0 6px; }
+  .manual-liuyao-stage { border-left: 0; border-top: 1px solid var(--line); flex: 0 0 auto; margin: 0 -12px -16px; min-height: 0; padding: 12px 12px 14px; }
+  .manual-shake-result { flex: 0 0 auto; min-height: 106px; padding: 2px 0 5px; }
   .manual-shell-animation img, .manual-shell-empty img { height: 92px; width: 88px; }
   .manual-coin-result img { height: 58px; width: 58px; }
 }
