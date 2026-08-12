@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { ArrowRight, Coins, RotateCcw } from 'lucide-vue-next';
-import FortuneStatusImage from './FortuneStatusImage.vue';
 import { UiButton, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows, UiReadingSection, UiReadingWorkspace, UiToolPage, UiWorkspaceSurface } from './ui';
+import { getHexagramCardImageUrl } from '../lib/divinationCardAssets';
 import {
   DAILY_HEXAGRAM_STORAGE_KEY,
   buildDailyHexagramResult,
@@ -83,6 +83,7 @@ const castingHint = computed(() => latestThrow.value
   ? '六爻由下向上排列，继续完成余下爻位。'
   : '心中默念今日所问，从初爻开始依次摇满六爻。');
 const hasChangingLines = computed(() => (result.value?.chart.changingYaos.length ?? 0) !== 0);
+const hexagramCardImageUrl = computed(() => getHexagramCardImageUrl(result.value?.original.id ?? 1));
 const movingLines = computed(() => result.value?.interpretation.movingLines || []);
 const changeSummary = computed(() => {
   const positions = result.value?.chart.changingYaos.map((line) => lineNames[line.position - 1]) || [];
@@ -276,7 +277,7 @@ function resetDailyHexagramForTesting() {
         class="daily-reading"
       >
         <template #hero-media>
-          <FortuneStatusImage :status="result.guidance.status" />
+          <img class="daily-hexagram-card" :src="hexagramCardImageUrl" :alt="`${result.original.name}卦卡`" />
         </template>
 
         <template #hero-context>
@@ -532,6 +533,7 @@ function resetDailyHexagramForTesting() {
 .casting-controls .daily-hexagram-error { margin-top: var(--ds-space-2); width: 100%; }
 
 .result-hexagram { width: min(100%, 280px); }
+.daily-hexagram-card { aspect-ratio: 2 / 3; border-radius: var(--ds-radius-md); display: block; height: auto; object-fit: cover; width: 100%; }
 .daily-result-screen .hexagram-lines { display: grid; gap: 8px; width: 100%; }
 .daily-result-screen .hexagram-line-row { align-items: center; display: grid; gap: 10px; grid-template-columns: 36px minmax(126px, 1fr) 18px; line-height: 1; }
 .daily-result-screen .hexagram-line-row > span, .daily-result-screen .hexagram-line-row > small { color: var(--ds-text-secondary); font-size: 11px; line-height: 1; text-align: right; }
