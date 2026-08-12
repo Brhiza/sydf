@@ -12,6 +12,7 @@ interface SpreadPose {
 const props = defineProps<{
   reading: TarotReadingResult;
   compact?: boolean;
+  immersive?: boolean;
 }>();
 
 const spreadLayouts: Record<TarotSpreadType, SpreadPose[]> = {
@@ -57,7 +58,7 @@ function spreadCardStyle(index: number) {
 </script>
 
 <template>
-  <div class="tarot-spread-frame" :class="[`spread-${reading.spreadType}`, { 'is-compact': compact }]">
+  <div class="tarot-spread-frame" :class="[`spread-${reading.spreadType}`, { 'is-compact': compact, 'is-immersive': immersive }]">
     <div
       class="tarot-spread-board"
       :class="[`spread-${reading.spreadType}`, { 'is-dense': denseSpread }]"
@@ -123,6 +124,9 @@ function spreadCardStyle(index: number) {
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-year { height: min(450px, 48dvh); }
 .tarot-spread-frame.is-compact.spread-celtic,
 .tarot-spread-frame.is-compact.spread-year { --spread-card-scale: .46; }
+.tarot-spread-frame.is-immersive { padding-inline: 0; }
+.tarot-spread-frame.is-immersive .tarot-spread-board { background: transparent; border: 0; border-radius: 0; }
+.tarot-spread-frame.is-immersive .tarot-spread-board::before { display: none; }
 
 @media (max-width: 720px) {
   .tarot-spread-frame { --spread-card-scale: .52; }

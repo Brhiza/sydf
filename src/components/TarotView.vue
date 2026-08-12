@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
         </div>
 
         <section class="tarot-draw-workspace">
-          <TarotSpreadBoard v-if="partialReading" class="tarot-live-spread" :reading="partialReading" compact />
+          <TarotSpreadBoard v-if="partialReading" class="tarot-live-spread" :reading="partialReading" compact immersive />
           <div v-if="!tarotReading" class="tarot-manual-heading"><span>{{ progressText }}</span></div>
           <div v-if="!tarotReading" class="tarot-deck-region">
             <div ref="deckRef" class="tarot-deck-scroll" role="group" aria-label="塔罗牌扇形牌阵，可左右滑动" @scroll="scheduleFanUpdate">
@@ -536,7 +536,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .tarot-screen { min-width: 0; }
 .tarot-workspace { min-width: 0; }
-.tarot-workspace.is-drawing { display: flex; flex-direction: column; min-height: calc(100dvh - var(--ds-topbar-height) - var(--ds-space-7) - var(--ds-space-8)); }
+.tarot-workspace.is-drawing { background: transparent; border: 0; box-shadow: none; display: flex; flex-direction: column; min-height: calc(100dvh - var(--ds-topbar-height) - var(--ds-space-7) - var(--ds-space-8)); overflow: visible; }
 .tarot-workspace > :first-child { margin-bottom: var(--ds-space-6); }
 .tarot-workspace.is-drawing > .tarot-stage-toolbar { background: transparent; margin: 0; max-width: none; padding: 0; width: 100%; }
 .tarot-setup { display: grid; gap: var(--ds-space-5); grid-template-columns: minmax(0, 1fr) 280px; margin: 0 auto var(--ds-space-4); max-width: 880px; }
@@ -572,7 +572,7 @@ onBeforeUnmount(() => {
 .tarot-manual-heading { display: grid; gap: 5px; margin: 0 auto; max-width: 900px; text-align: center; }
 .tarot-manual-heading span { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 650; }
 .tarot-draw-complete-action { display: flex; flex: 0 0 auto; justify-content: center; padding: var(--ds-space-4) 0 0; }
-.tarot-deck-region { flex: 0 0 auto; margin: 12px calc(0px - var(--ds-space-6)) calc(0px - var(--ds-space-6)); min-width: 0; position: relative; }
+.tarot-deck-region { flex: 0 0 auto; margin: auto calc(0px - var(--ds-space-6)) calc(0px - var(--ds-space-6)); min-width: 0; padding-top: 12px; position: relative; }
 .tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 150px 0 0; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
 .tarot-deck { --fan-edge-space: 44px; display: flex; min-width: max-content; }
