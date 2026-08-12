@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Hash, Hand, RotateCcw, Sparkles } from 'lucide-vue-next';
 import { buildDivinationPrompt } from 'mingyu-core/prompt/divination';
-import { drawTarotSpread, tarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
+import { drawTarotSpread, getCardEvidence, tarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
 import TarotSpreadBoard from './TarotSpreadBoard.vue';
@@ -70,16 +70,28 @@ const canBegin = computed(() => Boolean(question.value.trim()) && !isDrawing.val
 const progressText = computed(() => confirmedNumbers.value.length
   ? `已确认 ${confirmedNumbers.value.length} 张，还需 ${remainingCards.value} 张`
   : `需要抽取 ${requiredCards.value} 张牌`);
-const confirmedCards = computed(() => confirmedNumbers.value.map((number, index) => {
-  const id = shuffledCardIds.value[number - 1];
-  const card = tarotCards.find((item) => item.number === id);
+const partialReading = computed<TarotReadingResult | null>(() => {
+  if (!confirmedNumbers.value.length) return null;
   return {
-    number,
-    position: tarotSpreads[spreadType.value].positions[index] || `牌位 ${index + 1}`,
-    name: card?.name || `牌 ${id}`,
-    reversed: reversedPositions.value[number - 1] || false,
+    spreadType: spreadType.value,
+    spreadName: tarotSpreads[spreadType.value].name,
+    cards: confirmedNumbers.value.flatMap((number, index) => {
+      const id = shuffledCardIds.value[number - 1];
+      const card = tarotCards.find((item) => item.number === id);
+      if (!id || !card) return [];
+      const evidence = getCardEvidence(card.name);
+      return [{
+        id,
+        position: tarotSpreads[spreadType.value].positions[index] || `牌位 ${index + 1}`,
+        name: card.name,
+        reversed: reversedPositions.value[number - 1] || false,
+        keywords: evidence.keywords,
+        element: evidence.element,
+        archetype: evidence.archetype,
+      }];
+    }),
   };
-}));
+});
 
 function updateFanLayout() {
   const scroller = deckRef.value;
@@ -208,7 +220,6 @@ async function confirmCandidate() {
   confirmedNumbers.value.push(card);
   if (confirmedNumbers.value.length >= requiredCards.value) {
     await resolveReading();
-    if (tarotReading.value) phase.value = 'result';
     return;
   }
   const nextCard = cardNumbers.find((number) => number > card && !confirmedNumbers.value.includes(number))
@@ -341,7 +352,7 @@ async function resolveReading() {
 
 async function retryReading() {
   await resolveReading();
-  if (tarotReading.value) phase.value = 'result';
+  if (tarotReading.value && drawMode.value !== 'manual') phase.value = 'result';
 }
 
 function startInterpretation() {
@@ -465,11 +476,9 @@ onBeforeUnmount(() => {
         </div>
 
         <section class="tarot-draw-workspace">
-          <div v-if="confirmedNumbers.length" class="tarot-confirmed-strip" aria-label="已确认的牌">
-            <span v-for="card in confirmedCards" :key="card.number"><small>{{ card.position }} · {{ card.reversed ? '逆位' : '正位' }}</small><strong>{{ card.name }}</strong></span>
-          </div>
-          <div class="tarot-manual-heading"><span>{{ progressText }}</span></div>
-          <div class="tarot-deck-region">
+          <TarotSpreadBoard v-if="partialReading" class="tarot-live-spread" :reading="partialReading" compact />
+          <div v-if="!tarotReading" class="tarot-manual-heading"><span>{{ progressText }}</span></div>
+          <div v-if="!tarotReading" class="tarot-deck-region">
             <div ref="deckRef" class="tarot-deck-scroll" role="group" aria-label="塔罗牌扇形牌阵，可左右滑动" @scroll="scheduleFanUpdate">
               <div ref="deckTrackRef" class="tarot-deck">
                 <button
@@ -496,6 +505,9 @@ onBeforeUnmount(() => {
             <div class="tarot-candidate-panel" aria-live="polite">
               <span v-if="candidateCard !== null" :aria-label="`已抽出牌组中的第 ${candidateCard} 张，再次点击这张牌确认`">{{ candidateCard }}</span>
             </div>
+          </div>
+          <div v-else class="tarot-draw-complete-action">
+            <UiButton size="large" @click="startInterpretation"><Sparkles :size="16" />开始解读</UiButton>
           </div>
         </section>
 
@@ -556,13 +568,11 @@ onBeforeUnmount(() => {
 .tarot-result-action { display: flex; justify-content: center; padding: 18px 0 4px; }
 .tarot-notice { margin: 14px auto; max-width: 880px; }
 .tarot-draw-workspace { display: flex; flex: 1; flex-direction: column; margin: 16px auto 0; min-height: 0; width: 100%; }
-.tarot-confirmed-strip { display: flex; gap: 9px; justify-content: center; margin: 0 auto 16px; max-width: 900px; overflow-x: auto; padding: 3px; }
-.tarot-confirmed-strip > span { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); display: grid; flex: 0 0 auto; gap: 3px; min-width: 86px; padding: 8px 10px; text-align: center; }
-.tarot-confirmed-strip small { color: var(--ds-text-tertiary); font-size: 9px; }
-.tarot-confirmed-strip strong { color: var(--ds-accent-strong); font-size: 11px; }
+.tarot-live-spread { flex: 0 0 auto; }
 .tarot-manual-heading { display: grid; gap: 5px; margin: 0 auto; max-width: 900px; text-align: center; }
 .tarot-manual-heading span { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 650; }
-.tarot-deck-region { flex: 0 0 auto; margin: auto calc(0px - var(--ds-space-6)) calc(0px - var(--ds-space-6)); min-width: 0; position: relative; }
+.tarot-draw-complete-action { display: flex; flex: 0 0 auto; justify-content: center; padding: var(--ds-space-4) 0 0; }
+.tarot-deck-region { flex: 0 0 auto; margin: 12px calc(0px - var(--ds-space-6)) calc(0px - var(--ds-space-6)); min-width: 0; position: relative; }
 .tarot-deck-scroll { cursor: grab; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 150px 0 0; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
 .tarot-deck { --fan-edge-space: 44px; display: flex; min-width: max-content; }
