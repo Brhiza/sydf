@@ -56,13 +56,13 @@ const shiyueOracleCards = [
   ['庚申', '榴木破壳', '石榴木'], ['辛酉', '丹实盈枝', '石榴木'], ['壬戌', '海纳百川', '大海水'], ['癸亥', '沧海归一', '大海水'],
 ] as const;
 
-const publicAssetUrl = (directory: string, subdirectory: string, fileName: string) =>
-  `/${encodeURIComponent(directory)}/${encodeURIComponent(subdirectory)}/${encodeURIComponent(fileName)}`;
+const publicCardUrl = (deck: 'lenormand' | 'shiyue-oracle', fileName: string) =>
+  `/cards/${deck}/${encodeURIComponent(fileName)}`;
 
 export function getLenormandImageUrl(id: number) {
   const fileName = lenormandFileNames[id - 1];
   return fileName
-    ? publicAssetUrl('时月雷诺曼_Q版卡牌_36张', '时月雷诺曼_Q版卡牌_命名版', fileName)
+    ? publicCardUrl('lenormand', fileName)
     : '';
 }
 
@@ -83,7 +83,7 @@ export const shiyueOracleDeck: readonly WesternCardResult[] = shiyueOracleCards.
     position: '当下指引',
     reversed: false,
     keywords: [ganzhi, title, nayin],
-    imageUrl: publicAssetUrl('时月六十甲子神谕卡_Q版_60张', '时月六十甲子神谕卡_Q版_命名版', fileName),
+    imageUrl: publicCardUrl('shiyue-oracle', fileName),
   };
 });
 
