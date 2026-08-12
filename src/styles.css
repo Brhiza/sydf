@@ -875,15 +875,11 @@ h1, h2, h3, p { margin-top: 0; }
 }
 
 /* 移动端最终适配收口：统一抽屉、顶栏、输入区和各页面的窄屏间距 */
-@keyframes mobile-tools-screen-in {
-  from { opacity: .15; }
-  to { opacity: 1; }
-}
-
 @media (max-width: 720px) {
   html, body, #app { min-width: 0; width: 100%; }
   .app-shell, .app-main { min-width: 0; width: 100%; }
-  .tools-screen { animation: mobile-tools-screen-in .2s ease-out; }
+  /* 输入区在首页与聊天页都固定到视口；父级动画会让 fixed 首帧相对父级定位。 */
+  .ui-page.tools-screen { animation: none; transform: none; }
   .topbar {
     flex-basis: 58px;
     height: 58px;
