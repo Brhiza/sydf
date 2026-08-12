@@ -88,6 +88,7 @@ function reset() {
     :preferences="preferences"
     :ai-config="aiConfig"
     :casting-preference="castingPreference"
+    @restart="reset"
     @interpret="emit('interpret', $event)"
   />
 

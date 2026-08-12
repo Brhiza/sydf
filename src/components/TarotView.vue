@@ -24,6 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   interpret: [payload: TarotInterpretationPayload];
+  restart: [];
 }>();
 
 const TOTAL_CARDS = 78;
@@ -486,7 +487,7 @@ onBeforeUnmount(() => {
       <template v-else-if="phase === 'drawing'">
         <div class="tarot-stage-toolbar">
           <div><strong>{{ selectedSpread.label }}</strong><small>{{ question }}</small><span>{{ progressText }}</span></div>
-          <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新开始</UiButton>
+          <UiButton variant="ghost" size="small" @click="emit('restart')"><RotateCcw :size="14" />重新开始</UiButton>
         </div>
 
         <section class="tarot-draw-workspace">
@@ -538,7 +539,7 @@ onBeforeUnmount(() => {
         <section v-if="tarotReading" class="tarot-result-section" aria-live="polite">
           <div class="tarot-result-heading">
             <div><small>{{ tarotReading.spreadName }} · {{ requiredCards }} 张</small><strong>牌面已揭示</strong><p>{{ question }}</p></div>
-            <UiButton variant="ghost" size="small" @click="resetReading"><RotateCcw :size="14" />重新开始</UiButton>
+            <UiButton variant="ghost" size="small" @click="emit('restart')"><RotateCcw :size="14" />重新开始</UiButton>
           </div>
           <TarotSpreadBoard :reading="tarotReading" animated />
           <div class="tarot-result-action">
@@ -608,9 +609,9 @@ onBeforeUnmount(() => {
 .tarot-draw-workspace { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; margin: 8px auto 0; min-height: 0; min-width: 0; width: 100%; }
 .tarot-live-stage { min-height: 0; overflow: hidden; }
 .tarot-live-spread { height: 100%; }
-.tarot-draw-controls { min-height: 0; min-width: 0; width: 100%; }
+.tarot-draw-controls { left: 50%; min-height: 0; min-width: 0; position: relative; transform: translateX(-50%); width: calc(100% + var(--ds-page-gutter) + var(--ds-page-gutter)); }
 .tarot-draw-complete-action { display: flex; flex: 0 0 auto; justify-content: center; padding: var(--ds-space-4) 0 0; }
-.tarot-deck-region { height: 322px; margin: 0 calc(0px - var(--ds-space-6)); min-width: 0; overflow: hidden; position: relative; width: calc(100% + var(--ds-space-6) + var(--ds-space-6)); }
+.tarot-deck-region { height: 322px; margin: 0; min-width: 0; overflow: hidden; position: relative; width: 100%; }
 .tarot-deck-scroll { cursor: grab; height: 322px; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 132px 0 0; scrollbar-width: none; touch-action: pan-x; }
 .tarot-deck-scroll::-webkit-scrollbar { display: none; }
 .tarot-deck { --fan-edge-space: 44px; display: flex; min-width: max-content; }
@@ -641,8 +642,9 @@ onBeforeUnmount(() => {
   .tarot-result-heading p { max-width: 230px; }
   .tarot-draw-workspace { margin-top: 0; overflow: hidden; }
   .tarot-live-stage { overflow: hidden; }
-  .tarot-deck-region { height: 206px; left: 50%; margin: 0; width: calc(100vw + 48px); transform: translateX(-50%); }
-  .tarot-deck-scroll { height: 208px; padding-bottom: 0; padding-top: 90px; }
+  .tarot-draw-controls { width: 100vw; }
+  .tarot-deck-region { height: 206px; }
+  .tarot-deck-scroll { height: 206px; padding-bottom: 0; padding-top: 90px; }
   .tarot-card { flex-basis: 78px; height: 126px; margin-left: -36px; transform-origin: 50% 116%; }
   .tarot-card-inner { height: 126px; width: 78px; }
   .tarot-candidate-panel { bottom: max(10px, env(safe-area-inset-bottom)); }

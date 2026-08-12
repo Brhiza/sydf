@@ -21,20 +21,23 @@ const spreadLayouts: Record<TarotSpreadType, SpreadPose[]> = {
   single: [{ x: 50, y: 50 }],
   three: [{ x: 18, y: 50 }, { x: 50, y: 50 }, { x: 82, y: 50 }],
   mindBodySpirit: [{ x: 18, y: 50 }, { x: 50, y: 50 }, { x: 82, y: 50 }],
-  love: [{ x: 50, y: 16 }, { x: 19, y: 50 }, { x: 50, y: 50 }, { x: 81, y: 50 }, { x: 50, y: 84 }],
-  career: [{ x: 20, y: 20 }, { x: 50, y: 20 }, { x: 80, y: 20 }, { x: 34, y: 53 }, { x: 66, y: 53 }, { x: 50, y: 83 }],
-  decision: [{ x: 38, y: 17 }, { x: 23, y: 50 }, { x: 12, y: 84 }, { x: 62, y: 17 }, { x: 77, y: 50 }, { x: 88, y: 84 }],
-  chakra: [{ x: 50, y: 7 }, { x: 50, y: 21 }, { x: 50, y: 36 }, { x: 50, y: 50 }, { x: 50, y: 64 }, { x: 50, y: 79 }, { x: 50, y: 93 }],
-  horseshoe: [{ x: 9, y: 80 }, { x: 21, y: 47 }, { x: 35, y: 23 }, { x: 50, y: 15 }, { x: 65, y: 23 }, { x: 79, y: 47 }, { x: 91, y: 80 }],
+  love: [{ x: 50, y: 22 }, { x: 19, y: 50 }, { x: 50, y: 50 }, { x: 81, y: 50 }, { x: 50, y: 76 }],
+  career: [{ x: 20, y: 24 }, { x: 50, y: 24 }, { x: 80, y: 24 }, { x: 34, y: 52 }, { x: 66, y: 52 }, { x: 50, y: 72 }],
+  decision: [{ x: 38, y: 25 }, { x: 23, y: 50 }, { x: 13, y: 73 }, { x: 62, y: 25 }, { x: 77, y: 50 }, { x: 87, y: 73 }],
+  chakra: [
+    { x: 13, y: 29 }, { x: 38, y: 29 }, { x: 63, y: 29 }, { x: 88, y: 29 },
+    { x: 21, y: 73 }, { x: 50, y: 73 }, { x: 79, y: 73 },
+  ],
+  horseshoe: [{ x: 9, y: 78 }, { x: 21, y: 48 }, { x: 35, y: 25 }, { x: 50, y: 19 }, { x: 65, y: 25 }, { x: 79, y: 48 }, { x: 91, y: 78 }],
   celtic: [
     { x: 38, y: 50, layer: 2 }, { x: 38, y: 50, rotation: 90, layer: 3 },
-    { x: 38, y: 16 }, { x: 59, y: 50 }, { x: 38, y: 84 }, { x: 17, y: 50 },
-    { x: 84, y: 86 }, { x: 84, y: 62 }, { x: 84, y: 38 }, { x: 84, y: 14 },
+    { x: 38, y: 18 }, { x: 59, y: 50 }, { x: 38, y: 82 }, { x: 17, y: 50 },
+    { x: 84, y: 82 }, { x: 84, y: 61 }, { x: 84, y: 39 }, { x: 84, y: 18 },
   ],
   year: [
-    { x: 50, y: 14 }, { x: 69, y: 18 }, { x: 83, y: 31 }, { x: 89, y: 50 },
-    { x: 83, y: 69 }, { x: 69, y: 82 }, { x: 50, y: 86 }, { x: 31, y: 82 },
-    { x: 17, y: 69 }, { x: 11, y: 50 }, { x: 17, y: 31 }, { x: 31, y: 18 },
+    { x: 50, y: 18 }, { x: 69, y: 21 }, { x: 82, y: 33 }, { x: 87, y: 50 },
+    { x: 82, y: 67 }, { x: 69, y: 79 }, { x: 50, y: 82 }, { x: 31, y: 79 },
+    { x: 18, y: 67 }, { x: 13, y: 50 }, { x: 18, y: 33 }, { x: 31, y: 21 },
   ],
 };
 
@@ -107,6 +110,10 @@ function spreadCardStyle(index: number) {
 .tarot-spread-board.is-dense .tarot-result-item > strong,
 .tarot-spread-board.is-dense .tarot-result-item > .tarot-orientation { display: none; }
 .tarot-spread-board.is-dense .tarot-position { font-size: 10px; height: 24px; }
+.tarot-spread-board.spread-chakra { --spread-card-width: 84px; --spread-item-width: 116px; }
+.tarot-spread-board.spread-chakra .tarot-result-item > strong { display: block; font-size: 11px; line-height: 1.25; margin-top: 5px; max-width: var(--spread-item-width); }
+.tarot-spread-board.spread-chakra .tarot-result-item > .tarot-orientation { display: inline-block; margin-top: 3px; }
+.tarot-spread-board.spread-chakra .tarot-position { height: 25px; }
 .tarot-spread-board.is-medium-spread .tarot-result-item p { display: none; }
 .tarot-spread-board.is-medium-spread .tarot-result-item > strong { font-size: var(--ds-text-xs); line-height: 1.35; max-width: var(--spread-item-width); }
 .tarot-spread-frame.is-compact { padding-block: 0 2px; }
@@ -134,6 +141,10 @@ function spreadCardStyle(index: number) {
   .tarot-spread-board.is-small-spread { --spread-card-width: 92px; --spread-item-width: 118px; }
   .tarot-spread-board.is-medium-spread { --spread-card-width: 70px; --spread-item-width: 94px; }
   .tarot-spread-board.is-dense { --spread-card-width: 46px; --spread-item-width: 68px; }
+  .tarot-spread-board.spread-chakra { --spread-card-width: 58px; --spread-item-width: 78px; }
+  .tarot-spread-board.spread-chakra .tarot-result-item > strong { font-size: 9px; margin-top: 3px; }
+  .tarot-spread-board.spread-chakra .tarot-orientation { font-size: 8px; padding: 1px 5px; }
+  .tarot-spread-board.spread-chakra .tarot-position { font-size: 8px; height: 22px; }
   .tarot-spread-board { height: min(520px, 62dvh); }
   .tarot-spread-board.spread-single,
   .tarot-spread-board.spread-three,
