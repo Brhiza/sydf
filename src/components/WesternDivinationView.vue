@@ -142,14 +142,14 @@ function reset() {
 .western-screen { min-height: calc(100dvh - 188px); }
 .western-workspace { min-width: 0; }
 .western-intro { align-items: center; display: flex; flex-direction: column; text-align: center; }
-.western-portrait { background: #171216; border-radius: 18px; box-shadow: 0 16px 38px rgba(46,31,57,.14); overflow: hidden; width: min(100%, 560px); }
+.western-portrait { background: #171216; border-radius: 18px; box-shadow: 0 16px 38px rgba(46,31,57,.14); overflow: hidden; width: min(100%, 680px); }
 .western-portrait img { aspect-ratio: 16 / 9; display: block; object-fit: cover; width: 100%; }
 .western-intro > span { color: var(--ds-accent); font-size: 11px; font-weight: 600; letter-spacing: .18em; margin-top: 22px; }
-.western-form { margin: 24px auto 0; max-width: 560px; }
+.western-form { margin: 24px auto 0; max-width: 680px; }
 .western-deck-spread { border: 0; margin: 0 0 20px; padding: 0; }
 .western-deck-spread > legend { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; margin-bottom: 9px; }
-.western-decks { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); display: grid; gap: 3px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 auto; max-width: 430px; padding: 3px; }
-.western-decks button { align-items: center; background: transparent; border: 0; border-radius: calc(var(--ds-radius-md) - 3px); color: var(--ds-text-secondary); cursor: pointer; display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 550; height: 40px; justify-content: center; min-width: 0; padding: 0 10px; text-align: center; transition: color .18s, background .18s, box-shadow .18s; white-space: nowrap; }
+.western-decks { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); display: grid; gap: 4px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 4px; width: 100%; }
+.western-decks button { align-items: center; background: transparent; border: 0; border-radius: calc(var(--ds-radius-md) - 3px); color: var(--ds-text-secondary); cursor: pointer; display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 600; height: 48px; justify-content: center; min-width: 0; padding: 0 12px; text-align: center; transition: color .18s, background .18s, box-shadow .18s; white-space: nowrap; }
 .western-decks button.active { background: var(--ds-surface-raised); box-shadow: 0 1px 5px rgba(41,33,52,.1); color: var(--ds-accent-strong); }
 .western-decks button:focus-visible { box-shadow: var(--ds-focus-ring); outline: none; }
 .western-spread { display: grid; gap: 7px; margin-top: 14px; }
