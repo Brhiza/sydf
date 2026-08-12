@@ -37,7 +37,7 @@ const tarotSpreadOptions: Array<{ value: TarotSpreadType; label: string; count: 
 const phase = ref<'entry' | 'draw'>('entry');
 const deckType = ref<WesternDeckType>('tarot');
 const tarotSpread = ref<TarotSpreadType>('single');
-const lenormandSpread = ref<WesternSpreadType>('three');
+const lenormandSpread = ref<WesternSpreadType>('single');
 const oracleSpread = ref<WesternSpreadType>('single');
 const question = ref('');
 const errorMessage = ref('');

@@ -42,7 +42,7 @@ defineProps<{
   .western-card-board img { border-radius: 7px; max-height: 44dvh; width: 100%; }
   .western-card-board strong { font-size: 10px; }
   .western-card-board small { font-size: 9px; }
-  .western-card-board.is-shiyue-oracle { grid-template-columns: minmax(0, 250px); }
+  .western-card-board.is-shiyue-oracle.spread-single { grid-template-columns: minmax(0, 250px); }
   .western-card-board.spread-nine { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .western-card-board.spread-five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
