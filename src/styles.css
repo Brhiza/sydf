@@ -183,7 +183,7 @@ h1, h2, h3, p { margin-top: 0; }
 .search-box { align-items: center; background: #f3eef9; border: 1px solid #e5def0; border-radius: 10px; color: #9e91ac; display: flex; gap: 8px; margin-bottom: 13px; padding: 10px 12px; }
 .search-box input { background: transparent; border: 0; color: #5b4d6e; font-size: 11px; outline: none; width: 100%; }
 .history-filters { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.history-filters label { min-width: 0; }
+.history-filters label, .history-filters .ui-select { min-width: 0; }
 .history-filters label > span { color: var(--muted); display: block; font-size: var(--type-micro); margin: 0 0 5px 2px; }
 .history-filters select { appearance: auto; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 9px; color: var(--ink); font-size: var(--type-caption); min-height: 34px; padding: 6px 7px; width: 100%; }
 .history-filter-summary { align-items: center; color: var(--muted); display: flex; font-size: var(--type-caption); justify-content: space-between; min-height: 37px; padding: 3px 1px 5px; }
@@ -1625,7 +1625,9 @@ body {
 .onboarding-case-grid .birth-picker-region { grid-column: 1 / -1; }
 .onboarding-case-grid label,
 .onboarding-ai-fields > label,
-.onboarding-model-row > label { color: var(--muted); display: grid; font-size: 9px; gap: 6px; min-width: 0; }
+.onboarding-ai-fields > .ui-select,
+.onboarding-model-row > label,
+.onboarding-model-row > .ui-select { color: var(--muted); display: grid; font-size: 9px; gap: 6px; min-width: 0; }
 .onboarding-case-grid input,
 .onboarding-case-grid select,
 .onboarding-ai-fields select {
@@ -4775,6 +4777,7 @@ body {
   min-width: 0;
 }
 .almanac-month-filter > span { color: var(--muted); flex: none; font-size: var(--type-caption); }
+.almanac-month-filter > .ui-select { flex: 0 1 148px; width: 148px; }
 .almanac-month-filter > select {
   appearance: auto;
   background: var(--surface-raised);
@@ -4867,6 +4870,7 @@ body {
 
 @media (max-width: 720px) {
   .almanac-month-filter { flex: 1 1 100%; }
+  .almanac-month-filter > .ui-select { flex: 1 1 auto; min-width: 0; width: auto; }
   .almanac-month-filter > select { flex: 1 1 auto; min-width: 0; width: auto; }
 }
 

@@ -6,7 +6,7 @@ import type { TarotSpreadType, WesternDeckType, WesternInterpretationPayload, We
 import { getWesternSpreadOptions } from '../lib/westernDecks';
 import TarotView from './TarotView.vue';
 import WesternDeckDrawView from './WesternDeckDrawView.vue';
-import { UiActionBar, UiButton, UiPageShell, UiTextField, UiWorkspaceSurface } from './ui';
+import { UiActionBar, UiButton, UiPageShell, UiSelect, UiTextField, UiWorkspaceSurface } from './ui';
 
 const props = defineProps<{
   preferences?: AiPreferences;
@@ -48,6 +48,10 @@ const selectedWesternSpread = computed({
   set: (value: WesternSpreadType) => { if (deckType.value === 'lenormand') lenormandSpread.value = value; else oracleSpread.value = value; },
 });
 const westernSpreadOptions = computed(() => deckType.value === 'tarot' ? [] : getWesternSpreadOptions(deckType.value));
+const visibleSpreadOptions = computed(() => (deckType.value === 'tarot' ? tarotSpreadOptions : westernSpreadOptions.value).map(item => ({
+  value: item.value,
+  label: `${item.label} · ${item.count} 张`,
+})));
 const selectedSpreadSummary = computed(() => {
   if (deckType.value !== 'tarot') {
     const item = westernSpreadOptions.value.find(option => option.value === selectedWesternSpread.value) || westernSpreadOptions.value[0]!;
@@ -119,16 +123,8 @@ function reset() {
               {{ item.label }}
             </button>
           </div>
-          <label class="western-spread">
-            <span>牌阵</span>
-            <select v-if="deckType === 'tarot'" v-model="tarotSpread">
-              <option v-for="item in tarotSpreadOptions" :key="item.value" :value="item.value">{{ item.label }} · {{ item.count }} 张</option>
-            </select>
-            <select v-else v-model="selectedWesternSpread">
-              <option v-for="item in westernSpreadOptions" :key="item.value" :value="item.value">{{ item.label }} · {{ item.count }} 张</option>
-            </select>
-            <small>{{ selectedSpreadSummary.detail }}</small>
-          </label>
+          <UiSelect v-if="deckType === 'tarot'" v-model="tarotSpread" class="western-spread" label="牌阵" :options="visibleSpreadOptions" :hint="selectedSpreadSummary.detail" />
+          <UiSelect v-else v-model="selectedWesternSpread" class="western-spread" label="牌阵" :options="visibleSpreadOptions" :hint="selectedSpreadSummary.detail" />
         </fieldset>
         <UiTextField id="western-question" v-model="question" label="所问之事" multiline :rows="3" :maxlength="10000" :error="errorMessage" placeholder="写下此刻想问的事" @keydown="handleQuestionKeydown" @update:model-value="errorMessage = ''" />
         <UiActionBar align="center"><UiButton @click="begin"><Sparkles :size="16" />开始{{ selectedDeck.label }}</UiButton></UiActionBar>
@@ -152,12 +148,7 @@ function reset() {
 .western-decks button { align-items: center; background: transparent; border: 0; border-radius: calc(var(--ds-radius-md) - 3px); color: var(--ds-text-secondary); cursor: pointer; display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 600; height: 48px; justify-content: center; min-width: 0; padding: 0 12px; text-align: center; transition: color .18s, background .18s, box-shadow .18s; white-space: nowrap; }
 .western-decks button.active { background: var(--ds-surface-raised); box-shadow: 0 1px 5px rgba(41,33,52,.1); color: var(--ds-accent-strong); }
 .western-decks button:focus-visible { box-shadow: var(--ds-focus-ring); outline: none; }
-.western-spread { display: grid; gap: 7px; margin-top: 14px; }
-.western-spread > span { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; }
-.western-spread select, .western-spread > strong { align-items: center; background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 500; height: 44px; padding: 0 12px; width: 100%; }
-.western-spread select { outline: none; }
-.western-spread select:focus { background: var(--ds-surface-raised); border-color: var(--ds-accent); box-shadow: var(--ds-focus-ring); }
-.western-spread small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
+.western-spread { margin-top: 14px; }
 .western-result { margin-inline: auto; }
 .western-result-head { align-items: flex-start; display: flex; gap: 18px; justify-content: space-between; margin-bottom: 22px; }
 .western-result-head span { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); letter-spacing: .08em; }

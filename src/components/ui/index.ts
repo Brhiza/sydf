@@ -13,6 +13,8 @@ export { default as UiReadingSection } from './UiReadingSection.vue';
 export { default as UiReadingWorkspace } from './UiReadingWorkspace.vue';
 export { default as UiSegmentedControl } from './UiSegmentedControl.vue';
 export { default as UiSectionHeading } from './UiSectionHeading.vue';
+export { default as UiSelect } from './UiSelect.vue';
+export type { UiSelectGroup, UiSelectOption } from './UiSelect.vue';
 export { default as UiNotice } from './UiNotice.vue';
 export { default as UiToolPage } from './UiToolPage.vue';
 export { default as UiToolToolbar } from './UiToolToolbar.vue';

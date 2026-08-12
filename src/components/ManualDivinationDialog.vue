@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { Check, Clock3, Coins, Hash, RotateCcw } from 'lucide-vue-next';
-import { UiActionBar, UiButton, UiDialogHeader, UiDialogShell, UiNotice, UiSegmentedControl } from './ui';
+import { UiActionBar, UiButton, UiDialogHeader, UiDialogShell, UiNotice, UiSegmentedControl, UiSelect } from './ui';
 import {
   runConfiguredJinkoujue,
   runConfiguredMeihua,
@@ -281,7 +281,7 @@ async function completeSpecified() {
         </div>
         <div v-else class="specified-time-pane">
           <label for="specified-date-time">起课时刻</label><input id="specified-date-time" v-model="specifiedDateTime" type="datetime-local" />
-          <div v-if="kind === 'liuyao'" class="specified-yaos"><div v-for="(_, index) in specifiedYaos" :key="index"><span>{{ ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][index] }}</span><select v-model.number="specifiedYaos[index]"><option :value="6">6 · 老阴</option><option :value="7">7 · 少阳</option><option :value="8">8 · 少阴</option><option :value="9">9 · 老阳</option></select></div></div>
+          <div v-if="kind === 'liuyao'" class="specified-yaos"><div v-for="(_, index) in specifiedYaos" :key="index"><span>{{ ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][index] }}</span><UiSelect v-model.number="specifiedYaos[index]"><option :value="6">6 · 老阴</option><option :value="7">7 · 少阳</option><option :value="8">8 · 少阴</option><option :value="9">9 · 老阳</option></UiSelect></div></div>
         </div>
         <UiActionBar align="center"><UiButton @click="completeSpecified"><Check :size="16" />确认指定结果</UiButton></UiActionBar>
       </section>
@@ -341,7 +341,7 @@ async function completeSpecified() {
 .manual-liuyao-reset { align-self: center; margin-top: 5px; }
 @keyframes manual-shell-shake { 0%, 100% { transform: rotate(-3deg) translateX(-2px); } 35% { transform: rotate(4deg) translateX(3px); } 70% { transform: rotate(-2deg) translateX(1px); } }
 .manual-shake-visual-enter-active, .manual-shake-visual-leave-active { transition: opacity .18s ease, transform .18s ease; }.manual-shake-visual-enter-from { opacity: 0; transform: translateY(-5px) scale(.96); }.manual-shake-visual-leave-to { opacity: 0; transform: translateY(5px) scale(.96); }
-.specified-time-pane { border-top: 1px solid var(--line); padding-top: 15px; }.specified-time-pane > label { color: var(--muted); display: block; font-size: 12px; margin-bottom: 7px; }.specified-time-pane > input { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 14px; min-height: 44px; padding: 9px 11px; width: 100%; }.specified-yaos { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }.specified-yaos > div { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 8px; justify-content: space-between; padding: 7px 1px; }.specified-yaos span { color: var(--muted); font-size: 12px; }.specified-yaos select { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); min-height: 36px; padding: 5px 8px; }
+.specified-time-pane { border-top: 1px solid var(--line); padding-top: 15px; }.specified-time-pane > label { color: var(--muted); display: block; font-size: 12px; margin-bottom: 7px; }.specified-time-pane > input { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 14px; min-height: 44px; padding: 9px 11px; width: 100%; }.specified-yaos { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }.specified-yaos > div { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 8px; justify-content: space-between; padding: 7px 1px; }.specified-yaos span { color: var(--muted); font-size: 12px; }.specified-yaos .ui-select { min-width: 112px; }
 .taiyi-year-pane > small { color: var(--muted); display: block; font-size: 11px; line-height: 1.6; margin-top: 8px; }
 @media (max-width: 720px) {
   .casting-tabs .ui-segmented-control__copy small { display: none; }.specified-yaos { grid-template-columns: repeat(2, minmax(0, 1fr)); }

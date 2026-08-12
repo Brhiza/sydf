@@ -7,7 +7,7 @@ import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
 import { getShiyueTarotName, tarotCardBackUrl } from '../lib/tarotDeck';
 import TarotSpreadBoard from './TarotSpreadBoard.vue';
-import { UiButton, UiNotice, UiSectionHeading, UiToolPage, UiWorkspaceSurface } from './ui';
+import { UiButton, UiNotice, UiSectionHeading, UiSelect, UiToolPage, UiWorkspaceSurface } from './ui';
 
 type DrawMode = 'manual' | 'number';
 type SpreadType = TarotSpreadType;
@@ -42,6 +42,7 @@ const spreadOptions: Array<{ value: SpreadType; label: string; count: number; de
   { value: 'celtic', label: '凯尔特十字', count: 10, description: '完整分析现状与发展' },
   { value: 'year', label: '年运牌阵', count: 12, description: '全年节奏与重点领域' },
 ];
+const spreadSelectOptions = spreadOptions.map(item => ({ value: item.value, label: `${item.label} · ${item.count} 张` }));
 const question = ref(props.initialQuestion || '');
 const spreadType = ref<SpreadType>(props.initialSpread || 'single');
 const drawMode = ref<DrawMode | null>(props.castingPreference === 'manual' ? 'manual' : null);
@@ -446,13 +447,7 @@ onBeforeUnmount(() => {
             <span>想问的问题</span>
             <textarea v-model="question" maxlength="5000" rows="3" placeholder="写下你现在最想厘清的问题" @input="flowError = ''"></textarea>
           </label>
-          <label v-if="!hideSpreadSetup" class="tarot-spread-field">
-            <span>选择牌阵</span>
-            <select :value="spreadType" @change="chooseSpread(($event.target as HTMLSelectElement).value)">
-              <option v-for="item in spreadOptions" :key="item.value" :value="item.value">{{ item.label }} · {{ item.count }} 张</option>
-            </select>
-            <small>{{ selectedSpread.description }}</small>
-          </label>
+          <UiSelect v-if="!hideSpreadSetup" class="tarot-spread-field" :model-value="spreadType" label="选择牌阵" :options="spreadSelectOptions" :hint="selectedSpread.description" @update:model-value="chooseSpread(String($event))" />
         </section>
 
         <section v-if="castingPreference !== 'auto'" class="tarot-setup-methods" aria-label="选择抽牌方式">

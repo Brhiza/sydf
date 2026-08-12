@@ -145,6 +145,7 @@ import {
   UiPageShell,
   UiSectionHeading,
   UiSegmentedControl,
+  UiSelect,
   UiToolPage,
   UiTextField,
   UiWorkspaceSurface,
@@ -4983,9 +4984,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <section class="topbar-model-section">
               <div class="topbar-ai-menu-heading"><strong>AI 模型</strong><small>{{ activeAiChannel.name }}</small></div>
               <div class="topbar-model-controls">
-                <select v-if="configuredAiChannels.length > 1" :value="appPreferences.activeAiChannelId" aria-label="选择 AI 渠道" @change="handleTopbarAiChannelChange"><option v-for="channel in configuredAiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></select>
+                <UiSelect v-if="configuredAiChannels.length > 1" :model-value="appPreferences.activeAiChannelId" aria-label="选择 AI 渠道" @change="handleTopbarAiChannelChange"><option v-for="channel in configuredAiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></UiSelect>
                 <span v-else class="topbar-environment-model">{{ activeAiChannel.name }}</span>
-                <select v-if="activeAiChannel.provider !== 'builtin'" v-model="selectedAiModel" aria-label="选择 AI 模型"><option v-for="model in activeAiModelOptions" :key="model" :value="model">{{ model }}</option></select>
+                <UiSelect v-if="activeAiChannel.provider !== 'builtin'" v-model="selectedAiModel" aria-label="选择 AI 模型"><option v-for="model in activeAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect>
               </div>
             </section>
             <UiButton class="topbar-ai-settings" variant="secondary" size="small" block @click="openSettingsSection('ai')"><Sparkles :size="13" />管理 AI 配置</UiButton>
@@ -5156,12 +5157,12 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div v-if="almanacResult && almanacMode === 'personal'" class="almanac-calendar-legend">
               <label class="almanac-month-filter">
                 <span>当月</span>
-                <select v-model="almanacMonthFilter" aria-label="筛选当月择日事项">
+                <UiSelect v-model="almanacMonthFilter" aria-label="筛选当月择日事项">
                   <option value="all">择日</option>
                   <optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label">
                     <option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option>
                   </optgroup>
-                </select>
+                </UiSelect>
               </label>
               <template v-if="hasAlmanacMonthFilter">
                 <span class="is-excellent"><i></i>大吉 {{ almanacLevelCounts.大吉 }}</span>
@@ -5403,10 +5404,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <div class="settings-provider-line"><span class="settings-field-label">渠道类型</span><strong>{{ configuringAiChannel.provider === 'builtin' ? '内置 AI' : configuringAiChannel.preset ? '常用渠道' : '自定义接口' }}</strong><small v-if="configuringAiChannel.provider === 'builtin'">可直接使用，无需填写密钥。</small><small v-else-if="configuringAiChannel.preset">填写 Key 后获取并选择模型。</small><small v-else>填写服务地址、协议与密钥后获取模型。</small></div>
                 <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-channel-fields">
                   <UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiChannel.baseUrl" class="settings-field-wide" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @input="invalidateAiModels(configuringAiChannel)" />
-                  <label class="settings-field"><span>接口协议</span><select v-model="configuringAiChannel.apiType" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+                  <UiSelect v-model="configuringAiChannel.apiType" class="settings-field" label="接口协议" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
                   <UiTextField v-model="configuringAiChannel.apiKey" label="API Key" type="password" autocomplete="off" placeholder="仅保存在当前会话" @input="resetAiTest" />
                 </div>
-                <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-model-section"><div class="settings-model-heading"><span class="settings-field-label">模型</span><UiButton class="settings-fetch-models" variant="secondary" size="small" :loading="isLoadingAiModels" :disabled="!configuringAiChannel.baseUrl.trim() || !configuringAiChannel.apiKey.trim()" @click="loadAiModels(configuringAiChannel)"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton></div><select v-if="configuringAiModelOptions.length" v-model="selectedConfiguringAiModel" class="settings-model-select" aria-label="当前模型"><option v-for="model in configuringAiModelOptions" :key="model" :value="model">{{ model }}</option></select><span v-else class="settings-model-empty">请先获取模型</span><UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiModelsText" label="手动填写模型" multiline :rows="3" placeholder="无法获取列表时，可每行填写一个模型名称" /><small v-if="aiModelMessage" class="settings-note" :class="{ success: aiModelState === 'success', error: aiModelState === 'error' }">{{ aiModelMessage }}</small></div>
+                <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-model-section"><div class="settings-model-heading"><span class="settings-field-label">模型</span><UiButton class="settings-fetch-models" variant="secondary" size="small" :loading="isLoadingAiModels" :disabled="!configuringAiChannel.baseUrl.trim() || !configuringAiChannel.apiKey.trim()" @click="loadAiModels(configuringAiChannel)"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton></div><UiSelect v-if="configuringAiModelOptions.length" v-model="selectedConfiguringAiModel" class="settings-model-select" aria-label="当前模型"><option v-for="model in configuringAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="settings-model-empty">请先获取模型</span><UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiModelsText" label="手动填写模型" multiline :rows="3" placeholder="无法获取列表时，可每行填写一个模型名称" /><small v-if="aiModelMessage" class="settings-note" :class="{ success: aiModelState === 'success', error: aiModelState === 'error' }">{{ aiModelMessage }}</small></div>
                 <div class="settings-test-row"><UiButton v-if="activeAiChannel.id !== configuringAiChannel.id" :disabled="!isAiChannelReady(configuringAiChannel)" @click="setActiveAiChannel(configuringAiChannel.id)"><Check :size="14" />设为当前</UiButton><UiButton variant="secondary" :loading="isTestingAi" :disabled="!isAiChannelReady(configuringAiChannel)" @click="testAiConnection"><Check v-if="!isTestingAi && aiTestState === 'success'" :size="14" /><Sparkles v-else-if="!isTestingAi" :size="14" />{{ isTestingAi ? '连接中…' : '测试连接' }}</UiButton><UiButton v-if="configuringAiChannel.provider !== 'builtin' && !configuringAiChannel.preset" class="settings-delete-channel" variant="danger" @click="removeAiChannel"><Trash2 :size="14" />删除渠道</UiButton><span v-if="aiTestMessage" :class="{ success: aiTestState === 'success', error: aiTestState === 'error' }">{{ aiTestMessage }}</span></div>
               </section>
 
@@ -5707,8 +5708,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <template #action><UiButton variant="secondary" size="small" @click="chooseAlmanacMode('personal')">切换个人历</UiButton></template>
           </UiNotice>
           <div class="almanac-query-form">
-            <label>事项<select v-model="settings.almanacTopic" @change="updateAlmanacTopic"><option value="" disabled>请选择事项</option><optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label"><option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option></optgroup></select></label>
-            <label>范围<select v-model="almanacRangeMonths" @change="updateAlmanacRange"><option v-for="item in almanacRangeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+            <UiSelect v-model="settings.almanacTopic" label="事项" placeholder="请选择事项" @change="updateAlmanacTopic"><optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label"><option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option></optgroup></UiSelect>
+            <UiSelect v-model="almanacRangeMonths" label="范围" @change="updateAlmanacRange"><option v-for="item in almanacRangeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
           </div>
           <div class="almanac-search-modal-body">
             <p v-if="!settings.almanacTopic" class="almanac-search-message">请选择要安排的事项</p>
@@ -5824,11 +5825,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <template v-else-if="onboardingStep === 4">
               <div class="onboarding-copy"><h3>选择 AI</h3><p>选择负责生成解答的渠道和模型。</p></div>
               <div class="onboarding-ai-fields">
-                <label><span>AI 渠道</span><select v-model="onboardingAiChannelId" @change="onboardingError = ''"><option v-for="channel in appPreferences.aiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></select></label>
-                <label v-if="onboardingAiChannel.provider !== 'builtin'"><span>接口协议</span><select v-model="onboardingAiChannel.apiType" @change="onboardingError = ''"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+                <UiSelect v-model="onboardingAiChannelId" label="AI 渠道" @change="onboardingError = ''"><option v-for="channel in appPreferences.aiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></UiSelect>
+                <UiSelect v-if="onboardingAiChannel.provider !== 'builtin'" v-model="onboardingAiChannel.apiType" label="接口协议" @change="onboardingError = ''"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
                 <UiTextField v-if="onboardingAiChannel.provider !== 'builtin' && !onboardingAiChannel.preset" v-model="onboardingAiChannel.baseUrl" class="onboarding-ai-key" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @update:model-value="invalidateAiModels(onboardingAiChannel)" />
                 <UiTextField v-if="onboardingAiChannel.provider !== 'builtin'" v-model="onboardingAiChannel.apiKey" class="onboarding-ai-key" label="API Key" type="password" autocomplete="off" placeholder="填写对应渠道的 Key" @update:model-value="onboardingError = ''" />
-                <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><label><span>模型</span><select v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></select><span v-else class="onboarding-model-empty">请先获取模型</span></label></div>
+                <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><UiSelect v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel" label="模型"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="onboarding-model-empty">请先获取模型</span></div>
               </div>
               <div class="onboarding-ai-current"><span><strong>{{ onboardingAiChannel.name }}</strong><small>{{ onboardingAiChannel.provider === 'builtin' ? '内置 AI' : onboardingAiChannel.model || '尚未选择模型' }}</small></span><Check v-if="isOnboardingAiReady" :size="17" /></div>
               <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '第三方渠道完成接口、密钥和模型配置后才能继续。' }}</p>
@@ -5855,9 +5856,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </div>
           <div class="search-box"><Search :size="15" /><input v-model="historySearch" type="search" placeholder="搜索问题、工具或案例" /></div>
           <div class="history-filters">
-            <label><span>类型</span><select v-model="historyCategory" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option></select></label>
-            <label><span>工具</span><select v-model="historyMethod" aria-label="按工具筛选"><option value="all">全部工具</option><option v-for="method in historyMethodOptions" :key="method" :value="method">{{ method }}</option></select></label>
-            <label><span>解读</span><select v-model="historyInterpretation" aria-label="按 AI 解读状态筛选"><option value="all">全部状态</option><option value="interpreted">已解读</option><option value="pending">未解读</option></select></label>
+            <UiSelect v-model="historyCategory" label="类型" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option></UiSelect>
+            <UiSelect v-model="historyMethod" label="工具" aria-label="按工具筛选"><option value="all">全部工具</option><option v-for="method in historyMethodOptions" :key="method" :value="method">{{ method }}</option></UiSelect>
+            <UiSelect v-model="historyInterpretation" label="解读" aria-label="按 AI 解读状态筛选"><option value="all">全部状态</option><option value="interpreted">已解读</option><option value="pending">未解读</option></UiSelect>
           </div>
           <div class="history-filter-summary">
             <span>{{ filteredHistory.length }} 条<span v-if="hasActiveHistoryFilters"> / 共 {{ history.length }} 条</span></span>
