@@ -33,6 +33,7 @@ export interface WesternCardResult {
   reversed: boolean;
   keywords: string[];
   meaning?: string;
+  guidance?: string;
   subtitle?: string;
   imageUrl: string;
 }

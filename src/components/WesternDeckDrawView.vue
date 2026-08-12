@@ -6,6 +6,7 @@ import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { WesternCardReadingResult, WesternDeckType, WesternInterpretationPayload, WesternSpreadType } from '../lib/tarot';
 import { getWesternDeck, getWesternSpreadOptions } from '../lib/westernDecks';
+import { buildShiyueOraclePrompt } from '../lib/shiyueOracle';
 import { tarotCardBackUrl } from '../lib/tarotDeck';
 import WesternCardBoard from './WesternCardBoard.vue';
 import { UiButton, UiNotice, UiToolPage, UiWorkspaceSurface } from './ui';
@@ -173,9 +174,7 @@ async function resolveReading(animated = false) {
       const cards = ids.map((id, index) => ({ ...deck.value.find(card => card.id === id)!, position: spread.value.positions[index]! }));
       reading.value = { deckType: 'shiyue-oracle', deckName: '时月神谕', spreadType: spread.value.value, spreadName: spread.value.label, cards, timestamp: Date.now(),
         draw: { deckSize: deck.value.length, method: '用户逐张确认牌面', order: cards.map((card, index) => ({ index: index + 1, position: card.position, cardId: card.id, cardName: card.name })) } };
-      prompt.value = ['请解读一次时月六十甲子神谕牌阵。', `用户问题：${props.initialQuestion}`, `牌阵：${spread.value.label}`,
-        ...cards.map(card => `${card.position}：第${card.id}张，${card.name}，纳音${card.subtitle}。`),
-        '请只以牌面名称、六十甲子、纳音与牌位为依据，先直接回答，再解释象意、牌位间的联系、现实提醒和可执行建议；不要虚构固定签文或吉凶等级。'].join('\n');
+      prompt.value = buildShiyueOraclePrompt(props.initialQuestion, spread.value.label, cards);
     }
     if (animated || drawMode.value === 'number') phase.value = 'result';
     if (animated) await nextTick();

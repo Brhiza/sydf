@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getLenormandImageUrl, getWesternDeck, getWesternSpreadOptions, shiyueOracleDeck } from './westernDecks';
+import { buildShiyueOraclePrompt, SHIYUE_ORACLE_CARDS } from './shiyueOracle';
 
 describe('西方牌卡素材映射', () => {
   it('完整映射 36 张雷诺曼素材', () => {
@@ -13,6 +14,20 @@ describe('西方牌卡素材映射', () => {
     expect(shiyueOracleDeck[0]).toMatchObject({ id: 1, name: '甲子 · 海藏新生', subtitle: '海中金' });
     expect(shiyueOracleDeck[59]).toMatchObject({ id: 60, name: '癸亥 · 沧海归一', subtitle: '大海水' });
     expect(new Set(shiyueOracleDeck.map(card => card.imageUrl)).size).toBe(60);
+    expect(SHIYUE_ORACLE_CARDS).toHaveLength(60);
+    expect(shiyueOracleDeck.every(card => Boolean(card.meaning) && Boolean(card.guidance))).toBe(true);
+    expect(new Set(SHIYUE_ORACLE_CARDS.map(card => card.ganzhi)).size).toBe(60);
+    expect(new Set(SHIYUE_ORACLE_CARDS.map(card => card.title)).size).toBe(60);
+  });
+
+  it('以固定牌义生成时月神谕提示词', () => {
+    const prompt = buildShiyueOraclePrompt('是否适合开始新计划？', '单牌神谕', [
+      { ...shiyueOracleDeck[0]!, position: '当下指引' },
+    ]);
+    expect(prompt).toContain('以下资料是本次解读的唯一牌义标准');
+    expect(prompt).toContain('核心牌义：力量尚藏于深处');
+    expect(prompt).toContain('行动指引：先保护最初的想法与资源');
+    expect(prompt).toContain('不得虚构签诗、典故、神明旨意');
   });
 
   it('为雷诺曼提供传统牌阵及对应牌位', () => {
