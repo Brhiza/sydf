@@ -24,6 +24,7 @@ export interface TarotReadingResult {
 }
 
 export type WesternDeckType = 'tarot' | 'lenormand' | 'shiyue-oracle';
+export type WesternSpreadType = 'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine';
 
 export interface WesternCardResult {
   id: number;

@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { RotateCcw, Sparkles } from 'lucide-vue-next';
-import { buildDivinationPrompt } from 'mingyu-core/prompt/divination';
-import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
+import { Sparkles } from 'lucide-vue-next';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
-import type { WesternCardReadingResult, WesternDeckType, WesternInterpretationPayload } from '../lib/tarot';
-import { drawShiyueOracleCard, getLenormandImageUrl } from '../lib/westernDecks';
+import type { TarotSpreadType, WesternDeckType, WesternInterpretationPayload, WesternSpreadType } from '../lib/tarot';
+import { getWesternSpreadOptions } from '../lib/westernDecks';
 import TarotView from './TarotView.vue';
-import WesternCardBoard from './WesternCardBoard.vue';
-import { UiActionBar, UiButton, UiNotice, UiPageShell, UiTextField, UiWorkspaceSurface } from './ui';
+import WesternDeckDrawView from './WesternDeckDrawView.vue';
+import { UiActionBar, UiButton, UiPageShell, UiTextField, UiWorkspaceSurface } from './ui';
 
 const props = defineProps<{
   preferences?: AiPreferences;
@@ -23,14 +21,40 @@ const deckOptions: Array<{ value: WesternDeckType; label: string; description: s
   { value: 'lenormand', label: '雷诺曼', description: '以三张牌串联事件的起因、现状与走向' },
   { value: 'shiyue-oracle', label: '时月神谕', description: '抽取一张六十甲子神谕，获得当下提示' },
 ];
+const tarotSpreadOptions: Array<{ value: TarotSpreadType; label: string; count: number; description: string }> = [
+  { value: 'single', label: '单牌指引', count: 1, description: '聚焦当下最重要的提醒' },
+  { value: 'three', label: '时间流牌阵', count: 3, description: '过去、现在与未来' },
+  { value: 'mindBodySpirit', label: '身心灵牌阵', count: 3, description: '思想、行动与内在状态' },
+  { value: 'love', label: '爱情牌阵', count: 5, description: '双方内心与关系走向' },
+  { value: 'career', label: '事业牌阵', count: 6, description: '优势、挑战、机会与建议' },
+  { value: 'decision', label: '选择牌阵', count: 6, description: '比较两种选择及其结果' },
+  { value: 'chakra', label: '七脉轮牌阵', count: 7, description: '观察七个层面的平衡' },
+  { value: 'horseshoe', label: '马蹄铁牌阵', count: 7, description: '梳理影响、建议和结果' },
+  { value: 'celtic', label: '凯尔特十字', count: 10, description: '完整分析现状与发展' },
+  { value: 'year', label: '年运牌阵', count: 12, description: '全年节奏与重点领域' },
+];
 
-const phase = ref<'entry' | 'tarot' | 'result'>('entry');
+const phase = ref<'entry' | 'draw'>('entry');
 const deckType = ref<WesternDeckType>('tarot');
+const tarotSpread = ref<TarotSpreadType>('single');
+const lenormandSpread = ref<WesternSpreadType>('three');
+const oracleSpread = ref<WesternSpreadType>('single');
 const question = ref('');
 const errorMessage = ref('');
-const reading = ref<WesternCardReadingResult | null>(null);
-const prompt = ref('');
 const selectedDeck = computed(() => deckOptions.find(item => item.value === deckType.value) || deckOptions[0]!);
+const selectedTarotSpread = computed(() => tarotSpreadOptions.find(item => item.value === tarotSpread.value) || tarotSpreadOptions[0]!);
+const selectedWesternSpread = computed({
+  get: () => deckType.value === 'lenormand' ? lenormandSpread.value : oracleSpread.value,
+  set: (value: WesternSpreadType) => { if (deckType.value === 'lenormand') lenormandSpread.value = value; else oracleSpread.value = value; },
+});
+const westernSpreadOptions = computed(() => deckType.value === 'tarot' ? [] : getWesternSpreadOptions(deckType.value));
+const selectedSpreadSummary = computed(() => {
+  if (deckType.value !== 'tarot') {
+    const item = westernSpreadOptions.value.find(option => option.value === selectedWesternSpread.value) || westernSpreadOptions.value[0]!;
+    return { name: `${item.label} · ${item.count} 张`, detail: item.description };
+  }
+  return { name: `${selectedTarotSpread.value.label} · ${selectedTarotSpread.value.count} 张`, detail: selectedTarotSpread.value.description };
+});
 
 function begin() {
   const asked = question.value.trim();
@@ -39,77 +63,43 @@ function begin() {
     return;
   }
   errorMessage.value = '';
-  if (deckType.value === 'tarot') {
-    phase.value = 'tarot';
-    return;
-  }
-  if (deckType.value === 'lenormand') {
-    const result = drawLenormandSpread('three');
-    reading.value = {
-      deckType: 'lenormand',
-      deckName: '雷诺曼',
-      spreadType: result.spreadType,
-      spreadName: result.spreadName,
-      cards: result.cards.map(card => ({ ...card, reversed: false, imageUrl: getLenormandImageUrl(card.id) })),
-      timestamp: result.timestamp,
-      meta: result.meta,
-      draw: result.draw,
-    };
-    prompt.value = buildDivinationPrompt({ method: 'lenormand', data: result, question: asked, isCustomQuestion: true }).trim();
-  } else {
-    const card = drawShiyueOracleCard();
-    reading.value = {
-      deckType: 'shiyue-oracle',
-      deckName: '时月神谕',
-      spreadType: 'single',
-      spreadName: '单牌神谕',
-      cards: [card],
-      timestamp: Date.now(),
-      draw: { deckSize: 60, method: '加密随机抽取一张', order: [{ index: 1, cardId: card.id, cardName: card.name }] },
-    };
-    prompt.value = [
-      '请解读一次时月六十甲子神谕抽牌。',
-      `用户问题：${asked}`,
-      `抽到的牌：第${card.id}张，${card.name}，纳音${card.subtitle}。`,
-      '请只以牌面名称、六十甲子和纳音的传统象征为依据，先给出直接回答，再解释象意、现实提醒和可执行建议；不要虚构牌面未提供的固定签文或吉凶等级。',
-    ].join('\n');
-  }
-  phase.value = 'result';
+  phase.value = 'draw';
 }
 
-function startInterpretation() {
-  if (!reading.value || !prompt.value) return;
-  const summary = `${reading.value.spreadName}：${reading.value.cards.map(card => `${card.position} ${card.name}`).join('；')}`;
-  emit('interpret', {
-    question: question.value.trim(),
-    reading: reading.value,
-    request: {
-      mode: 'divination',
-      question: question.value.trim(),
-      method: reading.value.deckName,
-      reading: { summary, data: reading.value, prompt: prompt.value },
-      preferences: props.preferences,
-      aiConfig: props.aiConfig,
-    },
-  });
+function handleQuestionKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  begin();
 }
 
 function reset() {
   phase.value = 'entry';
-  reading.value = null;
-  prompt.value = '';
   errorMessage.value = '';
 }
 </script>
 
 <template>
   <TarotView
-    v-if="phase === 'tarot'"
+    v-if="phase === 'draw' && deckType === 'tarot'"
     :initial-question="question.trim()"
+    :initial-spread="tarotSpread"
     hide-question-setup
+    hide-spread-setup
     :preferences="preferences"
     :ai-config="aiConfig"
     :casting-preference="castingPreference"
+    @interpret="emit('interpret', $event)"
+  />
+
+  <WesternDeckDrawView
+    v-else-if="phase === 'draw' && deckType !== 'tarot'"
+    :deck-type="deckType"
+    :initial-question="question.trim()"
+    :initial-spread="selectedWesternSpread"
+    :casting-preference="castingPreference"
+    :preferences="preferences"
+    :ai-config="aiConfig"
+    @restart="reset"
     @interpret="emit('interpret', $event)"
   />
 
@@ -121,26 +111,29 @@ function reset() {
       </header>
 
       <section class="western-form">
-        <fieldset class="western-decks">
-          <legend>选择牌卡</legend>
-          <button v-for="item in deckOptions" :key="item.value" type="button" :class="{ active: deckType === item.value }" @click="deckType = item.value; errorMessage = ''">
-            <strong>{{ item.label }}</strong><small>{{ item.description }}</small>
-          </button>
+        <fieldset class="western-deck-spread">
+          <legend>牌卡与牌阵</legend>
+          <div class="western-decks" role="radiogroup" aria-label="选择牌卡">
+            <button v-for="item in deckOptions" :key="item.value" type="button" role="radio" :aria-checked="deckType === item.value" :class="{ active: deckType === item.value }" @click="deckType = item.value; errorMessage = ''">
+              {{ item.label }}
+            </button>
+          </div>
+          <label class="western-spread">
+            <span>牌阵</span>
+            <select v-if="deckType === 'tarot'" v-model="tarotSpread">
+              <option v-for="item in tarotSpreadOptions" :key="item.value" :value="item.value">{{ item.label }} · {{ item.count }} 张</option>
+            </select>
+            <select v-else v-model="selectedWesternSpread">
+              <option v-for="item in westernSpreadOptions" :key="item.value" :value="item.value">{{ item.label }} · {{ item.count }} 张</option>
+            </select>
+            <small>{{ selectedSpreadSummary.detail }}</small>
+          </label>
         </fieldset>
-        <UiTextField id="western-question" v-model="question" label="所问之事" multiline :rows="3" :maxlength="10000" :error="errorMessage" placeholder="写下此刻想问的事" @update:model-value="errorMessage = ''" />
+        <UiTextField id="western-question" v-model="question" label="所问之事" multiline :rows="3" :maxlength="10000" :error="errorMessage" placeholder="写下此刻想问的事" @keydown="handleQuestionKeydown" @update:model-value="errorMessage = ''" />
         <UiActionBar align="center"><UiButton @click="begin"><Sparkles :size="16" />开始{{ selectedDeck.label }}</UiButton></UiActionBar>
       </section>
     </UiWorkspaceSurface>
 
-    <UiWorkspaceSurface v-else-if="reading" class="western-workspace western-result" padding="standard">
-      <header class="western-result-head">
-        <div><span>{{ reading.deckName }} · {{ reading.spreadName }}</span><h2>{{ question }}</h2></div>
-        <UiButton variant="ghost" size="small" @click="reset"><RotateCcw :size="14" />重新开始</UiButton>
-      </header>
-      <WesternCardBoard :reading="reading" />
-      <UiNotice v-if="!prompt" tone="error" compact>解读资料生成失败，请重新抽牌。</UiNotice>
-      <UiActionBar align="center"><UiButton size="large" :disabled="!prompt" @click="startInterpretation"><Sparkles :size="16" />开始解读</UiButton></UiActionBar>
-    </UiWorkspaceSurface>
   </UiPageShell>
 </template>
 
@@ -152,13 +145,18 @@ function reset() {
 .western-portrait img { aspect-ratio: 16 / 9; display: block; object-fit: cover; width: 100%; }
 .western-intro > span { color: var(--ds-accent); font-size: 11px; font-weight: 600; letter-spacing: .18em; margin-top: 22px; }
 .western-form { margin: 24px auto 0; max-width: 560px; }
-.western-decks { border: 0; display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 20px; padding: 0; }
-.western-decks legend { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; margin-bottom: 8px; }
-.western-decks button { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); color: var(--ds-text-primary); cursor: pointer; display: grid; gap: 5px; min-height: 92px; padding: 13px 10px; text-align: left; transition: border-color .18s, background .18s, box-shadow .18s; }
-.western-decks button.active { background: var(--ds-accent-soft); border-color: color-mix(in srgb, var(--ds-accent) 48%, var(--ds-line)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ds-accent) 15%, transparent); }
+.western-deck-spread { border: 0; margin: 0 0 20px; padding: 0; }
+.western-deck-spread > legend { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; margin-bottom: 9px; }
+.western-decks { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); display: grid; gap: 3px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 auto; max-width: 430px; padding: 3px; }
+.western-decks button { align-items: center; background: transparent; border: 0; border-radius: calc(var(--ds-radius-md) - 3px); color: var(--ds-text-secondary); cursor: pointer; display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 550; height: 40px; justify-content: center; min-width: 0; padding: 0 10px; text-align: center; transition: color .18s, background .18s, box-shadow .18s; white-space: nowrap; }
+.western-decks button.active { background: var(--ds-surface-raised); box-shadow: 0 1px 5px rgba(41,33,52,.1); color: var(--ds-accent-strong); }
 .western-decks button:focus-visible { box-shadow: var(--ds-focus-ring); outline: none; }
-.western-decks strong { font-size: var(--ds-text-sm); }
-.western-decks small { color: var(--ds-text-tertiary); font-size: 10px; line-height: 1.45; }
+.western-spread { display: grid; gap: 7px; margin-top: 14px; }
+.western-spread > span { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; }
+.western-spread select, .western-spread > strong { align-items: center; background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 500; height: 44px; padding: 0 12px; width: 100%; }
+.western-spread select { outline: none; }
+.western-spread select:focus { background: var(--ds-surface-raised); border-color: var(--ds-accent); box-shadow: var(--ds-focus-ring); }
+.western-spread small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
 .western-result { margin-inline: auto; }
 .western-result-head { align-items: flex-start; display: flex; gap: 18px; justify-content: space-between; margin-bottom: 22px; }
 .western-result-head span { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); letter-spacing: .08em; }
@@ -168,9 +166,9 @@ function reset() {
   .western-portrait { border-radius: 13px; width: min(100%, 440px); }
   .western-intro > span { margin-top: 17px; }
   .western-form { margin-top: 19px; }
-  .western-decks { gap: 6px; }
-  .western-decks button { min-height: 72px; padding: 10px 8px; }
-  .western-decks small { display: none; }
+  .western-decks { max-width: 100%; }
+  .western-decks button { font-size: 12px; height: 38px; padding-inline: 5px; }
+  .western-spread { margin-top: 12px; }
   .western-result-head h2 { font-size: var(--ds-text-md); }
 }
 </style>
