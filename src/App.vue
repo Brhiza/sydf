@@ -1280,12 +1280,12 @@ const primaryNavItems = [
   { key: 'charts' as const, label: '排盘', icon: Orbit },
   { key: 'compatibility' as const, label: '合盘', icon: HeartHandshake },
   { key: 'oracle' as const, label: '灵签', icon: ScrollText },
-  { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
   { key: 'xiaoliuren' as const, label: '小六壬', icon: Moon },
   { key: 'daily-hexagram' as const, label: '每日一卦', icon: Coins },
   { key: 'fortune' as const, label: '今日运势', icon: Sun },
   { key: 'almanac' as const, label: '传统黄历', icon: CalendarDays },
   { key: 'fengshui' as const, label: '居家风水', icon: House },
+  { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
 ];
 const secondaryNavItems = [
   { key: 'cases' as const, label: '案例', icon: BookOpen },
