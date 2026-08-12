@@ -4225,13 +4225,22 @@ body {
     padding-bottom: 0;
     padding-top: 0;
   }
-  .tools-screen.is-chat { gap: 0; height: calc(100dvh - var(--ds-topbar-height)); min-height: 0; overflow: hidden; }
+  /* 聊天态禁用容器位移动画，避免 fixed 输入区首帧改为相对容器定位。 */
+  .tools-screen.is-chat {
+    animation: none;
+    gap: 0;
+    height: calc(100dvh - var(--ds-topbar-height));
+    min-height: 0;
+    overflow: hidden;
+    transform: none;
+  }
   .tools-screen.is-chat .chat-conversation {
     gap: 14px;
     padding: 14px 1px 176px;
     scroll-padding-bottom: 176px;
   }
-  .tools-screen.is-chat .chat-composer-docked {
+  /* 不依赖 is-chat 在同一轮 DOM 更新中生效，输入区从插入首帧起就固定在底部。 */
+  .tools-screen .chat-composer-docked {
     bottom: max(36px, calc(env(safe-area-inset-bottom) + 28px));
     left: 12px;
     margin: 0;
