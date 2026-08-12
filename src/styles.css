@@ -4228,16 +4228,18 @@ body {
   .tools-screen.is-chat { gap: 0; height: calc(100dvh - var(--ds-topbar-height)); min-height: 0; overflow: hidden; }
   .tools-screen.is-chat .chat-conversation {
     gap: 14px;
-    padding: 14px 1px 8px;
-    scroll-padding-bottom: 8px;
+    padding: 14px 1px 176px;
+    scroll-padding-bottom: 176px;
   }
   .tools-screen.is-chat .chat-composer-docked {
-    bottom: auto;
-    left: auto;
+    bottom: max(36px, calc(env(safe-area-inset-bottom) + 28px));
+    left: 12px;
     margin: 0;
-    position: static;
-    right: auto;
-    width: 100%;
+    max-width: none;
+    position: fixed;
+    right: 12px;
+    width: auto;
+    z-index: 15;
   }
   .tools-screen.is-chat .home-ai-disclaimer {
     bottom: auto;
@@ -4273,6 +4275,44 @@ body {
   .chat-message .ai-reading-action-host { font-size: 13px; line-height: 1.82; padding: 12px 13px; }
   .chat-markdown p { padding: 0; }
   .tools-screen.is-chat .composer-textarea { max-height: 132px; }
+}
+
+/* 平板与窄窗口不再保留占据内容宽度的桌面侧栏。 */
+@media (min-width: 721px) and (max-width: 1180px) {
+  .app-shell { display: block; }
+  .app-main { width: 100%; }
+  .sidebar {
+    background: rgba(247, 244, 252, .98);
+    box-shadow: none;
+    display: flex;
+    flex: 0 0 auto;
+    left: 0;
+    overflow-y: auto;
+    padding: 21px 15px 22px;
+    position: fixed;
+    top: 0;
+    transform: translateX(-105%);
+    transition: transform .24s ease, box-shadow .24s ease;
+    width: min(260px, 84vw);
+    z-index: 20;
+  }
+  .sidebar.mobile-sidebar-open { box-shadow: 18px 0 44px rgba(46, 34, 71, .18); transform: translateX(0); z-index: 32; }
+  .sidebar-header { align-items: center; }
+  .sidebar .brand { justify-content: flex-start; }
+  .sidebar .brand > span:not(.brand-mark), .sidebar .main-nav button span, .sidebar .main-nav .nav-arrow { display: inline; }
+  .sidebar .main-nav { margin-top: 51px; }
+  .sidebar .main-nav button { justify-content: flex-start; padding: 12px; }
+  .mobile-sidebar-close, .mobile-nav-toggle { display: inline-flex; }
+  .mobile-nav-toggle { grid-column: 1; grid-row: 1; justify-self: start; }
+  .mobile-nav-scrim { background: rgba(32, 25, 43, .28); border: 0; display: block; inset: 0; position: fixed; z-index: 31; }
+}
+
+@media (max-width: 1180px) {
+  .bazi-overview-head {
+    align-items: start;
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  }
+  .bazi-overview-keyfacts { grid-column: 1 / -1; justify-content: flex-start; justify-self: stretch; }
 }
 
 /* 八字排盘：原局四柱与当前四级岁运合为一张传统盘，完整岁运浏览置于底部。 */

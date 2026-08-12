@@ -556,7 +556,7 @@ function resetDailyHexagramForTesting() {
 .moving-line-content p { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: var(--ds-line-normal); margin: 0; }
 .moving-line-content .moving-line-advice { color: var(--ds-text-primary); margin-top: 5px; }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .casting-intro { align-items: flex-start; gap: var(--ds-space-3); padding: 18px 16px 16px; }
   .casting-date { margin-bottom: 4px; }
   .casting-intro h2 { font-size: 20px; }
