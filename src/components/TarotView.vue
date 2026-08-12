@@ -642,7 +642,7 @@ onBeforeUnmount(() => {
   .tarot-result-heading p { max-width: 230px; }
   .tarot-draw-workspace { margin-top: 0; overflow: hidden; }
   .tarot-live-stage { overflow: hidden; }
-  .tarot-draw-controls { width: 100vw; }
+  .tarot-draw-controls { width: calc(100vw + 48px); }
   .tarot-deck-region { height: 206px; }
   .tarot-deck-scroll { height: 206px; padding-bottom: 0; padding-top: 90px; }
   .tarot-card { flex-basis: 78px; height: 126px; margin-left: -36px; transform-origin: 50% 116%; }
