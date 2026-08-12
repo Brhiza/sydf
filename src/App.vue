@@ -116,7 +116,7 @@ import {
   type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
-import type { TarotInterpretationPayload, TarotReadingResult } from './lib/tarot';
+import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
   createChatDocument,
   createChatShareImage,
@@ -193,8 +193,9 @@ const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyH
 const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChart.vue'));
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
-const TarotView = defineAsyncComponent(() => import('./components/TarotView.vue'));
+const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
 const TarotSpreadBoard = defineAsyncComponent(() => import('./components/TarotSpreadBoard.vue'));
+const WesternCardBoard = defineAsyncComponent(() => import('./components/WesternCardBoard.vue'));
 const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
 
 type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'tarot' | 'charts' | 'compatibility' | 'cases' | 'settings';
@@ -296,7 +297,7 @@ interface ChatTarotMessage {
   kind: 'tarot';
   role: 'assistant';
   content: '';
-  reading: TarotReadingResult;
+  reading: WesternReadingResult;
 }
 
 type ChatMessage = ChatTextMessage | ChatReadingMessage | ChatTarotMessage;
@@ -1279,7 +1280,7 @@ const primaryNavItems = [
   { key: 'charts' as const, label: '排盘', icon: Orbit },
   { key: 'compatibility' as const, label: '合盘', icon: HeartHandshake },
   { key: 'oracle' as const, label: '灵签', icon: ScrollText },
-  { key: 'tarot' as const, label: '塔罗牌', icon: Sparkles },
+  { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
   { key: 'xiaoliuren' as const, label: '小六壬', icon: Moon },
   { key: 'daily-hexagram' as const, label: '每日一卦', icon: Coins },
   { key: 'fortune' as const, label: '今日运势', icon: Sun },
@@ -1966,7 +1967,7 @@ const onboardingCalendar = computed(() => {
 });
 const homeChartMeta = computed(() => homeChartOptions.find((item) => item.kind === homeChartKind.value) || homeChartOptions[0]!);
 const homeModeLabel = computed(() => {
-  if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '塔罗牌';
+  if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '西方占卜';
   return homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label;
 });
 const manualDivinationKinds: ManualDivinationKind[] = ['meihua', 'liuyao', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi'];
@@ -2153,8 +2154,8 @@ function chatMessageExportItem(message: ChatMessage): ChatExportItem {
   if (message.kind === 'tarot') {
     return {
       role: 'reading',
-      label: '塔罗牌',
-      content: `${message.reading.spreadName}\n${message.reading.cards.map((card) => `${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}`).join('\n')}`,
+      label: westernReadingDeckName(message.reading),
+      content: `${message.reading.spreadName}\n${message.reading.cards.map((card) => `${card.position}：${card.name}${card.reversed ? '（逆位）' : ''}`).join('\n')}`,
     };
   }
   return {
@@ -3977,7 +3978,15 @@ async function completeOracleReading(payload: { result: SsgwData; question: stri
   }
 }
 
-function startTarotInterpretation(payload: TarotInterpretationPayload) {
+function westernReadingDeckName(reading: WesternReadingResult) {
+  return reading.deckType === 'lenormand' ? '雷诺曼' : reading.deckType === 'shiyue-oracle' ? '时月神谕' : '塔罗牌';
+}
+
+function isTarotReading(reading: WesternReadingResult): reading is TarotReadingResult {
+  return !reading.deckType || reading.deckType === 'tarot';
+}
+
+function startTarotInterpretation(payload: WesternInterpretationPayload) {
   goView('tools');
   const sessionId = chatSessionId;
   homeMode.value = 'divination';
@@ -5055,7 +5064,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                     @request-select="startChatSelection(index)"
                     @request-delete="deleteChatMessage(index)"
                   >
-                    <button type="button" class="reading-bubble tarot-reading-bubble" @click="openTarotModal(message)"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>塔罗牌</strong><small>{{ message.reading.spreadName }} · 点击查看牌阵</small></span><ChevronRight :size="14" /></button>
+                    <button type="button" class="reading-bubble tarot-reading-bubble" @click="openTarotModal(message)"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>{{ westernReadingDeckName(message.reading) }}</strong><small>{{ message.reading.spreadName }} · 点击查看牌阵</small></span><ChevronRight :size="14" /></button>
                   </AiReadingActions>
                 </div>
                 <div v-else class="chat-message" :class="`is-${message.role}`">
@@ -5255,7 +5264,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           @retry-interpretation="retryLastInterpretation"
         />
 
-        <TarotView
+        <WesternDivinationView
           v-else-if="activeView === 'tarot'"
           :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
           :ai-config="activeAiRequestConfig"
@@ -5649,15 +5658,16 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </template>
       </UiDialogShell>
 
-      <UiDialogShell v-if="showTarotModal && selectedTarotMessage" aria-label="查看塔罗牌阵" size="wide" :panel-class="{ 'reading-modal': true, 'tarot-reading-modal': true }" @close="closeTarotModal">
+      <UiDialogShell v-if="showTarotModal && selectedTarotMessage" :aria-label="`查看${westernReadingDeckName(selectedTarotMessage.reading)}牌阵`" size="wide" :panel-class="{ 'reading-modal': true, 'tarot-reading-modal': true }" @close="closeTarotModal">
           <UiDialogHeader
             :title="selectedTarotMessage.reading.spreadName"
-            eyebrow="塔罗牌"
+            :eyebrow="westernReadingDeckName(selectedTarotMessage.reading)"
             :description="`${selectedTarotMessage.reading.cards.length} 张牌`"
-            close-label="关闭塔罗牌阵"
+            close-label="关闭牌阵"
             @close="closeTarotModal"
           />
-          <TarotSpreadBoard :reading="selectedTarotMessage.reading" />
+          <TarotSpreadBoard v-if="isTarotReading(selectedTarotMessage.reading)" :reading="selectedTarotMessage.reading" />
+          <WesternCardBoard v-else :reading="selectedTarotMessage.reading" compact />
       </UiDialogShell>
 
       <UiDialogShell v-if="showInspirationModal" aria-label="问题灵感" panel-class="inspiration-modal" @close="closeInspirationModal">
