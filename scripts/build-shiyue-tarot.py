@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import csv
-import shutil
-import sys
+import os
+import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,89 +14,212 @@ ARTWORK = DECK / "artwork"
 CARDS = DECK / "cards"
 ASSETS = DECK / "assets"
 MANIFEST = DECK / "牌序清单.tsv"
-FRAME = ASSETS / "079-Card Frame-边框.png"
-BACK = ASSETS / "078-Card Back-牌背.png"
-FONT_CANDIDATES = (
-    Path(r"C:\Users\Administrator\AppData\Local\Microsoft\Windows\Fonts\SourceHanSansCN-Medium.otf"),
-    Path(r"C:\Windows\Fonts\msyh.ttc"),
-    Path(r"C:\Windows\Fonts\simhei.ttf"),
-)
-
-SHIYUE_NAMES = [
-    "随云启程", "灵机在握", "月下玄知", "万物丰生", "天阙定疆", "传灯承道", "两心缔缘", "御风前行", "柔心驭兽", "孤灯寻真", "命轮流转",
-    "天衡昭正", "倒悬悟道", "蝶蜕新生", "阴阳调和", "欲念成缚", "惊雷破阁", "星河赐愿", "月影迷津", "曦光普照", "天音唤醒", "四海归圆",
-    "灵焰初燃", "登楼望野", "云帆启程", "华灯同庆", "群英竞辉", "凯歌荣归", "据峰而守", "流火传讯", "历战持关", "负薪远行", "探火灵童", "驰焰行者", "丹凰御火", "炎君执杖",
-    "心泉初涌", "双盏同心", "花宴同欢", "临盏倦心", "空盏惜流", "莲庭旧梦", "幻莲千境", "辞盏远行", "心愿得偿", "阖家承欢", "捧露灵童", "献月使者", "澄心月主", "沧海怀仁",
-    "月刃破晓", "闭目持衡", "心雨成伤", "松风止息", "争锋失和", "轻舟渡霭", "月下潜行", "缚丝困身", "长夜忧思", "万刃终局", "听风灵童", "逐电剑使", "霜华明断", "玄刃裁决",
-    "天赐玉璧", "双璧回环", "众匠共筑", "怀璧固守", "雪夜寒门", "分玉施恩", "静候花实", "匠心琢玉", "兰庭自足", "世代承泽", "寻玉灵童", "躬耕守成", "厚土养华", "山河丰藏",
-]
+TEMPLATE = DECK / "000-The Fool-愚者.psd"
+FRAME = ASSETS / "PSD母版-边框.png"
+MASK = ASSETS / "PSD母版-遮罩.png"
+PHOTOSHOP = Path(r"D:\software\Photoshop\Adobe Photoshop 2024\Photoshop.exe")
+ROMAN_NUMERALS = ("", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI")
 
 
-def centered_text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, font: ImageFont.FreeTypeFont, fill: tuple[int, int, int, int]) -> None:
-    box = draw.textbbox((0, 0), text, font=font)
-    draw.text((xy[0] - (box[2] - box[0]) / 2, xy[1] - (box[3] - box[1]) / 2 - box[1]), text, font=font, fill=fill)
+def escape_js(value: str) -> str:
+    return value.replace("\\", "/").replace('"', '\\"')
+
+
+def build_base(artwork_path: Path, output_path: Path) -> None:
+    build_base_image(artwork_path).save(output_path, "PNG", optimize=True)
+
+
+def build_base_image(artwork_path: Path) -> Image.Image:
+    with Image.open(artwork_path) as source, Image.open(MASK) as mask_source, Image.open(FRAME) as frame_source:
+        artwork = source.convert("RGBA").resize((1024, 1536), Image.Resampling.LANCZOS)
+        mask = mask_source.convert("RGBA").getchannel("A")
+        clipped = Image.new("RGBA", artwork.size)
+        clipped.paste(artwork, (0, 0), mask)
+        clipped.alpha_composite(frame_source.convert("RGBA"))
+        return clipped
+
+
+def traditional_number(index: int) -> str:
+    if index == 0:
+        return "0"
+    if index <= 21:
+        return ROMAN_NUMERALS[index]
+
+    rank = (index - 22) % 14 + 1
+    return ROMAN_NUMERALS[rank] if rank <= 10 else ""
+
+
+def build_text_script(cards: list[tuple[Path, Path, str, str, str]]) -> str:
+    jobs = ",\n".join(
+        '{{base:"{}",output:"{}",traditional:"{}",shiyue:"{}",number:"{}"}}'.format(
+            escape_js(str(base_path)),
+            escape_js(str(output_path)),
+            escape_js(traditional_name),
+            escape_js(shiyue_name),
+            escape_js(number),
+        )
+        for base_path, output_path, traditional_name, shiyue_name, number in cards
+    )
+    return f'''#target photoshop
+app.displayDialogs = DialogModes.NO;
+var jobs = [{jobs}];
+function addText(name, contents, size, baselineY) {{
+  var layer = document.artLayers.add();
+  layer.name = name;
+  layer.kind = LayerKind.TEXT;
+  var text = layer.textItem;
+  text.kind = TextType.POINTTEXT;
+  text.contents = contents;
+  text.font = "SourceHanSerifCN-Bold";
+  text.size = new UnitValue(size, "pt");
+  text.justification = Justification.CENTER;
+  text.position = [new UnitValue(516, "px"), new UnitValue(baselineY, "px")];
+  var color = new SolidColor();
+  color.rgb.red = 105; color.rgb.green = 70; color.rgb.blue = 62;
+  text.color = color;
+}}
+for (var index = 0; index < jobs.length; index += 1) {{
+  var job = jobs[index];
+  var document = app.open(new File(job.base));
+  if (job.number) addText("传统编号", job.number, 34, 1372);
+  addText(job.traditional, job.traditional, 68, 1467);
+  addText(job.shiyue, job.shiyue, 36, 1507);
+  var options = new PNGSaveOptions();
+  options.compression = 6;
+  options.interlaced = false;
+  document.saveAs(new File(job.output), options, true, Extension.LOWERCASE);
+  document.close(SaveOptions.DONOTSAVECHANGES);
+}}
+'''
+
+
+def build_number_overlay_script(overlays: list[tuple[str, Path]]) -> str:
+    jobs = ",\n".join(
+        '{{number:"{}",output:"{}"}}'.format(escape_js(number), escape_js(str(output_path)))
+        for number, output_path in overlays
+    )
+    return f'''#target photoshop
+app.displayDialogs = DialogModes.NO;
+var jobs = [{jobs}];
+function addNumber(contents) {{
+  var layer = document.artLayers.add();
+  layer.name = "传统编号";
+  layer.kind = LayerKind.TEXT;
+  var text = layer.textItem;
+  text.kind = TextType.POINTTEXT;
+  text.contents = contents;
+  text.font = "SourceHanSerifCN-Bold";
+  text.size = new UnitValue(34, "pt");
+  text.justification = Justification.CENTER;
+  text.position = [new UnitValue(516, "px"), new UnitValue(1372, "px")];
+  var color = new SolidColor();
+  color.rgb.red = 105; color.rgb.green = 70; color.rgb.blue = 62;
+  text.color = color;
+}}
+for (var index = 0; index < jobs.length; index += 1) {{
+  var job = jobs[index];
+  var document = app.documents.add(1024, 1536, 72, "number", NewDocumentMode.RGB, DocumentFill.TRANSPARENT);
+  addNumber(job.number);
+  var options = new PNGSaveOptions();
+  options.compression = 1;
+  options.interlaced = false;
+  document.saveAs(new File(job.output), options, true, Extension.LOWERCASE);
+  document.close(SaveOptions.DONOTSAVECHANGES);
+}}
+'''
+
+
+def run_photoshop_script(script: str, temp_dir: Path) -> None:
+    script_path = temp_dir / "build.jsx"
+    script_path.write_text(script, encoding="utf-8", newline="\n")
+    powershell_path = temp_dir / "run-photoshop.ps1"
+    powershell_path.write_text(
+        "$ErrorActionPreference='Stop'\n"
+        "$app=New-Object -ComObject Photoshop.Application\n"
+        "$app.Visible=$false\n"
+        f"$app.DoJavaScriptFile('{str(script_path).replace("'", "''")}') | Out-Null\n"
+        "$app.Quit()\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    completed = os.spawnl(
+        os.P_WAIT,
+        str(Path(os.environ["SystemRoot"]) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"),
+        "powershell.exe",
+        "-NoProfile",
+        "-File",
+        str(powershell_path),
+    )
+    if completed != 0:
+        raise RuntimeError(f"Photoshop 合成失败，退出码：{completed}")
+
+
+def add_numbers_to_existing_cards(rows: list[list[str]], artwork_files: list[Path]) -> None:
+    with tempfile.TemporaryDirectory(prefix="shiyue-tarot-numbers-") as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+        distinct_numbers = list(dict.fromkeys(traditional_number(index) for index in range(78)))
+        overlays = [(number, temp_dir / f"number-{index:02d}.png") for index, number in enumerate(distinct_numbers) if number]
+        run_photoshop_script(build_number_overlay_script(overlays), temp_dir)
+        overlay_by_number = {number: path for number, path in overlays}
+
+        for index, row in enumerate(rows):
+            _, _, _, output_name = row[:4]
+            card_path = CARDS / output_name
+            if not card_path.exists():
+                raise FileNotFoundError(f"缺少待增加编号的牌面：{card_path}")
+
+            # 先用无字画芯恢复编号所在的小区域，使此模式可安全重复执行。
+            base = build_base_image(artwork_files[index])
+            with Image.open(card_path) as card_source:
+                card = card_source.convert("RGBA")
+                card.paste(base.crop((430, 1320, 600, 1408)), (430, 1320))
+                number = traditional_number(index)
+                if number:
+                    with Image.open(overlay_by_number[number]) as overlay_source:
+                        card.alpha_composite(overlay_source.convert("RGBA"))
+                card.save(card_path, "PNG", compress_level=6)
+
+    print("已在现有 78 张牌面上增加传统编号")
 
 
 def main() -> None:
-    if not FRAME.exists() or not BACK.exists() or not MANIFEST.exists():
-        raise FileNotFoundError("时月塔罗边框、牌背或牌序清单不完整")
-    font_cn = next((path for path in FONT_CANDIDATES if path.exists()), None)
-    if font_cn is None:
-        raise FileNotFoundError("缺少可用的中文字体")
+    required = (TEMPLATE, FRAME, MASK, MANIFEST, PHOTOSHOP)
+    missing = [str(path) for path in required if not path.exists()]
+    if missing:
+        raise FileNotFoundError("缺少 PSD 母版、提取资源或 Photoshop：" + "、".join(missing))
 
-    rows = list(csv.reader(MANIFEST.read_text(encoding="utf-8").splitlines(), delimiter="\t"))
-    if rows and rows[0][:2] == ["编号", "中文牌名"]:
-        rebuilt_rows = []
-        for index, artwork_path in enumerate(sorted(ARTWORK.glob("*.png"))):
-            parts = artwork_path.stem.split("-", 2)
-            if len(parts) != 3:
-                raise ValueError(f"无法识别画芯文件名：{artwork_path.name}")
-            rebuilt_rows.append([parts[0], parts[1], parts[2]])
-        rows = rebuilt_rows
-    if len(rows) != 78 or len(SHIYUE_NAMES) != 78:
-        raise ValueError("牌序清单和时月牌名都必须正好包含 78 张牌")
+    with MANIFEST.open("r", encoding="utf-8", newline="") as manifest:
+        rows = list(csv.reader(manifest, delimiter="\t"))[1:]
+    if len(rows) != 78:
+        raise ValueError("牌序清单必须正好包含 78 张牌")
 
-    if not ARTWORK.exists():
-        source_cards = sorted(CARDS.glob("*.png"))
-        if len(source_cards) != 78:
-            raise ValueError(f"应有 78 张无框画芯，实际为 {len(source_cards)} 张")
-        CARDS.rename(ARTWORK)
+    limit = int(os.environ.get("SHIYUE_TAROT_LIMIT", "78"))
+    output_dir = Path(os.environ.get("SHIYUE_TAROT_OUTPUT", str(CARDS)))
+    output_dir.mkdir(parents=True, exist_ok=True)
     artwork_files = sorted(ARTWORK.glob("*.png"))
     if len(artwork_files) != 78:
-        raise ValueError(f"应有 78 张无框画芯，实际为 {len(artwork_files)} 张")
+        raise ValueError("画芯目录必须正好包含 78 张牌")
 
-    force = "--force" in sys.argv
-    if CARDS.exists() and force:
-        shutil.rmtree(CARDS)
-    CARDS.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("SHIYUE_TAROT_NUMBERS_ONLY") == "1":
+        add_numbers_to_existing_cards(rows, artwork_files)
+        return
 
-    frame = Image.open(FRAME).convert("RGBA").resize((1024, 1536), Image.Resampling.LANCZOS)
-    title_font = ImageFont.truetype(str(font_cn), 46)
-    shiyue_font = ImageFont.truetype(str(font_cn), 32)
-    ink = (105, 70, 62, 255)
-    manifest_rows: list[list[str]] = []
+    with tempfile.TemporaryDirectory(prefix="shiyue-tarot-") as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+        jobs: list[tuple[Path, Path, str, str, str]] = []
+        for index, row in enumerate(rows[:limit]):
+            number, traditional_name, shiyue_name, output_name = row[:4]
+            artwork_path = artwork_files[index]
+            if not artwork_path.name.startswith(number + "-"):
+                raise ValueError(f"第 {number} 张牌的清单与画芯顺序不匹配")
+            base_path = temp_dir / f"{number}-base.png"
+            output_path = output_dir / output_name
+            build_base(artwork_path, base_path)
+            jobs.append((base_path, output_path, traditional_name, shiyue_name, traditional_number(index)))
 
-    for index, (row, artwork_path, shiyue_name) in enumerate(zip(rows, artwork_files, SHIYUE_NAMES, strict=True)):
-        number, english_name, chinese_name = row[:3]
-        if int(number) != index or not artwork_path.name.startswith(f"{index:03d}-"):
-            raise ValueError(f"第 {index:03d} 张牌的清单或画芯顺序不匹配")
-        with Image.open(artwork_path) as source:
-            card = source.convert("RGBA").resize((1024, 1536), Image.Resampling.LANCZOS)
-        card.alpha_composite(frame)
-        draw = ImageDraw.Draw(card)
-        centered_text(draw, (512, 1400), chinese_name, title_font, ink)
-        centered_text(draw, (512, 1463), shiyue_name, shiyue_font, ink)
-        output_name = f"{number}-{chinese_name}-{shiyue_name}.png"
-        output_path = CARDS / output_name
-        if force or not output_path.exists():
-            card.convert("RGB").save(output_path, "PNG", optimize=True)
-        manifest_rows.append([number, chinese_name, shiyue_name, output_name])
+        run_photoshop_script(build_text_script(jobs), temp_dir)
 
-    with Image.open(BACK) as source:
-        source.convert("RGB").save(DECK / "牌背.png", "PNG", optimize=True)
-    with MANIFEST.open("w", encoding="utf-8", newline="\n") as manifest:
-        manifest.write("编号\t中文牌名\t时月牌名\t文件名\n" + "\n".join("\t".join(row) for row in manifest_rows) + "\n")
-    print(f"已生成 {len(manifest_rows)} 张时月塔罗牌面和 1 张牌背")
+    print(f"已按 PSD 母版生成 {min(limit, 78)} 张时月塔罗牌")
 
 
 if __name__ == "__main__":
