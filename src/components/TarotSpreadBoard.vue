@@ -80,17 +80,18 @@ function spreadCardStyle(index: number) {
 .tarot-spread-frame { --spread-card-scale: .74; min-width: 0; overflow: hidden; padding: 6px 2px 12px; width: 100%; }
 .tarot-spread-board { background: color-mix(in srgb, var(--ds-surface-muted) 88%, var(--ds-accent-soft)); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); height: min(620px, 66dvh); margin-inline: auto; overflow: hidden; position: relative; width: 100%; }
 .tarot-spread-board::before { border: 1px solid color-mix(in srgb, var(--ds-accent) 14%, transparent); border-radius: 50%; content: ''; height: 44%; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 44%; }
-.tarot-spread-board.spread-single, .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { height: min(340px, 42dvh); }
+.tarot-spread-board.spread-single, .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { height: min(390px, 46dvh); }
 .tarot-spread-board.spread-single { width: min(100%, 520px); }
+.tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { width: min(100%, 780px); }
 .tarot-spread-board.spread-love, .tarot-spread-board.spread-career, .tarot-spread-board.spread-decision { height: min(610px, 64dvh); }
 .tarot-spread-board.spread-horseshoe { height: min(540px, 58dvh); }
 .tarot-spread-board.spread-chakra { height: min(700px, 70dvh); width: min(100%, 560px); }
 .tarot-spread-board.spread-celtic { height: min(680px, 70dvh); }
 .tarot-spread-board.spread-year { height: min(720px, 70dvh); }
-.tarot-result-item { align-items: center; display: flex; flex-direction: column; left: var(--spread-x); min-width: 0; position: absolute; text-align: center; top: var(--spread-y); transform: translate(-50%, -50%) scale(var(--spread-card-scale)); width: 124px; }
+.tarot-result-item { align-items: center; display: flex; flex-direction: column; left: var(--spread-x); min-width: 0; position: absolute; text-align: center; top: var(--spread-y); transform: translate(-50%, -50%) scale(var(--spread-card-scale)); width: 150px; }
 .tarot-position { align-items: center; color: var(--ds-accent-strong); display: flex; font-size: var(--ds-text-xs); gap: 5px; height: 32px; justify-content: center; line-height: 1.2; width: 150px; }
 .tarot-position i { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; flex: 0 0 auto; font-size: 9px; font-style: normal; height: 18px; justify-content: center; width: 18px; }
-.tarot-face { border-radius: 8px; box-shadow: 0 11px 24px rgba(41,33,52,.2); height: 184px; overflow: hidden; position: relative; transform: rotate(var(--spread-rotation)); width: 112px; }
+.tarot-face { aspect-ratio: 2 / 3; border-radius: 8px; box-shadow: 0 11px 24px rgba(41,33,52,.2); overflow: hidden; position: relative; transform: rotate(var(--spread-rotation)); width: 120px; }
 .tarot-face img { display: block; height: 100%; object-fit: cover; transition: transform .3s; user-select: none; width: 100%; }
 .tarot-face.is-reversed img { transform: rotate(180deg); }
 .tarot-result-item > strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); margin-top: 9px; }
@@ -102,16 +103,22 @@ function spreadCardStyle(index: number) {
 .tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) .tarot-position { left: 50%; position: absolute; top: 254px; transform: translateX(-50%); }
 .tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) > strong { margin: 0; position: absolute; top: 286px; }
 .tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) > .tarot-orientation { margin: 0; position: absolute; top: 310px; }
-.tarot-spread-frame.is-compact { --spread-card-scale: .58; padding-block: 0 6px; }
-.tarot-spread-frame.is-compact .tarot-spread-board { height: min(390px, 44dvh); }
+.tarot-spread-frame.is-compact { --spread-card-scale: 1.2; padding-block: 0 2px; }
+.tarot-spread-frame.is-compact .tarot-spread-board { height: min(430px, 48dvh); }
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-single,
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-three,
-.tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit { height: min(260px, 31dvh); }
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit { height: min(390px, 44dvh); }
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-three,
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit { width: min(100%, 760px); }
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-three .tarot-result-item:nth-child(1),
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit .tarot-result-item:nth-child(1) { --spread-x: 27% !important; }
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-three .tarot-result-item:nth-child(3),
+.tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit .tarot-result-item:nth-child(3) { --spread-x: 73% !important; }
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-chakra,
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-celtic,
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-year { height: min(450px, 48dvh); }
 .tarot-spread-frame.is-compact.spread-celtic,
-.tarot-spread-frame.is-compact.spread-year { --spread-card-scale: .46; }
+.tarot-spread-frame.is-compact.spread-year { --spread-card-scale: .54; }
 .tarot-spread-frame.is-immersive { padding-inline: 0; }
 .tarot-spread-frame.is-immersive .tarot-spread-board { background: transparent; border: 0; border-radius: 0; }
 .tarot-spread-frame.is-immersive .tarot-spread-board::before { display: none; }
@@ -131,14 +138,18 @@ function spreadCardStyle(index: number) {
   .tarot-spread-board.spread-year { height: min(520px, 60dvh); }
   .tarot-spread-frame.spread-celtic,
   .tarot-spread-frame.spread-year { --spread-card-scale: .38; }
-  .tarot-spread-frame.is-compact { --spread-card-scale: .52; }
-  .tarot-spread-frame.is-compact.spread-chakra { --spread-card-scale: .45; }
+  .tarot-spread-frame.is-compact { --spread-card-scale: .86; }
+  .tarot-spread-frame.is-compact.spread-chakra { --spread-card-scale: .52; }
   .tarot-spread-frame.is-compact.spread-celtic,
-  .tarot-spread-frame.is-compact.spread-year { --spread-card-scale: .34; }
-  .tarot-spread-frame.is-compact .tarot-spread-board { height: min(310px, 35dvh); }
+  .tarot-spread-frame.is-compact.spread-year { --spread-card-scale: .4; }
+  .tarot-spread-frame.is-compact .tarot-spread-board { height: min(360px, 40dvh); }
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-single,
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-three,
-  .tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit { height: min(210px, 25dvh); }
+  .tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit { height: min(300px, 34dvh); }
+  .tarot-spread-frame.is-compact .tarot-spread-board.spread-three .tarot-result-item:nth-child(1),
+  .tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit .tarot-result-item:nth-child(1) { --spread-x: 20% !important; }
+  .tarot-spread-frame.is-compact .tarot-spread-board.spread-three .tarot-result-item:nth-child(3),
+  .tarot-spread-frame.is-compact .tarot-spread-board.spread-mindBodySpirit .tarot-result-item:nth-child(3) { --spread-x: 80% !important; }
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-chakra,
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-celtic,
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-year { height: min(350px, 40dvh); }

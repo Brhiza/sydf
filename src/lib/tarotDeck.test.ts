@@ -20,7 +20,7 @@ describe('时月塔罗牌组映射', () => {
 
   it('牌面路径与界面名称均不包含英文名', () => {
     expect(getShiyueTarotName(11)).toBe('命运之轮 · 命轮流转');
-    expect(getShiyueTarotCard(11)?.imageUrl).toBe('/ShiYue-Tarot-Deck/cards/010-命运之轮-命轮流转.png');
+    expect(getShiyueTarotCard(11)?.imageUrl).toBe('/tarot/shiyue/010-命运之轮-命轮流转.png');
     expect(shiyueTarotDeck.every(card => !/[A-Za-z]/.test((card.imageUrl.split('/').at(-1) || '').replace(/\.png$/, '')))).toBe(true);
   });
 });

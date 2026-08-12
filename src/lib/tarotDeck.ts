@@ -26,14 +26,16 @@ export interface ShiyueTarotCard {
   imageUrl: string;
 }
 
-export const tarotCardBackUrl = '/ShiYue-Tarot-Deck/牌背.png';
+const shiyueTarotAssetRoot = '/tarot/shiyue';
+
+export const tarotCardBackUrl = `${shiyueTarotAssetRoot}/牌背.png`;
 
 export const shiyueTarotDeck: readonly ShiyueTarotCard[] = traditionalNames.map((traditionalName, index) => ({
   coreId: index + 1,
   traditionalNumber: index,
   traditionalName,
   shiyueName: shiyueNames[index]!,
-  imageUrl: `/ShiYue-Tarot-Deck/cards/${String(index).padStart(3, '0')}-${traditionalName}-${shiyueNames[index]}.png`,
+  imageUrl: `${shiyueTarotAssetRoot}/${String(index).padStart(3, '0')}-${traditionalName}-${shiyueNames[index]}.png`,
 }));
 
 export function getShiyueTarotCard(coreId: number) {
