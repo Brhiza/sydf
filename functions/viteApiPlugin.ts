@@ -19,18 +19,24 @@ function readRequestBody(request: IncomingMessage) {
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let settled = false;
     request.on('data', (chunk: Buffer | string) => {
+      if (settled) return;
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
-      if (size > 2 * 1024 * 1024) {
+      if (size > 64 * 1024) {
+        settled = true;
         reject(new Error('request body too large'));
-        request.destroy();
         return;
       }
       chunks.push(buffer);
     });
-    request.on('end', () => resolve(Buffer.concat(chunks)));
-    request.on('error', reject);
+    request.on('end', () => {
+      if (!settled) resolve(Buffer.concat(chunks));
+    });
+    request.on('error', (error) => {
+      if (!settled) reject(error);
+    });
   });
 }
 
@@ -73,8 +79,11 @@ export function pagesApiPlugin(loadedEnv: Record<string, string>): Plugin {
           body,
         });
         await writeResponse(await handler({ request: webRequest, env }), response);
-      } catch {
-        if (!response.headersSent) jsonError(response, 500, '本地 AI 服务暂时不可用。');
+      } catch (error) {
+        if (!response.headersSent) {
+          const tooLarge = error instanceof Error && error.message === 'request body too large';
+          jsonError(response, tooLarge ? 413 : 500, tooLarge ? '请求内容过大。' : '本地 AI 服务暂时不可用。');
+        }
         else response.end();
       }
     });

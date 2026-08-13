@@ -5,6 +5,14 @@ import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
-registerSW({ immediate: true });
-
 createApp(App).mount('#app');
+
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    window.dispatchEvent(new CustomEvent('shiyue:pwa-update', { detail: { updateSW } }));
+  },
+  onRegisterError(error) {
+    console.error('PWA 注册失败', error);
+  },
+});

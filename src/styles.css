@@ -224,6 +224,8 @@ h1, h2, h3, p { margin-top: 0; }
 .app-toast-leave-active { transition: opacity .18s ease, transform .18s ease; }
 .app-toast-enter-from,
 .app-toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
+.pwa-update-bar { align-items: center; background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--ds-radius-md); bottom: max(18px, env(safe-area-inset-bottom)); box-shadow: var(--shadow-elevated); display: flex; gap: var(--ds-space-3); left: 50%; padding: var(--ds-space-2) var(--ds-space-3); position: fixed; transform: translateX(-50%); z-index: 130; }
+.pwa-update-bar span { color: var(--ink); font-size: var(--type-small); white-space: nowrap; }
 .record-row > svg { color: #c1b2cf; margin-left: auto; }
 .drawer-empty { align-items: center; color: #a49aae; display: flex; flex-direction: column; font-size: 10px; gap: 9px; justify-content: center; min-height: 160px; }
 .drawer-empty svg { color: #8d72b5; }

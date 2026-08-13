@@ -167,6 +167,8 @@ import {
 import type { DailyFortuneResult, FortunePeriod } from './lib/dailyFortune';
 import { getModernAlmanacHours, getModernAlmanacPersonalNotes, modernizeAlmanacDay } from './lib/modernAlmanac';
 import type { SelectableCaseProfile } from './lib/caseSelection';
+import { normalizeStoredTimeBasis } from './lib/caseProfile';
+import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import {
   almanacTopicGroups,
   almanacTopicOptions,
@@ -914,12 +916,13 @@ function createNewCaseDraft(): CaseProfile {
 }
 
 function hydrateCase(raw: Partial<CaseProfile>, index = 0): CaseProfile {
+  const storedTimeBasis = normalizeStoredTimeBasis(raw.timeBasis);
   const profile: CaseProfile = {
     ...createCase(raw.id || `case-${index}`, raw.label || `案例 ${index + 1}`, index === 0),
     ...raw,
     dateType: raw.dateType === 'lunar' ? 'lunar' : 'solar',
     isLeapMonth: raw.dateType === 'lunar' && raw.isLeapMonth === true,
-    timeBasis: 'trueSolar',
+    timeBasis: storedTimeBasis,
   };
   const legacyKey = raw.regionKey || '';
   if (legacyKey === 'tokyo' || legacyKey === 'singapore' || raw.provinceId === 'overseas') {
@@ -927,6 +930,7 @@ function hydrateCase(raw: Partial<CaseProfile>, index = 0): CaseProfile {
     profile.cityId = legacyKey === 'tokyo' || legacyKey === 'singapore' ? legacyKey : raw.cityId || raw.regionId || 'tokyo';
     profile.regionId = profile.cityId;
     applyExternalRegion(profile, profile.regionId);
+    profile.timeBasis = storedTimeBasis;
     return profile;
   }
   const regionId = raw.regionId
@@ -937,6 +941,7 @@ function hydrateCase(raw: Partial<CaseProfile>, index = 0): CaseProfile {
     || (raw.locationName ? findBirthPlaceByDisplayName(raw.locationName) : null)
     || findBirthPlaceByRegionId('110101');
   if (path) applyBirthPlacePath(profile, path);
+  profile.timeBasis = storedTimeBasis;
   return profile;
 }
 
@@ -1126,6 +1131,8 @@ const lastAiRequest = ref<AiInterpretationRequest | null>(null);
 const lastAiHistoryRecordId = ref<string | null>(null);
 const isInterpreting = ref(false);
 const toastMessage = ref('');
+const pwaUpdateAvailable = ref(false);
+let applyPwaUpdate: ((reloadPage?: boolean) => Promise<void>) | null = null;
 let toastTimer: number | undefined;
 interface RunningAiTask {
   id: string;
@@ -1990,9 +1997,100 @@ function toggleBaziFortuneColumn(key: BaziFortuneColumnKey) {
   baziFortuneColumnVisibility[key] = !baziFortuneColumnVisibility[key];
 }
 
+function restorePreferences() {
+  try {
+    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference }>(localStorage, 'shiyue-preferences');
+    if (!parsedPreferences) return;
+    appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
+    if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
+    if (parsedPreferences.castingPreference === 'auto' || parsedPreferences.castingPreference === 'manual') appPreferences.castingPreference = parsedPreferences.castingPreference;
+    if (Array.isArray(parsedPreferences.aiChannels) && parsedPreferences.aiChannels.length) {
+      const channels = mergeDefaultAiChannels(parsedPreferences.aiChannels);
+      appPreferences.aiChannels = channels;
+      if (typeof parsedPreferences.activeAiChannelId === 'string' && channels.some((channel) => channel.id === parsedPreferences.activeAiChannelId)) appPreferences.activeAiChannelId = parsedPreferences.activeAiChannelId;
+    } else if (parsedPreferences.aiConfig) {
+      const legacyConfig = parsedPreferences.aiConfig;
+      const builtin = createBuiltinAiChannel();
+      if (legacyConfig.enabled) {
+        const custom = createCustomAiChannel(1);
+        custom.baseUrl = typeof legacyConfig.baseUrl === 'string' && legacyConfig.baseUrl.trim() ? legacyConfig.baseUrl : custom.baseUrl;
+        custom.model = typeof legacyConfig.model === 'string' && legacyConfig.model.trim() ? legacyConfig.model : custom.model;
+        custom.models = [custom.model];
+        appPreferences.aiChannels = mergeDefaultAiChannels([builtin, custom]);
+        appPreferences.activeAiChannelId = custom.id;
+      } else {
+        appPreferences.aiChannels = createDefaultAiChannels();
+      }
+    }
+  } catch {
+    // 偏好损坏或浏览器禁用存储时使用默认设置，不影响案例和历史。
+  }
+}
+
+function restoreAiKeys() {
+  try {
+    appPreferences.aiChannels.forEach((channel) => {
+      channel.apiKey = sessionStorage.getItem(`shiyue-ai-key-${channel.id}`) || '';
+    });
+    const legacyApiKey = sessionStorage.getItem('shiyue-ai-api-key');
+    const activeChannel = appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId);
+    if (legacyApiKey && activeChannel?.provider === 'openai-compatible' && !activeChannel.apiKey) activeChannel.apiKey = legacyApiKey;
+  } catch {
+    // 会话存储不可用时不恢复密钥，其他设置仍然有效。
+  }
+  const activeChannel = appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId);
+  if (!activeChannel || !isAiChannelReady(activeChannel)) appPreferences.activeAiChannelId = 'builtin';
+  configuringAiChannelId.value = appPreferences.activeAiChannelId;
+  onboardingAiChannelId.value = appPreferences.activeAiChannelId;
+}
+
+function restoreCases() {
+  try {
+    const storedCases = parseLocalStorageJson<CaseProfile[]>(localStorage, 'shiyue-cases');
+    if (Array.isArray(storedCases) && storedCases.length) {
+      cases.value = storedCases.map((item, index) => hydrateCase(item, index));
+    } else if (!localStorage.getItem('shiyue-cases')) {
+      const oldBirth = parseLocalStorageJson<Partial<BirthForm>>(localStorage, 'guangxing-birth');
+      if (oldBirth) cases.value = [hydrateCase({ ...oldBirth, timeBasis: 'clock', isDefault: true }, 0)];
+    }
+  } catch {
+    cases.value = [];
+  }
+  selectedCaseId.value = defaultCase.value.id;
+}
+
+function restoreHistory() {
+  try {
+    const primaryHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+    const storedHistoryPayload = primaryHistory
+      ? parseLocalStorageJson<unknown>(localStorage, HISTORY_STORAGE_KEY)
+      : parseLocalStorageJson<unknown>(localStorage, 'guangxing-history');
+    if (storedHistoryPayload !== null) {
+      history.value = parseStoredHistory(storedHistoryPayload);
+      if (Array.isArray(storedHistoryPayload) && history.value.length !== storedHistoryPayload.length) persistHistory();
+    }
+  } catch {
+    history.value = [];
+  }
+}
+
+function handlePwaUpdate(event: Event) {
+  const update = (event as CustomEvent<{ updateSW?: (reloadPage?: boolean) => Promise<void> }>).detail?.updateSW;
+  if (!update) return;
+  applyPwaUpdate = update;
+  pwaUpdateAvailable.value = true;
+}
+
+async function refreshToPwaUpdate() {
+  if (!applyPwaUpdate) return;
+  pwaUpdateAvailable.value = false;
+  await applyPwaUpdate(true);
+}
+
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeChatSelectionFromKeyboard);
+  window.addEventListener('shiyue:pwa-update', handlePwaUpdate);
   try {
     const storedBaziColumns = localStorage.getItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY);
     if (storedBaziColumns) {
@@ -2004,61 +2102,10 @@ onMounted(() => {
   } catch {
     // 栏目偏好损坏时使用默认全显，不影响排盘与其他本地数据。
   }
-  try {
-    const storedPreferences = localStorage.getItem('shiyue-preferences');
-    if (storedPreferences) {
-      const parsedPreferences = JSON.parse(storedPreferences) as Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference };
-      appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
-      if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
-      if (parsedPreferences.castingPreference === 'auto' || parsedPreferences.castingPreference === 'manual') appPreferences.castingPreference = parsedPreferences.castingPreference;
-      if (Array.isArray(parsedPreferences.aiChannels) && parsedPreferences.aiChannels.length) {
-        const channels = mergeDefaultAiChannels(parsedPreferences.aiChannels);
-        appPreferences.aiChannels = channels;
-        if (typeof parsedPreferences.activeAiChannelId === 'string' && channels.some((channel) => channel.id === parsedPreferences.activeAiChannelId)) appPreferences.activeAiChannelId = parsedPreferences.activeAiChannelId;
-      } else if (parsedPreferences.aiConfig) {
-        const legacyConfig = parsedPreferences.aiConfig;
-        const builtin = createBuiltinAiChannel();
-        if (legacyConfig.enabled) {
-          const custom = createCustomAiChannel(1);
-          custom.baseUrl = typeof legacyConfig.baseUrl === 'string' && legacyConfig.baseUrl.trim() ? legacyConfig.baseUrl : custom.baseUrl;
-          custom.model = typeof legacyConfig.model === 'string' && legacyConfig.model.trim() ? legacyConfig.model : custom.model;
-          custom.models = [custom.model];
-          appPreferences.aiChannels = mergeDefaultAiChannels([builtin, custom]);
-          appPreferences.activeAiChannelId = custom.id;
-        } else {
-          appPreferences.aiChannels = createDefaultAiChannels();
-        }
-      }
-    }
-    appPreferences.aiChannels.forEach((channel) => {
-      channel.apiKey = sessionStorage.getItem(`shiyue-ai-key-${channel.id}`) || '';
-    });
-    const legacyApiKey = sessionStorage.getItem('shiyue-ai-api-key');
-    const activeChannel = appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId);
-    if (legacyApiKey && activeChannel?.provider === 'openai-compatible' && !activeChannel.apiKey) activeChannel.apiKey = legacyApiKey;
-    if (!activeChannel || !isAiChannelReady(activeChannel)) appPreferences.activeAiChannelId = 'builtin';
-    configuringAiChannelId.value = appPreferences.activeAiChannelId;
-    onboardingAiChannelId.value = appPreferences.activeAiChannelId;
-    const storedCases = localStorage.getItem('shiyue-cases');
-    if (storedCases) {
-      const parsed = JSON.parse(storedCases) as CaseProfile[];
-      if (parsed.length) cases.value = parsed.map((item, index) => hydrateCase(item, index));
-    } else {
-      const oldBirth = localStorage.getItem('guangxing-birth');
-      if (oldBirth) cases.value = [hydrateCase({ ...(JSON.parse(oldBirth) as Partial<BirthForm>), timeBasis: 'clock', isDefault: true }, 0)];
-    }
-    selectedCaseId.value = defaultCase.value.id;
-    const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY) || localStorage.getItem('guangxing-history');
-    if (storedHistory) {
-      const storedHistoryPayload = JSON.parse(storedHistory) as unknown;
-      history.value = parseStoredHistory(storedHistoryPayload);
-      if (Array.isArray(storedHistoryPayload) && history.value.length !== storedHistoryPayload.length) persistHistory();
-    }
-  } catch {
-    cases.value = [];
-    selectedCaseId.value = draftCase.value.id;
-    history.value = [];
-  }
+  restorePreferences();
+  restoreAiKeys();
+  restoreCases();
+  restoreHistory();
   try {
     const legacyHistory = localStorage.getItem(LEGACY_HISTORY_STORAGE_KEY);
     const alreadyMigrated = localStorage.getItem(LEGACY_HISTORY_MIGRATION_KEY) === 'complete';
@@ -2094,6 +2141,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeChatSelectionFromKeyboard);
+  window.removeEventListener('shiyue:pwa-update', handlePwaUpdate);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
@@ -2115,11 +2163,24 @@ watch(
 );
 
 function persistCases() {
-  localStorage.setItem('shiyue-cases', JSON.stringify(cases.value));
+  try {
+    localStorage.setItem('shiyue-cases', JSON.stringify(cases.value));
+    return true;
+  } catch {
+    showToast('案例无法保存，请检查浏览器存储空间或隐私设置。');
+    return false;
+  }
 }
 
 function persistHistory() {
-  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history.value));
+  const result = persistArrayWithOldestEviction(localStorage, HISTORY_STORAGE_KEY, history.value);
+  if (result.saved && result.removed) {
+    history.value = result.records;
+    showToast(`存储空间不足，已移除最早的 ${result.removed} 条记录。`);
+  } else if (!result.saved) {
+    showToast('记录暂时无法保存，请检查浏览器存储空间或隐私设置。');
+  }
+  return result.saved;
 }
 
 function persistHistoryInterpretation(recordId: string | null, content: string) {
@@ -2361,12 +2422,20 @@ function persistPreferences() {
     activeAiChannelId: appPreferences.activeAiChannelId,
     aiChannels: appPreferences.aiChannels.map(({ apiKey: _apiKey, ...channel }) => channel),
   };
-  localStorage.setItem('shiyue-preferences', JSON.stringify(storedPreferences));
-  appPreferences.aiChannels.forEach((channel) => {
-    const key = `shiyue-ai-key-${channel.id}`;
-    if (channel.apiKey) sessionStorage.setItem(key, channel.apiKey);
-    else sessionStorage.removeItem(key);
-  });
+  try {
+    localStorage.setItem('shiyue-preferences', JSON.stringify(storedPreferences));
+  } catch {
+    // 浏览器禁用本地存储时，偏好仍在当前页面会话中生效。
+  }
+  try {
+    appPreferences.aiChannels.forEach((channel) => {
+      const key = `shiyue-ai-key-${channel.id}`;
+      if (channel.apiKey) sessionStorage.setItem(key, channel.apiKey);
+      else sessionStorage.removeItem(key);
+    });
+  } catch {
+    // 会话存储不可用时不持久化密钥。
+  }
 }
 
 watch(appPreferences, persistPreferences, { deep: true });
@@ -5401,7 +5470,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div class="settings-main-column">
               <section class="settings-channel-panel">
                 <div class="settings-panel-heading"><div><h2><span v-if="configuringAiChannel.provider === 'builtin' || configuringAiChannel.preset">{{ configuringAiChannel.name }}</span><input v-else v-model="configuringAiChannel.name" class="settings-channel-name" aria-label="渠道名称" @input="resetAiTest" /></h2></div><span v-if="activeAiChannel.id === configuringAiChannel.id" class="settings-current-badge"><Check :size="13" />当前使用</span></div>
-                <div class="settings-provider-line"><span class="settings-field-label">渠道类型</span><strong>{{ configuringAiChannel.provider === 'builtin' ? '内置 AI' : configuringAiChannel.preset ? '常用渠道' : '自定义接口' }}</strong><small v-if="configuringAiChannel.provider === 'builtin'">可直接使用，无需填写密钥。</small><small v-else-if="configuringAiChannel.preset">填写 Key 后获取并选择模型。</small><small v-else>填写服务地址、协议与密钥后获取模型。</small></div>
+                <div class="settings-provider-line"><span class="settings-field-label">渠道类型</span><strong>{{ configuringAiChannel.provider === 'builtin' ? '内置 AI' : configuringAiChannel.preset ? '常用渠道' : '自定义接口' }}</strong><small v-if="configuringAiChannel.provider === 'builtin'">可直接使用，无需填写密钥。AI 解读时，问题、必要的出生资料和盘面摘要会发送给此服务处理。</small><small v-else-if="configuringAiChannel.preset">请求会经站点服务端转发给所选第三方渠道；填写 Key 后获取并选择模型。</small><small v-else>请求会经站点服务端转发给所填第三方地址；填写服务地址、协议与密钥后获取模型。</small></div>
                 <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-channel-fields">
                   <UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiChannel.baseUrl" class="settings-field-wide" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @input="invalidateAiModels(configuringAiChannel)" />
                   <UiSelect v-model="configuringAiChannel.apiType" class="settings-field" label="接口协议" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
@@ -5778,7 +5847,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
           <div class="onboarding-body">
             <template v-if="onboardingStep === 0">
-              <div class="onboarding-copy"><h3>添加常用案例</h3><p>出生资料只保存在当前浏览器，用于排盘时自动载入。</p></div>
+              <div class="onboarding-copy"><h3>添加常用案例</h3><p>出生资料默认保存在当前浏览器，用于排盘时自动载入；使用 AI 解读时，必要资料会发送给所选 AI 服务处理。</p></div>
               <div v-if="cases.length" class="onboarding-case-ready"><span class="case-avatar">{{ defaultCase.label.slice(0, 1) }}</span><span><strong>{{ defaultCase.label }}</strong><small>{{ formatCaseDate(defaultCase) }} · {{ defaultCase.time }} · {{ defaultCase.locationName }}</small></span><Check :size="17" /></div>
               <template v-else>
                 <div class="onboarding-case-grid">
@@ -5832,14 +5901,14 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><UiSelect v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel" label="模型"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="onboarding-model-empty">请先获取模型</span></div>
               </div>
               <div class="onboarding-ai-current"><span><strong>{{ onboardingAiChannel.name }}</strong><small>{{ onboardingAiChannel.provider === 'builtin' ? '内置 AI' : onboardingAiChannel.model || '尚未选择模型' }}</small></span><Check v-if="isOnboardingAiReady" :size="17" /></div>
-              <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '第三方渠道完成接口、密钥和模型配置后才能继续。' }}</p>
+              <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '请求会经站点服务端转发给所选第三方渠道；完成接口、密钥和模型配置后才能继续。' }}</p>
               <p v-if="onboardingError" class="onboarding-error">{{ onboardingError }}</p>
               <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(3)"><ArrowLeft :size="15" />返回</UiButton><UiButton :disabled="isLoadingAiModels" @click="continueOnboardingAi">继续<ChevronRight :size="15" /></UiButton></div></div>
             </template>
 
             <template v-else>
               <div class="onboarding-copy"><h3>使用前请知悉</h3><p>占卜与解读不能替代事实核验和专业判断。</p></div>
-              <div class="onboarding-disclaimer"><Sparkles :size="20" /><p>本产品的占卜、排盘解读及问答内容均由 AI 生成，仅供娱乐与自我观察，不代表事实判断，也不构成医疗、法律、投资、心理或其他专业建议。请勿据此作出重要决定。</p></div>
+              <div class="onboarding-disclaimer"><Sparkles :size="20" /><p>本产品的占卜、排盘解读及问答内容均由 AI 生成，仅供娱乐与自我观察，不代表事实判断，也不构成医疗、法律、投资、心理或其他专业建议。案例与历史默认保存在当前浏览器；使用 AI 解读时，问题、必要的出生资料和盘面摘要会发送给当前选择的 AI 服务处理。请勿据此作出重要决定。</p></div>
               <label class="onboarding-consent"><input v-model="onboardingDisclaimerAccepted" type="checkbox" /><span>我已知悉内容由 AI 生成</span></label>
               <p v-if="onboardingError" class="onboarding-error">{{ onboardingError }}</p>
               <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(4)"><ArrowLeft :size="15" />返回</UiButton><UiButton :disabled="!onboardingDisclaimerAccepted" @click="finishOnboarding"><Check :size="15" />完成设置</UiButton></div></div>
@@ -5882,6 +5951,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
       <Transition name="app-toast">
         <div v-if="toastMessage" class="app-toast" role="status" aria-live="polite">{{ toastMessage }}</div>
       </Transition>
+
+      <div v-if="pwaUpdateAvailable" class="pwa-update-bar" role="status" aria-live="polite">
+        <span>新版本可用</span>
+        <UiButton size="small" @click="refreshToPwaUpdate">刷新更新</UiButton>
+      </div>
 
     </div>
   </div>

@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
     pagesApiPlugin(loadEnv(mode, process.cwd(), '')),
     vue(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: [
         'favicon-32x32.png',
         'apple-touch-icon.png',
@@ -50,8 +50,6 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],

@@ -73,6 +73,33 @@ export interface AiInterpretationResponse {
   provider?: string;
 }
 
+async function fetchWithClientTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutMessage: string,
+) {
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  let timedOut = false;
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+  const timeout = globalThis.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) throw new Error(timeoutMessage);
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeout);
+    callerSignal?.removeEventListener('abort', abortFromCaller);
+  }
+}
+
 export function buildAiInterpretationRequestBody(payload: AiInterpretationRequest) {
   const { profile, reading: sourceReading, ...request } = payload;
   const prompt = sourceReading?.prompt?.trim();
@@ -86,12 +113,12 @@ export function buildAiInterpretationRequestBody(payload: AiInterpretationReques
 }
 
 export async function requestAiModels(aiConfig: AiCustomConfig, signal?: AbortSignal): Promise<string[]> {
-  const response = await fetch('/api/models', {
+  const response = await fetchWithClientTimeout('/api/models', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ aiConfig }),
     signal,
-  });
+  }, 20_000, '获取模型超时，请检查网络或接口地址后重试。');
   const result = await response.json().catch(() => null) as unknown;
   if (!response.ok) throw new Error(getErrorMessage(result, response.status));
   if (!result || typeof result !== 'object' || !('models' in result) || !Array.isArray(result.models)) throw new Error('模型列表返回格式无法识别。');
@@ -106,14 +133,14 @@ function getErrorMessage(payload: unknown, status: number) {
 }
 
 export async function requestAiInterpretation(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {
-  const response = await fetch('/api/interpret', {
+  const response = await fetchWithClientTimeout('/api/interpret', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     // 排盘原始对象可能带有数万字的计算链和审计依据。模型只需要已经筛选过的 prompt；
     // 在网络边界统一剔除 data，避免调用方遗漏清理。
     body: JSON.stringify(buildAiInterpretationRequestBody(payload)),
     signal,
-  });
+  }, 50_000, 'AI 解读等待超时，请稍后重试。');
   const result = await response.json().catch(() => null) as unknown;
   if (!response.ok) throw new Error(getErrorMessage(result, response.status));
   if (!result || typeof result !== 'object' || !('content' in result) || typeof result.content !== 'string' || !result.content.trim()) {
