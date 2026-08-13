@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { Check, Clock3, Hand, Hash, RotateCcw } from 'lucide-vue-next';
-import { UiActionBar, UiButton, UiDialogHeader, UiDialogShell, UiNotice, UiSegmentedControl } from './ui';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { Check, Clock3, Coins, Hash, RotateCcw } from 'lucide-vue-next';
+import { UiActionBar, UiButton, UiDialogHeader, UiDialogShell, UiNotice, UiSegmentedControl, UiSelect } from './ui';
 import {
   runConfiguredJinkoujue,
   runConfiguredMeihua,
@@ -15,6 +15,7 @@ import {
   type LiuyaoCoinThrow,
   type ReadingResult,
 } from '../lib/divination';
+import { dailyHexagramYaoLabel, shakeDailyHexagramCoins } from '../lib/dailyHexagram';
 
 type CastingKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 'liuren' | 'taiyi';
 
@@ -37,11 +38,20 @@ const specifiedDateTime = ref('');
 const specifiedYear = ref(currentYear);
 const manualNumber = ref('');
 const coinThrows = ref<LiuyaoCoinThrow[]>([]);
+const pendingCoinThrow = ref<LiuyaoCoinThrow | null>(null);
+const isShakingYao = ref(false);
+const latestYaoIndex = ref(-1);
 const specifiedYaos = ref<Array<6 | 7 | 8 | 9>>([7, 7, 7, 7, 7, 7]);
+let shakeTimer: number | null = null;
 const isTimeOnlyKind = computed(() => props.kind === 'xiaoliuren' || props.kind === 'qimen' || props.kind === 'liuren');
 const currentTimeLabel = computed(() => new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
 }).format(openedAt.value));
+const lineNames = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
+const displayLineIndexes = [5, 4, 3, 2, 1, 0];
+const nextLineName = computed(() => lineNames[coinThrows.value.length] || '卦象');
+const latestThrow = computed(() => coinThrows.value.at(-1) || null);
+const latestLineName = computed(() => lineNames[coinThrows.value.length - 1] || '');
 
 const kindLabel = computed(() => ({
   meihua: '梅花易数', liuyao: '六爻', xiaoliuren: '小六壬', jinkoujue: '金口诀',
@@ -77,6 +87,10 @@ function toLocalDateTimeInput(date: Date) {
 }
 
 function resetFlow() {
+  if (shakeTimer !== null) {
+    window.clearTimeout(shakeTimer);
+    shakeTimer = null;
+  }
   castingMode.value = props.initialMode;
   formError.value = '';
   openedAt.value = new Date();
@@ -84,12 +98,16 @@ function resetFlow() {
   specifiedYear.value = currentYear;
   manualNumber.value = '';
   coinThrows.value = [];
+  pendingCoinThrow.value = null;
+  isShakingYao.value = false;
+  latestYaoIndex.value = -1;
   specifiedYaos.value = [7, 7, 7, 7, 7, 7];
 }
 
 watch(() => [props.kind, props.qimenScope, props.initialMode], resetFlow, { immediate: true });
 
 function chooseMode(mode: CastingMode) {
+  if (props.kind === 'liuyao' && castingMode.value === 'manual' && mode !== 'manual') resetLiuyao();
   castingMode.value = mode;
   formError.value = '';
 }
@@ -117,11 +135,35 @@ async function completeManualNumber() {
 }
 
 function shakeYao() {
-  if (coinThrows.value.length >= 6) return;
-  const coins = Array.from({ length: 3 }, () => Math.random() < 0.5 ? 2 as const : 3 as const) as [2 | 3, 2 | 3, 2 | 3];
-  const total = coins.reduce<number>((sum, coin) => sum + coin, 0) as 6 | 7 | 8 | 9;
-  coinThrows.value = [...coinThrows.value, { coins, total }];
+  if (isShakingYao.value || coinThrows.value.length >= 6) return;
+  isShakingYao.value = true;
+  pendingCoinThrow.value = shakeDailyHexagramCoins();
+  shakeTimer = window.setTimeout(() => {
+    if (!pendingCoinThrow.value) return;
+    coinThrows.value = [...coinThrows.value, pendingCoinThrow.value];
+    latestYaoIndex.value = coinThrows.value.length - 1;
+    pendingCoinThrow.value = null;
+    isShakingYao.value = false;
+    shakeTimer = null;
+    if (coinThrows.value.length === 6) void nextTick(completeManual);
+  }, 760);
 }
+
+function resetLiuyao() {
+  if (shakeTimer !== null) {
+    window.clearTimeout(shakeTimer);
+    shakeTimer = null;
+  }
+  coinThrows.value = [];
+  pendingCoinThrow.value = null;
+  isShakingYao.value = false;
+  latestYaoIndex.value = -1;
+  formError.value = '';
+}
+
+onBeforeUnmount(() => {
+  if (shakeTimer !== null) window.clearTimeout(shakeTimer);
+});
 
 async function completeManual() {
   formError.value = '';
@@ -170,13 +212,10 @@ async function completeSpecified() {
   }
 }
 
-function yaoName(total: number) {
-  return ({ 6: '老阴', 7: '少阳', 8: '少阴', 9: '老阳' } as Record<number, string>)[total];
-}
 </script>
 
 <template>
-  <UiDialogShell :aria-label="`${kindLabel}起法设置`" size="compact" :panel-class="['manual-dialog', `kind-${kind}`]" @close="emit('close')">
+  <UiDialogShell :aria-label="`${kindLabel}起法设置`" :size="kind === 'liuyao' && castingMode === 'manual' ? 'standard' : 'compact'" :panel-class="['manual-dialog', `kind-${kind}`]" @close="emit('close')">
       <UiDialogHeader :title="kindLabel" eyebrow="起法设置" description="完成起卦后，将直接进入聊天解读。" @close="emit('close')" />
 
       <UiSegmentedControl class="casting-tabs" :model-value="castingMode" :items="castingModeTabs" label="起法" equal @update:model-value="chooseMode($event as CastingMode)" />
@@ -197,22 +236,38 @@ function yaoName(total: number) {
         </div>
 
         <template v-else-if="kind === 'liuyao'">
-          <div class="yao-stack" aria-live="polite">
-            <div v-for="position in [6, 5, 4, 3, 2, 1]" :key="position" class="yao-slot" :class="{ filled: coinThrows[position - 1] }">
-              <span>{{ ['初', '二', '三', '四', '五', '上'][position - 1] }}爻</span>
-              <template v-if="coinThrows[position - 1]">
-                <div class="coin-row"><img v-for="(coin, index) in coinThrows[position - 1].coins" :key="index" :src="coin === 3 ? '/coin-heads.webp' : '/coin-tails.webp'" :alt="coin === 3 ? '铜钱正面' : '铜钱背面'" /></div>
-                <div class="mini-yao" :class="{ broken: coinThrows[position - 1].total === 6 || coinThrows[position - 1].total === 8, moving: coinThrows[position - 1].total === 6 || coinThrows[position - 1].total === 9 }"><b></b><b></b></div>
-                <strong>{{ coinThrows[position - 1].total }} · {{ yaoName(coinThrows[position - 1].total) }}</strong>
-              </template>
-              <small v-else>待摇</small>
+          <div class="manual-liuyao-intro">
+            <div><strong>{{ isShakingYao ? `正在摇${nextLineName}` : (latestThrow ? `已得${latestLineName}，继续摇${nextLineName}` : '静心起卦') }}</strong><span>六爻由下向上排列</span></div>
+            <div class="manual-liuyao-progress" role="progressbar" aria-label="起卦进度" aria-valuemin="0" aria-valuemax="6" :aria-valuenow="coinThrows.length">
+              <b>{{ coinThrows.length }}</b><span>/ 6 爻</span>
+              <i><em v-for="step in 6" :key="step" :class="{ done: step <= coinThrows.length }"></em></i>
             </div>
           </div>
-          <UiActionBar align="center">
-            <UiButton v-if="coinThrows.length < 6" @click="shakeYao"><Hand :size="16" />摇第 {{ coinThrows.length + 1 }} 爻</UiButton>
-            <UiButton v-else @click="completeManual"><Check :size="16" />确认卦象</UiButton>
-            <UiButton v-if="coinThrows.length" variant="secondary" @click="coinThrows = []"><RotateCcw :size="14" />重新摇卦</UiButton>
-          </UiActionBar>
+          <div class="manual-liuyao-layout">
+            <section class="manual-liuyao-lines" aria-label="六爻进度">
+              <header><strong>六爻进度</strong><span>自下而上成卦</span></header>
+              <div class="manual-hexagram-lines">
+                <div v-for="lineIndex in displayLineIndexes" :key="lineIndex" class="manual-hexagram-line" :class="{ filled: coinThrows[lineIndex], latest: latestYaoIndex === lineIndex }">
+                  <span>{{ lineNames[lineIndex] }}</span>
+                  <div v-if="coinThrows[lineIndex]" class="manual-yao-line" :class="{ yin: coinThrows[lineIndex].total === 6 || coinThrows[lineIndex].total === 8, moving: coinThrows[lineIndex].total === 6 || coinThrows[lineIndex].total === 9 }"><b></b><b></b></div>
+                  <div v-else class="manual-yao-placeholder"><i></i></div>
+                  <small>{{ coinThrows[lineIndex] ? dailyHexagramYaoLabel(coinThrows[lineIndex].total) : '待摇' }}</small>
+                </div>
+              </div>
+            </section>
+            <section class="manual-liuyao-stage" aria-live="polite">
+              <header><span>{{ latestThrow ? latestLineName : '第一步' }}</span><strong>{{ isShakingYao ? `正在摇${nextLineName}` : (latestThrow ? '本次铜钱' : '准备摇初爻') }}</strong></header>
+              <div class="manual-shake-result">
+                <Transition name="manual-shake-visual" mode="out-in">
+                  <div v-if="isShakingYao" key="shell" class="manual-shell-animation"><img src="/liuyao-shell-transparent.webp" alt="龟壳正在摇卦" /><span>正在摇{{ nextLineName }}</span></div>
+                  <div v-else-if="latestThrow" key="coins" class="manual-coin-result"><div><img v-for="(coin, index) in latestThrow.coins" :key="index" :src="coin === 3 ? '/liuyao-coin-heads-transparent.webp' : '/liuyao-coin-tails-transparent.webp'" :alt="coin === 3 ? '铜钱正面' : '铜钱背面'" /></div><p><strong>{{ dailyHexagramYaoLabel(latestThrow.total) }}</strong><span>{{ latestThrow.total }} 点 · {{ latestLineName }}</span></p></div>
+                  <div v-else key="empty" class="manual-shell-empty"><img src="/liuyao-shell-transparent.webp" alt="起卦龟壳" /><span>等待摇出初爻</span></div>
+                </Transition>
+              </div>
+              <UiButton v-if="coinThrows.length < 6" size="large" block :loading="isShakingYao" @click="shakeYao"><Coins v-if="!isShakingYao" :size="17" />{{ isShakingYao ? '摇卦中' : `摇${nextLineName}` }}</UiButton>
+              <UiButton v-if="coinThrows.length && !isShakingYao" class="manual-liuyao-reset" variant="ghost" size="small" @click="resetLiuyao"><RotateCcw :size="14" />重新摇卦</UiButton>
+            </section>
+          </div>
         </template>
 
         <div v-else class="simple-casting-pane is-inline"><Clock3 :size="22" /><strong>{{ kind === 'taiyi' ? `${currentYear} 年` : currentTimeLabel }}</strong><p>{{ kind === 'taiyi' ? '太乙当前开放年计，以公历年份起局。' : '以确认按钮实际点击时刻起课。' }}</p><UiActionBar align="center"><UiButton @click="completeManual"><Check :size="16" />{{ kind === 'taiyi' ? '以本年起局' : '以此刻起课' }}</UiButton></UiActionBar></div>
@@ -226,7 +281,7 @@ function yaoName(total: number) {
         </div>
         <div v-else class="specified-time-pane">
           <label for="specified-date-time">起课时刻</label><input id="specified-date-time" v-model="specifiedDateTime" type="datetime-local" />
-          <div v-if="kind === 'liuyao'" class="specified-yaos"><div v-for="(_, index) in specifiedYaos" :key="index"><span>{{ ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][index] }}</span><select v-model.number="specifiedYaos[index]"><option :value="6">6 · 老阴</option><option :value="7">7 · 少阳</option><option :value="8">8 · 少阴</option><option :value="9">9 · 老阳</option></select></div></div>
+          <div v-if="kind === 'liuyao'" class="specified-yaos"><div v-for="(_, index) in specifiedYaos" :key="index"><span>{{ ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][index] }}</span><UiSelect v-model.number="specifiedYaos[index]"><option :value="6">6 · 老阴</option><option :value="7">7 · 少阳</option><option :value="8">8 · 少阴</option><option :value="9">9 · 老阳</option></UiSelect></div></div>
         </div>
         <UiActionBar align="center"><UiButton @click="completeSpecified"><Check :size="16" />确认指定结果</UiButton></UiActionBar>
       </section>
@@ -243,10 +298,65 @@ function yaoName(total: number) {
 .manual-dialog .ui-action-bar button { min-width: 142px; }
 .manual-error { margin: 12px 0 0; }
 .number-casting { padding: 18px 3px 3px; }.number-casting > label, .number-casting > small { color: var(--muted); display: block; font-size: 12px; }.number-casting > div:not(.ui-action-bar) { align-items: center; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; display: flex; gap: 8px; margin: 8px 0 6px; padding: 0 11px; }.number-casting input { background: transparent; border: 0; color: var(--ink); font-size: 16px; min-height: 44px; outline: 0; width: 100%; }
-.yao-stack { display: grid; gap: 5px; }.yao-slot { align-items: center; border-bottom: 1px solid var(--line); color: var(--subtle); display: grid; gap: 10px; grid-template-columns: 38px minmax(132px, 1fr) 116px 86px; min-height: 56px; padding: 5px 3px; }.yao-slot > span, .yao-slot > small { font-size: 12px; }.yao-slot > small { grid-column: 2 / -1; }.yao-slot > strong { color: var(--ink); font-size: 12px; text-align: right; }.coin-row { display: flex; gap: 5px; }.coin-row img { filter: drop-shadow(0 3px 4px rgba(56, 39, 18, .18)); height: 36px; object-fit: contain; width: 36px; }.mini-yao { align-items: center; display: flex; justify-content: center; position: relative; }.mini-yao b { background: var(--ink); height: 5px; width: 82px; }.mini-yao b + b { display: none; }.mini-yao.broken { gap: 14px; }.mini-yao.broken b { width: 34px; }.mini-yao.broken b + b { display: block; }.mini-yao.moving::after { border: 1px solid var(--plum); border-radius: 50%; color: var(--plum); content: '动'; font-size: 10px; padding: 2px; position: absolute; right: 0; transform: translateX(50%); }
-.specified-time-pane { border-top: 1px solid var(--line); padding-top: 15px; }.specified-time-pane > label { color: var(--muted); display: block; font-size: 12px; margin-bottom: 7px; }.specified-time-pane > input { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 14px; min-height: 44px; padding: 9px 11px; width: 100%; }.specified-yaos { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }.specified-yaos > div { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 8px; justify-content: space-between; padding: 7px 1px; }.specified-yaos span { color: var(--muted); font-size: 12px; }.specified-yaos select { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); min-height: 36px; padding: 5px 8px; }
+.manual-dialog.kind-liuyao { width: min(760px, calc(100vw - 32px)); }
+.manual-liuyao-intro { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 18px; justify-content: space-between; padding: 2px 2px 14px; }
+.manual-liuyao-intro > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.manual-liuyao-intro strong { color: var(--ink); font-size: 18px; }
+.manual-liuyao-intro span { color: var(--muted); font-size: var(--type-caption); }
+.manual-liuyao-progress { align-items: baseline; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; display: grid; flex: 0 0 auto; gap: 2px 5px; grid-template-columns: auto auto; padding: 8px 11px 7px; }
+.manual-liuyao-progress b { color: var(--accent-strong); font-size: 22px; line-height: 1; }
+.manual-liuyao-progress i { display: grid; gap: 3px; grid-column: 1 / -1; grid-template-columns: repeat(6, 1fr); width: 80px; }
+.manual-liuyao-progress em { background: var(--line); border-radius: 99px; height: 3px; }
+.manual-liuyao-progress em.done { background: var(--accent); }
+.manual-liuyao-layout { display: grid; grid-template-columns: minmax(260px, .92fr) minmax(300px, 1.08fr); min-height: 310px; }
+.manual-liuyao-lines { padding: 22px 24px 18px 2px; }
+.manual-liuyao-lines > header, .manual-liuyao-stage > header { align-items: baseline; display: flex; justify-content: space-between; }
+.manual-liuyao-lines > header strong, .manual-liuyao-stage > header strong { color: var(--ink); font-size: var(--type-small); }
+.manual-liuyao-lines > header span, .manual-liuyao-stage > header span { color: var(--muted); font-size: var(--type-caption); }
+.manual-hexagram-lines { display: grid; gap: 11px; margin-top: 20px; }
+.manual-hexagram-line { align-items: center; border-radius: 8px; display: grid; gap: 10px; grid-template-columns: 34px minmax(120px, 1fr) 42px; min-height: 28px; padding: 4px 6px; }
+.manual-hexagram-line.latest { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.manual-hexagram-line > span, .manual-hexagram-line > small { color: var(--subtle); font-size: var(--type-caption); text-align: right; }
+.manual-hexagram-line > small { text-align: left; }
+.manual-hexagram-line.filled > span, .manual-hexagram-line.filled > small { color: var(--muted); }
+.manual-yao-line { display: flex; height: 9px; justify-content: center; padding-right: 24px; position: relative; }
+.manual-yao-line b { background: var(--accent-strong); border-radius: 2px; display: block; height: 8px; width: 100%; }
+.manual-yao-line b + b { display: none; }
+.manual-yao-line.yin { gap: 18px; }
+.manual-yao-line.yin b { width: calc(50% - 9px); }
+.manual-yao-line.yin b + b { display: block; }
+.manual-yao-line.moving::after { align-items: center; border: 1px solid var(--plum); border-radius: 50%; color: var(--plum); content: '动'; display: flex; font-size: 7px; height: 17px; justify-content: center; position: absolute; right: 0; top: -5px; width: 17px; }
+.manual-yao-placeholder { align-items: center; display: flex; height: 8px; }
+.manual-yao-placeholder i { border-top: 1px dashed var(--line); width: 100%; }
+.manual-liuyao-stage { background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-soft) 72%, transparent), transparent 52%), var(--surface-muted); border-left: 1px solid var(--line); display: flex; flex-direction: column; margin: 0 -24px -24px 0; padding: 22px 24px 18px; }
+.manual-shake-result { align-items: center; display: flex; flex: 1 1 auto; justify-content: center; min-height: 170px; overflow: hidden; padding: 6px 0; }
+.manual-shell-animation, .manual-shell-empty, .manual-coin-result { align-items: center; display: flex; flex-direction: column; justify-content: center; width: 100%; }
+.manual-shell-animation img, .manual-shell-empty img { filter: drop-shadow(0 10px 16px color-mix(in srgb, var(--accent) 18%, transparent)); height: 118px; object-fit: contain; width: 110px; }
+.manual-shell-animation img { animation: manual-shell-shake .68s ease-in-out infinite; }
+.manual-shell-animation span, .manual-shell-empty span { color: var(--muted); font-size: var(--type-caption); margin-top: 7px; }
+.manual-coin-result > div { display: flex; gap: 10px; justify-content: center; }
+.manual-coin-result img { filter: drop-shadow(0 3px 5px rgba(77, 55, 111, .12)); height: 70px; object-fit: contain; width: 70px; }
+.manual-coin-result img:first-child { transform: rotate(-7deg); }.manual-coin-result img:nth-child(2) { transform: rotate(5deg); }.manual-coin-result img:nth-child(3) { transform: rotate(-2deg); }
+.manual-coin-result p { align-items: baseline; display: flex; gap: 7px; margin: 13px 0 0; }.manual-coin-result p strong { color: var(--accent-strong); }.manual-coin-result p span { color: var(--muted); font-size: var(--type-caption); }
+.manual-liuyao-reset { align-self: center; margin-top: 5px; }
+@keyframes manual-shell-shake { 0%, 100% { transform: rotate(-3deg) translateX(-2px); } 35% { transform: rotate(4deg) translateX(3px); } 70% { transform: rotate(-2deg) translateX(1px); } }
+.manual-shake-visual-enter-active, .manual-shake-visual-leave-active { transition: opacity .18s ease, transform .18s ease; }.manual-shake-visual-enter-from { opacity: 0; transform: translateY(-5px) scale(.96); }.manual-shake-visual-leave-to { opacity: 0; transform: translateY(5px) scale(.96); }
+.specified-time-pane { border-top: 1px solid var(--line); padding-top: 15px; }.specified-time-pane > label { color: var(--muted); display: block; font-size: 12px; margin-bottom: 7px; }.specified-time-pane > input { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 14px; min-height: 44px; padding: 9px 11px; width: 100%; }.specified-yaos { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }.specified-yaos > div { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 8px; justify-content: space-between; padding: 7px 1px; }.specified-yaos span { color: var(--muted); font-size: 12px; }.specified-yaos .ui-select { min-width: 112px; }
 .taiyi-year-pane > small { color: var(--muted); display: block; font-size: 11px; line-height: 1.6; margin-top: 8px; }
 @media (max-width: 720px) {
-  .casting-tabs .ui-segmented-control__copy small { display: none; }.yao-slot { gap: 6px; grid-template-columns: 31px minmax(108px, 1fr) 82px; min-height: 52px; }.yao-slot > strong { display: none; }.coin-row { gap: 2px; }.coin-row img { height: 30px; width: 30px; }.mini-yao b { width: 62px; }.mini-yao.broken { gap: 10px; }.mini-yao.broken b { width: 26px; }.specified-yaos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .casting-tabs .ui-segmented-control__copy small { display: none; }.specified-yaos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ui-dialog-layer:has(.manual-dialog.kind-liuyao) { align-items: center; padding: 10px; }
+  .manual-dialog.kind-liuyao { border: 1px solid var(--line-strong); border-radius: var(--ds-radius-lg); box-shadow: var(--ds-shadow-overlay); height: auto; max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); width: min(560px, calc(100vw - 20px)); }
+  .manual-dialog.kind-liuyao .casting-guide { display: none; }
+  .manual-liuyao-intro { padding-bottom: 10px; }
+  .manual-liuyao-intro strong { font-size: 16px; }
+  .manual-liuyao-layout { display: flex; flex-direction: column; min-height: 0; }
+  .manual-liuyao-lines { padding: 14px 2px 12px; }
+  .manual-hexagram-lines { gap: 5px; margin-top: 9px; }
+  .manual-hexagram-line { grid-template-columns: 32px minmax(110px, 1fr) 42px; min-height: 23px; padding-block: 2px; }
+  .manual-liuyao-stage { border-left: 0; border-top: 1px solid var(--line); flex: 0 0 auto; margin: 0 -12px -16px; min-height: 0; padding: 12px 12px 14px; }
+  .manual-shake-result { flex: 0 0 auto; min-height: 106px; padding: 2px 0 5px; }
+  .manual-shell-animation img, .manual-shell-empty img { height: 92px; width: 88px; }
+  .manual-coin-result img { height: 58px; width: 58px; }
 }
 </style>

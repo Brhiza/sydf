@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Check, Compass, Copy, Download, FileText, ImageUp, Move, RotateCcw, Trash2, Upload } from 'lucide-vue-next';
-import { UiButton } from './ui';
+import { UiButton, UiSelect } from './ui';
 
 const props = withDefaults(defineProps<{
   residentBaziPrompt?: string;
@@ -664,7 +664,7 @@ function deleteStoredImage() {
 
         <aside class="fs-compass-controls">
           <div class="fs-control-heading"><div><Compass :size="17" /><strong>罗盘校准</strong></div><UiButton variant="ghost" size="small" @click="resetCompass"><RotateCcw :size="13" />复位</UiButton></div>
-          <label><span>图纸上方朝向</span><select v-model="state.topDirection" required><option v-for="item in directionOptions" :key="item.value" :value="item.value" :disabled="item.value === 'unknown'">{{ item.label }}</option></select></label>
+          <UiSelect v-model="state.topDirection" label="图纸上方朝向" required><option v-for="item in directionOptions" :key="item.value" :value="item.value" :disabled="item.value === 'unknown'">{{ item.label }}</option></UiSelect>
           <label class="fs-range-control"><span>角度微调 <b>{{ state.fineAngle }}°</b></span><input v-model.number="state.fineAngle" type="range" min="-22.5" max="22.5" step="0.5" /></label>
           <label class="fs-range-control"><span>罗盘大小 <b>{{ state.compassSize }}%</b></span><input v-model.number="state.compassSize" type="range" min="18" max="95" step="1" @input="clampCompassPosition" /></label>
           <label class="fs-range-control"><span>透明度 <b>{{ state.compassOpacity }}%</b></span><input v-model.number="state.compassOpacity" type="range" min="20" max="100" step="1" /></label>

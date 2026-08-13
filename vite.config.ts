@@ -60,18 +60,23 @@ export default defineConfig(({ mode }) => ({
           'apple-touch-icon.png',
           'logo.webp',
           'pwa-*.png',
+          // 卡牌素材数量多且只会按抽牌结果使用，不加入安装时预缓存，避免首次加载下载全部图片。
+          'cards/**/*',
         ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: ({ request, url }) => request.destination === 'image' && url.origin === self.location.origin,
+            urlPattern: ({ request, url }) => request.destination === 'image'
+              && url.origin === self.location.origin
+              && url.pathname.startsWith('/cards/'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'shiyue-images-v1',
+              cacheName: 'shiyue-card-images-v2',
               cacheableResponse: { statuses: [0, 200] },
               expiration: {
-                maxEntries: 160,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
+                // 覆盖常用牌阵与浏览记录，但不让全部牌组长期占满设备空间。
+                maxEntries: 96,
+                maxAgeSeconds: 60 * 60 * 24 * 60,
               },
             },
           },

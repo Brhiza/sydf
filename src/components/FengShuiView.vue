@@ -19,7 +19,7 @@ import AiReadingActions from './AiReadingActions.vue';
 import ChatMarkdown from './ChatMarkdown.vue';
 import CaseMultiSelect from './CaseMultiSelect.vue';
 import FengShuiImageWorkspace from './FengShuiImageWorkspace.vue';
-import { UiButton, UiNotice, UiSectionHeading, UiSegmentedControl, UiToolPage, UiWorkspaceSurface } from './ui';
+import { UiButton, UiNotice, UiSectionHeading, UiSegmentedControl, UiSelect, UiToolPage, UiWorkspaceSurface } from './ui';
 import type { SelectableCaseProfile } from '../lib/caseSelection';
 import { buildFengShuiResidentBaziContext } from '../lib/fengShuiResidents';
 import {
@@ -906,7 +906,7 @@ async function interpretPlan() {
       <summary><span><strong>户型设置</strong><small>上方朝{{ topDirectionLabel }} · {{ plan.cellMeters }} 米/格</small></span><ChevronDown :size="15" /></summary>
       <section class="feng-plan-settings" aria-label="平面图基本信息">
         <label><span>户型名称</span><input v-model.trim="plan.title" maxlength="40" /></label>
-        <label><span>上方朝向</span><select v-model="plan.topDirection"><option v-for="item in fengShuiTopDirectionOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+        <UiSelect v-model="plan.topDirection" label="上方朝向"><option v-for="item in fengShuiTopDirectionOptions" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
         <label><span>每格米数</span><input v-model.number="plan.cellMeters" type="number" min="0.2" max="2" step="0.1" /></label>
         <label class="feng-notes"><span>补充信息</span><textarea v-model="plan.notes" maxlength="1000" placeholder="楼层、外部环境或常住人数"></textarea></label>
       </section>
@@ -1047,7 +1047,7 @@ async function interpretPlan() {
         <template v-if="selectedRoom">
           <div class="feng-inspector-heading"><div><small>正在调整</small><strong>{{ selectedRoom.name }}</strong></div><button type="button" aria-label="删除房间" @click="deleteSelection"><Trash2 :size="14" /></button></div>
           <label><span>名称</span><input v-model.trim="selectedRoom.name" maxlength="20" /></label>
-          <label><span>房间类型</span><select v-model="selectedRoom.type"><option v-for="item in fengShuiRoomTypes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+          <UiSelect v-model="selectedRoom.type" label="房间类型"><option v-for="item in fengShuiRoomTypes" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
           <div class="feng-room-metrics">
             <div><span>外接尺寸</span><strong>{{ selectedRoom.width }}×{{ selectedRoom.height }} 格</strong><small>{{ (selectedRoom.width * plan.cellMeters).toFixed(1) }}×{{ (selectedRoom.height * plan.cellMeters).toFixed(1) }} 米</small></div>
             <div><span>真实面积</span><strong>{{ roomAreaLabel(selectedRoom) }}㎡</strong><small>{{ selectedRoom.points.length }} 个拐点</small></div>
@@ -1067,8 +1067,8 @@ async function interpretPlan() {
         </template>
         <template v-else-if="selectedFixture">
           <div class="feng-inspector-heading"><div><small>正在调整</small><strong>{{ fengShuiFixtureDefinition(selectedFixture.type).label }}</strong></div><button type="button" aria-label="删除标记" @click="deleteSelection"><Trash2 :size="14" /></button></div>
-          <label><span>标记类型</span><select v-model="selectedFixture.type"><option v-for="item in fengShuiFixtureTypes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
-          <label><span>朝向</span><select v-model="selectedFixture.facing"><option v-for="item in fengShuiFacingOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+          <UiSelect v-model="selectedFixture.type" label="标记类型"><option v-for="item in fengShuiFixtureTypes" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
+          <UiSelect v-model="selectedFixture.facing" label="朝向"><option v-for="item in fengShuiFacingOptions" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
           <p class="feng-fixture-location">位于{{ findFixtureRoom(selectedFixture, plan.rooms)?.name || '已绘制房间之外' }} · 中心坐标 X {{ selectedFixture.x + 0.5 }} / Y {{ selectedFixture.y + 0.5 }}</p>
         </template>
       </aside>

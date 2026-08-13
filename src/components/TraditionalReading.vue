@@ -13,8 +13,7 @@ import type {
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import type { DivinationKind, ReadingResult } from '../lib/divination';
-import { resolveSsgwFortuneStatus } from '../lib/fortuneStatus';
-import FortuneStatusImage from './FortuneStatusImage.vue';
+import { getSsgwCardImageUrl } from '../lib/divinationCardAssets';
 
 const props = defineProps<{
   method: DivinationKind;
@@ -41,7 +40,7 @@ const meihuaHexagrams = computed(() => [
 const meihuaMethodLabel = computed(() => (meihua.value.calculation as { method?: string } | undefined)?.method || '梅花易数');
 const yaoRows = computed(() => [...liuyao.value.yaosDetail].reverse());
 const signPoemLines = computed(() => ssgw.value.poem.split(/[，。；！？\n]+/).map((line) => line.trim()).filter(Boolean));
-const signFortuneStatus = computed(() => resolveSsgwFortuneStatus(ssgw.value.details));
+const signCardImageUrl = computed(() => getSsgwCardImageUrl(ssgw.value.number));
 const signDetails = computed(() => {
   const seenValues = new Set<string>();
   return Object.entries(ssgw.value.details || {}).filter(([key, value]) => {
@@ -270,7 +269,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
         <div><span class="sign-order">第 {{ ssgw.number }} 签</span><h3>{{ ssgw.title }}</h3></div>
       </header>
       <div class="sign-paper-main">
-        <FortuneStatusImage :status="signFortuneStatus" class="sign-fortune-art" />
+        <img :src="signCardImageUrl" :alt="`第 ${ssgw.number} 签 ${ssgw.title}`" class="sign-card-art" />
         <div class="sign-poem"><p v-for="line in signPoemLines" :key="line">{{ line }}</p></div>
       </div>
       <small>三山国王九十二签</small>
@@ -374,7 +373,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
 .sign-order { color: #98625a; display: block; font-size: 11px; letter-spacing: .16em; }
 .sign-paper h3 { font-size: 18px; letter-spacing: .08em; line-height: 1.45; margin: 5px 0 0; }
 .sign-paper-main { align-items: stretch; border-bottom: 1px solid #d8c5a1; border-top: 1px solid #d8c5a1; display: grid; gap: 13px; grid-template-columns: 116px 1fr; margin-top: 14px; padding: 13px 0; }
-.sign-fortune-art { align-self: center; border: 1px solid rgba(152, 98, 90, .2); border-radius: 9px; box-shadow: 0 5px 14px rgba(88, 62, 41, .08); overflow: hidden; width: 116px; }
+.sign-card-art { align-self: center; aspect-ratio: 2 / 3; border: 1px solid rgba(152, 98, 90, .2); border-radius: 9px; box-shadow: 0 5px 14px rgba(88, 62, 41, .08); display: block; object-fit: cover; overflow: hidden; width: 116px; }
 .sign-poem { align-items: center; display: flex; flex-direction: row-reverse; gap: clamp(8px, 1.3vw, 12px); justify-content: center; min-height: 180px; min-width: 0; padding: 4px 0; }
 .sign-poem p { font-size: 14px; letter-spacing: .08em; line-height: 1.65; margin: 0; writing-mode: vertical-rl; }
 .sign-paper > small { color: #9b756b; display: block; font-size: 10px; letter-spacing: .16em; margin-top: 12px; }
@@ -402,7 +401,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   .sign-board { gap: 18px; grid-template-columns: 1fr; }
   .sign-paper { margin: 0 auto; max-width: 460px; padding: 20px 18px 17px; width: 100%; }
   .sign-paper-main { gap: 12px; grid-template-columns: 108px 1fr; margin-top: 12px; padding: 12px 0; }
-  .sign-fortune-art { width: 108px; }
+  .sign-card-art { width: 108px; }
   .sign-poem { min-height: 168px; }
   .sign-poem p { font-size: 13px; line-height: 1.6; }
   .sign-story { padding-bottom: 13px; }
@@ -413,7 +412,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   .sign-paper-head { gap: 8px; grid-template-columns: 40px 1fr 40px; }
   .sign-paper h3 { font-size: 16px; }
   .sign-paper-main { gap: 9px; grid-template-columns: 92px 1fr; }
-  .sign-fortune-art { width: 92px; }
+  .sign-card-art { width: 92px; }
   .sign-poem { gap: 7px; min-height: 144px; }
   .sign-poem p { font-size: 12px; letter-spacing: .05em; }
   .sign-interpretations { grid-template-columns: 1fr; }
@@ -424,6 +423,6 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   .sign-seal { border-color: #b66e68; color: #c78078; }
   .sign-order, .sign-paper > small { color: #b99888; }
   .sign-paper-main { border-color: #655747; }
-  .sign-fortune-art { border-color: rgba(201, 147, 135, .22); box-shadow: 0 5px 14px rgba(0, 0, 0, .14); }
+  .sign-card-art { border-color: rgba(201, 147, 135, .22); box-shadow: 0 5px 14px rgba(0, 0, 0, .14); }
 }
 </style>

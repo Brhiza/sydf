@@ -183,7 +183,7 @@ h1, h2, h3, p { margin-top: 0; }
 .search-box { align-items: center; background: #f3eef9; border: 1px solid #e5def0; border-radius: 10px; color: #9e91ac; display: flex; gap: 8px; margin-bottom: 13px; padding: 10px 12px; }
 .search-box input { background: transparent; border: 0; color: #5b4d6e; font-size: 11px; outline: none; width: 100%; }
 .history-filters { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.history-filters label { min-width: 0; }
+.history-filters label, .history-filters .ui-select { min-width: 0; }
 .history-filters label > span { color: var(--muted); display: block; font-size: var(--type-micro); margin: 0 0 5px 2px; }
 .history-filters select { appearance: auto; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 9px; color: var(--ink); font-size: var(--type-caption); min-height: 34px; padding: 6px 7px; width: 100%; }
 .history-filter-summary { align-items: center; color: var(--muted); display: flex; font-size: var(--type-caption); justify-content: space-between; min-height: 37px; padding: 3px 1px 5px; }
@@ -822,6 +822,8 @@ h1, h2, h3, p { margin-top: 0; }
 .reading-modal::-webkit-scrollbar { display: none; }
 .reading-modal { animation: editor-in .2s ease-out; background: rgba(255, 253,255, .98); border: 1px solid #e0d6eb; border-radius: 20px; box-shadow: 0 24px 70px rgba(46, 32, 70, .2); max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: none; width: min(680px, 100%); }
 .reading-modal.traditional-reading-modal { width: min(860px, 100%); }
+.reading-modal.liuyao-reading-modal { aspect-ratio: 1 / 1; border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); max-height: min(760px, calc(100dvh - 48px)); padding: clamp(22px, 3vw, 34px); width: min(760px, calc(100vw - 48px)); }
+.reading-modal.tarot-reading-modal { width: min(1120px, 100%); }
 .reading-modal-summary { align-items: flex-start; background: #f2eafa; border: 1px solid #e5d9ef; border-radius: 12px; color: #6e5b80; display: flex; gap: 8px; line-height: 1.75; margin-top: 18px; padding: 11px 12px; }
 .reading-modal-summary svg { color: #8062a8; flex: 0 0 auto; margin-top: 2px; }
 .reading-detail-grid { display: grid; gap: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
@@ -854,6 +856,7 @@ h1, h2, h3, p { margin-top: 0; }
   .sidebar { box-shadow: none; }
   .sidebar.mobile-sidebar-open { box-shadow: 18px 0 44px rgba(46, 34, 71, .18); }
   .reading-modal { border-radius: 17px 17px 12px 12px; max-height: calc(100vh - 24px); }
+  .reading-modal.liuyao-reading-modal { aspect-ratio: auto; border-radius: var(--ds-radius-lg); max-height: calc(100dvh - 20px); padding: var(--ds-space-4) var(--ds-space-3); width: 100%; }
   .reading-detail-grid { grid-template-columns: 1fr; }
   .reading-detail-row:last-child:nth-child(odd) { grid-column: auto; }
 }
@@ -874,15 +877,11 @@ h1, h2, h3, p { margin-top: 0; }
 }
 
 /* 移动端最终适配收口：统一抽屉、顶栏、输入区和各页面的窄屏间距 */
-@keyframes mobile-tools-screen-in {
-  from { opacity: .15; }
-  to { opacity: 1; }
-}
-
 @media (max-width: 720px) {
   html, body, #app { min-width: 0; width: 100%; }
   .app-shell, .app-main { min-width: 0; width: 100%; }
-  .tools-screen { animation: mobile-tools-screen-in .2s ease-out; }
+  /* 输入区在首页与聊天页都固定到视口；父级动画会让 fixed 首帧相对父级定位。 */
+  .ui-page.tools-screen { animation: none; transform: none; }
   .topbar {
     flex-basis: 58px;
     height: 58px;
@@ -1626,7 +1625,9 @@ body {
 .onboarding-case-grid .birth-picker-region { grid-column: 1 / -1; }
 .onboarding-case-grid label,
 .onboarding-ai-fields > label,
-.onboarding-model-row > label { color: var(--muted); display: grid; font-size: 9px; gap: 6px; min-width: 0; }
+.onboarding-ai-fields > .ui-select,
+.onboarding-model-row > label,
+.onboarding-model-row > .ui-select { color: var(--muted); display: grid; font-size: 9px; gap: 6px; min-width: 0; }
 .onboarding-case-grid input,
 .onboarding-case-grid select,
 .onboarding-ai-fields select {
@@ -4224,19 +4225,30 @@ body {
     padding-bottom: 0;
     padding-top: 0;
   }
-  .tools-screen.is-chat { gap: 0; height: calc(100dvh - var(--ds-topbar-height)); min-height: 0; overflow: hidden; }
+  /* 聊天态禁用容器位移动画，避免 fixed 输入区首帧改为相对容器定位。 */
+  .tools-screen.is-chat {
+    animation: none;
+    gap: 0;
+    height: calc(100dvh - var(--ds-topbar-height));
+    min-height: 0;
+    overflow: hidden;
+    transform: none;
+  }
   .tools-screen.is-chat .chat-conversation {
     gap: 14px;
-    padding: 14px 1px 8px;
-    scroll-padding-bottom: 8px;
+    padding: 14px 1px 176px;
+    scroll-padding-bottom: 176px;
   }
-  .tools-screen.is-chat .chat-composer-docked {
-    bottom: auto;
-    left: auto;
+  /* 不依赖 is-chat 在同一轮 DOM 更新中生效，输入区从插入首帧起就固定在底部。 */
+  .tools-screen .chat-composer-docked {
+    bottom: max(36px, calc(env(safe-area-inset-bottom) + 28px));
+    left: 12px;
     margin: 0;
-    position: static;
-    right: auto;
-    width: 100%;
+    max-width: none;
+    position: fixed;
+    right: 12px;
+    width: auto;
+    z-index: 15;
   }
   .tools-screen.is-chat .home-ai-disclaimer {
     bottom: auto;
@@ -4272,6 +4284,44 @@ body {
   .chat-message .ai-reading-action-host { font-size: 13px; line-height: 1.82; padding: 12px 13px; }
   .chat-markdown p { padding: 0; }
   .tools-screen.is-chat .composer-textarea { max-height: 132px; }
+}
+
+/* 平板与窄窗口不再保留占据内容宽度的桌面侧栏。 */
+@media (min-width: 721px) and (max-width: 1180px) {
+  .app-shell { display: block; }
+  .app-main { width: 100%; }
+  .sidebar {
+    background: rgba(247, 244, 252, .98);
+    box-shadow: none;
+    display: flex;
+    flex: 0 0 auto;
+    left: 0;
+    overflow-y: auto;
+    padding: 21px 15px 22px;
+    position: fixed;
+    top: 0;
+    transform: translateX(-105%);
+    transition: transform .24s ease, box-shadow .24s ease;
+    width: min(260px, 84vw);
+    z-index: 20;
+  }
+  .sidebar.mobile-sidebar-open { box-shadow: 18px 0 44px rgba(46, 34, 71, .18); transform: translateX(0); z-index: 32; }
+  .sidebar-header { align-items: center; }
+  .sidebar .brand { justify-content: flex-start; }
+  .sidebar .brand > span:not(.brand-mark), .sidebar .main-nav button span, .sidebar .main-nav .nav-arrow { display: inline; }
+  .sidebar .main-nav { margin-top: 51px; }
+  .sidebar .main-nav button { justify-content: flex-start; padding: 12px; }
+  .mobile-sidebar-close, .mobile-nav-toggle { display: inline-flex; }
+  .mobile-nav-toggle { grid-column: 1; grid-row: 1; justify-self: start; }
+  .mobile-nav-scrim { background: rgba(32, 25, 43, .28); border: 0; display: block; inset: 0; position: fixed; z-index: 31; }
+}
+
+@media (max-width: 1180px) {
+  .bazi-overview-head {
+    align-items: start;
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  }
+  .bazi-overview-keyfacts { grid-column: 1 / -1; justify-content: flex-start; justify-self: stretch; }
 }
 
 /* 八字排盘：原局四柱与当前四级岁运合为一张传统盘，完整岁运浏览置于底部。 */
@@ -4727,6 +4777,7 @@ body {
   min-width: 0;
 }
 .almanac-month-filter > span { color: var(--muted); flex: none; font-size: var(--type-caption); }
+.almanac-month-filter > .ui-select { flex: 0 1 148px; width: 148px; }
 .almanac-month-filter > select {
   appearance: auto;
   background: var(--surface-raised);
@@ -4819,6 +4870,7 @@ body {
 
 @media (max-width: 720px) {
   .almanac-month-filter { flex: 1 1 100%; }
+  .almanac-month-filter > .ui-select { flex: 1 1 auto; min-width: 0; width: auto; }
   .almanac-month-filter > select { flex: 1 1 auto; min-width: 0; width: auto; }
 }
 

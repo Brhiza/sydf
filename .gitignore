@@ -10,6 +10,7 @@ dev-dist/
 .wrangler/
 output/
 coverage/
+/temp-assets/
 
 # Local environment files (keep documented examples)
 .env

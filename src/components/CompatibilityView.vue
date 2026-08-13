@@ -39,7 +39,7 @@ import vAutoResize from '../directives/autoResizeTextarea';
 import AiPromptFallback from './AiPromptFallback.vue';
 import AiReadingActions from './AiReadingActions.vue';
 import ChatMarkdown from './ChatMarkdown.vue';
-import { UiActionBar, UiButton, UiEmptyState, UiNotice, UiPageShell, UiSegmentedControl, UiWorkspaceSurface } from './ui';
+import { UiActionBar, UiButton, UiEmptyState, UiNotice, UiPageShell, UiSegmentedControl, UiSelect, UiWorkspaceSurface } from './ui';
 
 interface CompatibilityCase {
   id: string;
@@ -628,9 +628,9 @@ function genderLabel(profile: CompatibilityCase) {
         <div class="compatibility-pair-grid">
           <article class="compatibility-person-picker">
             <div class="compatibility-person-heading"><label for="compatibility-primary">第一位</label></div>
-            <select id="compatibility-primary" v-model="primaryCaseId">
+            <UiSelect id="compatibility-primary" v-model="primaryCaseId">
               <option v-for="profile in cases" :key="profile.id" :value="profile.id" :disabled="profile.id === partnerCaseId">{{ profile.label }}</option>
-            </select>
+            </UiSelect>
             <div v-if="primaryCase" class="compatibility-case-summary">
               <div class="compatibility-case-identity"><span>{{ primaryCase.label.slice(0, 1) }}</span><small>{{ genderLabel(primaryCase) }}</small></div>
               <ul class="compatibility-case-meta">
@@ -645,9 +645,9 @@ function genderLabel(profile: CompatibilityCase) {
 
           <article class="compatibility-person-picker">
             <div class="compatibility-person-heading"><label for="compatibility-partner">第二位</label></div>
-            <select id="compatibility-partner" v-model="partnerCaseId">
+            <UiSelect id="compatibility-partner" v-model="partnerCaseId">
               <option v-for="profile in cases" :key="profile.id" :value="profile.id" :disabled="profile.id === primaryCaseId">{{ profile.label }}</option>
-            </select>
+            </UiSelect>
             <div v-if="partnerCase" class="compatibility-case-summary">
               <div class="compatibility-case-identity"><span>{{ partnerCase.label.slice(0, 1) }}</span><small>{{ genderLabel(partnerCase) }}</small></div>
               <ul class="compatibility-case-meta">
@@ -758,8 +758,7 @@ function genderLabel(profile: CompatibilityCase) {
 .compatibility-person-picker { background: var(--ds-surface-raised); min-width: 0; padding: var(--ds-space-5); }
 .compatibility-person-heading { align-items: center; display: flex; gap: var(--ds-space-2); margin-bottom: var(--ds-space-3); }
 .compatibility-person-heading > label, .compatibility-type-section legend { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 600; }
-.compatibility-person-picker > select { appearance: auto; background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font-size: var(--ds-text-md); font-weight: 600; min-height: var(--ds-control-lg); padding: 10px 13px; width: 100%; }
-.compatibility-person-picker > select:focus { background: var(--ds-surface-raised); border-color: var(--ds-accent); outline: none; }
+.compatibility-person-picker > .ui-select { width: 100%; }
 .compatibility-case-summary { align-items: stretch; display: grid; gap: var(--ds-space-3); grid-template-columns: 42px minmax(0, 1fr); margin-top: var(--ds-space-4); min-width: 0; }
 .compatibility-case-identity { align-items: center; align-self: start; display: grid; gap: 4px; justify-items: center; }
 .compatibility-case-identity > span { align-items: center; background: var(--ds-accent-soft); border: 1px solid color-mix(in srgb, var(--ds-accent) 20%, transparent); border-radius: var(--ds-radius-sm); color: var(--ds-accent-strong); display: inline-flex; font-family: 'Noto Serif SC', serif; font-size: var(--ds-text-lg); height: 38px; justify-content: center; width: 38px; }
@@ -814,7 +813,6 @@ function genderLabel(profile: CompatibilityCase) {
   .compatibility-selection-header { margin-bottom: var(--ds-space-4); }
   .compatibility-pair-grid { grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); }
   .compatibility-person-picker { padding: var(--ds-space-4); }
-  .compatibility-person-picker > select { font-size: var(--ds-text-sm); padding-left: var(--ds-space-2); padding-right: var(--ds-space-2); }
   .compatibility-case-summary { gap: 8px; grid-template-columns: 36px minmax(0, 1fr); }
   .compatibility-case-identity > span { font-size: var(--ds-text-md); height: 34px; width: 34px; }
   .compatibility-swap { height: 34px; width: 34px; }
@@ -830,7 +828,6 @@ function genderLabel(profile: CompatibilityCase) {
   .compatibility-person-picker { padding: 11px 10px 12px; }
   .compatibility-person-heading { gap: 6px; margin-bottom: 8px; }
   .compatibility-person-heading > label { font-size: var(--ds-text-xs); }
-  .compatibility-person-picker > select { min-height: 38px; }
   .compatibility-case-summary { display: block; margin-top: 10px; }
   .compatibility-case-identity { display: none; }
   .compatibility-case-meta { gap: 5px; }

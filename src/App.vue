@@ -116,6 +116,7 @@ import {
   type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
+import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
   createChatDocument,
   createChatShareImage,
@@ -144,6 +145,7 @@ import {
   UiPageShell,
   UiSectionHeading,
   UiSegmentedControl,
+  UiSelect,
   UiToolPage,
   UiTextField,
   UiWorkspaceSurface,
@@ -192,9 +194,12 @@ const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyH
 const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChart.vue'));
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
+const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
+const TarotSpreadBoard = defineAsyncComponent(() => import('./components/TarotSpreadBoard.vue'));
+const WesternCardBoard = defineAsyncComponent(() => import('./components/WesternCardBoard.vue'));
 const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
 
-type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'charts' | 'compatibility' | 'cases' | 'settings';
+type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'tarot' | 'charts' | 'compatibility' | 'cases' | 'settings';
 type SettingsSection = 'preferences' | 'ai';
 type CasesSection = 'input' | 'records';
 type ChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng';
@@ -289,7 +294,14 @@ interface ChatReadingMessage {
   };
 }
 
-type ChatMessage = ChatTextMessage | ChatReadingMessage;
+interface ChatTarotMessage {
+  kind: 'tarot';
+  role: 'assistant';
+  content: '';
+  reading: WesternReadingResult;
+}
+
+type ChatMessage = ChatTextMessage | ChatReadingMessage | ChatTarotMessage;
 
 interface ReadingDetailRow {
   label: string;
@@ -1083,6 +1095,8 @@ const showMobileNav = ref(false);
 const expandedInspirationGroups = ref<string[]>(['matter-life']);
 const selectedReadingMessage = ref<ChatReadingMessage | null>(null);
 const showReadingModal = ref(false);
+const selectedTarotMessage = ref<ChatTarotMessage | null>(null);
+const showTarotModal = ref(false);
 type ManualDivinationKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 'liuren' | 'taiyi';
 const pendingManualKind = ref<ManualDivinationKind | null>(null);
 const pendingCastingQuestion = ref('');
@@ -1272,6 +1286,7 @@ const primaryNavItems = [
   { key: 'fortune' as const, label: '今日运势', icon: Sun },
   { key: 'almanac' as const, label: '传统黄历', icon: CalendarDays },
   { key: 'fengshui' as const, label: '居家风水', icon: House },
+  { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
 ];
 const secondaryNavItems = [
   { key: 'cases' as const, label: '案例', icon: BookOpen },
@@ -1952,7 +1967,10 @@ const onboardingCalendar = computed(() => {
   }
 });
 const homeChartMeta = computed(() => homeChartOptions.find((item) => item.kind === homeChartKind.value) || homeChartOptions[0]!);
-const homeModeLabel = computed(() => homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label);
+const homeModeLabel = computed(() => {
+  if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '西方占卜';
+  return homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label;
+});
 const manualDivinationKinds: ManualDivinationKind[] = ['meihua', 'liuyao', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi'];
 const isManualDivinationKind = (kind: DivinationKind): kind is ManualDivinationKind => manualDivinationKinds.includes(kind as ManualDivinationKind);
 
@@ -2132,6 +2150,13 @@ function chatMessageExportItem(message: ChatMessage): ChatExportItem {
       role: 'reading',
       label: kindMeta[message.method].label,
       content: `${readingDisplayTitle(message)}\n${readingDisplaySubtitle(message)}`,
+    };
+  }
+  if (message.kind === 'tarot') {
+    return {
+      role: 'reading',
+      label: westernReadingDeckName(message.reading),
+      content: `${message.reading.spreadName}\n${message.reading.cards.map((card) => `${card.position}：${card.name}${card.reversed ? '（逆位）' : ''}`).join('\n')}`,
     };
   }
   return {
@@ -2720,6 +2745,7 @@ function resetAlmanacPageState() {
 function closeNavigationOverlays() {
   closeInspirationModal();
   closeReadingModal();
+  closeTarotModal();
   closeFortuneDatePicker();
   if (!showOnboarding.value) closeBirthPicker();
 }
@@ -2997,6 +3023,11 @@ function openReadingModal(message: ChatReadingMessage) {
   showReadingModal.value = true;
 }
 
+function openTarotModal(message: ChatTarotMessage) {
+  selectedTarotMessage.value = message;
+  showTarotModal.value = true;
+}
+
 function wuyunReading(message: ChatReadingMessage) {
   return message.method === 'wuyun-liuqi' ? message.reading as WuyunLiuqiResult : null;
 }
@@ -3035,6 +3066,11 @@ function closeReadingModal() {
   selectedReadingMessage.value = null;
 }
 
+function closeTarotModal() {
+  showTarotModal.value = false;
+  selectedTarotMessage.value = null;
+}
+
 async function submitHomePrompt() {
   await beginReading();
 }
@@ -3060,6 +3096,7 @@ function leaveChat() {
   showToolPicker.value = false;
   closeManualReading();
   closeReadingModal();
+  closeTarotModal();
 }
 
 function chooseHomeChart(kind: HomeChartKind) {
@@ -3942,6 +3979,29 @@ async function completeOracleReading(payload: { result: SsgwData; question: stri
   }
 }
 
+function westernReadingDeckName(reading: WesternReadingResult) {
+  return reading.deckType === 'lenormand' ? '雷诺曼' : reading.deckType === 'shiyue-oracle' ? '时月神谕' : '塔罗牌';
+}
+
+function isTarotReading(reading: WesternReadingResult): reading is TarotReadingResult {
+  return !reading.deckType || reading.deckType === 'tarot';
+}
+
+function startTarotInterpretation(payload: WesternInterpretationPayload) {
+  goView('tools');
+  const sessionId = chatSessionId;
+  homeMode.value = 'divination';
+  homeState.value = 'chat';
+  question.value = '';
+  formError.value = '';
+  aiError.value = '';
+  chatMessages.value = [
+    { kind: 'text', role: 'user', content: payload.question },
+    { kind: 'tarot', role: 'assistant', content: '', reading: payload.reading },
+  ];
+  void requestInterpretation(payload.request, true, sessionId, null);
+}
+
 async function beginReading() {
   if (isReading.value || isInterpreting.value || chartLoading.value) return;
   formError.value = '';
@@ -3952,7 +4012,7 @@ async function beginReading() {
     return;
   }
   const sessionId = chatSessionId;
-  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading');
+  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading' || message.kind === 'tarot');
   isReading.value = true;
   try {
     const selection = await resolveAgentSelection(requestedQuestion);
@@ -4924,9 +4984,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <section class="topbar-model-section">
               <div class="topbar-ai-menu-heading"><strong>AI 模型</strong><small>{{ activeAiChannel.name }}</small></div>
               <div class="topbar-model-controls">
-                <select v-if="configuredAiChannels.length > 1" :value="appPreferences.activeAiChannelId" aria-label="选择 AI 渠道" @change="handleTopbarAiChannelChange"><option v-for="channel in configuredAiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></select>
+                <UiSelect v-if="configuredAiChannels.length > 1" :model-value="appPreferences.activeAiChannelId" aria-label="选择 AI 渠道" @change="handleTopbarAiChannelChange"><option v-for="channel in configuredAiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></UiSelect>
                 <span v-else class="topbar-environment-model">{{ activeAiChannel.name }}</span>
-                <select v-if="activeAiChannel.provider !== 'builtin'" v-model="selectedAiModel" aria-label="选择 AI 模型"><option v-for="model in activeAiModelOptions" :key="model" :value="model">{{ model }}</option></select>
+                <UiSelect v-if="activeAiChannel.provider !== 'builtin'" v-model="selectedAiModel" aria-label="选择 AI 模型"><option v-for="model in activeAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect>
               </div>
             </section>
             <UiButton class="topbar-ai-settings" variant="secondary" size="small" block @click="openSettingsSection('ai')"><Sparkles :size="13" />管理 AI 配置</UiButton>
@@ -4962,15 +5022,6 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <template v-if="homeState === 'default'">
             <section class="home-default">
               <div class="default-hero"><img class="default-mark" src="/logo.webp" alt="时月东方" /><h1><span>探索未来</span><span class="hero-multicolor">解读术数</span></h1><a class="merit-box-button" href="https://lk.sydf.cc/" target="_blank" rel="noopener noreferrer"><Heart :size="14" />功德箱</a></div>
-              <div class="chat-composer chat-composer-docked home-default-composer">
-                <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
-                <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
-                <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
-                <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :placeholder="appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="submitHomePrompt"></textarea>
-                <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
-                <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic'" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>选择工具</strong><button type="button" aria-label="关闭工具面板" @click="showToolPicker = false"><X :size="15" /></button></div><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>选择后开始</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="submitHomePrompt"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
-                <p v-if="formError" class="form-error">{{ formError }}</p>
-              </div>
             </section>
           </template>
 
@@ -5003,6 +5054,20 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                     <button type="button" class="reading-bubble" @click="openReadingModal(message)"><span class="reading-bubble-icon">{{ kindMeta[message.method].icon }}</span><span class="reading-bubble-copy"><strong>{{ kindMeta[message.method].label }}</strong><small>{{ readingDisplayTitle(message) }} · 点击查看详情</small></span><ChevronRight :size="14" /></button>
                   </AiReadingActions>
                 </div>
+                <div v-else-if="message.kind === 'tarot'" class="chat-reading-message is-user">
+                  <AiReadingActions
+                    class="reading-action-host"
+                    :content="chatMessageExportItem(message).content"
+                    :show-inline="false"
+                    selection-enabled
+                    :selection-mode="chatSelectionMode"
+                    deletable
+                    @request-select="startChatSelection(index)"
+                    @request-delete="deleteChatMessage(index)"
+                  >
+                    <button type="button" class="reading-bubble tarot-reading-bubble" @click="openTarotModal(message)"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>{{ westernReadingDeckName(message.reading) }}</strong><small>{{ message.reading.spreadName }} · 点击查看牌阵</small></span><ChevronRight :size="14" /></button>
+                  </AiReadingActions>
+                </div>
                 <div v-else class="chat-message" :class="`is-${message.role}`">
                   <AiReadingActions
                     :content="message.content"
@@ -5028,16 +5093,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <div class="chat-selection-actions"><button type="button" @click="toggleSelectAllChatMessages"><Check :size="16" /><span>{{ selectedChatMessageIndexes.length === chatMessages.length ? '取消全选' : '全选' }}</span></button><button type="button" :disabled="!selectedChatMessageIndexes.length" @click="shareSelectedChatImage"><ImageDown :size="17" /><span>分享图片</span></button><button type="button" :disabled="!selectedChatMessageIndexes.length" @click="exportSelectedChatDocument"><FileText :size="17" /><span>导出文档</span></button><button type="button" class="is-danger" :disabled="!selectedChatMessageIndexes.length" @click="deleteSelectedChatMessages"><Trash2 :size="17" /><span>删除</span></button></div>
             </div>
 
-            <div v-else class="chat-composer chat-composer-docked">
-              <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
-              <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
-              <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
-              <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" aria-label="继续对话" placeholder="继续追问这次结果" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
-              <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
-               <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic'" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>选择工具</strong><button type="button" aria-label="关闭工具面板" @click="showToolPicker = false"><X :size="15" /></button></div><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>选定后配置</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
-              <p v-if="formError" class="form-error">{{ formError }}</p>
-            </div>
           </template>
+
+          <div v-if="!chatSelectionMode" class="chat-composer chat-composer-docked" :class="{ 'home-default-composer': homeState === 'default' }">
+            <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
+            <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
+            <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
+            <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
+            <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
+            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic'" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>选择工具</strong><button type="button" aria-label="关闭工具面板" @click="showToolPicker = false"><X :size="15" /></button></div><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '选择后开始' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
+            <p v-if="formError" class="form-error">{{ formError }}</p>
+          </div>
           <p class="home-ai-disclaimer" :class="{ 'is-chat': homeState === 'chat' }">生成内容完全基于 AI 模型的胡言乱语，不构成任何形式建议</p>
         </UiPageShell>
 
@@ -5091,12 +5157,12 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div v-if="almanacResult && almanacMode === 'personal'" class="almanac-calendar-legend">
               <label class="almanac-month-filter">
                 <span>当月</span>
-                <select v-model="almanacMonthFilter" aria-label="筛选当月择日事项">
+                <UiSelect v-model="almanacMonthFilter" aria-label="筛选当月择日事项">
                   <option value="all">择日</option>
                   <optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label">
                     <option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option>
                   </optgroup>
-                </select>
+                </UiSelect>
               </label>
               <template v-if="hasAlmanacMonthFilter">
                 <span class="is-excellent"><i></i>大吉 {{ almanacLevelCounts.大吉 }}</span>
@@ -5197,6 +5263,14 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           :interpreting="isInterpreting"
           @complete="completeOracleReading"
           @retry-interpretation="retryLastInterpretation"
+        />
+
+        <WesternDivinationView
+          v-else-if="activeView === 'tarot'"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :ai-config="activeAiRequestConfig"
+          :casting-preference="appPreferences.castingPreference"
+          @interpret="startTarotInterpretation"
         />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
@@ -5330,10 +5404,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <div class="settings-provider-line"><span class="settings-field-label">渠道类型</span><strong>{{ configuringAiChannel.provider === 'builtin' ? '内置 AI' : configuringAiChannel.preset ? '常用渠道' : '自定义接口' }}</strong><small v-if="configuringAiChannel.provider === 'builtin'">可直接使用，无需填写密钥。</small><small v-else-if="configuringAiChannel.preset">填写 Key 后获取并选择模型。</small><small v-else>填写服务地址、协议与密钥后获取模型。</small></div>
                 <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-channel-fields">
                   <UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiChannel.baseUrl" class="settings-field-wide" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @input="invalidateAiModels(configuringAiChannel)" />
-                  <label class="settings-field"><span>接口协议</span><select v-model="configuringAiChannel.apiType" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+                  <UiSelect v-model="configuringAiChannel.apiType" class="settings-field" label="接口协议" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
                   <UiTextField v-model="configuringAiChannel.apiKey" label="API Key" type="password" autocomplete="off" placeholder="仅保存在当前会话" @input="resetAiTest" />
                 </div>
-                <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-model-section"><div class="settings-model-heading"><span class="settings-field-label">模型</span><UiButton class="settings-fetch-models" variant="secondary" size="small" :loading="isLoadingAiModels" :disabled="!configuringAiChannel.baseUrl.trim() || !configuringAiChannel.apiKey.trim()" @click="loadAiModels(configuringAiChannel)"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton></div><select v-if="configuringAiModelOptions.length" v-model="selectedConfiguringAiModel" class="settings-model-select" aria-label="当前模型"><option v-for="model in configuringAiModelOptions" :key="model" :value="model">{{ model }}</option></select><span v-else class="settings-model-empty">请先获取模型</span><UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiModelsText" label="手动填写模型" multiline :rows="3" placeholder="无法获取列表时，可每行填写一个模型名称" /><small v-if="aiModelMessage" class="settings-note" :class="{ success: aiModelState === 'success', error: aiModelState === 'error' }">{{ aiModelMessage }}</small></div>
+                <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-model-section"><div class="settings-model-heading"><span class="settings-field-label">模型</span><UiButton class="settings-fetch-models" variant="secondary" size="small" :loading="isLoadingAiModels" :disabled="!configuringAiChannel.baseUrl.trim() || !configuringAiChannel.apiKey.trim()" @click="loadAiModels(configuringAiChannel)"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton></div><UiSelect v-if="configuringAiModelOptions.length" v-model="selectedConfiguringAiModel" class="settings-model-select" aria-label="当前模型"><option v-for="model in configuringAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="settings-model-empty">请先获取模型</span><UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiModelsText" label="手动填写模型" multiline :rows="3" placeholder="无法获取列表时，可每行填写一个模型名称" /><small v-if="aiModelMessage" class="settings-note" :class="{ success: aiModelState === 'success', error: aiModelState === 'error' }">{{ aiModelMessage }}</small></div>
                 <div class="settings-test-row"><UiButton v-if="activeAiChannel.id !== configuringAiChannel.id" :disabled="!isAiChannelReady(configuringAiChannel)" @click="setActiveAiChannel(configuringAiChannel.id)"><Check :size="14" />设为当前</UiButton><UiButton variant="secondary" :loading="isTestingAi" :disabled="!isAiChannelReady(configuringAiChannel)" @click="testAiConnection"><Check v-if="!isTestingAi && aiTestState === 'success'" :size="14" /><Sparkles v-else-if="!isTestingAi" :size="14" />{{ isTestingAi ? '连接中…' : '测试连接' }}</UiButton><UiButton v-if="configuringAiChannel.provider !== 'builtin' && !configuringAiChannel.preset" class="settings-delete-channel" variant="danger" @click="removeAiChannel"><Trash2 :size="14" />删除渠道</UiButton><span v-if="aiTestMessage" :class="{ success: aiTestState === 'success', error: aiTestState === 'error' }">{{ aiTestMessage }}</span></div>
               </section>
 
@@ -5566,7 +5640,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         @complete="finishManualReading"
       />
 
-      <UiDialogShell v-if="showReadingModal && selectedReadingMessage" aria-label="查看排盘详情" size="wide" :panel-class="{ 'reading-modal': true, 'traditional-reading-modal': ['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi'].includes(selectedReadingMessage.method) }" @close="closeReadingModal">
+      <UiDialogShell v-if="showReadingModal && selectedReadingMessage" aria-label="查看排盘详情" size="wide" :panel-class="{ 'reading-modal': true, 'traditional-reading-modal': ['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi'].includes(selectedReadingMessage.method), 'liuyao-reading-modal': selectedReadingMessage.method === 'liuyao' }" @close="closeReadingModal">
           <UiDialogHeader
             :title="readingDisplayTitle(selectedReadingMessage)"
             :eyebrow="kindMeta[selectedReadingMessage.method].label"
@@ -5583,6 +5657,18 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div class="reading-modal-summary"><Sparkles :size="15" /><span>{{ formatReadingSummary(selectedReadingMessage.method, selectedReadingMessage.reading) }}</span></div>
             <div class="reading-detail-grid"><div v-for="row in readingModalRows" :key="row.label" class="reading-detail-row"><span>{{ row.label }}</span><strong>{{ row.value }}</strong></div></div>
           </template>
+      </UiDialogShell>
+
+      <UiDialogShell v-if="showTarotModal && selectedTarotMessage" :aria-label="`查看${westernReadingDeckName(selectedTarotMessage.reading)}牌阵`" size="wide" :panel-class="{ 'reading-modal': true, 'tarot-reading-modal': true }" @close="closeTarotModal">
+          <UiDialogHeader
+            :title="selectedTarotMessage.reading.spreadName"
+            :eyebrow="westernReadingDeckName(selectedTarotMessage.reading)"
+            :description="`${selectedTarotMessage.reading.cards.length} 张牌`"
+            close-label="关闭牌阵"
+            @close="closeTarotModal"
+          />
+          <TarotSpreadBoard v-if="isTarotReading(selectedTarotMessage.reading)" :reading="selectedTarotMessage.reading" />
+          <WesternCardBoard v-else :reading="selectedTarotMessage.reading" compact />
       </UiDialogShell>
 
       <UiDialogShell v-if="showInspirationModal" aria-label="问题灵感" panel-class="inspiration-modal" @close="closeInspirationModal">
@@ -5622,8 +5708,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <template #action><UiButton variant="secondary" size="small" @click="chooseAlmanacMode('personal')">切换个人历</UiButton></template>
           </UiNotice>
           <div class="almanac-query-form">
-            <label>事项<select v-model="settings.almanacTopic" @change="updateAlmanacTopic"><option value="" disabled>请选择事项</option><optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label"><option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option></optgroup></select></label>
-            <label>范围<select v-model="almanacRangeMonths" @change="updateAlmanacRange"><option v-for="item in almanacRangeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+            <UiSelect v-model="settings.almanacTopic" label="事项" placeholder="请选择事项" @change="updateAlmanacTopic"><optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label"><option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option></optgroup></UiSelect>
+            <UiSelect v-model="almanacRangeMonths" label="范围" @change="updateAlmanacRange"><option v-for="item in almanacRangeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
           </div>
           <div class="almanac-search-modal-body">
             <p v-if="!settings.almanacTopic" class="almanac-search-message">请选择要安排的事项</p>
@@ -5739,11 +5825,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <template v-else-if="onboardingStep === 4">
               <div class="onboarding-copy"><h3>选择 AI</h3><p>选择负责生成解答的渠道和模型。</p></div>
               <div class="onboarding-ai-fields">
-                <label><span>AI 渠道</span><select v-model="onboardingAiChannelId" @change="onboardingError = ''"><option v-for="channel in appPreferences.aiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></select></label>
-                <label v-if="onboardingAiChannel.provider !== 'builtin'"><span>接口协议</span><select v-model="onboardingAiChannel.apiType" @change="onboardingError = ''"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+                <UiSelect v-model="onboardingAiChannelId" label="AI 渠道" @change="onboardingError = ''"><option v-for="channel in appPreferences.aiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></UiSelect>
+                <UiSelect v-if="onboardingAiChannel.provider !== 'builtin'" v-model="onboardingAiChannel.apiType" label="接口协议" @change="onboardingError = ''"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
                 <UiTextField v-if="onboardingAiChannel.provider !== 'builtin' && !onboardingAiChannel.preset" v-model="onboardingAiChannel.baseUrl" class="onboarding-ai-key" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @update:model-value="invalidateAiModels(onboardingAiChannel)" />
                 <UiTextField v-if="onboardingAiChannel.provider !== 'builtin'" v-model="onboardingAiChannel.apiKey" class="onboarding-ai-key" label="API Key" type="password" autocomplete="off" placeholder="填写对应渠道的 Key" @update:model-value="onboardingError = ''" />
-                <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><label><span>模型</span><select v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></select><span v-else class="onboarding-model-empty">请先获取模型</span></label></div>
+                <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><UiSelect v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel" label="模型"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="onboarding-model-empty">请先获取模型</span></div>
               </div>
               <div class="onboarding-ai-current"><span><strong>{{ onboardingAiChannel.name }}</strong><small>{{ onboardingAiChannel.provider === 'builtin' ? '内置 AI' : onboardingAiChannel.model || '尚未选择模型' }}</small></span><Check v-if="isOnboardingAiReady" :size="17" /></div>
               <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '第三方渠道完成接口、密钥和模型配置后才能继续。' }}</p>
@@ -5770,9 +5856,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </div>
           <div class="search-box"><Search :size="15" /><input v-model="historySearch" type="search" placeholder="搜索问题、工具或案例" /></div>
           <div class="history-filters">
-            <label><span>类型</span><select v-model="historyCategory" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option></select></label>
-            <label><span>工具</span><select v-model="historyMethod" aria-label="按工具筛选"><option value="all">全部工具</option><option v-for="method in historyMethodOptions" :key="method" :value="method">{{ method }}</option></select></label>
-            <label><span>解读</span><select v-model="historyInterpretation" aria-label="按 AI 解读状态筛选"><option value="all">全部状态</option><option value="interpreted">已解读</option><option value="pending">未解读</option></select></label>
+            <UiSelect v-model="historyCategory" label="类型" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option></UiSelect>
+            <UiSelect v-model="historyMethod" label="工具" aria-label="按工具筛选"><option value="all">全部工具</option><option v-for="method in historyMethodOptions" :key="method" :value="method">{{ method }}</option></UiSelect>
+            <UiSelect v-model="historyInterpretation" label="解读" aria-label="按 AI 解读状态筛选"><option value="all">全部状态</option><option value="interpreted">已解读</option><option value="pending">未解读</option></UiSelect>
           </div>
           <div class="history-filter-summary">
             <span>{{ filteredHistory.length }} 条<span v-if="hasActiveHistoryFilters"> / 共 {{ history.length }} 条</span></span>
