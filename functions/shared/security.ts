@@ -9,7 +9,6 @@ export interface ApiSecurityEnv {
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const fallbackRateBuckets = new Map<string, { count: number; expiresAt: number }>();
-const resolvedHostCache = new Map<string, { addresses: string[]; expiresAt: number }>();
 
 export class RequestBodyTooLargeError extends Error {
   constructor() {
@@ -150,36 +149,6 @@ export function validateExternalUrl(rawUrl: string, requestUrl: string): URL {
   return target;
 }
 
-async function resolvePublicHostname(target: URL, localDevelopment: boolean) {
-  if (target.hostname.includes(':') || /^\d+(?:\.\d+){3}$/.test(target.hostname)) return;
-  const cached = resolvedHostCache.get(target.hostname);
-  const now = Date.now();
-  let addresses = cached && cached.expiresAt > now ? cached.addresses : null;
-  if (!addresses) {
-    const responses = await Promise.all(['A', 'AAAA'].map((type) => fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(target.hostname)}&type=${type}`, {
-      headers: { Accept: 'application/dns-json' },
-      redirect: 'error',
-      signal: AbortSignal.timeout(5_000),
-    })));
-    if (responses.some((response) => !response.ok)) throw new Error('hostname resolution failed');
-    const payloads = await Promise.all(responses.map((response) => response.json() as Promise<{ Answer?: Array<{ type?: number; data?: string }> }>));
-    addresses = payloads.flatMap((payload) => (payload.Answer || []))
-      .filter((item) => (item.type === 1 || item.type === 28) && typeof item.data === 'string')
-      .map((item) => item.data!);
-    if (!addresses.length) throw new Error('hostname resolution failed');
-    resolvedHostCache.set(target.hostname, { addresses, expiresAt: now + 60_000 });
-  }
-  if (addresses.some((address) => isPrivateHostname(address)) && !(localDevelopment && isLoopbackHostname(target.hostname))) {
-    throw new Error('private destination');
-  }
-}
-
-export async function validateExternalUrlForRequest(rawUrl: string, requestUrl: string) {
-  const target = validateExternalUrl(rawUrl, requestUrl);
-  await resolvePublicHostname(target, ['localhost', '127.0.0.1', '[::1]'].includes(new URL(requestUrl).hostname));
-  return target;
-}
-
 export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const callerSignal = init.signal;
@@ -188,7 +157,9 @@ export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs
   else callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
   const timeout = setTimeout(() => controller.abort(new DOMException('upstream timeout', 'TimeoutError')), timeoutMs);
   try {
-    return await fetch(url, { ...init, redirect: 'error', signal: controller.signal });
+    const response = await fetch(url, { ...init, redirect: 'manual', signal: controller.signal });
+    if (response.status >= 300 && response.status < 400) throw new Error('upstream redirect not allowed');
+    return response;
   } finally {
     clearTimeout(timeout);
     callerSignal?.removeEventListener('abort', abortFromCaller);

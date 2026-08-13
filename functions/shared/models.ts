@@ -1,4 +1,4 @@
-import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrlForRequest, type ApiSecurityEnv } from './security';
+import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl, type ApiSecurityEnv } from './security';
 
 type AiApiType = 'chat' | 'responses' | 'anthropic';
 
@@ -86,7 +86,7 @@ export async function handleModelsPost(context: { request: Request; env: AiEnv }
 
   let url: URL;
   try {
-    url = await validateExternalUrlForRequest(modelsUrl, context.request.url);
+    url = validateExternalUrl(modelsUrl, context.request.url);
   } catch {
     return jsonResponse({ error: '接口地址无效。正式环境仅支持公网 HTTPS 地址。' }, 400);
   }

@@ -82,12 +82,7 @@ describe('内置 AI 服务', () => {
   });
 
   it('用户选择的第三方渠道失败时不会调用内置渠道', async () => {
-    const fetchMock = vi.fn((url: string) => {
-      if (url.startsWith('https://cloudflare-dns.com/')) {
-        return Promise.resolve(new Response(JSON.stringify({ Answer: [{ type: 1, data: '93.184.216.34' }] }), { status: 200 }));
-      }
-      return Promise.reject(new Error('connection failed'));
-    });
+    const fetchMock = vi.fn().mockRejectedValue(new Error('connection failed'));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
@@ -105,6 +100,28 @@ describe('内置 AI 服务', () => {
 
     expect(response.status).toBe(502);
     expect(result.error).toBe('AI 服务返回了错误，请检查模型、接口地址和密钥配置。');
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('正常公网 HTTPS 自定义渠道不会被额外 DNS 请求误拦', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulUpstream());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({
+      request: createRequest({
+        enabled: true,
+        provider: 'openai-compatible',
+        apiType: 'chat',
+        baseUrl: 'https://api.deepseek.com/v1',
+        model: 'deepseek-chat',
+        apiKey: 'custom-key',
+      }),
+      env: {},
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ content: '测试成功', provider: 'custom' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.deepseek.com/v1/chat/completions');
   });
 });

@@ -5,7 +5,7 @@ import {
   type AiPromptConversationMessage,
   type AiPromptPayload,
 } from '../../src/lib/aiPrompt';
-import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrlForRequest, type ApiSecurityEnv } from './security';
+import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl, type ApiSecurityEnv } from './security';
 
 interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -67,7 +67,7 @@ function resolveAiUrl(baseUrl: string, apiType: AiApiType) {
   return `${normalized}/${path}`;
 }
 
-export async function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig }, requestUrl = 'https://shiyue.local'): Promise<AiProviderConfig | { error: string } | null> {
+export function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig }, requestUrl = 'https://shiyue.local'): AiProviderConfig | { error: string } | null {
   const aiConfig = payload.aiConfig;
   const explicitlyCustom = aiConfig?.provider === 'openai-compatible' || (aiConfig?.provider === undefined && aiConfig?.enabled === true);
   if (!explicitlyCustom) return null;
@@ -77,7 +77,7 @@ export async function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig },
   const apiType = normalizeApiType(aiConfig?.apiType);
   if (!baseUrl || !model || !apiKey) return { error: '请完整填写自定义 AI 的接口地址、模型名称和 API Key。' };
   try {
-    const url = await validateExternalUrlForRequest(resolveAiUrl(baseUrl, apiType), requestUrl);
+    const url = validateExternalUrl(resolveAiUrl(baseUrl, apiType), requestUrl);
     return { model, apiKey, apiType, url: url.toString() };
   } catch {
     return { error: '自定义 AI 接口地址无效。正式环境仅支持公网 HTTPS 地址。' };
@@ -193,7 +193,7 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   if (question.length > MAX_QUESTION_LENGTH) return jsonResponse({ error: '问题内容过长，请精简后再试。' }, 400);
 
   const env = context.env;
-  const customConfig = await getCustomAiConfig(payload, context.request.url);
+  const customConfig = getCustomAiConfig(payload, context.request.url);
   if (customConfig && 'error' in customConfig) return jsonResponse({ error: customConfig.error }, 400);
   const provider = customConfig ? 'custom' : 'builtin';
   const systemPrompt = buildAiSystemPrompt(payload, env.AI_SYSTEM_PROMPT);
