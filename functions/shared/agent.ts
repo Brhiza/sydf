@@ -7,6 +7,7 @@ import {
   type AiProviderConfig,
   type AiRequestConfig,
 } from './interpret';
+import { guardApiRequest, readJsonBody, RequestBodyTooLargeError } from './security';
 
 type AgentToolName =
   | 'continue_reading'
@@ -357,17 +358,20 @@ async function requestSelection(config: AiProviderConfig, userPrompt: string) {
 }
 
 export async function handleAgentPost(context: { request: Request; env: AiEnv }) {
+  const blocked = await guardApiRequest(context.request, context.env);
+  if (blocked) return blocked;
   let payload: AgentPayload;
   try {
-    payload = await context.request.json() as AgentPayload;
-  } catch {
+    payload = await readJsonBody<AgentPayload>(context.request);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return jsonResponse({ error: '请求内容过大。' }, 413);
     return jsonResponse({ error: '请求内容不是有效的 JSON。' }, 400);
   }
   const question = payload.question?.trim() || '';
   if (!question) return jsonResponse({ error: '请先写下你想问的事。' }, 400);
   if (question.length > MAX_QUESTION_LENGTH) return jsonResponse({ error: '问题内容过长，请精简后再试。' }, 400);
 
-  const customConfig = getCustomAiConfig(payload);
+  const customConfig = await getCustomAiConfig(payload, context.request.url);
   if (customConfig && 'error' in customConfig) return jsonResponse({ error: customConfig.error }, 400);
   const userPrompt = buildRouterPrompt(payload, question);
   if (customConfig) {

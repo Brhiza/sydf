@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildAiInterpretationRequestBody, requestAiInterpretation, type AiInterpretationRequest } from './ai';
+import { buildAiInterpretationRequestBody, requestAiInterpretation, requestAiModels, type AiInterpretationRequest } from './ai';
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -81,5 +82,36 @@ describe('AI 解读请求', () => {
 
     expect(body.reading).toEqual({ summary: '仅有摘要' });
     expect(JSON.stringify(body)).not.toContain('ignored');
+  });
+
+  it('模型列表等待超时后给出明确错误', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_input, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+    })));
+
+    const pending = requestAiModels({
+      enabled: true,
+      provider: 'openai-compatible',
+      apiType: 'chat',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'test-model',
+      apiKey: 'test-key',
+    });
+    const assertion = expect(pending).rejects.toThrow('获取模型超时，请检查网络或接口地址后重试。');
+    await vi.advanceTimersByTimeAsync(20_000);
+    await assertion;
+  });
+
+  it('AI 解读等待超时后给出明确错误', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_input, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+    })));
+
+    const pending = requestAiInterpretation(request);
+    const assertion = expect(pending).rejects.toThrow('AI 解读等待超时，请稍后重试。');
+    await vi.advanceTimersByTimeAsync(50_000);
+    await assertion;
   });
 });

@@ -87,6 +87,12 @@ AI_API_KEY=replace-with-your-key
 
 `AI_API_TYPE` 支持 `chat`、`responses` 和 `anthropic`。还可以按接口需要配置 `AI_API_URL`、`AI_MODELS_URL`、`AI_SYSTEM_PROMPT`、`AI_TEMPERATURE`、`AI_MAX_TOKENS`。密钥必须使用服务端变量名，不能添加 `VITE_` 前缀，也不要提交到仓库。
 
+AI 接口默认带有请求大小、同源和频率保护。可用 `AI_REQUESTS_PER_MINUTE` 调整单个来源每分钟的兜底请求数；生产环境建议在 Cloudflare 中绑定名为 `AI_RATE_LIMITER` 的 Rate Limiting 资源，以便在多实例间统一限流。自定义 AI 地址在正式环境仅接受公网 HTTPS，避免密钥通过明文连接或重定向泄露。
+
+## 数据与隐私
+
+案例和历史记录默认保存在当前浏览器。发起 AI 解读时，问题、必要的出生资料和经过筛选的盘面摘要会发送给当前选择的 AI 服务；自定义渠道的请求会由站点服务端转发给所选第三方提供商。API Key 只保存在当前浏览器会话，不写入项目文件。
+
 ## 项目结构
 
 ```text

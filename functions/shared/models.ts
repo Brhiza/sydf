@@ -1,6 +1,8 @@
+import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrlForRequest, type ApiSecurityEnv } from './security';
+
 type AiApiType = 'chat' | 'responses' | 'anthropic';
 
-interface AiEnv {
+interface AiEnv extends ApiSecurityEnv {
   AI_API_KEY?: string;
   AI_BASE_URL?: string;
   AI_API_TYPE?: string;
@@ -62,10 +64,13 @@ function collectModelIds(payload: unknown): string[] {
 }
 
 export async function handleModelsPost(context: { request: Request; env: AiEnv }) {
+  const blocked = await guardApiRequest(context.request, context.env);
+  if (blocked) return blocked;
   let payload: ModelsPayload;
   try {
-    payload = await context.request.json() as ModelsPayload;
-  } catch {
+    payload = await readJsonBody<ModelsPayload>(context.request);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return jsonResponse({ error: '请求内容过大。' }, 413);
     return jsonResponse({ error: '请求内容不是有效的 JSON。' }, 400);
   }
 
@@ -81,10 +86,9 @@ export async function handleModelsPost(context: { request: Request; env: AiEnv }
 
   let url: URL;
   try {
-    url = new URL(modelsUrl);
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('unsupported protocol');
+    url = await validateExternalUrlForRequest(modelsUrl, context.request.url);
   } catch {
-    return jsonResponse({ error: '接口地址无效，请使用 http 或 https 地址。' }, 400);
+    return jsonResponse({ error: '接口地址无效。正式环境仅支持公网 HTTPS 地址。' }, 400);
   }
 
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -96,7 +100,7 @@ export async function handleModelsPost(context: { request: Request; env: AiEnv }
   }
 
   try {
-    const response = await fetch(url.toString(), { method: 'GET', headers });
+    const response = await fetchWithTimeout(url.toString(), { method: 'GET', headers }, 15_000);
     const result = await response.json().catch(() => null) as unknown;
     if (!response.ok) return jsonResponse({ error: '获取模型失败，请检查接口地址和密钥。' }, 502);
     const models = collectModelIds(result);

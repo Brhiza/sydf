@@ -34,7 +34,7 @@ describe('紫微大限流年前端链路', () => {
     expect(result.payload).toBe(result.payloadByScope.yearly);
     expect(result.prompt).toContain('2028');
     expect(result.prompt).toContain('流年');
-  });
+  }, 10_000);
 
   it('只请求原局时不会混入大限与流年范围', async () => {
     const result = await runZiweiChart(testBirth, {

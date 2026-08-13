@@ -5,6 +5,7 @@ import {
   type AiPromptConversationMessage,
   type AiPromptPayload,
 } from '../../src/lib/aiPrompt';
+import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrlForRequest, type ApiSecurityEnv } from './security';
 
 interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -21,7 +22,7 @@ export interface AiProviderConfig {
   headers?: Record<string, string>;
 }
 
-export interface AiEnv {
+export interface AiEnv extends ApiSecurityEnv {
   AI_API_KEY?: string;
   AI_API_URL?: string;
   AI_BASE_URL?: string;
@@ -66,7 +67,7 @@ function resolveAiUrl(baseUrl: string, apiType: AiApiType) {
   return `${normalized}/${path}`;
 }
 
-export function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig }): AiProviderConfig | { error: string } | null {
+export async function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig }, requestUrl = 'https://shiyue.local'): Promise<AiProviderConfig | { error: string } | null> {
   const aiConfig = payload.aiConfig;
   const explicitlyCustom = aiConfig?.provider === 'openai-compatible' || (aiConfig?.provider === undefined && aiConfig?.enabled === true);
   if (!explicitlyCustom) return null;
@@ -76,11 +77,10 @@ export function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig }): AiPr
   const apiType = normalizeApiType(aiConfig?.apiType);
   if (!baseUrl || !model || !apiKey) return { error: '请完整填写自定义 AI 的接口地址、模型名称和 API Key。' };
   try {
-    const url = new URL(resolveAiUrl(baseUrl, apiType));
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('unsupported protocol');
+    const url = await validateExternalUrlForRequest(resolveAiUrl(baseUrl, apiType), requestUrl);
     return { model, apiKey, apiType, url: url.toString() };
   } catch {
-    return { error: '自定义 AI 接口地址无效，请填写 http 或 https 地址。' };
+    return { error: '自定义 AI 接口地址无效。正式环境仅支持公网 HTTPS 地址。' };
   }
 }
 
@@ -156,12 +156,12 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
   } else {
     headers.Authorization = `Bearer ${config.apiKey}`;
   }
-  const response = await fetch(config.url, {
+  const response = await fetchWithTimeout(config.url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
     signal,
-  });
+  }, 45_000);
   const result = await response.json().catch(() => null) as unknown;
   if (!response.ok) throw new Error('upstream response error');
   if (!result) throw new Error('empty upstream response');
@@ -178,10 +178,13 @@ export function getBuiltinAiConfig(env: AiEnv): AiProviderConfig | null {
 }
 
 export async function handleInterpretPost(context: { request: Request; env: AiEnv }) {
+  const blocked = await guardApiRequest(context.request, context.env);
+  if (blocked) return blocked;
   let payload: InterpretationPayload;
   try {
-    payload = await context.request.json() as InterpretationPayload;
-  } catch {
+    payload = await readJsonBody<InterpretationPayload>(context.request);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return jsonResponse({ error: '请求内容过大。' }, 413);
     return jsonResponse({ error: '请求内容不是有效的 JSON。' }, 400);
   }
 
@@ -190,7 +193,7 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   if (question.length > MAX_QUESTION_LENGTH) return jsonResponse({ error: '问题内容过长，请精简后再试。' }, 400);
 
   const env = context.env;
-  const customConfig = getCustomAiConfig(payload);
+  const customConfig = await getCustomAiConfig(payload, context.request.url);
   if (customConfig && 'error' in customConfig) return jsonResponse({ error: customConfig.error }, 400);
   const provider = customConfig ? 'custom' : 'builtin';
   const systemPrompt = buildAiSystemPrompt(payload, env.AI_SYSTEM_PROMPT);

@@ -82,7 +82,12 @@ describe('内置 AI 服务', () => {
   });
 
   it('用户选择的第三方渠道失败时不会调用内置渠道', async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error('connection failed'));
+    const fetchMock = vi.fn((url: string) => {
+      if (url.startsWith('https://cloudflare-dns.com/')) {
+        return Promise.resolve(new Response(JSON.stringify({ Answer: [{ type: 1, data: '93.184.216.34' }] }), { status: 200 }));
+      }
+      return Promise.reject(new Error('connection failed'));
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
@@ -100,6 +105,6 @@ describe('内置 AI 服务', () => {
 
     expect(response.status).toBe(502);
     expect(result.error).toBe('AI 服务返回了错误，请检查模型、接口地址和密钥配置。');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
