@@ -33,6 +33,8 @@ const emit = defineEmits<{
 }>();
 
 const ROW_HEIGHT = 44;
+const LOOP_COPIES = 3;
+const LOOP_MIDDLE_COPY = 1;
 const draftValues = ref<string[]>([]);
 const columnElements = ref<Array<HTMLElement | null>>([]);
 const scrollTimers = new Map<number, number>();
@@ -54,16 +56,31 @@ function setColumnElement(element: unknown, index: number) {
   columnElements.value[index] = element as HTMLElement | null;
 }
 
-function scrollColumnToValue(index: number, behavior: ScrollBehavior = 'auto') {
+function scrollColumnToValue(
+  index: number,
+  behavior: ScrollBehavior = 'auto',
+  placement: 'middle' | 'nearest' = 'nearest',
+) {
   const element = columnElements.value[index];
   const column = props.columns[index];
   if (!element || !column) return;
   const optionIndex = Math.max(0, column.options.findIndex((option) => option.value === draftValues.value[index]));
-  element.scrollTo({ top: optionIndex * ROW_HEIGHT, behavior });
+  const middleIndex = (LOOP_MIDDLE_COPY * column.options.length) + optionIndex;
+  let targetIndex = middleIndex;
+  if (placement === 'nearest' && column.options.length > 1) {
+    const currentIndex = element.scrollTop / ROW_HEIGHT;
+    targetIndex = Array.from(
+      { length: LOOP_COPIES },
+      (_, copyIndex) => (copyIndex * column.options.length) + optionIndex,
+    ).reduce((nearest, candidate) => (
+      Math.abs(candidate - currentIndex) < Math.abs(nearest - currentIndex) ? candidate : nearest
+    ), middleIndex);
+  }
+  element.scrollTo({ top: targetIndex * ROW_HEIGHT, behavior });
 }
 
 function scrollAllColumns() {
-  props.columns.forEach((_, index) => scrollColumnToValue(index));
+  props.columns.forEach((_, index) => scrollColumnToValue(index, 'auto', 'middle'));
 }
 
 function syncFromProps() {
@@ -72,7 +89,12 @@ function syncFromProps() {
   void nextTick(scrollAllColumns);
 }
 
-function chooseValue(columnIndex: number, value: string, behavior: ScrollBehavior = 'smooth') {
+function chooseValue(
+  columnIndex: number,
+  value: string,
+  behavior: ScrollBehavior = 'smooth',
+  placement: 'middle' | 'nearest' = 'nearest',
+) {
   const column = props.columns[columnIndex];
   const option = column?.options.find((item) => item.value === value);
   if (!option || option.disabled) return;
@@ -82,7 +104,7 @@ function chooseValue(columnIndex: number, value: string, behavior: ScrollBehavio
     draftValues.value = next;
     emit('update:modelValue', [...next]);
   }
-  void nextTick(() => scrollColumnToValue(columnIndex, behavior));
+  void nextTick(() => scrollColumnToValue(columnIndex, behavior, placement));
 }
 
 function handleScroll(columnIndex: number, event: Event) {
@@ -92,9 +114,10 @@ function handleScroll(columnIndex: number, event: Event) {
   const timer = window.setTimeout(() => {
     const column = props.columns[columnIndex];
     if (!column?.options.length) return;
-    const optionIndex = Math.max(0, Math.min(column.options.length - 1, Math.round(element.scrollTop / ROW_HEIGHT)));
+    const renderedIndex = Math.round(element.scrollTop / ROW_HEIGHT);
+    const optionIndex = ((renderedIndex % column.options.length) + column.options.length) % column.options.length;
     const option = column.options[optionIndex];
-    if (option) chooseValue(columnIndex, option.value);
+    if (option) chooseValue(columnIndex, option.value, 'auto', 'middle');
   }, 80);
   scrollTimers.set(columnIndex, timer);
 }
@@ -104,8 +127,8 @@ function handleKeydown(columnIndex: number, event: KeyboardEvent) {
   if (!column?.options.length) return;
   const currentIndex = Math.max(0, column.options.findIndex((option) => option.value === draftValues.value[columnIndex]));
   let nextIndex = currentIndex;
-  if (event.key === 'ArrowUp') nextIndex = Math.max(0, currentIndex - 1);
-  else if (event.key === 'ArrowDown') nextIndex = Math.min(column.options.length - 1, currentIndex + 1);
+  if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + column.options.length) % column.options.length;
+  else if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % column.options.length;
   else if (event.key === 'Home') nextIndex = 0;
   else if (event.key === 'End') nextIndex = column.options.length - 1;
   else return;
@@ -156,19 +179,22 @@ onBeforeUnmount(() => {
             @keydown="handleKeydown(columnIndex, $event)"
           >
             <div class="ui-picker-spacer" aria-hidden="true" />
-            <button
-              v-for="option in column.options"
-              :key="option.value"
-              type="button"
-              class="ui-picker-option"
-              :class="{ selected: draftValues[columnIndex] === option.value }"
-              :disabled="option.disabled"
-              role="option"
-              :aria-selected="draftValues[columnIndex] === option.value"
-              @click="chooseValue(columnIndex, option.value)"
-            >
-              {{ option.label }}
-            </button>
+            <template v-for="copyIndex in LOOP_COPIES" :key="copyIndex">
+              <button
+                v-for="option in column.options"
+                :key="`${copyIndex}-${option.value}`"
+                type="button"
+                class="ui-picker-option"
+                :class="{ selected: draftValues[columnIndex] === option.value }"
+                :disabled="option.disabled"
+                :tabindex="copyIndex === LOOP_MIDDLE_COPY + 1 ? 0 : -1"
+                :role="copyIndex === LOOP_MIDDLE_COPY + 1 ? 'option' : 'presentation'"
+                :aria-selected="copyIndex === LOOP_MIDDLE_COPY + 1 ? draftValues[columnIndex] === option.value : undefined"
+                @click="chooseValue(columnIndex, option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </template>
             <div class="ui-picker-spacer" aria-hidden="true" />
           </div>
         </div>
