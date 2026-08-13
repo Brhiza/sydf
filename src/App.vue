@@ -116,6 +116,7 @@ import {
   type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
+import { buildUpdateReloadUrl } from './lib/appUpdate';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
   createChatDocument,
@@ -1132,7 +1133,11 @@ const lastAiHistoryRecordId = ref<string | null>(null);
 const isInterpreting = ref(false);
 const toastMessage = ref('');
 const pwaUpdateAvailable = ref(false);
+const showPwaUpdateDialog = ref(false);
+const isApplyingPwaUpdate = ref(false);
 let applyPwaUpdate: ((reloadPage?: boolean) => Promise<void>) | null = null;
+let availableWebVersion = '';
+let prepareWebUpdate: (() => Promise<void>) | null = null;
 let toastTimer: number | undefined;
 interface RunningAiTask {
   id: string;
@@ -2079,18 +2084,41 @@ function handlePwaUpdate(event: Event) {
   if (!update) return;
   applyPwaUpdate = update;
   pwaUpdateAvailable.value = true;
+  showPwaUpdateDialog.value = true;
+}
+
+function handleWebUpdate(event: Event) {
+  const detail = (event as CustomEvent<{ version?: string; prepareUpdate?: () => Promise<void> }>).detail;
+  availableWebVersion = detail?.version || '';
+  prepareWebUpdate = detail?.prepareUpdate || null;
+  pwaUpdateAvailable.value = true;
+  showPwaUpdateDialog.value = true;
+}
+
+function postponePwaUpdate() {
+  showPwaUpdateDialog.value = false;
 }
 
 async function refreshToPwaUpdate() {
-  if (!applyPwaUpdate) return;
-  pwaUpdateAvailable.value = false;
-  await applyPwaUpdate(true);
+  if (isApplyingPwaUpdate.value) return;
+  isApplyingPwaUpdate.value = true;
+  try {
+    if (applyPwaUpdate) await applyPwaUpdate(false);
+    else if (prepareWebUpdate) await prepareWebUpdate();
+    window.location.replace(buildUpdateReloadUrl(window.location, availableWebVersion));
+  } catch {
+    isApplyingPwaUpdate.value = false;
+    pwaUpdateAvailable.value = true;
+    showPwaUpdateDialog.value = true;
+    showToast('更新暂时失败，请检查网络后重试。');
+  }
 }
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeChatSelectionFromKeyboard);
   window.addEventListener('shiyue:pwa-update', handlePwaUpdate);
+  window.addEventListener('shiyue:web-update', handleWebUpdate);
   try {
     const storedBaziColumns = localStorage.getItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY);
     if (storedBaziColumns) {
@@ -2142,6 +2170,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeChatSelectionFromKeyboard);
   window.removeEventListener('shiyue:pwa-update', handlePwaUpdate);
+  window.removeEventListener('shiyue:web-update', handleWebUpdate);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
@@ -5952,9 +5981,18 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <div v-if="toastMessage" class="app-toast" role="status" aria-live="polite">{{ toastMessage }}</div>
       </Transition>
 
-      <div v-if="pwaUpdateAvailable" class="pwa-update-bar" role="status" aria-live="polite">
+      <UiDialogShell v-if="pwaUpdateAvailable && showPwaUpdateDialog && !showOnboarding" labelledby="pwa-update-title" size="compact" panel-class="pwa-update-dialog" @close="postponePwaUpdate">
+        <div class="pwa-update-dialog__icon" aria-hidden="true"><RefreshCw :size="24" /></div>
+        <UiDialogHeader title="发现新版本" title-id="pwa-update-title" description="更新后即可使用最新功能和修复。页面会重新加载，请先完成当前操作。" close-label="稍后更新" @close="postponePwaUpdate" />
+        <UiActionBar mobile="stretch">
+          <UiButton variant="secondary" :disabled="isApplyingPwaUpdate" @click="postponePwaUpdate">稍后更新</UiButton>
+          <UiButton :loading="isApplyingPwaUpdate" @click="refreshToPwaUpdate">立即更新</UiButton>
+        </UiActionBar>
+      </UiDialogShell>
+
+      <div v-if="pwaUpdateAvailable && !showPwaUpdateDialog" class="pwa-update-bar" role="status" aria-live="polite">
         <span>新版本可用</span>
-        <UiButton size="small" @click="refreshToPwaUpdate">刷新更新</UiButton>
+        <UiButton size="small" :loading="isApplyingPwaUpdate" @click="showPwaUpdateDialog = true">立即更新</UiButton>
       </div>
 
     </div>
