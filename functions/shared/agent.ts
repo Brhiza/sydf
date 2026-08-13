@@ -371,7 +371,7 @@ export async function handleAgentPost(context: { request: Request; env: AiEnv })
   if (!question) return jsonResponse({ error: '请先写下你想问的事。' }, 400);
   if (question.length > MAX_QUESTION_LENGTH) return jsonResponse({ error: '问题内容过长，请精简后再试。' }, 400);
 
-  const customConfig = await getCustomAiConfig(payload, context.request.url);
+  const customConfig = getCustomAiConfig(payload, context.request.url);
   if (customConfig && 'error' in customConfig) return jsonResponse({ error: customConfig.error }, 400);
   const userPrompt = buildRouterPrompt(payload, question);
   if (customConfig) {

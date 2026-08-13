@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl, validateExternalUrlForRequest } from './security';
+import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl } from './security';
 
 function request(body = '{}', headers: Record<string, string> = {}) {
   return new Request('https://example.com/api/interpret', {
@@ -42,21 +42,10 @@ describe('AI 接口安全边界', () => {
     expect(() => validateExternalUrl('http://192.168.1.5/v1', 'http://localhost:5173')).toThrow();
   });
 
-  it('拒绝解析到私网地址的公网域名，防止 DNS 绕过', async () => {
-    const fetchMock = vi.fn((_url: string) => Promise.resolve(new Response(JSON.stringify({
-      Answer: [{ type: 1, data: '10.0.0.8' }],
-    }), { status: 200, headers: { 'Content-Type': 'application/dns-json' } })));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(validateExternalUrlForRequest('https://rebind.example/v1', 'https://example.com')).rejects.toThrow('private destination');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    vi.unstubAllGlobals();
-  });
-
-  it('上游请求超时后中止且禁止重定向', async () => {
+  it('上游请求超时后中止', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn((_input, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
-      expect(init?.redirect).toBe('error');
+      expect(init?.redirect).toBe('manual');
       init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
     }));
     vi.stubGlobal('fetch', fetchMock);
@@ -65,6 +54,18 @@ describe('AI 接口安全边界', () => {
     await vi.advanceTimersByTimeAsync(100);
     await assertion;
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('显式拒绝上游重定向，避免凭据被转发', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, {
+      status: 302,
+      headers: { Location: 'https://redirect.example/v1' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchWithTimeout('https://api.example.com/v1', {}, 100)).rejects.toThrow('upstream redirect not allowed');
+    expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/v1', expect.objectContaining({ redirect: 'manual' }));
     vi.unstubAllGlobals();
   });
 });

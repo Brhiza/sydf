@@ -159,9 +159,7 @@ describe('0 基础 Agent 工具调用', () => {
   });
 
   it('兼容 Responses 工具调用结果', async () => {
-    const fetchMock = vi.fn((url: string) => Promise.resolve(url.startsWith('https://cloudflare-dns.com/')
-      ? jsonResponse({ Answer: [{ type: 1, data: '93.184.216.34' }] })
-      : jsonResponse({ output: [{ type: 'function_call', name: 'cast_qimen', arguments: '{"scope":"month"}' }] })));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ output: [{ type: 'function_call', name: 'cast_qimen', arguments: '{"scope":"month"}' }] }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
@@ -177,13 +175,11 @@ describe('0 基础 Agent 工具调用', () => {
     });
 
     expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'qimen', qimenScope: 'month' } });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('兼容 Anthropic 工具调用结果', async () => {
-    const fetchMock = vi.fn((url: string) => Promise.resolve(url.startsWith('https://cloudflare-dns.com/')
-      ? jsonResponse({ Answer: [{ type: 1, data: '93.184.216.34' }] })
-      : jsonResponse({ content: [{ type: 'tool_use', name: 'cast_liuren', input: {} }] })));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ content: [{ type: 'tool_use', name: 'cast_liuren', input: {} }] }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
@@ -199,13 +195,11 @@ describe('0 基础 Agent 工具调用', () => {
     });
 
     expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'liuren' } });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('自定义渠道不支持工具调用时不会调用内置渠道', async () => {
-    const fetchMock = vi.fn((url: string) => Promise.resolve(url.startsWith('https://cloudflare-dns.com/')
-      ? jsonResponse({ Answer: [{ type: 1, data: '93.184.216.34' }] })
-      : jsonResponse({ choices: [{ message: { content: '普通文本' } }] })));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ choices: [{ message: { content: '普通文本' } }] }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
