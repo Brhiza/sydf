@@ -1,12 +1,32 @@
-import { defineConfig, loadEnv } from 'vite';
+import { randomUUID } from 'node:crypto';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { VitePWA } from 'vite-plugin-pwa';
 import { pagesApiPlugin } from './functions/viteApiPlugin';
 
-export default defineConfig(({ mode }) => ({
+function appVersionPlugin(version: string): Plugin {
+  return {
+    name: 'app-version',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version }),
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const version = process.env.CF_PAGES_COMMIT_SHA || randomUUID();
+  return ({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   plugins: [
     pagesApiPlugin(loadEnv(mode, process.cwd(), '')),
     vue(),
+    appVersionPlugin(version),
     VitePWA({
       registerType: 'prompt',
       includeAssets: [
@@ -103,4 +123,5 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+  });
+});
