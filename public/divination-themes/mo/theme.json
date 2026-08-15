@@ -3,6 +3,7 @@
   "name": "墨",
   "inherits": "yue",
   "completeGroups": [
+    "brand",
     "xiaoliuren",
     "fortune-status"
   ],

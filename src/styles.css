@@ -33,10 +33,19 @@ button, input, select, textarea { font: inherit; }
 button { border: 0; cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(130, 104, 179, .25); outline-offset: 2px; }
 
-.app-shell { display: flex; height: 100%; min-height: 100%; overflow: hidden; }
+.app-shell {
+  background:
+    radial-gradient(circle at 92% -10%, var(--theme-glow), transparent 34%),
+    linear-gradient(135deg, var(--theme-canvas-start) 0%, var(--canvas) 58%, var(--theme-canvas-end) 100%);
+  display: flex;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  transition: background-color .25s ease, color .25s ease;
+}
 .sidebar { border-right: 1px solid var(--line); display: flex; flex: 0 0 230px; flex-direction: column; height: 100%; min-height: 0; overflow-y: auto; padding: 27px 15px 22px; position: relative; scrollbar-width: none; }
 .sidebar::-webkit-scrollbar { display: none; }
-.sidebar::after { background: radial-gradient(circle, rgba(128, 102, 178, .16) 1px, transparent 1.5px); background-size: 16px 16px; content: ''; height: 90px; opacity: .45; position: absolute; right: 17px; top: 18px; width: 90px; }
+.sidebar::after { background: radial-gradient(circle, var(--theme-dot) 1px, transparent 1.5px); background-size: 16px 16px; content: ''; height: 90px; opacity: .45; position: absolute; right: 17px; top: 18px; width: 90px; }
 .brand { align-items: center; color: var(--ink); display: flex; gap: 10px; text-decoration: none; }
 .brand { background: transparent; padding: 0 10px; position: relative; text-align: left; z-index: 1; }
 .brand-mark { align-items: center; background: transparent; border: 0; border-radius: 11px; box-shadow: none; color: #e6c995; display: inline-flex; flex: 0 0 auto; font-size: 17px; height: 36px; justify-content: center; width: 36px; }
@@ -704,7 +713,7 @@ h1, h2, h3, p { margin-top: 0; }
 
 @media (max-width: 720px) {
   .app-shell { display: block; }
-  .sidebar { background: rgba(247, 244, 252, .98); display: flex; flex: 0 0 auto; left: 0; overflow-y: auto; padding: 21px 15px 22px; position: fixed; top: 0; transform: translateX(-105%); transition: transform .24s ease, box-shadow .24s ease; width: min(260px, 84vw); z-index: 20; }
+  .sidebar { background: var(--ds-surface-overlay); display: flex; flex: 0 0 auto; left: 0; overflow-y: auto; padding: 21px 15px 22px; position: fixed; top: 0; transform: translateX(-105%); transition: transform .24s ease, box-shadow .24s ease; width: min(260px, 84vw); z-index: 20; }
   .sidebar.mobile-sidebar-open { transform: translateX(0); z-index: 32; }
   .sidebar::after { display: block; right: 17px; }
   .sidebar-header { align-items: center; }
@@ -1022,14 +1031,10 @@ h1, h2, h3, p { margin-top: 0; }
 }
 
 /* 颜色层级：品牌紫只用于焦点和选中态，其余界面回归中性底色。 */
-body {
-  background:
-    radial-gradient(circle at 92% -10%, rgba(138, 111, 177, .11), transparent 34%),
-    linear-gradient(135deg, #f5f4f6 0%, var(--canvas) 58%, #efeff2 100%);
-}
+body { background: var(--canvas); }
 
 .sidebar { background: var(--sidebar-surface); border-right-color: #d8d5de; }
-.sidebar::after { background-image: radial-gradient(circle, rgba(105, 76, 150, .13) 1px, transparent 1.5px); }
+.sidebar::after { background-image: radial-gradient(circle, var(--theme-dot) 1px, transparent 1.5px); }
 .topbar { background: var(--topbar-surface); border-bottom-color: #dedbe2; }
 .content { background: linear-gradient(135deg, rgba(255, 255, 255, .2), transparent 52%); }
 .main-nav button { color: #777180; }
@@ -1109,14 +1114,10 @@ body {
 .astro-axis-compact div { background: #f1f3f5; border-color: #dce1e5; }
 
 @media (prefers-color-scheme: dark) {
-  body {
-    background:
-      radial-gradient(circle at 92% -10%, rgba(140, 107, 183, .12), transparent 35%),
-      linear-gradient(135deg, #19181e 0%, var(--canvas) 58%, #141318 100%);
-  }
+  body { background: var(--canvas); }
   .content { background: linear-gradient(135deg, rgba(255, 255, 255, .015), transparent 55%); }
   .sidebar { background: var(--sidebar-surface); border-right-color: #34313a; }
-  .sidebar::after { background-image: radial-gradient(circle, rgba(202, 177, 232, .14) 1px, transparent 1.5px); }
+  .sidebar::after { background-image: radial-gradient(circle, var(--theme-dot) 1px, transparent 1.5px); }
   .topbar { background: var(--topbar-surface); border-bottom-color: #34313a; }
   .brand strong,
 .default-hero h1 { color: var(--ink); }
@@ -1455,7 +1456,7 @@ body {
 .home-default .default-hero h1 > span { display: inline; }
 .home-default .default-hero h1 > span:last-child { color: var(--ink-muted); }
 .home-default .default-hero .hero-multicolor {
-  background: linear-gradient(100deg, #67428f 0%, #8b58b1 48%, #b778cf 100%);
+  background: linear-gradient(100deg, var(--theme-hero-start) 0%, var(--theme-hero-middle) 48%, var(--theme-hero-end) 100%);
   background-clip: text;
   color: transparent;
   display: inline-block;
@@ -1467,7 +1468,7 @@ body {
   background: var(--accent-strong);
   border: 1px solid rgba(255, 255, 255, .32);
   border-radius: 999px;
-  box-shadow: 0 8px 20px rgba(91, 65, 132, .24);
+  box-shadow: 0 8px 20px var(--theme-shadow);
   color: #fff;
   display: inline-flex;
   font-weight: 600;
@@ -1479,8 +1480,8 @@ body {
 }
 .merit-box-button svg { fill: currentColor; }
 .merit-box-button:hover {
-  background: #594078;
-  box-shadow: 0 11px 25px rgba(91, 65, 132, .3);
+  background: color-mix(in srgb, var(--accent-strong) 88%, black);
+  box-shadow: 0 11px 25px var(--theme-shadow);
   color: #fff;
   text-decoration: none;
   transform: translateY(-1px);
@@ -1505,12 +1506,6 @@ body {
     padding: 8px 15px;
   }
   .home-default-composer { margin-top: 20px; }
-}
-
-@media (prefers-color-scheme: dark) {
-  .home-default .default-hero .hero-multicolor {
-    background-image: linear-gradient(100deg, #b99ade 0%, #c69be7 48%, #dda9ed 100%);
-  }
 }
 
 /* 首页 AI 提示与首次使用设置。 */

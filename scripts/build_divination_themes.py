@@ -17,6 +17,7 @@ CARD_QUALITY = 92
 GENERAL_QUALITY = 92
 
 GROUP_FILES: dict[str, tuple[str, ...]] = {
+    "brand": ("logo.webp",),
     "banner": ("banner.webp",),
     "shengbei": ("ritual/shengbei-yang.webp", "ritual/shengbei-yin.webp"),
     "liuyao": ("ritual/coin-heads.webp", "ritual/coin-tails.webp", "ritual/shell.webp"),
@@ -145,7 +146,25 @@ def write_manifest(theme_root: Path, *, theme_id: str, name: str, complete_group
         "completeGroups": complete_groups,
         "cardStyle": {"frame": False, "textBakedIntoImage": False, "cornerRadius": "ui"},
     }
-    (theme_root / "theme.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    with (theme_root / "theme.json").open("w", encoding="utf-8", newline="\n") as manifest_file:
+        manifest_file.write(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+
+
+def build_theme_logo(source_root: Path, target_root: Path) -> None:
+    candidates = [source_root / f"logo{suffix}" for suffix in (".png", ".webp", ".jpg", ".jpeg")]
+    source = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if source is None:
+        raise ValueError(f"主题制作源缺少 logo：{source_root}")
+    with Image.open(source) as image:
+        width, height = image.size
+        edge = min(width, height)
+        left = (width - edge) // 2
+        top = (height - edge) // 2
+        square = image.crop((left, top, left + edge, top + edge))
+        if edge > 1024:
+            square.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        save_webp(square, target_root / "logo.webp", GENERAL_QUALITY)
+        square.close()
 
 
 def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
@@ -197,7 +216,7 @@ def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
         target,
         theme_id="yue",
         name="月",
-        complete_groups=["banner", "shengbei", "liuyao", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
+        complete_groups=["brand", "banner", "shengbei", "liuyao", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
     )
 
 
@@ -262,7 +281,7 @@ def build_shi(project_root: Path, output_root: Path) -> None:
         target,
         theme_id="shi",
         name="时",
-        complete_groups=["banner", "shengbei", "liuyao", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
+        complete_groups=["brand", "banner", "shengbei", "liuyao", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
     )
 
 
@@ -290,7 +309,7 @@ def build_mo(project_root: Path, output_root: Path) -> None:
     }
     crop_sheet(source / "ChatGPT Image 2026年8月15日 22_27_00.png", target / "xiaoliuren", xlr_boxes)
     crop_sheet(source / "ChatGPT Image 2026年8月15日 22_27_09.png", target / "fortune-status", fortune_boxes)
-    write_manifest(target, theme_id="mo", name="墨", complete_groups=["xiaoliuren", "fortune-status"], inherits="yue")
+    write_manifest(target, theme_id="mo", name="墨", complete_groups=["brand", "xiaoliuren", "fortune-status"], inherits="yue")
 
 
 def validate_output(output_root: Path) -> None:
@@ -340,19 +359,28 @@ def main() -> None:
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--yue-tarot-zip", type=Path)
     parser.add_argument("--themes", nargs="+", choices=builders, default=list(builders))
+    parser.add_argument("--logos-only", action="store_true", help="只更新所选主题的 Logo，不重建其他主题资源")
     args = parser.parse_args()
 
     project_root = args.project_root.resolve()
     output_root = project_root / "public/divination-themes"
     output_root.mkdir(parents=True, exist_ok=True)
-    if "yue" in args.themes:
-        if args.yue_tarot_zip is None:
-            parser.error("重建月主题时必须提供 --yue-tarot-zip")
-        build_yue(project_root, output_root, args.yue_tarot_zip.resolve())
-    if "shi" in args.themes:
-        build_shi(project_root, output_root)
-    if "mo" in args.themes:
-        build_mo(project_root, output_root)
+    if not args.logos_only:
+        if "yue" in args.themes:
+            if args.yue_tarot_zip is None:
+                parser.error("重建月主题时必须提供 --yue-tarot-zip")
+            build_yue(project_root, output_root, args.yue_tarot_zip.resolve())
+        if "shi" in args.themes:
+            build_shi(project_root, output_root)
+        if "mo" in args.themes:
+            build_mo(project_root, output_root)
+    logo_themes = args.themes if args.logos_only else builders
+    for theme_id in logo_themes:
+        theme_source = project_root / "theme-sources" / {"yue": "月", "shi": "时", "mo": "墨"}[theme_id]
+        theme_target = output_root / theme_id
+        if not theme_target.is_dir():
+            raise ValueError(f"主题输出目录不存在：{theme_target}")
+        build_theme_logo(theme_source, theme_target)
     validate_output(output_root)
 
 
