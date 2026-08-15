@@ -3,6 +3,7 @@ import { hexagramsData } from 'mingyu-core/divination/hexagram-data';
 import {
   buildDailyHexagramResult,
   createDailyHexagramSession,
+  formatDailyHexagramAiContext,
   getDailyHexagramGuidance,
   parseDailyHexagramSession,
   shakeDailyHexagramCoins,
@@ -78,6 +79,22 @@ describe('每日一卦本地算法', () => {
     expect(allMoving.interpretation.focus).toContain('六爻皆动');
     expect(allMoving.interpretation.specialText).toBe(allMoving.original.yongCi);
     expect(allMoving.interpretation.movingLines).toHaveLength(6);
+  });
+
+  it('为 AI 解读提供当天卦象、变化和行动语境', () => {
+    const result = buildDailyHexagramResult([
+      { coins: [2, 2, 2], total: 6 },
+      ...Array.from({ length: 5 }, () => youngYang),
+    ], new Date(2026, 7, 8, 9, 30));
+    const context = formatDailyHexagramAiContext(result, '2026年8月8日');
+
+    expect(context).toContain('日期：2026年8月8日');
+    expect(context).toContain(`本卦：${result.original.name}`);
+    expect(context).toContain(`互卦：${result.inter.name}`);
+    expect(context).toContain(`之卦：${result.changed.name}`);
+    expect(context).toContain(`今日主题：${result.guidance.theme}`);
+    expect(context).toContain('初爻老阴');
+    expect(context).toContain('具体行动建议和应避免的做法');
   });
 
   it('穷举六十四卦并为每卦提供完整的本地分项解读', () => {

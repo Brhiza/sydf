@@ -117,6 +117,7 @@ import {
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
+import { formatDailyHexagramAiContext, type DailyHexagramResult } from './lib/dailyHexagram';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
   createChatDocument,
@@ -4109,6 +4110,33 @@ function startTarotInterpretation(payload: WesternInterpretationPayload) {
   void requestInterpretation(payload.request, true, sessionId, null);
 }
 
+async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
+  if (isInterpreting.value) return;
+  const questionText = '请解读今天的卦象，说明我今天应关注的重点、变化趋势和行动建议。';
+  aiAnswer.value = '';
+  aiError.value = '';
+  lastAiRequest.value = null;
+  lastAiHistoryRecordId.value = null;
+  try {
+    const request = await buildAiRequest('divination', questionText, 'liuyao', result.chart);
+    const dateLabel = new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    }).format(new Date());
+    request.method = '每日一卦';
+    request.reading = {
+      summary: `${formatReadingSummary('liuyao', result.chart)} 今日主题为“${result.guidance.theme}”。${result.guidance.summary}`,
+      data: result.chart,
+      prompt: [
+        request.reading?.prompt,
+        formatDailyHexagramAiContext(result, dateLabel),
+      ].filter((item): item is string => Boolean(item)).join('\n\n'),
+    };
+    await requestInterpretation(request, false, chatSessionId, null);
+  } catch (error) {
+    aiError.value = error instanceof Error ? error.message : '每日一卦的 AI 解读暂时没有完成。';
+  }
+}
+
 async function beginReading() {
   if (isReading.value || isInterpreting.value || chartLoading.value) return;
   formError.value = '';
@@ -5382,7 +5410,15 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
 
-        <DailyHexagramView v-else-if="activeView === 'daily-hexagram'" />
+        <DailyHexagramView
+          v-else-if="activeView === 'daily-hexagram'"
+          :ai-answer="aiAnswer"
+          :ai-error="aiError"
+          :ai-request="lastAiRequest"
+          :interpreting="isInterpreting"
+          @interpret="startDailyHexagramInterpretation"
+          @retry-interpretation="retryLastInterpretation"
+        />
 
         <UiToolPage v-else-if="activeView === 'fortune'" width="standard" class="screen fortune-screen" toolbar-label="运势日期与周期" toolbar-class="fortune-toolbar">
             <template #toolbar-primary>
