@@ -4,8 +4,14 @@
   "inherits": "yue",
   "completeGroups": [
     "brand",
+    "banner",
     "xiaoliuren",
-    "fortune-status"
+    "fortune-status",
+    "tarot",
+    "lenormand",
+    "oracle",
+    "hexagrams",
+    "ssgw"
   ],
   "cardStyle": {
     "frame": false,

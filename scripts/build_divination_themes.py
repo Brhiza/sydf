@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw
 
 
 CARD_QUALITY = 92
@@ -19,8 +19,6 @@ GENERAL_QUALITY = 92
 GROUP_FILES: dict[str, tuple[str, ...]] = {
     "brand": ("logo.webp",),
     "banner": ("banner.webp",),
-    "shengbei": ("ritual/shengbei-yang.webp", "ritual/shengbei-yin.webp"),
-    "liuyao": ("ritual/coin-heads.webp", "ritual/coin-tails.webp", "ritual/shell.webp"),
     "xiaoliuren": tuple(f"xiaoliuren/{name}.webp" for name in (
         "da-an", "liu-lian", "su-xi", "chi-kou", "xiao-ji", "kong-wang",
     )),
@@ -59,6 +57,13 @@ def save_webp(image: Image.Image, target: Path, quality: int = GENERAL_QUALITY) 
     converted.close()
 
 
+def save_card_webp(image: Image.Image, target: Path) -> None:
+    converted = image.convert("RGB")
+    converted.thumbnail((720, 1080), Image.Resampling.LANCZOS)
+    save_webp(converted, target, CARD_QUALITY)
+    converted.close()
+
+
 def convert_file(source: Path, target: Path, quality: int = GENERAL_QUALITY) -> None:
     with Image.open(source) as image:
         save_webp(image, target, quality)
@@ -67,6 +72,11 @@ def convert_file(source: Path, target: Path, quality: int = GENERAL_QUALITY) -> 
 def convert_bytes(data: bytes, target: Path, quality: int = CARD_QUALITY) -> None:
     with Image.open(io.BytesIO(data)) as image:
         save_webp(image, target, quality)
+
+
+def convert_card_file(source: Path, target: Path) -> None:
+    with Image.open(source) as image:
+        save_card_webp(image, target)
 
 
 def indexed_files(folder: Path, expected: int) -> list[Path]:
@@ -98,12 +108,98 @@ def zip_images(zip_path: Path, expected: int, start: int) -> list[tuple[int, byt
 
 def convert_numbered_files(files: Iterable[Path], target: Path, digits: int, start: int) -> None:
     for offset, source in enumerate(files):
-        convert_file(source, target / f"{start + offset:0{digits}d}.webp", CARD_QUALITY)
+        convert_card_file(source, target / f"{start + offset:0{digits}d}.webp")
 
 
 def convert_numbered_zip(zip_path: Path, target: Path, expected: int, digits: int, start: int) -> None:
     for number, data in zip_images(zip_path, expected, start):
-        convert_bytes(data, target / f"{number:0{digits}d}.webp", CARD_QUALITY)
+        with Image.open(io.BytesIO(data)) as image:
+            save_card_webp(image, target / f"{number:0{digits}d}.webp")
+
+
+def crop_transparent_sheet(source: Path, target: Path, boxes: dict[str, tuple[int, int, int, int]]) -> None:
+    with Image.open(source) as sheet:
+        rgba = sheet.convert("RGBA")
+        for name, box in boxes.items():
+            crop = rgba.crop(box)
+            visible = crop.getbbox()
+            if not visible:
+                raise ValueError(f"{source.name} 的 {name} 裁切区域没有有效内容")
+            trimmed = crop.crop(visible)
+            save_webp(trimmed, target / f"{name}.webp", CARD_QUALITY)
+            trimmed.close()
+            crop.close()
+        rgba.close()
+
+
+def retain_center_alpha_component(image: Image.Image) -> None:
+    alpha = np.asarray(image.getchannel("A"))
+    visible = alpha > 0
+    points = np.argwhere(visible)
+    if not points.size:
+        return
+    center = np.array([image.height / 2, image.width / 2])
+    seed_y, seed_x = points[np.argmin(np.sum((points - center) ** 2, axis=1))]
+    keep = np.zeros(visible.shape, dtype=bool)
+    stack = [(int(seed_y), int(seed_x))]
+    while stack:
+        y, x = stack.pop()
+        if keep[y, x] or not visible[y, x]:
+            continue
+        keep[y, x] = True
+        if y > 0:
+            stack.append((y - 1, x))
+        if y + 1 < image.height:
+            stack.append((y + 1, x))
+        if x > 0:
+            stack.append((y, x - 1))
+        if x + 1 < image.width:
+            stack.append((y, x + 1))
+    cleaned_alpha = np.where(keep, alpha, 0).astype(np.uint8)
+    image.putalpha(Image.fromarray(cleaned_alpha, "L"))
+
+
+def crop_transparent_ellipse_sheet(source: Path, target: Path, boxes: dict[str, tuple[int, int, int, int]]) -> None:
+    with Image.open(source) as sheet:
+        rgba = sheet.convert("RGBA")
+        for name, box in boxes.items():
+            crop = rgba.crop(box)
+            mask = Image.new("L", crop.size, 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, crop.width - 1, crop.height - 1), fill=255)
+            crop.putalpha(ImageChops.multiply(crop.getchannel("A"), mask))
+            retain_center_alpha_component(crop)
+            visible = crop.getbbox()
+            if not visible:
+                raise ValueError(f"{source.name} 的 {name} 裁切区域没有有效内容")
+            trimmed = crop.crop(visible)
+            save_webp(trimmed, target / f"{name}.webp", CARD_QUALITY)
+            trimmed.close()
+            mask.close()
+            crop.close()
+        rgba.close()
+
+
+def build_shared_ritual(project_root: Path) -> None:
+    source = project_root / "theme-sources/传统仪式"
+    target = project_root / "public/divination-assets/ritual"
+    target.mkdir(parents=True, exist_ok=True)
+    crop_transparent_ellipse_sheet(
+        source / "龟壳与铜钱.png",
+        target,
+        {
+            "shell": (235, 0, 1000, 965),
+            "coin-heads": (252, 930, 586, 1264),
+            "coin-tails": (646, 920, 988, 1262),
+        },
+    )
+    crop_transparent_sheet(
+        source / "圣杯.png",
+        target,
+        {
+            "shengbei-yang": (0, 0, 768, 1024),
+            "shengbei-yin": (768, 0, 1536, 1024),
+        },
+    )
 
 
 def crop_sheet(source: Path, target: Path, boxes: dict[str, tuple[int, int, int, int]]) -> None:
@@ -185,11 +281,13 @@ def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
         if numbers != list(range(78)):
             raise ValueError(f"月塔罗编号不完整：{numbers}")
         for number, entry in tarot_entries:
-            convert_bytes(archive.read(entry), target / "cards" / "tarot" / f"{number:03d}.webp")
+            with Image.open(io.BytesIO(archive.read(entry))) as image:
+                save_card_webp(image, target / "cards" / "tarot" / f"{number:03d}.webp")
         back = next((entry for entry in archive.infolist() if "078-Card Back" in entry.filename), None)
         if not back:
             raise ValueError("月塔罗压缩包缺少牌背 078-Card Back")
-        convert_bytes(archive.read(back), target / "cards" / "tarot" / "back.webp")
+        with Image.open(io.BytesIO(archive.read(back))) as image:
+            save_card_webp(image, target / "cards" / "tarot" / "back.webp")
 
     convert_numbered_files(indexed_files(source / "cards/lenormand", 36), target / "cards/lenormand", 2, 1)
     convert_numbered_files(indexed_files(source / "cards/shiyue-oracle", 60), target / "cards/oracle", 2, 1)
@@ -201,14 +299,7 @@ def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
     for item in (source / "fortune-status").glob("*.webp"):
         convert_file(item, target / "fortune-status" / item.name)
 
-    shared = {
-        "zhanbu.png": "banner.webp",
-        "shengbei-yang.webp": "ritual/shengbei-yang.webp",
-        "shengbei-yin.webp": "ritual/shengbei-yin.webp",
-        "liuyao-coin-heads-transparent.webp": "ritual/coin-heads.webp",
-        "liuyao-coin-tails-transparent.webp": "ritual/coin-tails.webp",
-        "liuyao-shell-transparent.webp": "ritual/shell.webp",
-    }
+    shared = {"zhanbu.png": "banner.webp"}
     for source_name, target_name in shared.items():
         convert_file(source / source_name, target / target_name)
 
@@ -216,7 +307,7 @@ def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
         target,
         theme_id="yue",
         name="月",
-        complete_groups=["brand", "banner", "shengbei", "liuyao", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
+        complete_groups=["brand", "banner", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
     )
 
 
@@ -259,36 +350,32 @@ def build_shi(project_root: Path, output_root: Path) -> None:
     crop_sheet(source / "吉凶图-1402x1122.png", target / "fortune-status", fortune_boxes)
 
     convert_file(source / "zhanbu.png", target / "banner.webp")
-    crop_green_screen_sheet(
-        source / "1786806940229.png",
-        target / "ritual",
-        {
-            "shengbei-yang": (140, 170, 629, 1044),
-            "shengbei-yin": (625, 170, 1135, 1044),
-        },
-    )
-    crop_green_screen_sheet(
-        source / "1786806995493.png",
-        target / "ritual",
-        {
-            "shell": (302, 8, 967, 748),
-            "coin-heads": (137, 769, 628, 1216),
-            "coin-tails": (624, 769, 1118, 1216),
-        },
-    )
-
     write_manifest(
         target,
         theme_id="shi",
         name="时",
-        complete_groups=["brand", "banner", "shengbei", "liuyao", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
+        complete_groups=["brand", "banner", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
     )
 
 
 def build_mo(project_root: Path, output_root: Path) -> None:
     source = project_root / "theme-sources/墨"
     target = output_root / "mo"
-    ensure_clean_directory(target, output_root)
+    target.mkdir(parents=True, exist_ok=True)
+    for generated_directory in ("cards", "xiaoliuren", "fortune-status"):
+        generated_path = (target / generated_directory).resolve()
+        if generated_path.parent != target.resolve():
+            raise ValueError(f"拒绝清理非墨主题生成目录：{generated_path}")
+        if generated_path.exists():
+            shutil.rmtree(generated_path)
+
+    convert_numbered_files(indexed_files(source / "cards/tarot", 78), target / "cards/tarot", 3, 0)
+    convert_numbered_files(indexed_files(source / "cards/lenormand", 36), target / "cards/lenormand", 2, 1)
+    convert_numbered_files(indexed_files(source / "cards/oracle", 60), target / "cards/oracle", 2, 1)
+    convert_numbered_files(indexed_files(source / "cards/hexagrams", 64), target / "cards/hexagrams", 2, 1)
+    convert_numbered_files(indexed_files(source / "cards/ssgw", 92), target / "cards/ssgw", 2, 1)
+    shutil.copyfile(output_root / "yue/cards/tarot/back.webp", target / "cards/tarot/back.webp")
+    convert_file(source / "Banner.png", target / "banner.webp")
 
     xlr_boxes = {
         "da-an": (128, 15, 495, 507),
@@ -309,7 +396,15 @@ def build_mo(project_root: Path, output_root: Path) -> None:
     }
     crop_sheet(source / "ChatGPT Image 2026年8月15日 22_27_00.png", target / "xiaoliuren", xlr_boxes)
     crop_sheet(source / "ChatGPT Image 2026年8月15日 22_27_09.png", target / "fortune-status", fortune_boxes)
-    write_manifest(target, theme_id="mo", name="墨", complete_groups=["brand", "xiaoliuren", "fortune-status"], inherits="yue")
+    if not (target / "logo.webp").is_file():
+        build_theme_logo(source, target)
+    write_manifest(
+        target,
+        theme_id="mo",
+        name="墨",
+        complete_groups=["brand", "banner", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
+        inherits="yue",
+    )
 
 
 def validate_output(output_root: Path) -> None:
@@ -366,6 +461,7 @@ def main() -> None:
     output_root = project_root / "public/divination-themes"
     output_root.mkdir(parents=True, exist_ok=True)
     if not args.logos_only:
+        build_shared_ritual(project_root)
         if "yue" in args.themes:
             if args.yue_tarot_zip is None:
                 parser.error("重建月主题时必须提供 --yue-tarot-zip")
@@ -374,7 +470,7 @@ def main() -> None:
             build_shi(project_root, output_root)
         if "mo" in args.themes:
             build_mo(project_root, output_root)
-    logo_themes = args.themes if args.logos_only else builders
+    logo_themes = args.themes if args.logos_only else [theme_id for theme_id in args.themes if theme_id != "mo"]
     for theme_id in logo_themes:
         theme_source = project_root / "theme-sources" / {"yue": "月", "shi": "时", "mo": "墨"}[theme_id]
         theme_target = output_root / theme_id

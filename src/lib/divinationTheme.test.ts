@@ -4,6 +4,8 @@ import {
   getNumberedThemeCardImageUrl,
   getTarotThemeImageUrl,
   getDivinationThemeLogoUrl,
+  getLiuyaoRitualImageUrl,
+  getShengbeiImageUrl,
   getXiaoliurenThemeImageUrl,
   resolveDivinationThemeId,
   setDivinationTheme,
@@ -27,13 +29,36 @@ describe('占卜主题资源映射', () => {
     expect(getDivinationThemeLogoUrl()).toContain('?v=');
   });
 
-  it('未补齐的墨主题资源回退到月主题', () => {
+  it('墨主题使用完整的独立牌图', () => {
     setDivinationTheme('mo');
-    expect(resolveDivinationThemeId('tarot')).toBe('yue');
+    expect(resolveDivinationThemeId('tarot')).toBe('mo');
     expect(resolveDivinationThemeId('xiaoliuren')).toBe('mo');
-    expect(assetPath(getTarotThemeImageUrl(0))).toBe('/divination-themes/yue/cards/tarot/000.webp');
+    expect(assetPath(getTarotThemeImageUrl(0))).toBe('/divination-themes/mo/cards/tarot/000.webp');
+    expect(assetPath(getNumberedThemeCardImageUrl('hexagrams', 64))).toBe('/divination-themes/mo/cards/hexagrams/64.webp');
+    expect(assetPath(getNumberedThemeCardImageUrl('ssgw', 92))).toBe('/divination-themes/mo/cards/ssgw/92.webp');
     expect(assetPath(getXiaoliurenThemeImageUrl('da-an.webp'))).toBe('/divination-themes/mo/xiaoliuren/da-an.webp');
     expect(assetPath(getDivinationThemeLogoUrl())).toBe('/divination-themes/mo/logo.webp');
+  });
+
+  it('三个主题共用同一套传统仪式素材', () => {
+    const paths = (['yue', 'shi', 'mo'] as const).map((themeId) => {
+      setDivinationTheme(themeId);
+      return [
+        assetPath(getShengbeiImageUrl('yang')),
+        assetPath(getShengbeiImageUrl('yin')),
+        assetPath(getLiuyaoRitualImageUrl('shell')),
+        assetPath(getLiuyaoRitualImageUrl('coin-heads')),
+        assetPath(getLiuyaoRitualImageUrl('coin-tails')),
+      ];
+    });
+    expect(new Set(paths.map(path => path.join('|'))).size).toBe(1);
+    expect(paths[0]).toEqual([
+      '/divination-assets/ritual/shengbei-yang.webp',
+      '/divination-assets/ritual/shengbei-yin.webp',
+      '/divination-assets/ritual/shell.webp',
+      '/divination-assets/ritual/coin-heads.webp',
+      '/divination-assets/ritual/coin-tails.webp',
+    ]);
   });
 
   it('主题切换会同步整套界面色板和页面主题标记', () => {

@@ -31,22 +31,12 @@ export function getWesternSpreadOptions(deckType: Exclude<WesternDeckType, 'taro
   });
 }
 
-const lenormandShiyueNames = [
-  '云使传讯', '幸运初绽', '远帆启程', '灯火归心', '根深长青', '迷雾未明',
-  '曲径藏机', '旧章终结', '花信赐福', '一刃决断', '回响交锋', '双语纷飞',
-  '新芽初生', '慧眼谋局', '厚力守护', '星途指引', '迁变新生', '忠伴同行',
-  '独立远观', '众缘相逢', '重岭阻途', '岔路择行', '暗耗渐侵', '真情相契',
-  '缔约成环', '秘卷待启', '书信将至', '君影入局', '卿影入局', '静雅长宁',
-  '曦光盛放', '月辉映心', '灵钥开门', '丰流汇聚', '定锚守成', '命题承重',
-] as const;
-
 export function getLenormandImageUrl(id: number) {
   return getWesternThemeCardImageUrl('lenormand', id);
 }
 
-export const lenormandDeck: readonly WesternCardResult[] = LENORMAND_CARDS.map((card, index) => ({
+export const lenormandDeck: readonly WesternCardResult[] = LENORMAND_CARDS.map(card => ({
   ...card,
-  subtitle: lenormandShiyueNames[index],
   position: '',
   reversed: false,
   get imageUrl() {
@@ -59,7 +49,6 @@ export const shiyueOracleDeck: readonly WesternCardResult[] = SHIYUE_ORACLE_CARD
   return {
     id,
     name: title,
-    subtitle: `${ganzhi} · ${nayin}`,
     position: '当下指引',
     reversed: false,
     keywords: [ganzhi, title, nayin],
@@ -76,7 +65,6 @@ export const shiOracleDeck: readonly WesternCardResult[] = SHI_ORACLE_CARDS.map(
   return {
     id,
     name: title,
-    subtitle: category,
     position: '当下指引',
     reversed: false,
     keywords: [category, title],

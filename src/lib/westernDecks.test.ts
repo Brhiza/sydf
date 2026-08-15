@@ -16,11 +16,15 @@ describe('西方牌卡素材映射', () => {
 
   it('完整映射 60 张时月神谕素材', () => {
     expect(shiyueOracleDeck).toHaveLength(60);
-    expect(shiyueOracleDeck[0]).toMatchObject({ id: 1, name: '海藏新生', subtitle: '甲子 · 海中金' });
-    expect(shiyueOracleDeck[59]).toMatchObject({ id: 60, name: '沧海归一', subtitle: '癸亥 · 大海水' });
+    expect(shiyueOracleDeck[0]).toMatchObject({ id: 1, name: '海藏新生' });
+    expect(shiyueOracleDeck[0]?.subtitle).toBeUndefined();
+    expect(shiyueOracleDeck[59]).toMatchObject({ id: 60, name: '沧海归一' });
+    expect(shiyueOracleDeck[59]?.subtitle).toBeUndefined();
     expect(shiOracleDeck).toHaveLength(60);
-    expect(shiOracleDeck[0]).toMatchObject({ id: 1, name: '晨曦初启', subtitle: '一日四时' });
-    expect(shiOracleDeck[59]).toMatchObject({ id: 60, name: '时月合璧', subtitle: '时月意象' });
+    expect(shiOracleDeck[0]).toMatchObject({ id: 1, name: '晨曦初启' });
+    expect(shiOracleDeck[0]?.subtitle).toBeUndefined();
+    expect(shiOracleDeck[59]).toMatchObject({ id: 60, name: '时月合璧' });
+    expect(shiOracleDeck[59]?.subtitle).toBeUndefined();
     expect(new Set(shiyueOracleDeck.map(card => card.imageUrl)).size).toBe(60);
     expect(SHIYUE_ORACLE_CARDS).toHaveLength(60);
     expect(shiyueOracleDeck.every(card => Boolean(card.meaning) && Boolean(card.guidance))).toBe(true);
@@ -42,7 +46,8 @@ describe('西方牌卡素材映射', () => {
   it('时主题神谕使用对应牌名且不套用六十甲子牌义', () => {
     setDivinationTheme('shi');
     const deck = getWesternDeck('shiyue-oracle');
-    expect(deck[0]).toMatchObject({ name: '晨曦初启', subtitle: '一日四时' });
+    expect(deck[0]).toMatchObject({ name: '晨曦初启' });
+    expect(deck[0]?.subtitle).toBeUndefined();
     const prompt = buildShiyueOraclePrompt('接下来该关注什么？', '单牌神谕', [{ ...deck[0]!, position: '当下指引' }]);
     expect(prompt).toContain('牌名：晨曦初启｜体系：一日四时');
     expect(prompt).toContain('不得套用六十甲子、纳音');
@@ -55,7 +60,8 @@ describe('西方牌卡素材映射', () => {
     ]);
     expect(spreads.every(item => item.positions.length === item.count)).toBe(true);
     expect(getWesternDeck('lenormand')).toHaveLength(36);
-    expect(getWesternDeck('lenormand')[0]).toMatchObject({ name: '骑士', subtitle: '云使传讯' });
+    expect(getWesternDeck('lenormand')[0]).toMatchObject({ name: '骑士' });
+    expect(getWesternDeck('lenormand')[0]?.subtitle).toBeUndefined();
   });
 
   it('为时月神谕提供单牌和三牌手动抽取所需牌位', () => {

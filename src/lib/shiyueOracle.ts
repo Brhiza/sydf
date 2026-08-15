@@ -117,7 +117,7 @@ export function buildShiyueOraclePrompt(question: string, spreadName: string, ca
       `【牌阵】${spreadName}`,
       '',
       '【本次牌面】',
-      ...cards.map((card, index) => `${index + 1}. ${card.position}｜第 ${card.id} 张｜牌名：${card.name}｜体系：${card.subtitle || '时月意象'}`),
+      ...cards.map((card, index) => `${index + 1}. ${card.position}｜第 ${card.id} 张｜牌名：${card.name}｜体系：${card.keywords[0] || '时月意象'}`),
     ].join('\n').trim();
   }
   return [

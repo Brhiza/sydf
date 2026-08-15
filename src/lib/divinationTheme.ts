@@ -3,8 +3,6 @@ import { computed, ref } from 'vue';
 export type DivinationThemeGroup =
   | 'brand'
   | 'banner'
-  | 'shengbei'
-  | 'liuyao'
   | 'xiaoliuren'
   | 'fortune-status'
   | 'tarot'
@@ -80,7 +78,7 @@ function visualTheme(
 }
 
 const allGroups: readonly DivinationThemeGroup[] = [
-  'brand', 'banner', 'shengbei', 'liuyao', 'xiaoliuren', 'fortune-status',
+  'brand', 'banner', 'xiaoliuren', 'fortune-status',
   'tarot', 'lenormand', 'oracle', 'hexagrams', 'ssgw',
 ];
 
@@ -135,9 +133,9 @@ export const DIVINATION_THEMES = [
   {
     id: 'mo',
     label: '墨',
-    description: '水墨画风，未补齐的图片沿用月主题',
+    description: '水墨画风',
     inherits: 'yue',
-    groups: ['brand', 'xiaoliuren', 'fortune-status'],
+    groups: allGroups,
     visual: visualTheme('50% 50%', { light: '#9a674d', dark: '#24211d' }, {
       canvas: ['#f2eee7', '#1d1b18'], surface: ['#faf7f1', '#25221e'],
       surfaceRaised: ['#fffdf8', '#2e2a25'], surfaceMuted: ['#eee8de', '#36312b'],
@@ -163,6 +161,7 @@ export type DivinationThemeId = DivinationThemeDefinition['id'];
 
 const THEME_STORAGE_KEY = 'shiyue-divination-theme-v1';
 const THEME_ROOT = '/divination-themes';
+const SHARED_ASSET_ROOT = '/divination-assets';
 // 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
 export const DIVINATION_THEME_ASSET_VERSION = '20260816-optimized-v1';
 
@@ -247,11 +246,11 @@ export function getDivinationThemeLogoUrl() {
 }
 
 export function getShengbeiImageUrl(face: 'yang' | 'yin') {
-  return divinationThemeAssetUrl('shengbei', `ritual/shengbei-${face}.webp`);
+  return `${SHARED_ASSET_ROOT}/ritual/shengbei-${face}.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
 }
 
 export function getLiuyaoRitualImageUrl(asset: 'coin-heads' | 'coin-tails' | 'shell') {
-  return divinationThemeAssetUrl('liuyao', `ritual/${asset}.webp`);
+  return `${SHARED_ASSET_ROOT}/ritual/${asset}.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
 }
 
 export function getXiaoliurenThemeImageUrl(fileName: string) {
