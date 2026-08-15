@@ -163,6 +163,8 @@ export type DivinationThemeId = DivinationThemeDefinition['id'];
 
 const THEME_STORAGE_KEY = 'shiyue-divination-theme-v1';
 const THEME_ROOT = '/divination-themes';
+// 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
+export const DIVINATION_THEME_ASSET_VERSION = '20260816-optimized-v1';
 
 function isThemeId(value: unknown): value is DivinationThemeId {
   return DIVINATION_THEMES.some(theme => theme.id === value);
@@ -190,6 +192,9 @@ function syncDocumentTheme(themeId: DivinationThemeId) {
   if (typeof document === 'undefined') return;
   const definition = DIVINATION_THEMES.find(theme => theme.id === themeId) || DIVINATION_THEMES[0]!;
   document.documentElement.dataset.divinationTheme = definition.id;
+  for (const [name, value] of Object.entries(definition.visual.cssVariables)) {
+    document.documentElement.style.setProperty(name, value);
+  }
   const lightMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"][media*="light"]');
   const darkMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"][media*="dark"]');
   if (lightMeta) lightMeta.content = definition.visual.browserColor.light;
@@ -229,7 +234,8 @@ export function resolveDivinationThemeId(
 
 export function divinationThemeAssetUrl(group: DivinationThemeGroup, relativePath: string) {
   const themeId = resolveDivinationThemeId(group);
-  return `${THEME_ROOT}/${themeId}/${relativePath.replace(/^\/+/, '')}`;
+  const path = `${THEME_ROOT}/${themeId}/${relativePath.replace(/^\/+/, '')}`;
+  return `${path}?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
 }
 
 export function getDivinationBannerUrl() {

@@ -2093,7 +2093,7 @@ function handlePwaUpdate(event: Event) {
   if (!update) return;
   applyPwaUpdate = update;
   pwaUpdateAvailable.value = true;
-  showPwaUpdateDialog.value = true;
+  showPwaUpdateDialog.value = false;
 }
 
 function handleWebUpdate(event: Event) {
@@ -2101,7 +2101,7 @@ function handleWebUpdate(event: Event) {
   availableWebVersion = detail?.version || '';
   prepareWebUpdate = detail?.prepareUpdate || null;
   pwaUpdateAvailable.value = true;
-  showPwaUpdateDialog.value = true;
+  showPwaUpdateDialog.value = false;
 }
 
 function postponePwaUpdate() {
@@ -5526,7 +5526,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <UiSectionHeading class="preference-section-heading" title="占卜主题" description="统一更换界面风格和占卜图片" compact />
               <div>
                 <div class="preference-option-grid is-three">
-                  <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
+                  <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">当前界面与占卜图片使用“{{ activeDivinationThemeLabel }}”主题</p>
               </div>

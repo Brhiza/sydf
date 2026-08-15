@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { getLenormandImageUrl, getWesternDeck, getWesternSpreadOptions, shiyueOracleDeck } from './westernDecks';
 import { buildShiyueOraclePrompt, SHIYUE_ORACLE_CARDS } from './shiyueOracle';
 
+const assetPath = (url: string) => url.split('?')[0];
+
 describe('西方牌卡素材映射', () => {
   it('完整映射 36 张雷诺曼素材', () => {
-    expect(getLenormandImageUrl(1)).toBe('/divination-themes/yue/cards/lenormand/01.webp');
-    expect(getLenormandImageUrl(36)).toBe('/divination-themes/yue/cards/lenormand/36.webp');
+    expect(assetPath(getLenormandImageUrl(1))).toBe('/divination-themes/yue/cards/lenormand/01.webp');
+    expect(assetPath(getLenormandImageUrl(36))).toBe('/divination-themes/yue/cards/lenormand/36.webp');
     expect(getLenormandImageUrl(37)).toBe('');
   });
 

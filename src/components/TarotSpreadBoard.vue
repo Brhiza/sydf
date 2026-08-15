@@ -71,7 +71,14 @@ function spreadCardStyle(index: number) {
       >
         <span class="tarot-position"><i>{{ index + 1 }}</i>{{ card.position }}</span>
         <div class="tarot-face" :class="{ 'is-reversed': card.reversed }">
-          <img :src="getTarotThemeImageUrl((getShiyueTarotCard(card.id)?.traditionalNumber) ?? 0)" alt="" draggable="false" />
+          <img
+            :src="getTarotThemeImageUrl((getShiyueTarotCard(card.id)?.traditionalNumber) ?? 0)"
+            :loading="index < 3 ? 'eager' : 'lazy'"
+            :fetchpriority="index === 0 ? 'high' : 'auto'"
+            decoding="async"
+            alt=""
+            draggable="false"
+          />
         </div>
         <strong>{{ getShiyueTarotName(card.id) || card.name }}</strong>
         <span class="tarot-orientation" :class="{ reversed: card.reversed }">{{ card.reversed ? '逆位' : '正位' }}</span>
@@ -83,8 +90,7 @@ function spreadCardStyle(index: number) {
 
 <style scoped>
 .tarot-spread-frame { --spread-card-width: 104px; --spread-item-width: 144px; min-width: 0; overflow: hidden; padding: 6px 2px 12px; width: 100%; }
-.tarot-spread-board { background: color-mix(in srgb, var(--ds-surface-muted) 88%, var(--ds-accent-soft)); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); height: min(620px, 66dvh); margin-inline: auto; overflow: hidden; position: relative; width: 100%; }
-.tarot-spread-board::before { border: 1px solid color-mix(in srgb, var(--ds-accent) 14%, transparent); border-radius: 50%; content: ''; height: 44%; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 44%; }
+.tarot-spread-board { height: min(620px, 66dvh); margin-inline: auto; overflow: hidden; position: relative; width: 100%; }
 .tarot-spread-board.spread-single, .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { height: min(470px, 54dvh); }
 .tarot-spread-board.spread-single { width: min(100%, 520px); }
 .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { width: min(100%, 900px); }
@@ -97,16 +103,16 @@ function spreadCardStyle(index: number) {
 .tarot-spread-board.is-medium-spread { --spread-card-width: 104px; --spread-item-width: 144px; }
 .tarot-spread-board.is-dense { --spread-card-width: 70px; --spread-item-width: 104px; }
 .tarot-result-item { align-items: center; display: flex; flex-direction: column; left: var(--spread-x); min-width: 0; position: absolute; text-align: center; top: var(--spread-y); transform: translate(-50%, -50%); width: var(--spread-item-width); }
-.tarot-position { align-items: center; color: var(--ds-accent-strong); display: flex; font-size: var(--ds-text-xs); gap: 5px; height: 32px; justify-content: center; line-height: 1.2; width: var(--spread-item-width); }
+.tarot-position { align-items: center; color: var(--ds-accent-strong); display: flex; font-size: var(--ds-text-xs); gap: 5px; height: 32px; justify-content: center; line-height: 1.2; width: 100%; }
 .tarot-position i { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; flex: 0 0 auto; font-size: 9px; font-style: normal; height: 18px; justify-content: center; width: 18px; }
 .tarot-face { aspect-ratio: 2 / 3; border-radius: var(--ds-radius-md); filter: drop-shadow(0 11px 13px rgba(41,33,52,.18)); flex: 0 0 auto; overflow: hidden; position: relative; transform: rotate(var(--spread-rotation)); width: var(--spread-card-width); }
 .tarot-face::after { background: linear-gradient(90deg, transparent 5%, rgba(197,160,94,.74) 16%, rgba(233,211,164,.92) 50%, rgba(197,160,94,.74) 84%, transparent 95%); bottom: 1px; content: ''; height: 1px; left: 0; pointer-events: none; position: absolute; right: 0; }
 .tarot-face img { display: block; height: 100%; object-fit: contain; transition: transform .3s; user-select: none; width: 100%; }
 .tarot-face.is-reversed img { transform: rotate(180deg); }
-.tarot-result-item > strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); margin-top: 9px; }
+.tarot-result-item > strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); line-height: 1.35; margin-top: 9px; max-width: 100%; overflow-wrap: anywhere; width: 100%; }
 .tarot-orientation { background: var(--ds-success-soft); border-radius: var(--ds-radius-round); color: var(--ds-success); font-size: 10px; margin-top: 5px; padding: 2px 7px; }
 .tarot-orientation.reversed { background: var(--ds-danger-soft); color: var(--ds-danger); }
-.tarot-result-item p { color: var(--ds-text-tertiary); font-size: 10px; line-height: 1.45; margin: 6px 0 0; }
+.tarot-result-item p { color: var(--ds-text-tertiary); font-size: 10px; line-height: 1.45; margin: 6px 0 0; max-width: 100%; overflow-wrap: anywhere; width: 100%; }
 .tarot-spread-board.is-dense .tarot-result-item p { display: none; }
 .tarot-spread-board.is-dense .tarot-result-item > strong,
 .tarot-spread-board.is-dense .tarot-result-item > .tarot-orientation { display: none; }
@@ -132,32 +138,49 @@ function spreadCardStyle(index: number) {
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-celtic,
 .tarot-spread-frame.is-compact .tarot-spread-board.spread-year { height: min(450px, 48dvh); }
 .tarot-spread-frame.is-immersive { padding-inline: 0; }
-.tarot-spread-frame.is-immersive .tarot-spread-board { background: transparent; border: 0; border-radius: 0; }
-.tarot-spread-frame.is-immersive .tarot-spread-board::before { display: none; }
+.tarot-spread-board.spread-celtic .tarot-result-item:nth-child(1) .tarot-position { transform: translateX(-42%); }
+.tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) .tarot-position { transform: translateX(42%); }
 .tarot-spread-board.is-dealing .tarot-result-item { animation: tarot-deal-in .48s cubic-bezier(.2,.78,.28,1) both; animation-delay: calc(var(--deal-index) * 110ms); }
 @keyframes tarot-deal-in { from { opacity: 0; transform: translate(-50%, -32%) scale(.72) rotate(-4deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 
 @media (max-width: 720px) {
   .tarot-spread-frame { --spread-card-width: 70px; --spread-item-width: 94px; }
-  .tarot-spread-board.is-small-spread { --spread-card-width: 92px; --spread-item-width: 118px; }
+  .tarot-spread-board.is-small-spread { --spread-card-width: min(92px, 24vw); --spread-item-width: 30%; }
+  .tarot-spread-board.spread-single.is-small-spread { --spread-card-width: 92px; --spread-item-width: 118px; }
   .tarot-spread-board.is-medium-spread { --spread-card-width: 70px; --spread-item-width: 94px; }
   .tarot-spread-board.is-dense { --spread-card-width: 46px; --spread-item-width: 68px; }
   .tarot-spread-board.spread-chakra { --spread-card-width: 58px; --spread-item-width: 78px; }
   .tarot-spread-board.spread-chakra .tarot-result-item > strong { font-size: 9px; margin-top: 3px; }
   .tarot-spread-board.spread-chakra .tarot-orientation { font-size: 8px; padding: 1px 5px; }
   .tarot-spread-board.spread-chakra .tarot-position { font-size: 8px; height: 22px; }
+  .tarot-position { font-size: 10px; line-height: 1.25; overflow-wrap: anywhere; }
+  .tarot-result-item > strong { font-size: 10px; margin-top: 6px; }
+  .tarot-result-item p { display: -webkit-box; line-clamp: 2; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .tarot-spread-board { height: min(520px, 62dvh); }
   .tarot-spread-board.spread-single,
   .tarot-spread-board.spread-three,
   .tarot-spread-board.spread-mindBodySpirit { height: min(300px, 42dvh); }
   .tarot-spread-board.spread-love,
   .tarot-spread-board.spread-career,
-  .tarot-spread-board.spread-decision,
+  .tarot-spread-board.spread-decision { height: 620px; }
   .tarot-spread-board.spread-horseshoe { height: min(430px, 54dvh); }
-  .tarot-spread-board.spread-love { height: min(500px, 58dvh); }
   .tarot-spread-board.spread-chakra,
   .tarot-spread-board.spread-celtic,
   .tarot-spread-board.spread-year { height: min(520px, 60dvh); }
+  .tarot-spread-board.spread-love .tarot-result-item:nth-child(1),
+  .tarot-spread-board.spread-career .tarot-result-item:nth-child(-n+3) { --spread-y: 17% !important; }
+  .tarot-spread-board.spread-love .tarot-result-item:nth-child(n+2):nth-child(-n+4),
+  .tarot-spread-board.spread-career .tarot-result-item:nth-child(n+4):nth-child(-n+5) { --spread-y: 50% !important; }
+  .tarot-spread-board.spread-love .tarot-result-item:nth-child(5),
+  .tarot-spread-board.spread-career .tarot-result-item:nth-child(6) { --spread-y: 83% !important; }
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(-n+3) { --spread-x: 25% !important; }
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(n+4) { --spread-x: 75% !important; }
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(1),
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(4) { --spread-y: 17% !important; }
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(2),
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(5) { --spread-y: 50% !important; }
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(3),
+  .tarot-spread-board.spread-decision .tarot-result-item:nth-child(6) { --spread-y: 83% !important; }
   .tarot-spread-frame.is-compact .tarot-spread-board { height: 100%; }
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-single,
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-three,
@@ -169,6 +192,29 @@ function spreadCardStyle(index: number) {
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-chakra,
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-celtic,
   .tarot-spread-frame.is-compact .tarot-spread-board.spread-year { height: 100%; }
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:first-child { --spread-x: 12% !important; }
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:last-child { --spread-x: 88% !important; }
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(1),
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(7) { --spread-y: 83% !important; }
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(2),
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(6) { --spread-y: 58% !important; }
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(3),
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(5) { --spread-y: 34% !important; }
+  .tarot-spread-board.spread-horseshoe .tarot-result-item:nth-child(4) { --spread-y: 11% !important; }
+  .tarot-spread-board.spread-celtic .tarot-result-item:nth-child(1) .tarot-position { transform: translate(-65%, -28px); }
+  .tarot-spread-board.spread-celtic .tarot-result-item:nth-child(2) .tarot-position { transform: translate(65%, -28px); }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(1) { --spread-x: 12.5% !important; --spread-y: 17% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(2) { --spread-x: 37.5% !important; --spread-y: 17% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(3) { --spread-x: 62.5% !important; --spread-y: 17% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(4) { --spread-x: 87.5% !important; --spread-y: 17% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(5) { --spread-x: 87.5% !important; --spread-y: 39% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(6) { --spread-x: 87.5% !important; --spread-y: 61% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(7) { --spread-x: 87.5% !important; --spread-y: 83% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(8) { --spread-x: 62.5% !important; --spread-y: 83% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(9) { --spread-x: 37.5% !important; --spread-y: 83% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(10) { --spread-x: 12.5% !important; --spread-y: 83% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(11) { --spread-x: 12.5% !important; --spread-y: 61% !important; }
+  .tarot-spread-board.spread-year .tarot-result-item:nth-child(12) { --spread-x: 12.5% !important; --spread-y: 39% !important; }
 }
 @media (prefers-reduced-motion: reduce) { .tarot-spread-board.is-dealing .tarot-result-item { animation: none; } }
 </style>

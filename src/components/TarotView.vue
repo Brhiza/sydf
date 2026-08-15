@@ -423,6 +423,7 @@ onMounted(() => {
   nextTick(updateFanLayout);
   fanResizeObserver = new ResizeObserver(scheduleFanUpdate);
   if (deckRef.value) fanResizeObserver.observe(deckRef.value);
+  if (props.castingPreference === 'auto' && question.value.trim()) void automaticDraw();
 });
 
 onBeforeUnmount(() => {

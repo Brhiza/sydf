@@ -87,15 +87,15 @@ export default defineConfig(({ mode }) => {
             urlPattern: ({ request, url }) => request.destination === 'image'
               && url.origin === self.location.origin
               && url.pathname.startsWith('/divination-themes/'),
-            // 后续替换同主题图片时自动在后台刷新，避免用户长期看到旧画面。
-            handler: 'StaleWhileRevalidate',
+            // 图片地址自带独立素材版本，同一版本命中缓存后无需重复请求。
+            handler: 'CacheFirst',
             options: {
-              cacheName: 'shiyue-divination-theme-images-v3',
+              cacheName: 'shiyue-divination-theme-images-v4',
               cacheableResponse: { statuses: [0, 200] },
               expiration: {
-                // 覆盖常用牌阵与浏览记录，但不让全部牌组长期占满设备空间。
-                maxEntries: 96,
-                maxAgeSeconds: 60 * 60 * 24 * 60,
+                // 可覆盖两套完整塔罗和常用牌阵，仍限制移动设备的长期占用。
+                maxEntries: 256,
+                maxAgeSeconds: 60 * 60 * 24 * 90,
               },
             },
           },
