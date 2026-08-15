@@ -1,0 +1,14 @@
+{
+  "id": "mo",
+  "name": "墨",
+  "inherits": "yue",
+  "completeGroups": [
+    "xiaoliuren",
+    "fortune-status"
+  ],
+  "cardStyle": {
+    "frame": false,
+    "textBakedIntoImage": false,
+    "cornerRadius": "ui"
+  }
+}

@@ -16,6 +16,7 @@ import {
   type ReadingResult,
 } from '../lib/divination';
 import { dailyHexagramYaoLabel, shakeDailyHexagramCoins } from '../lib/dailyHexagram';
+import { getLiuyaoRitualImageUrl } from '../lib/divinationTheme';
 
 type CastingKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 'liuren' | 'taiyi';
 
@@ -259,9 +260,9 @@ async function completeSpecified() {
               <header><span>{{ latestThrow ? latestLineName : '第一步' }}</span><strong>{{ isShakingYao ? `正在摇${nextLineName}` : (latestThrow ? '本次铜钱' : '准备摇初爻') }}</strong></header>
               <div class="manual-shake-result">
                 <Transition name="manual-shake-visual" mode="out-in">
-                  <div v-if="isShakingYao" key="shell" class="manual-shell-animation"><img src="/liuyao-shell-transparent.webp" alt="龟壳正在摇卦" /><span>正在摇{{ nextLineName }}</span></div>
-                  <div v-else-if="latestThrow" key="coins" class="manual-coin-result"><div><img v-for="(coin, index) in latestThrow.coins" :key="index" :src="coin === 3 ? '/liuyao-coin-heads-transparent.webp' : '/liuyao-coin-tails-transparent.webp'" :alt="coin === 3 ? '铜钱正面' : '铜钱背面'" /></div><p><strong>{{ dailyHexagramYaoLabel(latestThrow.total) }}</strong><span>{{ latestThrow.total }} 点 · {{ latestLineName }}</span></p></div>
-                  <div v-else key="empty" class="manual-shell-empty"><img src="/liuyao-shell-transparent.webp" alt="起卦龟壳" /><span>等待摇出初爻</span></div>
+                  <div v-if="isShakingYao" key="shell" class="manual-shell-animation"><img :src="getLiuyaoRitualImageUrl('shell')" alt="龟壳正在摇卦" /><span>正在摇{{ nextLineName }}</span></div>
+                  <div v-else-if="latestThrow" key="coins" class="manual-coin-result"><div><img v-for="(coin, index) in latestThrow.coins" :key="index" :src="getLiuyaoRitualImageUrl(coin === 3 ? 'coin-heads' : 'coin-tails')" :alt="coin === 3 ? '铜钱正面' : '铜钱背面'" /></div><p><strong>{{ dailyHexagramYaoLabel(latestThrow.total) }}</strong><span>{{ latestThrow.total }} 点 · {{ latestLineName }}</span></p></div>
+                  <div v-else key="empty" class="manual-shell-empty"><img :src="getLiuyaoRitualImageUrl('shell')" alt="起卦龟壳" /><span>等待摇出初爻</span></div>
                 </Transition>
               </div>
               <UiButton v-if="coinThrows.length < 6" size="large" block :loading="isShakingYao" @click="shakeYao"><Coins v-if="!isShakingYao" :size="17" />{{ isShakingYao ? '摇卦中' : `摇${nextLineName}` }}</UiButton>

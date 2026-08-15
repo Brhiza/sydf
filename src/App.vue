@@ -170,6 +170,7 @@ import { getModernAlmanacHours, getModernAlmanacPersonalNotes, modernizeAlmanacD
 import type { SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
+import { DIVINATION_THEMES, activeDivinationThemeId, activeDivinationThemeLabel, setDivinationTheme } from './lib/divinationTheme';
 import {
   almanacTopicGroups,
   almanacTopicOptions,
@@ -5513,6 +5514,16 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </UiWorkspaceSurface>
 
           <div v-else class="preferences-page">
+            <section class="preference-section">
+              <UiSectionHeading class="preference-section-heading" title="占卜主题" description="统一更换占卜过程和牌面图片" compact />
+              <div>
+                <div class="preference-option-grid is-three">
+                  <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
+                </div>
+                <p class="preference-active-note">当前占卜图片使用“{{ activeDivinationThemeLabel }}”主题</p>
+              </div>
+            </section>
+
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="解答偏好" description="选择 AI 的表达风格和解读框架" compact />
               <div>

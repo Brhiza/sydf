@@ -1,0 +1,22 @@
+{
+  "id": "shi",
+  "name": "时",
+  "inherits": null,
+  "completeGroups": [
+    "banner",
+    "shengbei",
+    "liuyao",
+    "xiaoliuren",
+    "fortune-status",
+    "tarot",
+    "lenormand",
+    "oracle",
+    "hexagrams",
+    "ssgw"
+  ],
+  "cardStyle": {
+    "frame": false,
+    "textBakedIntoImage": false,
+    "cornerRadius": "ui"
+  }
+}

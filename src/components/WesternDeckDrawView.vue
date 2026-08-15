@@ -168,7 +168,16 @@ async function resolveReading(animated = false) {
     if (props.deckType === 'lenormand') {
       const result = drawLenormandSpread(props.initialSpread as Parameters<typeof drawLenormandSpread>[0], { manualCardIds: ids });
       reading.value = { deckType: 'lenormand', deckName: '雷诺曼', spreadType: result.spreadType, spreadName: result.spreadName,
-        cards: result.cards.map(card => ({ ...card, reversed: false, imageUrl: deck.value.find(item => item.id === card.id)?.imageUrl || '' })), timestamp: result.timestamp, meta: result.meta, draw: result.draw };
+        cards: result.cards.map((card) => {
+          const localCard = deck.value.find(item => item.id === card.id);
+          return {
+            ...card,
+            name: localCard?.name || card.name,
+            subtitle: localCard?.subtitle,
+            reversed: false,
+            imageUrl: localCard?.imageUrl || '',
+          };
+        }), timestamp: result.timestamp, meta: result.meta, draw: result.draw };
       prompt.value = buildDivinationPrompt({ method: 'lenormand', data: result, question: props.initialQuestion, isCustomQuestion: true }).trim();
     } else {
       const cards = ids.map((id, index) => ({ ...deck.value.find(card => card.id === id)!, position: spread.value.positions[index]! }));
@@ -257,7 +266,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(fanFrame); resizeObserver?.disconne
 .western-methods > button.active { background: var(--ds-accent-soft); border-color: color-mix(in srgb,var(--ds-accent) 45%,var(--ds-line)); color: var(--ds-accent-strong); }
 .western-methods button span { display: grid; gap: 2px; }.western-methods button small { color: var(--ds-text-tertiary); }
 .western-methods input { background: var(--ds-surface-raised); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font: inherit; height: 44px; padding: 0 12px; }
-.western-shuffling { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: min(520px,58dvh); }.western-shuffling > div { height: 230px; position: relative; width: 150px; }.western-shuffling img { animation: western-shuffle 1.7s ease-in-out both; border-radius: 9px; box-shadow: 0 12px 26px rgba(41,33,52,.2); height: 230px; left: 0; object-fit: cover; position: absolute; width: 150px; }.western-shuffling img:nth-child(even) { animation-name: western-shuffle-right; }.western-shuffling strong { margin-top: 22px; }.western-shuffling small { color: var(--ds-text-tertiary); margin-top: 6px; }
+.western-shuffling { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: min(520px,58dvh); }.western-shuffling > div { height: 230px; position: relative; width: 150px; }.western-shuffling img { animation: western-shuffle 1.7s ease-in-out both; border-radius: var(--ds-radius-md); box-shadow: 0 12px 26px rgba(41,33,52,.2); height: 230px; left: 0; object-fit: cover; position: absolute; width: 150px; }.western-shuffling img:nth-child(even) { animation-name: western-shuffle-right; }.western-shuffling strong { margin-top: 22px; }.western-shuffling small { color: var(--ds-text-tertiary); margin-top: 6px; }
 @keyframes western-shuffle { 35% { transform: translateX(-70px) rotate(-7deg); } 70% { transform: translateX(20px); } } @keyframes western-shuffle-right { 35% { transform: translateX(70px) rotate(7deg); } 70% { transform: translateX(-20px); } }
 .western-draw-workspace { display: grid; flex: 1; grid-template-rows: minmax(0,1fr) auto; margin-top: 8px; min-height: 0; min-width: 0; width: 100%; }
 .western-live-board { min-height: 0; overflow: hidden; padding: 0 var(--ds-page-gutter); }.western-live-board :deep(.western-card-board) { height: 100%; }
@@ -265,7 +274,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(fanFrame); resizeObserver?.disconne
 .western-fan-wrap { height: 322px; margin: 0; min-width: 0; overflow: hidden; position: relative; width: 100%; }
 .western-fan { cursor: grab; height: 322px; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 132px 0 0; scrollbar-width: none; touch-action: pan-x; }.western-fan::-webkit-scrollbar { display:none; }
 .western-fan-track { --fan-edge-space: 44px; display: flex; min-width: max-content; }.western-fan-track::before,.western-fan-track::after { content:''; flex:0 0 var(--fan-edge-space); }
-.western-fan button { --card-angle:0deg; --card-lift:0px; background: transparent; border: 0; cursor: grab; flex: 0 0 110px; height: 178px; margin-left: -54px; opacity: .88; padding: 0; position: relative; transform: translateY(var(--card-lift)) rotate(var(--card-angle)); transform-origin: 50% 142%; transition: transform .16s ease-out,filter .2s,opacity .2s; user-select:none; z-index:1; }.western-fan button:first-of-type { margin-left: 0; }.western-fan button.candidate { cursor:pointer; filter:brightness(1.01); opacity:1; z-index:100; }.western-fan button.selected { opacity: .2; }.western-fan button > span { border-radius:8px; box-shadow:0 8px 20px rgba(41,33,52,.2); display:block; height:178px; overflow:hidden; width:110px; }.western-fan img { display:block; height:100%; object-fit:cover; pointer-events:none; width:100%; }
+.western-fan button { --card-angle:0deg; --card-lift:0px; background: transparent; border: 0; cursor: grab; flex: 0 0 110px; height: 178px; margin-left: -54px; opacity: .88; padding: 0; position: relative; transform: translateY(var(--card-lift)) rotate(var(--card-angle)); transform-origin: 50% 142%; transition: transform .16s ease-out,filter .2s,opacity .2s; user-select:none; z-index:1; }.western-fan button:first-of-type { margin-left: 0; }.western-fan button.candidate { cursor:pointer; filter:brightness(1.01); opacity:1; z-index:100; }.western-fan button.selected { opacity: .2; }.western-fan button > span { border-radius:var(--ds-radius-md); box-shadow:0 8px 20px rgba(41,33,52,.2); display:block; height:178px; overflow:hidden; width:110px; }.western-fan img { display:block; height:100%; object-fit:cover; pointer-events:none; width:100%; }
 .western-candidate-number { bottom:12px; display:flex; justify-content:center; left:50%; pointer-events:none; position:absolute; transform:translateX(-50%); z-index:110; }.western-candidate-number span { align-items:center; background:var(--ds-accent-soft); border-radius:99px; color:var(--ds-accent-strong); display:inline-flex; font-size:10px; font-weight:650; height:18px; justify-content:center; min-width:18px; padding:0 4px; }
 .western-draw-complete { display:flex; justify-content:center; padding:var(--ds-space-4) 0 0; }
 .western-result-action { display: flex; justify-content: center; padding-top: 18px; }

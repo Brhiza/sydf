@@ -1,6 +1,7 @@
 import type { WesternCardResult, WesternDeckType, WesternSpreadType } from './tarot';
 import { LENORMAND_CARDS, LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
 import { SHIYUE_ORACLE_CARDS } from './shiyueOracle';
+import { getWesternThemeCardImageUrl } from './divinationTheme';
 
 export interface WesternSpreadOption {
   value: WesternSpreadType;
@@ -30,47 +31,48 @@ export function getWesternSpreadOptions(deckType: Exclude<WesternDeckType, 'taro
   });
 }
 
-const lenormandFileNames = [
-  '01_骑士.png', '02_四叶草.png', '03_船.png', '04_房屋.png', '05_树.png', '06_云.png',
-  '07_蛇.png', '08_棺材.png', '09_花束.png', '10_镰刀.png', '11_鞭子.png', '12_鸟.png',
-  '13_孩子.png', '14_狐狸.png', '15_熊.png', '16_星星.png', '17_鹳.png', '18_狗.png',
-  '19_高塔.png', '20_花园.png', '21_山.png', '22_道路.png', '23_老鼠.png', '24_心.png',
-  '25_戒指.png', '26_书.png', '27_信.png', '28_男士.png', '29_女士.png', '30_百合.png',
-  '31_太阳.png', '32_月亮.png', '33_钥匙.png', '34_鱼.png', '35_锚.png', '36_十字架.png',
+const lenormandShiyueNames = [
+  '云使传讯', '幸运初绽', '远帆启程', '灯火归心', '根深长青', '迷雾未明',
+  '曲径藏机', '旧章终结', '花信赐福', '一刃决断', '回响交锋', '双语纷飞',
+  '新芽初生', '慧眼谋局', '厚力守护', '星途指引', '迁变新生', '忠伴同行',
+  '独立远观', '众缘相逢', '重岭阻途', '岔路择行', '暗耗渐侵', '真情相契',
+  '缔约成环', '秘卷待启', '书信将至', '君影入局', '卿影入局', '静雅长宁',
+  '曦光盛放', '月辉映心', '灵钥开门', '丰流汇聚', '定锚守成', '命题承重',
 ] as const;
 
-const publicCardUrl = (deck: 'lenormand' | 'shiyue-oracle', fileName: string) =>
-  `/cards/${deck}/${encodeURIComponent(fileName)}`;
-
 export function getLenormandImageUrl(id: number) {
-  const fileName = lenormandFileNames[id - 1];
-  return fileName
-    ? publicCardUrl('lenormand', fileName)
-    : '';
+  return getWesternThemeCardImageUrl('lenormand', id);
 }
 
-export const lenormandDeck: readonly WesternCardResult[] = LENORMAND_CARDS.map(card => ({
+export const lenormandDeck: readonly WesternCardResult[] = LENORMAND_CARDS.map((card, index) => ({
   ...card,
+  subtitle: lenormandShiyueNames[index],
   position: '',
   reversed: false,
-  imageUrl: getLenormandImageUrl(card.id),
+  get imageUrl() {
+    return getLenormandImageUrl(card.id);
+  },
 }));
 
 export const shiyueOracleDeck: readonly WesternCardResult[] = SHIYUE_ORACLE_CARDS.map(({ ganzhi, title, nayin, meaning, guidance }, index) => {
   const id = index + 1;
-  const fileName = `${String(id).padStart(2, '0')}_${ganzhi}_${title}_${nayin}.png`;
   return {
     id,
-    name: `${ganzhi} · ${title}`,
-    subtitle: nayin,
+    name: nayin,
     position: '当下指引',
     reversed: false,
     keywords: [ganzhi, title, nayin],
     meaning,
     guidance,
-    imageUrl: publicCardUrl('shiyue-oracle', fileName),
+    get imageUrl() {
+      return getWesternThemeCardImageUrl('oracle', id);
+    },
   };
 });
+
+export function getWesternCardImageUrl(deckType: Exclude<WesternDeckType, 'tarot'>, id: number) {
+  return getWesternThemeCardImageUrl(deckType === 'lenormand' ? 'lenormand' : 'oracle', id);
+}
 
 export function drawShiyueOracleCard() {
   const random = new Uint32Array(1);

@@ -79,17 +79,18 @@ export default defineConfig(({ mode }) => {
           'logo.webp',
           'pwa-*.png',
           // 卡牌素材数量多且只会按抽牌结果使用，不加入安装时预缓存，避免首次加载下载全部图片。
-          'cards/**/*',
+          'divination-themes/**/*',
         ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: ({ request, url }) => request.destination === 'image'
               && url.origin === self.location.origin
-              && url.pathname.startsWith('/cards/'),
-            handler: 'CacheFirst',
+              && url.pathname.startsWith('/divination-themes/'),
+            // 后续替换同主题图片时自动在后台刷新，避免用户长期看到旧画面。
+            handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'shiyue-card-images-v2',
+              cacheName: 'shiyue-divination-theme-images-v3',
               cacheableResponse: { statuses: [0, 200] },
               expiration: {
                 // 覆盖常用牌阵与浏览记录，但不让全部牌组长期占满设备空间。

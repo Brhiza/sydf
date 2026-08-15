@@ -4,15 +4,16 @@ import { buildShiyueOraclePrompt, SHIYUE_ORACLE_CARDS } from './shiyueOracle';
 
 describe('西方牌卡素材映射', () => {
   it('完整映射 36 张雷诺曼素材', () => {
-    expect(getLenormandImageUrl(1)).toContain('01_%E9%AA%91%E5%A3%AB.png');
-    expect(getLenormandImageUrl(36)).toContain('36_%E5%8D%81%E5%AD%97%E6%9E%B6.png');
+    expect(getLenormandImageUrl(1)).toBe('/divination-themes/yue/cards/lenormand/01.webp');
+    expect(getLenormandImageUrl(36)).toBe('/divination-themes/yue/cards/lenormand/36.webp');
     expect(getLenormandImageUrl(37)).toBe('');
   });
 
   it('完整映射 60 张时月神谕素材', () => {
     expect(shiyueOracleDeck).toHaveLength(60);
-    expect(shiyueOracleDeck[0]).toMatchObject({ id: 1, name: '甲子 · 海藏新生', subtitle: '海中金' });
-    expect(shiyueOracleDeck[59]).toMatchObject({ id: 60, name: '癸亥 · 沧海归一', subtitle: '大海水' });
+    expect(shiyueOracleDeck[0]).toMatchObject({ id: 1, name: '海中金' });
+    expect(shiyueOracleDeck[0]?.subtitle).toBeUndefined();
+    expect(shiyueOracleDeck[59]).toMatchObject({ id: 60, name: '大海水' });
     expect(new Set(shiyueOracleDeck.map(card => card.imageUrl)).size).toBe(60);
     expect(SHIYUE_ORACLE_CARDS).toHaveLength(60);
     expect(shiyueOracleDeck.every(card => Boolean(card.meaning) && Boolean(card.guidance))).toBe(true);
@@ -37,6 +38,7 @@ describe('西方牌卡素材映射', () => {
     ]);
     expect(spreads.every(item => item.positions.length === item.count)).toBe(true);
     expect(getWesternDeck('lenormand')).toHaveLength(36);
+    expect(getWesternDeck('lenormand')[0]).toMatchObject({ name: '骑士', subtitle: '云使传讯' });
   });
 
   it('为时月神谕提供单牌和三牌手动抽取所需牌位', () => {

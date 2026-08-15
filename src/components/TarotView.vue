@@ -592,7 +592,7 @@ onBeforeUnmount(() => {
 .tarot-shuffle-stage > strong { color: var(--ds-text-primary); font-size: var(--ds-heading-sm); margin-top: 22px; }
 .tarot-shuffle-stage > small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); margin-top: 6px; }
 .tarot-shuffle-deck { height: 230px; position: relative; width: 150px; }
-.tarot-shuffle-deck img { border-radius: 9px; box-shadow: 0 12px 26px rgba(41,33,52,.2); height: 230px; left: 0; object-fit: cover; position: absolute; top: 0; width: 150px; }
+.tarot-shuffle-deck img { border-radius: var(--ds-radius-md); box-shadow: 0 12px 26px rgba(41,33,52,.2); height: 230px; left: 0; object-fit: cover; position: absolute; top: 0; width: 150px; }
 .tarot-shuffle-deck img:nth-child(1) { animation: shuffle-left 1.8s ease-in-out both; }
 .tarot-shuffle-deck img:nth-child(2) { animation: shuffle-right 1.8s .08s ease-in-out both; }
 .tarot-shuffle-deck img:nth-child(3) { animation: shuffle-left 1.8s .16s ease-in-out both; }
@@ -619,7 +619,7 @@ onBeforeUnmount(() => {
 .tarot-card.is-confirmed { opacity: .2; }
 .tarot-card:focus-visible { outline: none; z-index: 101; }
 .tarot-card:focus-visible .tarot-card-inner { box-shadow: var(--ds-focus-ring), 0 12px 28px rgba(41,33,52,.24); }
-.tarot-card-inner { border-radius: 8px; box-shadow: 0 8px 20px rgba(41,33,52,.2); display: block; height: 178px; overflow: hidden; position: relative; width: 110px; }
+.tarot-card-inner { border-radius: var(--ds-radius-md); box-shadow: 0 8px 20px rgba(41,33,52,.2); display: block; height: 178px; overflow: hidden; position: relative; width: 110px; }
 .tarot-card-inner img { display: block; height: 100%; object-fit: cover; pointer-events: none; user-select: none; width: 100%; }
 .tarot-candidate-panel { bottom: 12px; display: flex; justify-content: center; left: 50%; pointer-events: none; position: absolute; text-align: center; transform: translateX(-50%); z-index: 110; }
 .tarot-candidate-panel > span { align-items: center; background: var(--ds-accent-soft); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-flex; font-size: 10px; font-weight: 650; height: 18px; justify-content: center; min-width: 18px; padding: 0 4px; }
