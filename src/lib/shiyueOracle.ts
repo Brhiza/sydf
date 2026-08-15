@@ -71,7 +71,55 @@ export const SHIYUE_ORACLE_CARDS: readonly ShiyueOracleCardDefinition[] = [
   { ganzhi: '癸亥', title: '沧海归一', nayin: '大海水', meaning: '一个周期走向完整，纷杂经历需要被理解、整合并放回整体。', guidance: '总结所得、完成告别，让已经成熟的答案成为下一程的起点。' },
 ] as const;
 
+export interface ShiOracleCardDefinition {
+  title: string;
+  category: string;
+}
+
+const SHI_ORACLE_TITLES = [
+  '晨曦初启', '正午盛光', '黄昏余晖', '子夜静轮',
+  '新月萌愿', '娥眉月', '上弦抉择', '盈凸积聚', '满月圆成', '亏凸回望', '下弦释怀', '残月休憩',
+  '春分', '清明', '谷雨', '立夏', '小满', '芒种', '夏至', '小暑', '大暑', '立秋', '处暑', '白露',
+  '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至', '小寒', '大寒', '立春', '雨水', '惊蛰',
+  '正月新门', '二月花信', '三月桃潮', '四月茶烟', '五月龙舟', '六月荷梦',
+  '七月星桥', '八月桂影', '九月重阳', '十月炉暖', '冬月雪灯', '腊月归家',
+  '日轮', '月镜', '辰星信使', '太白和悦', '荧惑勇火', '岁星扩展', '镇星界限', '罗喉影门', '计都回声',
+  '时之钥', '月之杯', '时月合璧',
+] as const;
+
+function shiOracleCategory(index: number) {
+  if (index < 4) return '一日四时';
+  if (index < 12) return '月相流转';
+  if (index < 36) return '二十四节气';
+  if (index < 48) return '十二月令';
+  if (index < 57) return '九曜星象';
+  return '时月意象';
+}
+
+export const SHI_ORACLE_CARDS: readonly ShiOracleCardDefinition[] = SHI_ORACLE_TITLES.map((title, index) => ({
+  title,
+  category: shiOracleCategory(index),
+}));
+
 export function buildShiyueOraclePrompt(question: string, spreadName: string, cards: readonly WesternCardResult[]) {
+  const hasFixedMeanings = cards.every(card => Boolean(card.meaning) && Boolean(card.guidance));
+  if (!hasFixedMeanings) {
+    return [
+      '你正在解读「时月神谕」的时主题牌组。该牌组由一日四时、月相、二十四节气、十二月令、九曜星象与时月意象组成。',
+      '',
+      '【固定规则】',
+      '1. 每张牌只有正向牌面，不使用逆位。',
+      '2. 当前资料只提供牌名与所属体系；应依据牌名的直接意象、所属体系和牌位关系作克制的象征性解读。',
+      '3. 不得套用六十甲子、纳音或其他牌组的固定牌义，也不得虚构签诗、典故、固定吉凶、应期或必然结果。',
+      '4. 先回应用户问题，再解释各牌位之间的发展关系，最后给出可执行建议；明确牌面是启发，不是事实断言。',
+      '',
+      `【用户问题】${question}`,
+      `【牌阵】${spreadName}`,
+      '',
+      '【本次牌面】',
+      ...cards.map((card, index) => `${index + 1}. ${card.position}｜第 ${card.id} 张｜牌名：${card.name}｜体系：${card.subtitle || '时月意象'}`),
+    ].join('\n').trim();
+  }
   return [
     '你正在解读「时月神谕」牌阵。时月神谕是本产品独创的六十甲子神谕体系，以下资料是本次解读的唯一牌义标准。',
     '',
@@ -89,7 +137,7 @@ export function buildShiyueOraclePrompt(question: string, spreadName: string, ca
     '',
     '【本次牌面标准资料】',
     ...cards.map((card, index) => [
-      `${index + 1}. ${card.position}｜第 ${card.id} 张｜${card.name}｜纳音：${card.subtitle || '未标注'}`,
+      `${index + 1}. ${card.position}｜第 ${card.id} 张｜牌名：${card.name}｜干支：${card.keywords[0] || '未标注'}｜纳音：${card.keywords[2] || '未标注'}`,
       `核心牌义：${card.meaning}`,
       `行动指引：${card.guidance || ''}`,
     ].join('\n')),

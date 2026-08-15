@@ -1,7 +1,7 @@
 import type { WesternCardResult, WesternDeckType, WesternSpreadType } from './tarot';
 import { LENORMAND_CARDS, LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
-import { SHIYUE_ORACLE_CARDS } from './shiyueOracle';
-import { getWesternThemeCardImageUrl } from './divinationTheme';
+import { SHI_ORACLE_CARDS, SHIYUE_ORACLE_CARDS } from './shiyueOracle';
+import { getWesternThemeCardImageUrl, resolveDivinationThemeId } from './divinationTheme';
 
 export interface WesternSpreadOption {
   value: WesternSpreadType;
@@ -58,7 +58,8 @@ export const shiyueOracleDeck: readonly WesternCardResult[] = SHIYUE_ORACLE_CARD
   const id = index + 1;
   return {
     id,
-    name: nayin,
+    name: title,
+    subtitle: `${ganzhi} · ${nayin}`,
     position: '当下指引',
     reversed: false,
     keywords: [ganzhi, title, nayin],
@@ -70,16 +71,36 @@ export const shiyueOracleDeck: readonly WesternCardResult[] = SHIYUE_ORACLE_CARD
   };
 });
 
+export const shiOracleDeck: readonly WesternCardResult[] = SHI_ORACLE_CARDS.map(({ title, category }, index) => {
+  const id = index + 1;
+  return {
+    id,
+    name: title,
+    subtitle: category,
+    position: '当下指引',
+    reversed: false,
+    keywords: [category, title],
+    get imageUrl() {
+      return getWesternThemeCardImageUrl('oracle', id);
+    },
+  };
+});
+
+function getShiyueOracleDeck() {
+  return resolveDivinationThemeId('oracle') === 'shi' ? shiOracleDeck : shiyueOracleDeck;
+}
+
 export function getWesternCardImageUrl(deckType: Exclude<WesternDeckType, 'tarot'>, id: number) {
   return getWesternThemeCardImageUrl(deckType === 'lenormand' ? 'lenormand' : 'oracle', id);
 }
 
 export function drawShiyueOracleCard() {
+  const deck = getShiyueOracleDeck();
   const random = new Uint32Array(1);
   crypto.getRandomValues(random);
-  return shiyueOracleDeck[random[0]! % shiyueOracleDeck.length]!;
+  return deck[random[0]! % deck.length]!;
 }
 
 export function getWesternDeck(deckType: Exclude<WesternDeckType, 'tarot'>) {
-  return deckType === 'lenormand' ? lenormandDeck : shiyueOracleDeck;
+  return deckType === 'lenormand' ? lenormandDeck : getShiyueOracleDeck();
 }
