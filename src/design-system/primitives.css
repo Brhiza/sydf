@@ -25,6 +25,7 @@
   --accent: var(--ds-accent);
   --accent-strong: var(--ds-accent-strong);
   --accent-soft: var(--ds-accent-soft);
+  --accent-contrast: var(--ds-accent-contrast);
   --lilac: var(--ds-accent-soft);
   --blue: var(--ds-blue);
   --blue-soft: var(--ds-blue-soft);
@@ -65,6 +66,7 @@
   --accent: var(--ds-accent);
   --accent-strong: var(--ds-accent-strong);
   --accent-soft: var(--ds-accent-soft);
+  --accent-contrast: var(--ds-accent-contrast);
   --lilac: var(--ds-accent-soft);
   --blue: var(--ds-blue);
   --blue-soft: var(--ds-blue-soft);
