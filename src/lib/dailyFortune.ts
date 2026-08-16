@@ -243,6 +243,9 @@ const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
 const dailyFortuneMemoryCache = new Map<string, DailyFortuneCacheEntry>();
+const personalContextCacheLimit = 12;
+const personalFlowCacheLimit = 512;
+const personalContextCache = new Map<string, PersonalContext>();
 let dailyFortuneStorageLoaded = false;
 const favorableDoors = new Set(['开门', '休门', '生门']);
 const cautiousDoors = new Set(['伤门', '死门', '惊门']);
@@ -659,6 +662,13 @@ function isFiveElement(value: string | undefined): value is FiveElement {
 
 function createPersonalContext(profile: DailyFortuneProfile | undefined): PersonalContext | null {
   if (!profile || !isDailyFortuneProfileComplete(profile)) return null;
+  const cacheKey = profileCacheSignature(profile);
+  const cached = personalContextCache.get(cacheKey);
+  if (cached) {
+    personalContextCache.delete(cacheKey);
+    personalContextCache.set(cacheKey, cached);
+    return cached;
+  }
   try {
     const birth = parseBirth(profile);
     const chart = baziCalculator.calculateBazi({
@@ -690,7 +700,7 @@ function createPersonalContext(profile: DailyFortuneProfile | undefined): Person
       ...(usefulGod.secondaryUnfavorableWuxing || []),
       ...(usefulGod.unfavorableWuxing || []),
     ].filter(isFiveElement);
-    return {
+    const context: PersonalContext = {
       qimenStem,
       dayElement: isFiveElement(chart.dayMaster.element) ? chart.dayMaster.element : '土',
       birthTimestamp: new Date(
@@ -707,8 +717,24 @@ function createPersonalContext(profile: DailyFortuneProfile | undefined): Person
       birthChart: chart,
       flowCache: new Map<string, PersonalFlowEvidence>(),
     };
+    personalContextCache.set(cacheKey, context);
+    while (personalContextCache.size > personalContextCacheLimit) {
+      const oldestKey = personalContextCache.keys().next().value;
+      if (!oldestKey) break;
+      personalContextCache.delete(oldestKey);
+    }
+    return context;
   } catch {
     return null;
+  }
+}
+
+function cachePersonalFlow(personal: PersonalContext, key: string, evidence: PersonalFlowEvidence) {
+  personal.flowCache.set(key, evidence);
+  while (personal.flowCache.size > personalFlowCacheLimit) {
+    const oldestKey = personal.flowCache.keys().next().value;
+    if (!oldestKey) break;
+    personal.flowCache.delete(oldestKey);
   }
 }
 
@@ -816,11 +842,11 @@ function buildPersonalFlowEvidence(
       triggerLevel: currentPrimary.length || currentFormations.length ? 'strong' : currentRelations.length ? 'active' : 'quiet',
       triggerLabels,
     };
-    personal.flowCache.set(cacheKey, evidence);
+    cachePersonalFlow(personal, cacheKey, evidence);
     return evidence;
   } catch {
     const neutral = neutralPersonalFlow();
-    personal.flowCache.set(cacheKey, neutral);
+    cachePersonalFlow(personal, cacheKey, neutral);
     return neutral;
   }
 }
