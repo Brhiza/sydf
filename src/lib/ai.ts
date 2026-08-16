@@ -1,3 +1,5 @@
+import type { PromptSchoolChoices } from './promptSchools';
+
 export type AiInterpretationMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 
 export type AiAnswerPreference = 'chat' | 'fortune-master' | 'professional';
@@ -9,6 +11,7 @@ export type AiApiType = 'chat' | 'responses' | 'anthropic';
 export interface AiPreferences {
   answerPreference: AiAnswerPreference;
   displayLevel: DisplayLevel;
+  promptSchoolChoices?: PromptSchoolChoices;
 }
 
 export interface AiCustomConfig {

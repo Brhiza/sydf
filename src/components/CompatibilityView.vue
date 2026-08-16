@@ -35,6 +35,7 @@ import {
 } from '../lib/ai';
 import type { ReadingRecord, ReadingResult } from '../lib/divination';
 import { compactReadingPrompt } from '../lib/aiPrompt';
+import { resolvePromptSchoolIds } from '../lib/promptSchools';
 import vAutoResize from '../directives/autoResizeTextarea';
 import AiPromptFallback from './AiPromptFallback.vue';
 import AiReadingActions from './AiReadingActions.vue';
@@ -409,6 +410,9 @@ function buildCompatibilityPrompt(
   if (!result.primary.astrolabe || !result.partner.astrolabe || !result.astrolabe) throw new Error('星盘合盘资料没有生成完整。');
 
   const currentQuestion = initialQuestion(primary, partner, type);
+  const baziSchools = resolvePromptSchoolIds('bazi', props.preferences.displayLevel, props.preferences.promptSchoolChoices);
+  const ziweiSchools = resolvePromptSchoolIds('ziwei', props.preferences.displayLevel, props.preferences.promptSchoolChoices);
+  const astrolabeSchools = resolvePromptSchoolIds('astrolabe', props.preferences.displayLevel, props.preferences.promptSchoolChoices);
   const baziPrompt = buildBaziCompatibilityPrompt({
     result1: result.primary.bazi,
     result2: result.partner.bazi,
@@ -416,6 +420,7 @@ function buildCompatibilityPrompt(
     person1Name: primary.label,
     person2Name: partner.label,
     question: currentQuestion,
+    schools: baziSchools as Parameters<typeof buildBaziCompatibilityPrompt>[0]['schools'],
   });
   const ziweiPrompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: primaryZiwei.payloadByScope.origin,
@@ -429,12 +434,14 @@ function buildCompatibilityPrompt(
     partnerName: partner.label,
     primaryTrueSolarEvidence: primaryZiwei.trueSolarEvidence,
     partnerTrueSolarEvidence: partnerZiwei.trueSolarEvidence,
+    schools: ziweiSchools as Parameters<typeof buildCombinedZiweiCompatibilityPrompt>[0]['schools'],
   });
   const astrolabePrompt = buildAstrolabeSynastryPrompt({
     chart1: result.primary.astrolabe,
     chart2: result.partner.astrolabe,
     synastry: result.astrolabe,
     question: currentQuestion,
+    schools: astrolabeSchools,
   });
   return compactReadingPrompt([
     `【八字合盘资料】\n${baziPrompt}`,

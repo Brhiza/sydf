@@ -46,6 +46,19 @@ describe('星盘推运提示词', () => {
 });
 
 describe('八字岁运提示词', () => {
+  it('完整模式可把多个八字流派交给 AI 合参', () => {
+    const prompt = buildChartReadingPrompt('bazi', chart, {
+      question: '请综合分析本命。',
+      schools: ['ziping', 'mangpai', 'xinpai'],
+    });
+
+    expect(prompt).toContain('子平派');
+    expect(prompt).toContain('盲派');
+    expect(prompt).toContain('新派');
+    expect(prompt).toContain('合参任务');
+    expect(prompt).toContain('共同结论');
+  });
+
   it('识别明确年份、相对年份和完整岁运范围', () => {
     const now = new Date('2026-08-09T12:00:00+08:00');
     expect(inferBaziFortuneRequest('看看 2028 年流年', now)).toEqual({ scope: 'year', year: 2028 });

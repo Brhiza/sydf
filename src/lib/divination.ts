@@ -21,6 +21,7 @@ import type {
   ScopeType,
 } from 'mingyu-core/types';
 import { compactReadingPrompt } from './aiPrompt';
+import { appendPromptSchoolGuidance, getPromptSchoolMethod } from './promptSchools';
 
 export type DivinationKind =
   | 'meihua'
@@ -365,6 +366,7 @@ export async function runDivination(
 
 export interface DivinationReadingPromptOptions {
   question?: string;
+  schools?: readonly string[];
 }
 
 function formatGanzhi(ganzhi: { year: string; month: string; day: string; hour: string }) {
@@ -434,10 +436,18 @@ export async function buildDivinationReadingPrompt(
   options: DivinationReadingPromptOptions = {},
 ) {
   if (kind === 'bazi' || kind === 'ziwei' || kind === 'astrolabe' || kind === 'qizheng') return '';
-  if (kind === 'wuyun-liuqi') return compactReadingPrompt((await import('mingyu-core/wuyun-liuqi')).buildWuyunLiuqiPrompt(result as WuyunLiuqiResult));
-  if (kind === 'huangji-jingshi') return compactReadingPrompt((await import('mingyu-core/huangji-jingshi')).buildHuangjiJingshiPrompt(result as HuangjiJingshiResult));
-  if (kind === 'meihua') return compactReadingPrompt(formatMeihuaReadingPrompt(result as MeihuaData));
-  if (kind === 'xiaoliuren') return compactReadingPrompt(formatXiaoliurenReadingPrompt(result as XiaoliurenData));
+  const schools = options.schools || [];
+  const schoolMethod = getPromptSchoolMethod(kind);
+  if (kind === 'wuyun-liuqi') {
+    const { buildWuyunLiuqiPrompt } = await import('mingyu-core/wuyun-liuqi');
+    return compactReadingPrompt(buildWuyunLiuqiPrompt(result as WuyunLiuqiResult, options.question, schools as Parameters<typeof buildWuyunLiuqiPrompt>[2]));
+  }
+  if (kind === 'huangji-jingshi') {
+    const { buildHuangjiJingshiPrompt } = await import('mingyu-core/huangji-jingshi');
+    return compactReadingPrompt(buildHuangjiJingshiPrompt(result as HuangjiJingshiResult, options.question, schools as Parameters<typeof buildHuangjiJingshiPrompt>[2]));
+  }
+  if (kind === 'meihua') return compactReadingPrompt(appendPromptSchoolGuidance(formatMeihuaReadingPrompt(result as MeihuaData), 'meihua', schools));
+  if (kind === 'xiaoliuren') return compactReadingPrompt(appendPromptSchoolGuidance(formatXiaoliurenReadingPrompt(result as XiaoliurenData), 'xiaoliuren', schools));
   const { formatEnhancedDivinationInfo } = await import('mingyu-core/prompt/divination-enhanced');
   const prompt = formatEnhancedDivinationInfo(
     kind as Parameters<typeof formatEnhancedDivinationInfo>[0],
@@ -446,7 +456,8 @@ export async function buildDivinationReadingPrompt(
     undefined,
     kind === 'liuyao' ? { liuyaoTemplate: inferLiuyaoTemplate(options.question) } : undefined,
   );
-  return compactReadingPrompt(stripRedundantDivinationLabel(prompt));
+  const readingPrompt = stripRedundantDivinationLabel(prompt);
+  return compactReadingPrompt(schoolMethod ? appendPromptSchoolGuidance(readingPrompt, schoolMethod, schools) : readingPrompt);
 }
 
 export async function runManualLiuyao(coinThrows: readonly LiuyaoCoinThrow[], now = new Date()): Promise<LiuyaoData> {

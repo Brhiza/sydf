@@ -13,6 +13,7 @@ import {
 import type { AstrolabeData } from 'mingyu-core/types';
 import { compactReadingPrompt } from './aiPrompt';
 import type { QizhengChartData, ReadingResult, ZiweiChartData } from './divination';
+import { appendPromptSchoolGuidance } from './promptSchools';
 
 export type ChartPromptKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng';
 
@@ -27,6 +28,7 @@ export interface ChartReadingPromptOptions {
   question?: string;
   baziFortune?: BaziFortuneRequest | null;
   currentTime?: Date;
+  schools?: readonly string[];
 }
 
 type AstrolabePromptData = AstrolabeData & {
@@ -130,12 +132,13 @@ function buildBaziReadingPrompt(result: BaziChartResult, options: ChartReadingPr
     fortuneScope: selection.scope,
     fortuneSelectionContext,
     fortuneFocus: fortuneSelectionContext?.displayLabel,
+    schools: options.schools as Parameters<typeof buildBaziPrompt>[0]['schools'],
   }));
 }
 
-function formatZiweiPrompt(result: ZiweiChartData) {
-  if (result.prompt?.trim()) return result.prompt.trim();
-  return compactReadingPrompt(formatZiweiPayloadForPrompt(result.payloadByScope.origin || result.payload));
+function formatZiweiPrompt(result: ZiweiChartData, options: ChartReadingPromptOptions) {
+  const prompt = result.prompt?.trim() || compactReadingPrompt(formatZiweiPayloadForPrompt(result.payloadByScope.origin || result.payload));
+  return appendPromptSchoolGuidance(prompt, 'ziwei', options.schools || []);
 }
 
 function formatAstrolabePrompt(result: AstrolabePromptData, options: ChartReadingPromptOptions) {
@@ -143,6 +146,7 @@ function formatAstrolabePrompt(result: AstrolabePromptData, options: ChartReadin
     chart: result,
     currentTime: options.currentTime,
     question: options.question,
+    schools: options.schools,
   }));
   const fortuneScope = result.fortuneScope || result.annualScope;
   return [
@@ -153,8 +157,8 @@ function formatAstrolabePrompt(result: AstrolabePromptData, options: ChartReadin
 
 export function buildChartReadingPrompt(kind: ChartPromptKind, result: ReadingResult, options: ChartReadingPromptOptions = {}) {
   if (kind === 'bazi') return buildBaziReadingPrompt(result as BaziChartResult, options);
-  if (kind === 'ziwei') return formatZiweiPrompt(result as ZiweiChartData);
-  if (kind === 'qizheng') return compactReadingPrompt((result as QizhengChartData).prompt);
+  if (kind === 'ziwei') return formatZiweiPrompt(result as ZiweiChartData, options);
+  if (kind === 'qizheng') return appendPromptSchoolGuidance(compactReadingPrompt((result as QizhengChartData).prompt), 'qizheng', options.schools || []);
   return formatAstrolabePrompt(result as AstrolabePromptData, options);
 }
 
@@ -168,10 +172,10 @@ function limitCombinedSection(value: string, maxLength = 12500) {
 export function buildBaziZiweiCombinedPrompt(
   bazi: BaziChartResult,
   ziwei: ZiweiChartData,
-  options: ChartReadingPromptOptions = {},
+  options: ChartReadingPromptOptions & { baziSchools?: readonly string[]; ziweiSchools?: readonly string[] } = {},
 ) {
-  const baziPrompt = buildChartReadingPrompt('bazi', bazi, options);
-  const ziweiPrompt = buildChartReadingPrompt('ziwei', ziwei);
+  const baziPrompt = buildChartReadingPrompt('bazi', bazi, { ...options, schools: options.baziSchools });
+  const ziweiPrompt = buildChartReadingPrompt('ziwei', ziwei, { schools: options.ziweiSchools });
   return compactReadingPrompt([
     `【八字盘面】\n${limitCombinedSection(baziPrompt)}`,
     `【紫微盘面】\n${limitCombinedSection(ziweiPrompt)}`,
