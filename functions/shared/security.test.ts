@@ -46,7 +46,8 @@ describe('AI 接口安全边界', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn((_input, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
       expect(init?.redirect).toBe('manual');
-      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+      // 模拟忽略 AbortController.reason、只返回通用 AbortError 的运行时。
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
     }));
     vi.stubGlobal('fetch', fetchMock);
     const pending = fetchWithTimeout('https://api.example.com/v1', {}, 100);

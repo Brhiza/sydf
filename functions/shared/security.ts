@@ -152,14 +152,22 @@ export function validateExternalUrl(rawUrl: string, requestUrl: string): URL {
 export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const callerSignal = init.signal;
+  let timedOut = false;
   const abortFromCaller = () => controller.abort(callerSignal?.reason);
   if (callerSignal?.aborted) abortFromCaller();
   else callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
-  const timeout = setTimeout(() => controller.abort(new DOMException('upstream timeout', 'TimeoutError')), timeoutMs);
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new DOMException('upstream timeout', 'TimeoutError'));
+  }, timeoutMs);
   try {
     const response = await fetch(url, { ...init, redirect: 'manual', signal: controller.signal });
     if (response.status >= 300 && response.status < 400) throw new Error('upstream redirect not allowed');
     return response;
+  } catch (error) {
+    // 不同运行时对 AbortController 的 reason 支持不一致，统一保留“上游超时”语义。
+    if (timedOut) throw new DOMException('upstream timeout', 'TimeoutError');
+    throw error;
   } finally {
     clearTimeout(timeout);
     callerSignal?.removeEventListener('abort', abortFromCaller);
