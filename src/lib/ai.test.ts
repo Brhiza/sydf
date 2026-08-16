@@ -251,7 +251,22 @@ describe('AI 解读请求', () => {
 
     const pending = requestAiInterpretation(request);
     const assertion = expect(pending).rejects.toThrow('AI 解读等待超时，请稍后重试。');
-    await vi.advanceTimersByTimeAsync(50_000);
+    await vi.advanceTimersByTimeAsync(95_000);
     await assertion;
+  });
+
+  it('超过旧的 50 秒限制后仍等待服务端结果', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => {
+      setTimeout(() => resolve(new Response(JSON.stringify({ content: '较长解读完成' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })), 60_000);
+    })));
+
+    const pending = requestAiInterpretation(request);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    await expect(pending).resolves.toMatchObject({ content: '较长解读完成' });
   });
 });

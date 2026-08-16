@@ -47,6 +47,8 @@ interface InterpretationPayload extends AiPromptPayload {
 }
 
 const MAX_QUESTION_LENGTH = 4000;
+// Cloudflare 公网链路约 100 秒会中止请求；预留边缘返回时间，同时允许较长的专业解读完成。
+const UPSTREAM_REQUEST_TIMEOUT_MS = 90_000;
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -161,11 +163,24 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
     headers,
     body: JSON.stringify(body),
     signal,
-  }, 45_000);
+  }, UPSTREAM_REQUEST_TIMEOUT_MS);
   const result = await response.json().catch(() => null) as unknown;
   if (!response.ok) throw new Error('upstream response error');
   if (!result) throw new Error('empty upstream response');
   return result;
+}
+
+function isTimeoutError(error: unknown) {
+  return Boolean(error && typeof error === 'object' && 'name' in error && error.name === 'TimeoutError');
+}
+
+function providerErrorResponse(error: unknown, customProvider: boolean) {
+  if (isTimeoutError(error)) return jsonResponse({ error: 'AI 解读等待超时，请稍后重试。' }, 504);
+  return jsonResponse({
+    error: customProvider
+      ? 'AI 服务返回了错误，请检查模型、接口地址和密钥配置。'
+      : 'AI 解读暂时失败，请稍后再试。',
+  }, 502);
 }
 
 export function getBuiltinAiConfig(env: AiEnv): AiProviderConfig | null {
@@ -217,8 +232,8 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
     try {
       const content = await requestProvider(customConfig, systemPrompt, providerMessages, messages, temperature, maxTokens);
       return jsonResponse({ content, model: customConfig.model, provider });
-    } catch {
-      return jsonResponse({ error: 'AI 服务返回了错误，请检查模型、接口地址和密钥配置。' }, 502);
+    } catch (error) {
+      return providerErrorResponse(error, true);
     }
   }
 
@@ -228,7 +243,7 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   try {
     const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature, maxTokens);
     return jsonResponse({ content, provider });
-  } catch {
-    return jsonResponse({ error: 'AI 解读暂时失败，请稍后再试。' }, 502);
+  } catch (error) {
+    return providerErrorResponse(error, false);
   }
 }

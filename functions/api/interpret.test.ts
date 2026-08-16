@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { onRequestPost } from './interpret';
 
+let requestSequence = 0;
+
 function createRequest(aiConfig?: Record<string, unknown>, answerPreference?: 'chat' | 'fortune-master' | 'professional') {
   return new Request('https://example.com/api/interpret', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // 各用例代表不同访客，避免共享的生产兜底限流状态让测试互相影响。
+    headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `192.0.2.${++requestSequence}` },
     body: JSON.stringify({
       mode: 'ask',
       question: '请只回复测试成功。',
@@ -24,6 +27,7 @@ function successfulUpstream(content = '测试成功') {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -61,6 +65,39 @@ describe('内置 AI 服务', () => {
     expect(result.error).toBe('AI 解读暂时失败，请稍后再试。');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://primary.example/v1/chat/completions');
+  });
+
+  it('内置 AI 超过旧的 45 秒限制后仍可完成解读', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((_input, init?: RequestInit) => new Promise<Response>((resolve, reject) => {
+      const completion = setTimeout(() => resolve(successfulUpstream('较长解读完成')), 46_000);
+      init?.signal?.addEventListener('abort', () => {
+        clearTimeout(completion);
+        reject(init.signal?.reason);
+      }, { once: true });
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = onRequestPost({ request: createRequest(), env: builtinEnv });
+    await vi.advanceTimersByTimeAsync(46_000);
+    const response = await pending;
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ content: '较长解读完成' });
+  });
+
+  it('达到新的上游时限后返回 504 而不是伪装成 502', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_input, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+    })));
+
+    const pending = onRequestPost({ request: createRequest(), env: builtinEnv });
+    await vi.advanceTimersByTimeAsync(90_000);
+    const response = await pending;
+
+    expect(response.status).toBe(504);
+    expect(await response.json()).toEqual({ error: 'AI 解读等待超时，请稍后重试。' });
   });
 
   it('三种解答框架使用匹配的输出预算', async () => {
