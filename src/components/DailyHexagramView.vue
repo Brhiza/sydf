@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
-import { ArrowRight, Coins, RotateCcw } from 'lucide-vue-next';
+import { ArrowRight, Coins, RotateCcw, Sparkles } from 'lucide-vue-next';
 import { UiButton, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows, UiReadingSection, UiReadingWorkspace, UiToolPage, UiWorkspaceSurface } from './ui';
+import type { AiInterpretationRequest } from '../lib/ai';
 import { getHexagramCardImageUrl } from '../lib/divinationCardAssets';
+import { getLiuyaoRitualImageUrl } from '../lib/divinationTheme';
 import {
   DAILY_HEXAGRAM_STORAGE_KEY,
   buildDailyHexagramResult,
@@ -15,6 +17,21 @@ import {
   type DailyHexagramResult,
   type DailyHexagramSession,
 } from '../lib/dailyHexagram';
+import AiPromptFallback from './AiPromptFallback.vue';
+import AiReadingActions from './AiReadingActions.vue';
+import ChatMarkdown from './ChatMarkdown.vue';
+
+const props = defineProps<{
+  aiAnswer?: string;
+  aiError?: string;
+  aiRequest?: AiInterpretationRequest | null;
+  interpreting?: boolean;
+}>();
+
+const emit = defineEmits<{
+  interpret: [result: DailyHexagramResult];
+  'retry-interpretation': [];
+}>();
 
 const today = new Date();
 const isLocalTesting = import.meta.env.DEV;
@@ -56,6 +73,7 @@ const pendingThrow = ref<DailyHexagramCoinThrow | null>(null);
 const errorMessage = ref(initialState.errorMessage);
 const isShaking = ref(false);
 const latestLineIndex = ref(-1);
+const interpretationRequested = ref(false);
 let shakeTimer: number | null = null;
 
 const lineNames = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
@@ -188,6 +206,8 @@ const directionRows = computed(() => {
     tone: 'neutral' as const,
   }));
 });
+const showAiReading = computed(() => interpretationRequested.value
+  && Boolean(props.interpreting || props.aiAnswer || props.aiError));
 
 function scrollPageTop() {
   const content = document.querySelector<HTMLElement>('.content');
@@ -261,7 +281,14 @@ function resetDailyHexagramForTesting() {
   errorMessage.value = '';
   isShaking.value = false;
   latestLineIndex.value = -1;
+  interpretationRequested.value = false;
   void nextTick(scrollPageTop);
+}
+
+function requestAiReading() {
+  if (!result.value || props.interpreting) return;
+  interpretationRequested.value = true;
+  emit('interpret', result.value);
 }
 </script>
 
@@ -353,6 +380,25 @@ function resetDailyHexagramForTesting() {
         </div>
         </UiReadingSection>
 
+        <div class="daily-ai-action">
+          <UiButton class="daily-ai-button" size="large" :loading="interpreting" :disabled="interpreting" @click="requestAiReading">
+            <Sparkles v-if="!interpreting" :size="16" />
+            {{ interpreting ? '解读中…' : interpretationRequested ? '重新解读' : 'AI 解读' }}
+          </UiButton>
+        </div>
+
+        <UiReadingSection v-if="showAiReading" class="daily-ai-reading" title="AI 解读">
+          <p v-if="interpreting" class="daily-ai-loading">正在结合今日卦象解读……</p>
+          <template v-else-if="aiError">
+            <UiNotice tone="error" compact>{{ aiError }}</UiNotice>
+            <AiPromptFallback v-if="aiRequest" :request="aiRequest" @retry="emit('retry-interpretation')" />
+          </template>
+          <template v-else>
+            <ChatMarkdown class="daily-ai-markdown" :content="aiAnswer || ''" />
+            <AiReadingActions :content="aiAnswer || ''" title="每日一卦解读" />
+          </template>
+        </UiReadingSection>
+
       </UiReadingWorkspace>
     </UiToolPage>
 
@@ -424,7 +470,7 @@ function resetDailyHexagramForTesting() {
             <div class="shake-result">
               <Transition name="shake-visual" mode="out-in">
                 <div v-if="isShaking" key="shell" class="shell-animation">
-                  <img src="/liuyao-shell-transparent.webp" alt="龟壳正在摇卦" />
+                  <img :src="getLiuyaoRitualImageUrl('shell')" alt="龟壳正在摇卦" />
                   <span>正在摇{{ nextLineName }}</span>
                 </div>
                 <div v-else-if="latestThrow" key="coins" class="coin-result">
@@ -432,14 +478,14 @@ function resetDailyHexagramForTesting() {
                     <img
                       v-for="(coin, coinIndex) in latestThrow.coins"
                       :key="`${session.coinThrows.length}-${coinIndex}`"
-                      :src="coin === 3 ? '/liuyao-coin-heads-transparent.webp' : '/liuyao-coin-tails-transparent.webp'"
+                      :src="getLiuyaoRitualImageUrl(coin === 3 ? 'coin-heads' : 'coin-tails')"
                       :alt="coin === 3 ? '铜钱正面' : '铜钱背面'"
                     />
                   </div>
                   <p><strong>{{ dailyHexagramYaoLabel(latestThrow.total) }}</strong><span>{{ latestThrow.total }} 点 · {{ latestThrowName }}</span></p>
                 </div>
                 <div v-else key="empty" class="empty-result">
-                  <img src="/liuyao-shell-transparent.webp" alt="起卦龟壳" />
+                  <img :src="getLiuyaoRitualImageUrl('shell')" alt="起卦龟壳" />
                   <span>等待摇出初爻</span>
                 </div>
               </Transition>
@@ -557,6 +603,10 @@ function resetDailyHexagramForTesting() {
 .moving-line-content blockquote { color: var(--ds-text-primary); font-size: var(--ds-text-sm); line-height: var(--ds-line-normal); margin: 0 0 7px; }
 .moving-line-content p { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: var(--ds-line-normal); margin: 0; }
 .moving-line-content .moving-line-advice { color: var(--ds-text-primary); margin-top: 5px; }
+.daily-ai-action { display: flex; justify-content: center; padding: var(--ds-space-2) 0; }
+.daily-ai-button { min-width: 150px; }
+.daily-ai-loading { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); margin: 0; }
+.daily-ai-markdown { color: var(--ds-text-primary); }
 
 @media (max-width: 900px) {
   .casting-intro { align-items: flex-start; gap: var(--ds-space-3); padding: 18px 16px 16px; }
@@ -594,6 +644,7 @@ function resetDailyHexagramForTesting() {
   .hexagram-name-flow > svg { height: 14px; width: 14px; }
   .hexagram-meta { font-size: 10px; margin-bottom: 13px; }
   .moving-lines-panel article { gap: 10px; grid-template-columns: 66px minmax(0, 1fr); padding: 12px 0; }
+  .daily-ai-button { width: 100%; }
 }
 
 @media (max-width: 380px) {

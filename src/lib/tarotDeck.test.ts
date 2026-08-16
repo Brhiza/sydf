@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getShiyueTarotCard, getShiyueTarotName, shiyueTarotDeck } from './tarotDeck';
 
+const assetPath = (url: string) => url.split('?')[0];
+
 describe('时月塔罗牌组映射', () => {
   it('保留 0–77 的传统牌序并映射到 mingyu-core 的 1–78', () => {
     expect(shiyueTarotDeck).toHaveLength(78);
@@ -20,7 +22,7 @@ describe('时月塔罗牌组映射', () => {
 
   it('牌面路径与界面名称均不包含英文名', () => {
     expect(getShiyueTarotName(11)).toBe('命运之轮 · 命轮流转');
-    expect(getShiyueTarotCard(11)?.imageUrl).toBe('/cards/tarot/010-命运之轮-命轮流转.webp');
-    expect(shiyueTarotDeck.every(card => !/[A-Za-z]/.test((card.imageUrl.split('/').at(-1) || '').replace(/\.webp$/, '')))).toBe(true);
+    expect(assetPath(getShiyueTarotCard(11)?.imageUrl || '')).toBe('/divination-themes/yue/cards/tarot/010.webp');
+    expect(shiyueTarotDeck.every(card => !/[A-Za-z]/.test((assetPath(card.imageUrl).split('/').at(-1) || '').replace(/\.webp$/, '')))).toBe(true);
   });
 });

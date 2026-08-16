@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RotateCcw, Sparkles } from 'lucide-vue-next';
 import type { SsgwData } from 'mingyu-core/types';
 import { finishInteractiveSsgw, previewInteractiveSsgw } from '../lib/divination';
+import { getShengbeiImageUrl } from '../lib/divinationTheme';
 import type { AiInterpretationRequest } from '../lib/ai';
 import AiPromptFallback from './AiPromptFallback.vue';
 import AiReadingActions from './AiReadingActions.vue';
@@ -91,7 +92,7 @@ function consecutiveYinCount(nextThrows: SsgwRitualThrow[]) {
 }
 
 function cupImage(face?: '阳面' | '阴面') {
-  return face === '阳面' ? '/shengbei-yang.webp' : '/shengbei-yin.webp';
+  return getShengbeiImageUrl(face === '阳面' ? 'yang' : 'yin');
 }
 
 async function throwCups() {

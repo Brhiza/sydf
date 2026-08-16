@@ -1,12 +1,9 @@
-function numberedCardUrl(folder: 'ssgw' | 'hexagrams', number: number, total: number) {
-  const normalized = Number.isInteger(number) && number >= 1 && number <= total ? number : 1;
-  return `/cards/${folder}/${String(normalized).padStart(2, '0')}.webp`;
-}
+import { getNumberedThemeCardImageUrl } from './divinationTheme';
 
 export function getSsgwCardImageUrl(signNumber: number) {
-  return numberedCardUrl('ssgw', signNumber, 92);
+  return getNumberedThemeCardImageUrl('ssgw', signNumber);
 }
 
 export function getHexagramCardImageUrl(hexagramNumber: number) {
-  return numberedCardUrl('hexagrams', hexagramNumber, 64);
+  return getNumberedThemeCardImageUrl('hexagrams', hexagramNumber);
 }

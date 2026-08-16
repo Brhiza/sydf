@@ -5,6 +5,7 @@ import { UiDateNavigator, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows,
 import {
   calculateLocalXiaoliuren,
   formatXiaoliurenInput,
+  getXiaoliurenPresentationImage,
   parseXiaoliurenInput,
 } from '../lib/xiaoliuren';
 
@@ -165,7 +166,7 @@ function confirmPicker(values: string[]) {
     >
       <template #hero-media>
         <figure class="xlr-hero-image">
-          <img :src="reading.presentation.image" :alt="`${reading.data.primary.name}卡片`" />
+          <img :src="getXiaoliurenPresentationImage(reading.data.primary.name)" :alt="`${reading.data.primary.name}卡片`" />
         </figure>
       </template>
 

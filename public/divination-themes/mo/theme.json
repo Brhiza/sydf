@@ -1,0 +1,21 @@
+{
+  "id": "mo",
+  "name": "墨",
+  "inherits": "yue",
+  "completeGroups": [
+    "brand",
+    "banner",
+    "xiaoliuren",
+    "fortune-status",
+    "tarot",
+    "lenormand",
+    "oracle",
+    "hexagrams",
+    "ssgw"
+  ],
+  "cardStyle": {
+    "frame": false,
+    "textBakedIntoImage": false,
+    "cornerRadius": "ui"
+  }
+}

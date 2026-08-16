@@ -78,6 +78,17 @@
   --ds-sage-soft: #e4ece9;
   --ds-gold: #a98252;
 
+  /* Whole-app visual skin. Runtime themes override these together with the
+   * semantic tokens above, so color, surfaces and branding switch as one. */
+  --theme-glow: rgba(138, 111, 177, .12);
+  --theme-canvas-start: #f7f4fb;
+  --theme-canvas-end: #efedf4;
+  --theme-dot: rgba(105, 76, 150, .16);
+  --theme-hero-start: #67428f;
+  --theme-hero-middle: #8b58b1;
+  --theme-hero-end: #b778cf;
+  --theme-shadow: rgba(91, 65, 132, .24);
+
   /* Almanac auspice scale */
   --ds-auspice-excellent: #b52a27;
   --ds-auspice-excellent-soft: #f9e5e2;
@@ -129,6 +140,14 @@
     --ds-sage: #91b3aa;
     --ds-sage-soft: #2e403b;
     --ds-gold: #d1ad76;
+    --theme-glow: rgba(140, 107, 183, .13);
+    --theme-canvas-start: #1c1921;
+    --theme-canvas-end: #151219;
+    --theme-dot: rgba(202, 177, 232, .15);
+    --theme-hero-start: #b99ade;
+    --theme-hero-middle: #c69be7;
+    --theme-hero-end: #dda9ed;
+    --theme-shadow: rgba(0, 0, 0, .34);
     --ds-auspice-excellent: #f28b82;
     --ds-auspice-excellent-soft: #4b2829;
     --ds-auspice-good: #6ed29e;

@@ -1,20 +1,35 @@
+import { getFortuneStatusThemeImageUrl } from './divinationTheme';
+
 export type FortuneStatus = '大吉' | '吉' | '小吉' | '平' | '小凶' | '凶' | '大凶';
 
 export interface FortuneStatusMeta {
   label: FortuneStatus;
-  image: string;
   tone: 'great' | 'good' | 'slight-good' | 'neutral' | 'slight-bad' | 'bad' | 'great-bad';
 }
 
 export const fortuneStatusMeta: Record<FortuneStatus, FortuneStatusMeta> = {
-  大吉: { label: '大吉', image: '/fortune-status/da-ji.webp', tone: 'great' },
-  吉: { label: '吉', image: '/fortune-status/ji.webp', tone: 'good' },
-  小吉: { label: '小吉', image: '/fortune-status/xiao-ji.webp', tone: 'slight-good' },
-  平: { label: '平', image: '/fortune-status/ping.webp', tone: 'neutral' },
-  小凶: { label: '小凶', image: '/fortune-status/xiao-xiong.webp', tone: 'slight-bad' },
-  凶: { label: '凶', image: '/fortune-status/xiong.webp', tone: 'bad' },
-  大凶: { label: '大凶', image: '/fortune-status/da-xiong.webp', tone: 'great-bad' },
+  大吉: { label: '大吉', tone: 'great' },
+  吉: { label: '吉', tone: 'good' },
+  小吉: { label: '小吉', tone: 'slight-good' },
+  平: { label: '平', tone: 'neutral' },
+  小凶: { label: '小凶', tone: 'slight-bad' },
+  凶: { label: '凶', tone: 'bad' },
+  大凶: { label: '大凶', tone: 'great-bad' },
 };
+
+const fortuneStatusImageFiles: Record<FortuneStatus, string> = {
+  大吉: 'da-ji.webp',
+  吉: 'ji.webp',
+  小吉: 'xiao-ji.webp',
+  平: 'ping.webp',
+  小凶: 'xiao-xiong.webp',
+  凶: 'xiong.webp',
+  大凶: 'da-xiong.webp',
+};
+
+export function getFortuneStatusImageUrl(status: FortuneStatus) {
+  return getFortuneStatusThemeImageUrl(fortuneStatusImageFiles[status]);
+}
 
 export function fortuneStatusFromScore(score: number): FortuneStatus {
   if (score >= 5) return '大吉';

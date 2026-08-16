@@ -373,7 +373,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
 .sign-order { color: #98625a; display: block; font-size: 11px; letter-spacing: .16em; }
 .sign-paper h3 { font-size: 18px; letter-spacing: .08em; line-height: 1.45; margin: 5px 0 0; }
 .sign-paper-main { align-items: stretch; border-bottom: 1px solid #d8c5a1; border-top: 1px solid #d8c5a1; display: grid; gap: 13px; grid-template-columns: 116px 1fr; margin-top: 14px; padding: 13px 0; }
-.sign-card-art { align-self: center; aspect-ratio: 2 / 3; border: 1px solid rgba(152, 98, 90, .2); border-radius: 9px; box-shadow: 0 5px 14px rgba(88, 62, 41, .08); display: block; object-fit: cover; overflow: hidden; width: 116px; }
+.sign-card-art { align-self: center; aspect-ratio: 2 / 3; border: 1px solid rgba(152, 98, 90, .2); border-radius: var(--ds-radius-md); box-shadow: 0 5px 14px rgba(88, 62, 41, .08); display: block; object-fit: cover; overflow: hidden; width: 116px; }
 .sign-poem { align-items: center; display: flex; flex-direction: row-reverse; gap: clamp(8px, 1.3vw, 12px); justify-content: center; min-height: 180px; min-width: 0; padding: 4px 0; }
 .sign-poem p { font-size: 14px; letter-spacing: .08em; line-height: 1.65; margin: 0; writing-mode: vertical-rl; }
 .sign-paper > small { color: #9b756b; display: block; font-size: 10px; letter-spacing: .16em; margin-top: 12px; }

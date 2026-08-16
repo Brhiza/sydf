@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-vue-next';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotSpreadType, WesternDeckType, WesternInterpretationPayload, WesternSpreadType } from '../lib/tarot';
 import { getWesternSpreadOptions } from '../lib/westernDecks';
+import { getDivinationBannerUrl } from '../lib/divinationTheme';
 import TarotView from './TarotView.vue';
 import WesternDeckDrawView from './WesternDeckDrawView.vue';
 import { UiActionBar, UiButton, UiPageShell, UiSelect, UiTextField, UiWorkspaceSurface } from './ui';
@@ -111,7 +112,7 @@ function reset() {
   <UiPageShell v-else width="reading" class="screen western-screen">
     <UiWorkspaceSurface v-if="phase === 'entry'" class="western-workspace western-entry" padding="standard">
       <header class="western-intro">
-        <div class="western-portrait"><img src="/zhanbu.png" alt="西方占卜" /></div>
+        <div class="western-portrait"><img :src="getDivinationBannerUrl()" alt="西方占卜" /></div>
         <span>西方占卜</span>
       </header>
 

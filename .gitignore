@@ -11,6 +11,16 @@ dev-dist/
 output/
 coverage/
 /temp-assets/
+__pycache__/
+
+# 大型主题制作原稿仅保存在本机；网站使用 public/divination-themes 下的成品。
+/theme-sources/时/
+/theme-sources/墨/
+/theme-sources/传统仪式/
+/public/divination-themes/*/*.zip
+/public/divination-themes/*/*.png
+/public/01-龟壳与铜钱-字面花面-透明.png
+/public/02-传统圣杯卦-透明.png
 
 # Local environment files (keep documented examples)
 .env

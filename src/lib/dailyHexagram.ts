@@ -404,6 +404,36 @@ export function buildDailyHexagramResult(
   };
 }
 
+export function formatDailyHexagramAiContext(result: DailyHexagramResult, dateLabel: string) {
+  const movingLineSummary = result.interpretation.movingLines.length
+    ? result.interpretation.movingLines
+      .map((line) => `${line.name}${line.type}：${line.source}；${line.meaning}；${line.advice}`)
+      .join('\n')
+    : '六爻皆静，以本卦为今日主要依据。';
+  const changedHexagram = result.chart.changingYaos.length
+    ? `之卦：${result.changed.name}（后续主题：${result.changedGuidance.theme}）`
+    : '之卦：无（六爻皆静）';
+
+  return [
+    '以下是本次“每日一卦”的当天语境，请在六爻盘面基础上结合这些资料解读，不要把它当作长期命运定论。',
+    `日期：${dateLabel}`,
+    `本卦：${result.original.name}`,
+    `互卦：${result.inter.name}`,
+    changedHexagram,
+    `今日主题：${result.guidance.theme}`,
+    `今日提要：${result.guidance.summary}`,
+    `宜采取：${result.guidance.action}`,
+    `需留意：${result.guidance.caution}`,
+    `解读重心：${result.interpretation.focus}`,
+    `内在条件：${result.interpretation.innerContext}`,
+    `后续走势：${result.interpretation.trend}`,
+    `行动节奏：${result.interpretation.pace}`,
+    `判断原则：${result.interpretation.decisionRule}`,
+    `动爻资料：\n${movingLineSummary}`,
+    '请用清楚、克制的中文，依次说明今天最值得关注的重点、可能出现的变化、具体行动建议和应避免的做法。',
+  ].join('\n');
+}
+
 function isCoinThrow(value: unknown): value is DailyHexagramCoinThrow {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<DailyHexagramCoinThrow>;

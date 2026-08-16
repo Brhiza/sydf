@@ -1,3 +1,6 @@
+import { computed } from 'vue';
+import { getTarotCardBackUrl, getTarotThemeImageUrl } from './divinationTheme';
+
 const traditionalNames = [
   '愚者', '魔术师', '女祭司', '皇后', '皇帝', '教皇', '恋人', '战车', '力量', '隐者', '命运之轮',
   '正义', '倒吊人', '死神', '节制', '恶魔', '高塔', '星星', '月亮', '太阳', '审判', '世界',
@@ -26,16 +29,16 @@ export interface ShiyueTarotCard {
   imageUrl: string;
 }
 
-const shiyueTarotAssetRoot = '/cards/tarot';
-
-export const tarotCardBackUrl = `${shiyueTarotAssetRoot}/牌背.webp`;
+export const tarotCardBackUrl = computed(getTarotCardBackUrl);
 
 export const shiyueTarotDeck: readonly ShiyueTarotCard[] = traditionalNames.map((traditionalName, index) => ({
   coreId: index + 1,
   traditionalNumber: index,
   traditionalName,
   shiyueName: shiyueNames[index]!,
-  imageUrl: `${shiyueTarotAssetRoot}/${String(index).padStart(3, '0')}-${traditionalName}-${shiyueNames[index]}.webp`,
+  get imageUrl() {
+    return getTarotThemeImageUrl(index);
+  },
 }));
 
 export function getShiyueTarotCard(coreId: number) {

@@ -118,6 +118,7 @@ import {
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
+import { formatDailyHexagramAiContext, type DailyHexagramResult } from './lib/dailyHexagram';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
   createChatDocument,
@@ -173,6 +174,15 @@ import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
+import {
+  DIVINATION_THEMES,
+  activeDivinationThemeId,
+  activeDivinationThemeLabel,
+  activeDivinationThemeLogoPosition,
+  activeDivinationThemeStyle,
+  getDivinationThemeLogoUrl,
+  setDivinationTheme,
+} from './lib/divinationTheme';
 import {
   almanacTopicGroups,
   almanacTopicOptions,
@@ -2095,7 +2105,7 @@ function handlePwaUpdate(event: Event) {
   if (!update) return;
   applyPwaUpdate = update;
   pwaUpdateAvailable.value = true;
-  showPwaUpdateDialog.value = true;
+  showPwaUpdateDialog.value = false;
 }
 
 function handleWebUpdate(event: Event) {
@@ -2103,7 +2113,7 @@ function handleWebUpdate(event: Event) {
   availableWebVersion = detail?.version || '';
   prepareWebUpdate = detail?.prepareUpdate || null;
   pwaUpdateAvailable.value = true;
-  showPwaUpdateDialog.value = true;
+  showPwaUpdateDialog.value = false;
 }
 
 function postponePwaUpdate() {
@@ -4189,6 +4199,33 @@ function startTarotInterpretation(payload: WesternInterpretationPayload) {
   void requestInterpretation(payload.request, true, sessionId, null);
 }
 
+async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
+  if (isInterpreting.value) return;
+  const questionText = '请解读今天的卦象，说明我今天应关注的重点、变化趋势和行动建议。';
+  aiAnswer.value = '';
+  aiError.value = '';
+  lastAiRequest.value = null;
+  lastAiHistoryRecordId.value = null;
+  try {
+    const request = await buildAiRequest('divination', questionText, 'liuyao', result.chart);
+    const dateLabel = new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    }).format(new Date());
+    request.method = '每日一卦';
+    request.reading = {
+      summary: `${formatReadingSummary('liuyao', result.chart)} 今日主题为“${result.guidance.theme}”。${result.guidance.summary}`,
+      data: result.chart,
+      prompt: [
+        request.reading?.prompt,
+        formatDailyHexagramAiContext(result, dateLabel),
+      ].filter((item): item is string => Boolean(item)).join('\n\n'),
+    };
+    await requestInterpretation(request, false, chatSessionId, null);
+  } catch (error) {
+    aiError.value = error instanceof Error ? error.message : '每日一卦的 AI 解读暂时没有完成。';
+  }
+}
+
 async function beginReading() {
   if (isReading.value || isInterpreting.value || chartLoading.value) return;
   formError.value = '';
@@ -5141,9 +5178,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'mobile-nav-open': showMobileNav }">
+  <div class="app-shell" :class="{ 'mobile-nav-open': showMobileNav }" :data-divination-theme="activeDivinationThemeId" :style="activeDivinationThemeStyle">
     <aside class="sidebar" :class="{ 'mobile-sidebar-open': showMobileNav }">
-      <div class="sidebar-header"><button class="brand" type="button" @click="goView('tools')"><img class="brand-mark" src="/logo.webp" alt="" aria-hidden="true" /><span><strong>时月东方</strong><small>东方术数</small></span></button><button class="mobile-sidebar-close" type="button" aria-label="关闭导航" @click="showMobileNav = false"><X :size="18" /></button></div>
+      <div class="sidebar-header"><button class="brand" type="button" @click="goView('tools')"><img class="brand-mark" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="" aria-hidden="true" /><span><strong>时月东方</strong><small>东方术数</small></span></button><button class="mobile-sidebar-close" type="button" aria-label="关闭导航" @click="showMobileNav = false"><X :size="18" /></button></div>
       <nav class="main-nav main-nav-primary" aria-label="主要功能">
         <button v-for="item in primaryNavItems" :key="item.key" type="button" :title="item.label" :class="{ active: activeView === item.key }" @click="goView(item.key)"><component :is="item.icon" :size="17" /><span>{{ item.label }}</span><ChevronRight v-if="activeView === item.key" :size="14" class="nav-arrow" /></button>
       </nav>
@@ -5212,13 +5249,13 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <UiPageShell v-if="activeView === 'tools'" width="reading" class="screen tools-screen" :class="{ 'is-chat': homeState === 'chat' }">
           <template v-if="homeState === 'default'">
             <section class="home-default">
-              <div class="default-hero"><img class="default-mark" src="/logo.webp" alt="时月东方" /><h1><span>探索未来</span><span class="hero-multicolor">解读术数</span></h1><a class="merit-box-button" href="https://lk.sydf.cc/" target="_blank" rel="noopener noreferrer"><Heart :size="14" />功德箱</a></div>
+              <div class="default-hero"><img class="default-mark" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="时月东方" /><h1><span>探索未来</span><span class="hero-multicolor">解读术数</span></h1><a class="merit-box-button" href="https://lk.sydf.cc/" target="_blank" rel="noopener noreferrer"><Heart :size="14" />功德箱</a></div>
             </section>
           </template>
 
           <template v-else>
             <div ref="chatConversationRef" class="chat-conversation" aria-live="polite">
-              <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" src="/logo.webp" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
+              <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
               <div
                 v-for="(message, index) in chatMessages"
                 :key="`${message.kind}-${message.role}-${index}`"
@@ -5466,7 +5503,15 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
 
-        <DailyHexagramView v-else-if="activeView === 'daily-hexagram'" />
+        <DailyHexagramView
+          v-else-if="activeView === 'daily-hexagram'"
+          :ai-answer="aiAnswer"
+          :ai-error="aiError"
+          :ai-request="lastAiRequest"
+          :interpreting="isInterpreting"
+          @interpret="startDailyHexagramInterpretation"
+          @retry-interpretation="retryLastInterpretation"
+        />
 
         <UiToolPage v-else-if="activeView === 'fortune'" width="standard" class="screen fortune-screen" toolbar-label="运势日期与周期" toolbar-class="fortune-toolbar">
             <template #toolbar-primary>
@@ -5606,6 +5651,16 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </UiWorkspaceSurface>
 
           <div v-else class="preferences-page">
+            <section class="preference-section">
+              <UiSectionHeading class="preference-section-heading" title="占卜主题" description="统一更换界面风格和占卜图片" compact />
+              <div>
+                <div class="preference-option-grid is-three">
+                  <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
+                </div>
+                <p class="preference-active-note">当前界面与占卜图片使用“{{ activeDivinationThemeLabel }}”主题</p>
+              </div>
+            </section>
+
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="解答偏好" description="选择 AI 的表达风格和解读框架" compact />
               <div>
@@ -6000,7 +6055,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
       <div v-if="showOnboarding" class="onboarding-layer">
         <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
           <header class="onboarding-header">
-            <div class="onboarding-brand"><img src="/logo.webp" alt="" aria-hidden="true" /><div><span>首次设置</span><h2 id="onboarding-title">{{ onboardingSteps[onboardingStep] }}</h2></div></div>
+            <div class="onboarding-brand"><img :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="" aria-hidden="true" /><div><span>首次设置</span><h2 id="onboarding-title">{{ onboardingSteps[onboardingStep] }}</h2></div></div>
             <small>{{ onboardingStep + 1 }} / {{ onboardingSteps.length }}</small>
           </header>
           <nav class="onboarding-progress" aria-label="设置进度">

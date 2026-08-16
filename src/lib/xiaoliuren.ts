@@ -1,10 +1,10 @@
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import type { XiaoliurenData, XiaoliurenPalaceDetail } from 'mingyu-core/types';
+import { getXiaoliurenThemeImageUrl } from './divinationTheme';
 
 export type XiaoliurenPalaceName = XiaoliurenPalaceDetail['name'];
 
 export interface XiaoliurenPresentation {
-  image: string;
   tagline: string;
   verdict: string;
   summary: string;
@@ -23,9 +23,21 @@ export interface LocalXiaoliurenReading {
   presentation: XiaoliurenPresentation;
 }
 
+const xiaoliurenImageFiles: Record<XiaoliurenPalaceName, string> = {
+  大安: 'da-an.webp',
+  留连: 'liu-lian.webp',
+  速喜: 'su-xi.webp',
+  赤口: 'chi-kou.webp',
+  小吉: 'xiao-ji.webp',
+  空亡: 'kong-wang.webp',
+};
+
+export function getXiaoliurenPresentationImage(name: XiaoliurenPalaceName) {
+  return getXiaoliurenThemeImageUrl(xiaoliurenImageFiles[name]);
+}
+
 export const XIAOLIUREN_PRESENTATIONS: Record<XiaoliurenPalaceName, XiaoliurenPresentation> = {
   大安: {
-    image: '/xiaoliuren/da-an.webp',
     tagline: '安定守成',
     verdict: '局面偏稳，按既定方向推进更合适。',
     summary: '当前更需要守住节奏，而不是临时改变方向。已经确认、准备充分的事项可以继续落实；涉及新条件的部分，仍应先核对再扩大行动。',
@@ -44,7 +56,6 @@ export const XIAOLIUREN_PRESENTATIONS: Record<XiaoliurenPalaceName, XiaoliurenPr
     ],
   },
   留连: {
-    image: '/xiaoliuren/liu-lian.webp',
     tagline: '缓行复核',
     verdict: '进展可能反复，先补条件再催结果。',
     summary: '当前阻力更可能来自信息不全、等待或前置条件未完成。与其强行推动，不如先找出卡点，并给沟通和审批留出合理余量。',
@@ -63,7 +74,6 @@ export const XIAOLIUREN_PRESENTATIONS: Record<XiaoliurenPalaceName, XiaoliurenPr
     ],
   },
   速喜: {
-    image: '/xiaoliuren/su-xi.webp',
     tagline: '及时把握',
     verdict: '积极信号来得较快，适合及时回应。',
     summary: '当前更适合把已经出现的机会转成明确行动。回应可以快，但关键条件仍要确认，避免把初步进展提前当作最终结果。',
@@ -82,7 +92,6 @@ export const XIAOLIUREN_PRESENTATIONS: Record<XiaoliurenPalaceName, XiaoliurenPr
     ],
   },
   赤口: {
-    image: '/xiaoliuren/chi-kou.webp',
     tagline: '少争多证',
     verdict: '沟通容易产生摩擦，先厘清事实再表达。',
     summary: '当前更要控制表达强度，避免在信息不完整时争论对错。把事实、观点和情绪分开处理，重要约定尽量留下清晰记录。',
@@ -101,7 +110,6 @@ export const XIAOLIUREN_PRESENTATIONS: Record<XiaoliurenPalaceName, XiaoliurenPr
     ],
   },
   小吉: {
-    image: '/xiaoliuren/xiao-ji.webp',
     tagline: '和合可成',
     verdict: '协作条件较好，通过配合更容易推进。',
     summary: '当前适合借助沟通、互助和资源配合解决问题。先从容易形成共识的部分开始，同时把双方责任和边界说明白。',
@@ -120,7 +128,6 @@ export const XIAOLIUREN_PRESENTATIONS: Record<XiaoliurenPalaceName, XiaoliurenPr
     ],
   },
   空亡: {
-    image: '/xiaoliuren/kong-wang.webp',
     tagline: '暂缓定案',
     verdict: '关键信息仍不充分，重要决定宜暂缓。',
     summary: '当前最需要处理的是不确定性。先核验信息来源和关键假设，为可能落空的部分准备替代方案，再决定是否投入更多。',
