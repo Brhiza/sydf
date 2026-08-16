@@ -46,17 +46,19 @@ describe('星盘推运提示词', () => {
 });
 
 describe('八字岁运提示词', () => {
-  it('完整模式可把多个八字流派交给 AI 合参', () => {
+  it('完整模式保留多个八字流派资料但不附带内部任务文案', () => {
     const prompt = buildChartReadingPrompt('bazi', chart, {
       question: '请综合分析本命。',
       schools: ['ziping', 'mangpai', 'xinpai'],
     });
 
+    expect(prompt).toContain('【多派合参】');
     expect(prompt).toContain('子平派');
     expect(prompt).toContain('盲派');
     expect(prompt).toContain('新派');
-    expect(prompt).toContain('合参任务');
-    expect(prompt).toContain('共同结论');
+    expect(prompt).toContain('本派盘面资料');
+    expect(prompt).not.toContain('合参任务');
+    expect(prompt).not.toContain('共同结论');
   });
 
   it('识别明确年份、相对年份和完整岁运范围', () => {
