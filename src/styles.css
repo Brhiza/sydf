@@ -826,6 +826,7 @@ h1, h2, h3, p { margin-top: 0; }
 @media (max-width: 520px) {
   .basic-ai-fallback-actions { align-items: stretch; flex-direction: column-reverse; }
   .basic-ai-fallback-actions .ui-button { width: 100%; }
+  .basic-ai-fallback-actions .external-ai-share { order: 3; }
 }
 
 /* 对话页收口：消息独立滚动，输入区固定在内容底部 */

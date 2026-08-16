@@ -136,6 +136,7 @@ import {
 } from './lib/chatExport';
 import AiPromptFallback from './components/AiPromptFallback.vue';
 import AiReadingActions from './components/AiReadingActions.vue';
+import ExternalAiShareButtons from './components/ExternalAiShareButtons.vue';
 import ChatMarkdown from './components/ChatMarkdown.vue';
 import CaseMultiSelect from './components/CaseMultiSelect.vue';
 import ChartCoreFacts from './components/ChartCoreFacts.vue';
@@ -5963,14 +5964,23 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <ChevronRight :size="16" />
             </button>
           </div>
-          <p class="basic-ai-fallback-tip">现在复制会包含问题和完整回答要求；选择占卜或排盘后，还可以复制包含实际盘面资料的版本。</p>
+          <p class="basic-ai-fallback-tip">现在复制只包含问题和必要上下文；选择占卜或排盘后，还会包含实际盘面资料。</p>
           <div class="basic-ai-fallback-actions">
             <UiButton variant="secondary" @click="retryBasicAiSelection"><RefreshCw :size="14" />重试</UiButton>
             <UiButton @click="copyBasicAiFallbackPrompt">
               <Check v-if="basicAiFallbackCopyState === 'copied'" :size="14" />
               <Copy v-else :size="14" />
-              {{ basicAiFallbackCopyState === 'copied' ? '完整提示词已复制' : basicAiFallbackCopyState === 'error' ? '复制失败，请重试' : '复制完整提示词' }}
+              {{ basicAiFallbackCopyState === 'copied' ? '提示词已复制' : basicAiFallbackCopyState === 'error' ? '复制失败，请重试' : '复制提示词' }}
             </UiButton>
+            <ExternalAiShareButtons :request="{
+              mode: 'ask',
+              question: basicAiFallbackQuestion,
+              conversation: currentConversationContext(),
+              preferences: {
+                answerPreference: appPreferences.answerPreference,
+                displayLevel: appPreferences.displayLevel,
+              },
+            }" />
           </div>
       </UiDialogShell>
 
