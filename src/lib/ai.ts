@@ -76,6 +76,9 @@ export interface AiInterpretationResponse {
   provider?: string;
 }
 
+// 服务端最多等待 90 秒，客户端再多留 5 秒接收 Cloudflare 返回的结果。
+const AI_INTERPRETATION_TIMEOUT_MS = 95_000;
+
 async function fetchWithClientTimeout(
   input: RequestInfo | URL,
   init: RequestInit,
@@ -143,7 +146,7 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
     // 在网络边界统一剔除 data，避免调用方遗漏清理。
     body: JSON.stringify(buildAiInterpretationRequestBody(payload)),
     signal,
-  }, 50_000, 'AI 解读等待超时，请稍后重试。');
+  }, AI_INTERPRETATION_TIMEOUT_MS, 'AI 解读等待超时，请稍后重试。');
   const result = await response.json().catch(() => null) as unknown;
   if (!response.ok) throw new Error(getErrorMessage(result, response.status));
   if (!result || typeof result !== 'object' || !('content' in result) || typeof result.content !== 'string' || !result.content.trim()) {
