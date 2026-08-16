@@ -1,4 +1,12 @@
-import type { AiConversationMessage, AiCustomConfig } from './ai';
+import {
+  isCustomAiConfig,
+  rememberAiProxyFallback,
+  shouldFallbackToProxy,
+  shouldUseAiProxyFallback,
+  type AiConversationMessage,
+  type AiCustomConfig,
+} from './ai';
+import { requestDirectAgentSelection } from './agentDirect';
 import type { DivinationKind } from './divination';
 
 export type AgentChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazi-ziwei';
@@ -175,6 +183,23 @@ function responseError(payload: unknown, status: number) {
 }
 
 export async function requestAgentToolSelection(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 15_000): Promise<AgentToolSelection> {
+  if (isCustomAiConfig(payload.aiConfig)) {
+    if (shouldUseAiProxyFallback(payload.aiConfig!)) return requestAgentToolSelectionViaProxy(payload, signal, timeoutMs);
+    const { aiConfig, ...directPayload } = payload;
+    try {
+      return await requestDirectAgentSelection(directPayload, aiConfig!, signal, timeoutMs);
+    } catch (error) {
+      if (shouldFallbackToProxy(error, 'AI 选择工具等待超时，请重试。')) {
+        rememberAiProxyFallback(aiConfig!);
+        return requestAgentToolSelectionViaProxy(payload, signal, timeoutMs);
+      }
+      throw error;
+    }
+  }
+  return requestAgentToolSelectionViaProxy(payload, signal, timeoutMs);
+}
+
+async function requestAgentToolSelectionViaProxy(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 15_000): Promise<AgentToolSelection> {
   const controller = new AbortController();
   let timedOut = false;
   const abortFromCaller = () => controller.abort(signal?.reason);

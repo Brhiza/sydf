@@ -316,7 +316,7 @@ function restoreHistoryRecord(record: ReadingRecord | null | undefined) {
   historyRecordId.value = record.id;
   question.value = '';
   pendingQuestion.value = '';
-  error.value = '';
+  error.value = record.interpretation?.trim() ? '' : record.interpretationError?.trim() || '';
   loadingPhase.value = '';
   messages.value = [
     { id: ++messageId, role: 'user', content: record.question },

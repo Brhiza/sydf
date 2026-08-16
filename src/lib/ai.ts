@@ -1,4 +1,5 @@
 import type { PromptSchoolChoices } from './promptSchools';
+import { buildAiSystemPrompt, buildAiUserPrompt, sanitizeAiConversation } from './aiPrompt';
 
 export type AiInterpretationMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 
@@ -76,6 +77,13 @@ export interface AiInterpretationResponse {
   provider?: string;
 }
 
+export interface DirectAiConfig {
+  apiType: AiApiType;
+  apiKey: string;
+  model: string;
+  url: string;
+}
+
 async function fetchWithClientTimeout(
   input: RequestInfo | URL,
   init: RequestInit,
@@ -115,7 +123,203 @@ export function buildAiInterpretationRequestBody(payload: AiInterpretationReques
   };
 }
 
+function normalizeApiType(value: unknown): AiApiType {
+  return value === 'responses' || value === 'anthropic' ? value : 'chat';
+}
+
+export function isCustomAiConfig(aiConfig: AiCustomConfig | undefined) {
+  return aiConfig?.provider === 'openai-compatible'
+    || (aiConfig?.provider === undefined && aiConfig?.enabled === true);
+}
+
+function trimApiEndpoint(baseUrl: string) {
+  return baseUrl.trim().replace(/\/+$/, '').replace(/\/(chat\/completions|responses|messages|models)$/i, '');
+}
+
+function resolveDirectAiUrl(baseUrl: string, apiType: AiApiType) {
+  const normalized = baseUrl.trim().replace(/\/+$/, '');
+  const path = apiType === 'responses' ? 'responses' : apiType === 'anthropic' ? 'messages' : 'chat/completions';
+  if (new RegExp(`/${path.replace('/', '\\/')}$`, 'i').test(normalized)) return normalized;
+  return `${trimApiEndpoint(normalized)}/${path}`;
+}
+
+function resolveDirectModelsUrl(baseUrl: string) {
+  const normalized = trimApiEndpoint(baseUrl);
+  return normalized ? `${normalized}/models` : '';
+}
+
+function validateDirectUrl(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('接口地址无效，请填写完整的 HTTP 或 HTTPS 地址。');
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('接口地址无效，请填写完整的 HTTP 或 HTTPS 地址。');
+  }
+  return url.toString();
+}
+
+export function getDirectAiConfig(aiConfig: AiCustomConfig, requireModel = true): DirectAiConfig {
+  const apiType = normalizeApiType(aiConfig.apiType);
+  const apiKey = aiConfig.apiKey.trim();
+  const model = aiConfig.model.trim();
+  const baseUrl = aiConfig.baseUrl.trim();
+  if (!baseUrl || !apiKey || (requireModel && !model)) {
+    throw new Error(requireModel
+      ? '请完整填写第三方 AI 的接口地址、模型名称和 API Key。'
+      : '请先完整填写接口地址和 API Key。');
+  }
+  return {
+    apiType,
+    apiKey,
+    model,
+    url: validateDirectUrl(requireModel ? resolveDirectAiUrl(baseUrl, apiType) : resolveDirectModelsUrl(baseUrl)),
+  };
+}
+
+function directRequestHeaders(config: Pick<DirectAiConfig, 'apiType' | 'apiKey'>, json = false) {
+  const headers: Record<string, string> = json
+    ? { 'Content-Type': 'application/json' }
+    : { Accept: 'application/json' };
+  if (config.apiType === 'anthropic') {
+    headers['x-api-key'] = config.apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  } else {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  }
+  return headers;
+}
+
+function getProviderErrorMessage(payload: unknown, status: number, fallback: string) {
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    if (typeof record.error === 'string' && record.error.trim()) return record.error.trim().slice(0, 500);
+    if (record.error && typeof record.error === 'object') {
+      const nested = record.error as Record<string, unknown>;
+      if (typeof nested.message === 'string' && nested.message.trim()) return nested.message.trim().slice(0, 500);
+    }
+    if (typeof record.message === 'string' && record.message.trim()) return record.message.trim().slice(0, 500);
+  }
+  return `${fallback}（${status}）。`;
+}
+
+export function shouldFallbackToProxy(error: unknown, timeoutMessage: string) {
+  return error instanceof TypeError || (error instanceof Error && error.message === timeoutMessage);
+}
+
+const aiProxyFallbackCache = new Set<string>();
+
+function aiProxyFallbackCacheId(aiConfig: AiCustomConfig) {
+  const source = trimApiEndpoint(aiConfig.baseUrl).toLowerCase();
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function aiProxyFallbackStorageKey(aiConfig: AiCustomConfig) {
+  return `sydf:ai-proxy-fallback:${aiProxyFallbackCacheId(aiConfig)}`;
+}
+
+export function shouldUseAiProxyFallback(aiConfig: AiCustomConfig) {
+  const cacheId = aiProxyFallbackCacheId(aiConfig);
+  if (aiProxyFallbackCache.has(cacheId)) return true;
+  try {
+    if (globalThis.sessionStorage?.getItem(aiProxyFallbackStorageKey(aiConfig)) === '1') {
+      aiProxyFallbackCache.add(cacheId);
+      return true;
+    }
+  } catch {
+    // 部分隐私模式会禁用 sessionStorage，内存缓存仍可避免本次页面重复直连。
+  }
+  return false;
+}
+
+export function rememberAiProxyFallback(aiConfig: AiCustomConfig) {
+  aiProxyFallbackCache.add(aiProxyFallbackCacheId(aiConfig));
+  try {
+    globalThis.sessionStorage?.setItem(aiProxyFallbackStorageKey(aiConfig), '1');
+  } catch {
+    // 存储不可用时只保留当前页面内存状态。
+  }
+}
+
+export async function requestDirectAiJson(
+  config: DirectAiConfig,
+  body: Record<string, unknown>,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+  timeoutMessage: string,
+) {
+  const response = await fetchWithClientTimeout(config.url, {
+    method: 'POST',
+    headers: directRequestHeaders(config, true),
+    body: JSON.stringify(body),
+    signal,
+  }, timeoutMs, timeoutMessage);
+  const result = await response.json().catch(() => null) as unknown;
+  if (!response.ok) throw new Error(getProviderErrorMessage(result, response.status, '第三方 AI 返回错误，请检查模型、接口地址和密钥'));
+  if (!result) throw new Error('AI 返回了无法识别的内容。');
+  return result;
+}
+
+function collectModelIds(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(record.data)
+      ? record.data
+      : Array.isArray(record.models)
+        ? record.models
+        : [];
+  const models = source.flatMap((item) => {
+    if (typeof item === 'string') return item.trim() ? [item.trim()] : [];
+    if (!item || typeof item !== 'object') return [];
+    const candidate = item as Record<string, unknown>;
+    const id = typeof candidate.id === 'string'
+      ? candidate.id.trim()
+      : typeof candidate.name === 'string'
+        ? candidate.name.trim()
+        : '';
+    return id ? [id] : [];
+  });
+  return [...new Set(models)].sort((a, b) => a.localeCompare(b));
+}
+
 export async function requestAiModels(aiConfig: AiCustomConfig, signal?: AbortSignal): Promise<string[]> {
+  if (isCustomAiConfig(aiConfig)) {
+    const config = getDirectAiConfig(aiConfig, false);
+    if (shouldUseAiProxyFallback(aiConfig)) return requestAiModelsViaProxy(aiConfig, signal);
+    let response: Response;
+    try {
+      response = await fetchWithClientTimeout(config.url, {
+        method: 'GET',
+        headers: directRequestHeaders(config),
+        signal,
+      }, 20_000, '获取模型超时，请检查网络或接口地址后重试。');
+    } catch (error) {
+      if (shouldFallbackToProxy(error, '获取模型超时，请检查网络或接口地址后重试。')) {
+        rememberAiProxyFallback(aiConfig);
+        return requestAiModelsViaProxy(aiConfig, signal);
+      }
+      throw error;
+    }
+    const result = await response.json().catch(() => null) as unknown;
+    if (!response.ok) throw new Error(getProviderErrorMessage(result, response.status, '获取模型失败，请检查接口地址和密钥'));
+    const models = collectModelIds(result);
+    if (!models.length) throw new Error('该接口没有返回可用模型。');
+    return models;
+  }
+  return requestAiModelsViaProxy(aiConfig, signal);
+}
+
+async function requestAiModelsViaProxy(aiConfig: AiCustomConfig, signal?: AbortSignal): Promise<string[]> {
   const response = await fetchWithClientTimeout('/api/models', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -136,6 +340,56 @@ function getErrorMessage(payload: unknown, status: number) {
 }
 
 export async function requestAiInterpretation(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {
+  if (isCustomAiConfig(payload.aiConfig)) {
+    const config = getDirectAiConfig(payload.aiConfig!);
+    if (shouldUseAiProxyFallback(payload.aiConfig!)) return requestAiInterpretationViaProxy(payload, signal);
+    const request = buildAiInterpretationRequestBody(payload);
+    const systemPrompt = buildAiSystemPrompt(request);
+    const conversation = sanitizeAiConversation(request.conversation);
+    const providerMessages = [...conversation, { role: 'user' as const, content: buildAiUserPrompt(request) }];
+    const messages = [{ role: 'system' as const, content: systemPrompt }, ...providerMessages];
+    const maxTokens = request.preferences?.answerPreference === 'chat'
+      ? 1100
+      : request.preferences?.answerPreference === 'professional'
+        ? 3000
+        : 2000;
+    const body = config.apiType === 'responses'
+      ? { model: config.model, instructions: systemPrompt, input: providerMessages, store: false, max_output_tokens: maxTokens }
+      : config.apiType === 'anthropic'
+        ? { model: config.model, system: systemPrompt, messages: providerMessages, max_tokens: maxTokens, temperature: 0.55 }
+        : { model: config.model, messages, temperature: 0.55, max_tokens: maxTokens };
+    let response: Response;
+    try {
+      response = await fetchWithClientTimeout(config.url, {
+        method: 'POST',
+        headers: directRequestHeaders(config, true),
+        body: JSON.stringify(body),
+        signal,
+      }, 50_000, 'AI 解读等待超时，请稍后重试。');
+    } catch (error) {
+      if (shouldFallbackToProxy(error, 'AI 解读等待超时，请稍后重试。')) {
+        rememberAiProxyFallback(payload.aiConfig!);
+        return requestAiInterpretationViaProxy(payload, signal);
+      }
+      throw error;
+    }
+    const result = await response.json().catch(() => null) as unknown;
+    if (!response.ok) throw new Error(getProviderErrorMessage(result, response.status, '第三方 AI 返回错误，请检查模型、接口地址和密钥'));
+    const content = config.apiType === 'responses'
+      ? extractResponsesText(result)
+      : config.apiType === 'anthropic'
+        ? extractAnthropicText(result)
+        : extractChatText(result);
+    if (!content.trim()) throw new Error('AI 返回了无法识别的内容。');
+    const resultModel = result && typeof result === 'object' && 'model' in result && typeof result.model === 'string'
+      ? result.model
+      : config.model;
+    return { content: content.trim(), model: resultModel, provider: 'custom' };
+  }
+  return requestAiInterpretationViaProxy(payload, signal);
+}
+
+async function requestAiInterpretationViaProxy(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {
   const response = await fetchWithClientTimeout('/api/interpret', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -150,4 +404,44 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
     throw new Error('AI 返回了无法识别的内容。');
   }
   return result as AiInterpretationResponse;
+}
+
+function extractChatText(result: unknown) {
+  if (!result || typeof result !== 'object' || !('choices' in result) || !Array.isArray(result.choices)) return '';
+  const first = result.choices[0];
+  if (!first || typeof first !== 'object' || !('message' in first) || !first.message || typeof first.message !== 'object' || !('content' in first.message)) return '';
+  const content = first.message.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map((item) => item && typeof item === 'object' && 'text' in item && typeof item.text === 'string' ? item.text : '').join('');
+  }
+  return '';
+}
+
+function extractResponsesText(result: unknown) {
+  if (!result || typeof result !== 'object') return '';
+  const record = result as Record<string, unknown>;
+  if (typeof record.output_text === 'string') return record.output_text;
+  if (!Array.isArray(record.output)) return '';
+  return record.output.map((item) => {
+    if (!item || typeof item !== 'object') return '';
+    const content = (item as Record<string, unknown>).content;
+    if (!Array.isArray(content)) return '';
+    return content.map((part) => {
+      if (!part || typeof part !== 'object') return '';
+      const block = part as Record<string, unknown>;
+      return block.type === 'output_text' && typeof block.text === 'string' ? block.text : '';
+    }).join('');
+  }).join('');
+}
+
+function extractAnthropicText(result: unknown) {
+  if (!result || typeof result !== 'object') return '';
+  const content = (result as Record<string, unknown>).content;
+  if (!Array.isArray(content)) return '';
+  return content.map((item) => {
+    if (!item || typeof item !== 'object') return '';
+    const block = item as Record<string, unknown>;
+    return block.type === 'text' && typeof block.text === 'string' ? block.text : '';
+  }).join('');
 }

@@ -42,8 +42,8 @@ async function copyPrompt() {
 
 <template>
   <div class="ai-prompt-fallback">
-    <p>你也可以把问题和盘面资料发到其他 AI 继续解读。</p>
     <div>
+      <UiButton variant="secondary" size="small" @click="emit('retry')"><RefreshCw :size="14" />重试</UiButton>
       <UiButton
         variant="secondary"
         size="small"
@@ -55,7 +55,6 @@ async function copyPrompt() {
         <Copy v-else :size="14" />
         {{ copyState === 'copied' ? '提示词已复制' : copyState === 'error' ? '复制失败，请重试' : '复制提示词' }}
       </UiButton>
-      <UiButton variant="secondary" size="small" @click="emit('retry')"><RefreshCw :size="14" />重新解读</UiButton>
       <ExternalAiShareButtons :request="request" />
     </div>
   </div>
@@ -63,10 +62,9 @@ async function copyPrompt() {
 
 <style scoped>
 .ai-prompt-fallback { margin-top: 10px; }
-.ai-prompt-fallback > p { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); line-height: 1.55; margin: 0 0 8px; }
 .ai-prompt-fallback > div { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (max-width: 720px) {
-  .ai-prompt-fallback > div > :deep(.external-ai-share) { flex-basis: 100%; }
+  .ai-prompt-fallback > div { align-items: stretch; }
 }
 </style>

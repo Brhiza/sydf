@@ -149,6 +149,31 @@ describe('AI 降级提示词', () => {
     expect(prompt).not.toContain('重复的底层任务');
   });
 
+  it('外部 AI 提示词不携带盘面内置的断法和合参要求', () => {
+    const prompt = buildExternalAiPrompt({
+      mode: 'divination',
+      question: '这件事会怎么发展？',
+      method: '梅花易数',
+      reading: {
+        prompt: [
+          '【盘面资料】',
+          '主卦：兑为泽',
+          '【多法合参】',
+          '断法1：体用生克法',
+          '断法任务：结合主互变形成判断。',
+          '断法2：象数取象法',
+          '合参任务：归纳共同结论和分歧。',
+        ].join('\n'),
+      },
+    });
+
+    expect(prompt).toContain('主卦：兑为泽');
+    expect(prompt).not.toContain('多法合参');
+    expect(prompt).not.toContain('断法1');
+    expect(prompt).not.toContain('断法任务');
+    expect(prompt).not.toContain('合参任务');
+  });
+
   it('只有结构化对象时也不会复制原始 JSON', () => {
     const prompt = buildExternalAiPrompt({
       mode: 'divination',

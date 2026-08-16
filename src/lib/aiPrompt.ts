@@ -135,7 +135,7 @@ function stripDisclaimerClauses(value: string) {
 function compactReadingLine(value: string) {
   const trimmed = stripDisclaimerClauses(value).trim();
   if (!trimmed) return '';
-  if (/^(?:[-*]\s*)?(?:旺衰依据|格局依据|取用脉络|十神归类|特殊宫位|日主十二运|传统依据|传统旁证|古籍依据|底层依据|流派任务|流派依据|流派盘面资料|资料覆盖|结构标记|动态宫位|起课依据|大运总览|取证顺序|证据分级|资料来源|文献来源|算法版本)[：:]/.test(trimmed)) return '';
+  if (/^(?:[-*]\s*)?(?:旺衰依据|格局依据|取用脉络|十神归类|特殊宫位|日主十二运|传统依据|传统旁证|古籍依据|底层依据|流派任务|流派依据|流派盘面资料|断法\d*|断法任务|合参任务|资料覆盖|结构标记|动态宫位|起课依据|大运总览|取证顺序|证据分级|资料来源|文献来源|算法版本)[：:]/.test(trimmed)) return '';
   if (/^选定资料[：:]/.test(trimmed)) return '';
   const elementFocus = trimmed.match(/^出现[：:].*结构比较优先[：:]\s*(.+)$/);
   if (elementFocus) return `结构侧重：${elementFocus[1]}`;

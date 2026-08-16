@@ -2,19 +2,31 @@
 import { onBeforeUnmount, ref } from 'vue';
 import { Check, Copy, Send, Share2, X } from 'lucide-vue-next';
 import { buildExternalAiPrompt, type AiPromptPayload } from '../lib/aiPrompt';
-import { externalAiShareUrl, EXTERNAL_AI_TARGETS, isIosDevice, type ExternalAiShareTarget } from '../lib/externalAiShare';
+import { buildExternalAiShareData, EXTERNAL_AI_TARGETS, getExternalAiAppUrl, isAndroidUserAgent, isIosDevice, type ExternalAiShareTarget } from '../lib/externalAiShare';
 import { writeClipboardText } from '../lib/clipboard';
+import { UiButton } from './ui';
 
 const props = defineProps<{
   request?: AiPromptPayload | null;
 }>();
 
 const openingTarget = ref<ExternalAiShareTarget | null>(null);
+const androidActionState = ref<'idle' | 'copied' | 'error'>('idle');
 const iosActionState = ref<'idle' | 'copied' | 'error'>('idle');
 const showIosFirstShareDialog = ref(false);
 const isIos = isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+const isAndroid = isAndroidUserAgent(navigator.userAgent);
 const IOS_SHARE_INTRO_KEY = 'sydf.external-ai-share-intro.v1';
 let iosStateTimer: number | undefined;
+let androidStateTimer: number | undefined;
+
+function resetAndroidActionState() {
+  if (androidStateTimer) window.clearTimeout(androidStateTimer);
+  androidStateTimer = window.setTimeout(() => {
+    androidActionState.value = 'idle';
+    openingTarget.value = null;
+  }, 1800);
+}
 
 function resetIosActionState() {
   if (iosStateTimer) window.clearTimeout(iosStateTimer);
@@ -25,6 +37,7 @@ function resetIosActionState() {
 
 onBeforeUnmount(() => {
   if (iosStateTimer) window.clearTimeout(iosStateTimer);
+  if (androidStateTimer) window.clearTimeout(androidStateTimer);
 });
 
 function hasSeenIosShareIntro() {
@@ -51,18 +64,20 @@ async function shareTo(target: ExternalAiShareTarget) {
   if (!props.request || openingTarget.value) return;
   openingTarget.value = target;
   const prompt = promptText();
+  androidActionState.value = 'idle';
   try {
     await writeClipboardText(prompt);
+    androidActionState.value = 'copied';
+    resetAndroidActionState();
+    window.location.assign(getExternalAiAppUrl(target));
   } catch {
-    // Android 会直接携带分享正文；剪贴板只是未安装 App 时的备用。
-  }
-  window.location.href = externalAiShareUrl(target, prompt, navigator.userAgent);
-  window.setTimeout(() => {
+    androidActionState.value = 'error';
     openingTarget.value = null;
-  }, 1200);
+    resetAndroidActionState();
+  }
 }
 
-async function openIosShareSheet() {
+async function openSystemShareSheet() {
   const prompt = promptText();
   if (!prompt) return;
   if (!navigator.share) {
@@ -77,10 +92,17 @@ async function openIosShareSheet() {
     return;
   }
   try {
-    await navigator.share({ title: '时月东方解读提示词', text: prompt });
+    await navigator.share(buildExternalAiShareData(prompt));
   } catch (error) {
-    if (!(error instanceof DOMException && error.name === 'AbortError')) iosActionState.value = 'error';
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+      iosActionState.value = 'error';
+      resetIosActionState();
+    }
   }
+}
+
+async function openIosShareSheet() {
+  await openSystemShareSheet();
 }
 
 async function requestIosShare() {
@@ -89,6 +111,15 @@ async function requestIosShare() {
     showIosFirstShareDialog.value = true;
     return;
   }
+  await openIosShareSheet();
+}
+
+async function requestSystemShare() {
+  if (isIos) {
+    await requestIosShare();
+    return;
+  }
+  iosActionState.value = 'idle';
   await openIosShareSheet();
 }
 
@@ -115,13 +146,13 @@ async function shareFromIosDialog() {
 </script>
 
 <template>
-  <div class="external-ai-share" :class="{ 'is-ios': isIos }" aria-label="发送提示词到其他 AI">
-    <button v-if="isIos" type="button" :disabled="!request" @click="requestIosShare">
+  <div class="external-ai-share" aria-label="发送提示词到其他 AI">
+    <UiButton variant="secondary" size="small" :disabled="!request" @click="requestSystemShare">
       <Check v-if="iosActionState === 'copied'" :size="14" />
       <Share2 v-else :size="14" />
       {{ iosActionState === 'copied' ? '提示词已复制' : iosActionState === 'error' ? '分享失败，请重试' : '用其他AI软件打开' }}
-    </button>
-    <template v-else>
+    </UiButton>
+    <div v-if="isAndroid || isIos" class="targeted-app-actions">
       <button
         v-for="target in (['doubao', 'deepseek'] as const)"
         :key="target"
@@ -130,9 +161,9 @@ async function shareFromIosDialog() {
         @click="shareTo(target)"
       >
         <Send :size="14" />
-        {{ openingTarget === target ? '正在打开…' : `发到${EXTERNAL_AI_TARGETS[target].label}` }}
+        {{ androidActionState === 'error' ? '复制失败，请重试' : openingTarget === target && androidActionState === 'copied' ? `已复制，正在打开${EXTERNAL_AI_TARGETS[target].label}…` : `复制并打开${EXTERNAL_AI_TARGETS[target].label}` }}
       </button>
-    </template>
+    </div>
   </div>
 
   <Teleport to="body">
@@ -155,9 +186,8 @@ async function shareFromIosDialog() {
 .external-ai-share { display: none; }
 
 @media (max-width: 720px) {
-  .external-ai-share { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-  .external-ai-share.is-ios { grid-template-columns: minmax(0, 1fr); }
-  .external-ai-share button {
+  .external-ai-share { display: contents; }
+  .targeted-app-actions button {
     align-items: center;
     background: var(--accent-soft);
     border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
@@ -172,7 +202,8 @@ async function shareFromIosDialog() {
     min-height: 36px;
     padding: 8px 10px;
   }
-  .external-ai-share button:disabled { cursor: default; opacity: .58; }
+  .targeted-app-actions button:disabled { cursor: default; opacity: .58; }
+  .targeted-app-actions { display: grid; flex-basis: 100%; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
 }
 
 .ios-share-dialog-backdrop {

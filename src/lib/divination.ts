@@ -176,6 +176,8 @@ export interface ReadingRecord {
   compatibility?: CompatibilityRecordData;
   /** 从旧版历史迁移而来的 AI 解读。 */
   interpretation?: string;
+  /** AI 解读失败时保留错误，便于从历史记录恢复重试和外部分享入口。 */
+  interpretationError?: string;
 }
 
 export interface ToolMeta {
