@@ -7,14 +7,18 @@
 :root {
   --font-sans: var(--ds-font-sans);
   --ink: var(--ds-text-primary);
+  --ink-muted: var(--ds-text-secondary);
+  --ink-faint: var(--ds-text-tertiary);
   --muted: var(--ds-text-secondary);
   --subtle: var(--ds-text-tertiary);
   --line: var(--ds-line);
+  --line-strong: var(--ds-line-strong);
   --paper: var(--ds-surface-raised);
   --canvas: var(--ds-canvas);
   --surface: var(--ds-surface);
   --surface-raised: var(--ds-surface-raised);
   --surface-muted: var(--ds-surface-muted);
+  --surface-overlay: var(--ds-surface-overlay);
   --sidebar-surface: var(--ds-sidebar);
   --topbar-surface: var(--ds-topbar);
   --dark: var(--ds-accent-strong);
@@ -30,6 +34,7 @@
   --sage-soft: var(--ds-sage-soft);
   --gold: var(--ds-gold);
   --shadow: var(--ds-shadow-md);
+  --shadow-elevated: var(--ds-shadow-overlay);
   --type-micro: var(--ds-text-xs);
   --type-caption: var(--ds-text-xs);
   --type-small: var(--ds-text-sm);
@@ -42,14 +47,18 @@
  * 避免别名提前在 :root 解析后固定为“月”主题颜色。 */
 .app-shell {
   --ink: var(--ds-text-primary);
+  --ink-muted: var(--ds-text-secondary);
+  --ink-faint: var(--ds-text-tertiary);
   --muted: var(--ds-text-secondary);
   --subtle: var(--ds-text-tertiary);
   --line: var(--ds-line);
+  --line-strong: var(--ds-line-strong);
   --paper: var(--ds-surface-raised);
   --canvas: var(--ds-canvas);
   --surface: var(--ds-surface);
   --surface-raised: var(--ds-surface-raised);
   --surface-muted: var(--ds-surface-muted);
+  --surface-overlay: var(--ds-surface-overlay);
   --sidebar-surface: var(--ds-sidebar);
   --topbar-surface: var(--ds-topbar);
   --dark: var(--ds-accent-strong);
@@ -64,6 +73,8 @@
   --sage: var(--ds-sage);
   --sage-soft: var(--ds-sage-soft);
   --gold: var(--ds-gold);
+  --shadow: var(--ds-shadow-md);
+  --shadow-elevated: var(--ds-shadow-overlay);
 }
 
 html,
