@@ -52,7 +52,7 @@ async function copyPrompt() {
       >
         <Check v-if="copyState === 'copied'" :size="14" />
         <Copy v-else :size="14" />
-        {{ copyState === 'copied' ? '提示词已复制' : copyState === 'error' ? '复制失败，请重试' : '复制提示词' }}
+        {{ copyState === 'copied' ? '完整提示词已复制' : copyState === 'error' ? '复制失败，请重试' : '复制完整提示词' }}
       </UiButton>
       <UiButton variant="secondary" size="small" @click="emit('retry')"><RefreshCw :size="14" />重新解读</UiButton>
     </div>

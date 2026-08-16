@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock3,
   Coins,
+  Copy,
   Grid2X2,
   Heart,
   HeartHandshake,
@@ -170,6 +171,8 @@ import { getModernAlmanacHours, getModernAlmanacPersonalNotes, modernizeAlmanacD
 import type { SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
+import { buildExternalAiPrompt } from './lib/aiPrompt';
+import { writeClipboardText } from './lib/clipboard';
 import {
   almanacTopicGroups,
   almanacTopicOptions,
@@ -1092,6 +1095,13 @@ const formError = ref('');
 const chartError = ref('');
 const caseError = ref('');
 const showInspirationModal = ref(false);
+const showBasicAiFallbackModal = ref(false);
+const basicAiFallbackQuestion = ref('');
+const basicAiFallbackError = ref('');
+const basicAiFallbackCopyState = ref<'idle' | 'copied' | 'error'>('idle');
+const basicAiFallbackPickerMode = ref<HomeMode | null>(null);
+const forcedBasicAgentSelection = ref<AgentToolSelection | null>(null);
+const restoreBasicAiFallbackQuestionOnHome = ref(false);
 const inspirationSearch = ref('');
 const inspirationMode = ref<InspirationMode>('matter');
 const selectedInspirationPrompt = ref('');
@@ -1139,6 +1149,7 @@ let applyPwaUpdate: ((reloadPage?: boolean) => Promise<void>) | null = null;
 let availableWebVersion = '';
 let prepareWebUpdate: (() => Promise<void>) | null = null;
 let toastTimer: number | undefined;
+let basicAiFallbackCopyTimer: number | undefined;
 interface RunningAiTask {
   id: string;
   recordId: string | null;
@@ -2174,6 +2185,7 @@ onBeforeUnmount(() => {
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
+  if (basicAiFallbackCopyTimer !== undefined) window.clearTimeout(basicAiFallbackCopyTimer);
 });
 
 function scrollChatToLatest(behavior: ScrollBehavior = 'smooth') {
@@ -2841,6 +2853,7 @@ function resetAlmanacPageState() {
 }
 
 function closeNavigationOverlays() {
+  showBasicAiFallbackModal.value = false;
   closeInspirationModal();
   closeReadingModal();
   closeTarotModal();
@@ -2851,6 +2864,9 @@ function closeNavigationOverlays() {
 function goView(view: AppView, options: { preservePageState?: boolean } = {}) {
   const previousView = activeView.value;
   const changedView = previousView !== view;
+  const fallbackQuestionToRestore = view === 'tools' && restoreBasicAiFallbackQuestionOnHome.value
+    ? basicAiFallbackQuestion.value
+    : '';
   if (changedView) notifyBackgroundTasksForView(previousView);
   const shouldRefreshCurrentFortune = view === 'fortune'
     && previousView === 'fortune'
@@ -2866,6 +2882,10 @@ function goView(view: AppView, options: { preservePageState?: boolean } = {}) {
   if (previousView === 'tools' && view !== 'tools' && homeState.value === 'chat') leaveChat();
   if (view === 'tools' && (previousView !== 'tools' || homeState.value === 'chat')) leaveChat();
   activeView.value = view;
+  if (fallbackQuestionToRestore) {
+    question.value = fallbackQuestionToRestore;
+    restoreBasicAiFallbackQuestionOnHome.value = false;
+  }
   showMobileNav.value = false;
   showToolPicker.value = false;
   showAiPicker.value = false;
@@ -2889,6 +2909,65 @@ function openSettingsSection(section: SettingsSection) {
   activeSettingsSection.value = section;
   if (section === 'ai') configuringAiChannelId.value = appPreferences.activeAiChannelId;
   contentRef.value?.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function openBasicAiFallback(error: unknown, questionText: string) {
+  basicAiFallbackQuestion.value = questionText;
+  basicAiFallbackError.value = error instanceof Error ? error.message : 'AI 暂时无法选择合适的工具。';
+  basicAiFallbackCopyState.value = 'idle';
+  showBasicAiFallbackModal.value = true;
+}
+
+function closeBasicAiFallback() {
+  showBasicAiFallbackModal.value = false;
+}
+
+function openBasicAiFallbackSettings() {
+  question.value = basicAiFallbackQuestion.value;
+  restoreBasicAiFallbackQuestionOnHome.value = true;
+  closeBasicAiFallback();
+  openSettingsSection('ai');
+}
+
+function chooseBasicAiFallbackMode(mode: HomeMode) {
+  question.value = basicAiFallbackQuestion.value;
+  homeMode.value = mode;
+  basicAiFallbackPickerMode.value = mode;
+  closeBasicAiFallback();
+  showToolPicker.value = true;
+}
+
+function closeBasicAiFallbackPicker() {
+  showToolPicker.value = false;
+  basicAiFallbackPickerMode.value = null;
+}
+
+function retryBasicAiSelection() {
+  question.value = basicAiFallbackQuestion.value;
+  closeBasicAiFallback();
+  void beginReading();
+}
+
+async function copyBasicAiFallbackPrompt() {
+  if (!basicAiFallbackQuestion.value) return;
+  if (basicAiFallbackCopyTimer !== undefined) window.clearTimeout(basicAiFallbackCopyTimer);
+  try {
+    await writeClipboardText(buildExternalAiPrompt({
+      mode: 'ask',
+      question: basicAiFallbackQuestion.value,
+      conversation: currentConversationContext(),
+      preferences: {
+        answerPreference: appPreferences.answerPreference,
+        displayLevel: appPreferences.displayLevel,
+      },
+    }));
+    basicAiFallbackCopyState.value = 'copied';
+  } catch {
+    basicAiFallbackCopyState.value = 'error';
+  }
+  basicAiFallbackCopyTimer = window.setTimeout(() => {
+    basicAiFallbackCopyState.value = 'idle';
+  }, 2200);
 }
 
 function openCasesSection(section: CasesSection = 'input') {
@@ -3060,6 +3139,11 @@ function chooseTool(kind: DivinationKind) {
   agentAstrolabeFortune.value = null;
   showToolPicker.value = false;
   formError.value = '';
+  if (basicAiFallbackPickerMode.value) {
+    forcedBasicAgentSelection.value = { mode: 'divination', divinationKind: kind };
+    basicAiFallbackPickerMode.value = null;
+    void nextTick(() => beginReading());
+  }
 }
 
 function openOracle(questionText = '') {
@@ -3208,6 +3292,11 @@ function chooseHomeChart(kind: HomeChartKind) {
   chartError.value = '';
   aiError.value = '';
   formError.value = '';
+  if (basicAiFallbackPickerMode.value) {
+    forcedBasicAgentSelection.value = { mode: 'chart', chartKind: kind };
+    basicAiFallbackPickerMode.value = null;
+    void nextTick(() => beginReading());
+  }
 }
 
 function chooseQimenScope(scope: typeof settings.qimenScope) {
@@ -4111,9 +4200,10 @@ async function beginReading() {
   }
   const sessionId = chatSessionId;
   const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading' || message.kind === 'tarot');
+  const usingBasicFallbackSelection = Boolean(forcedBasicAgentSelection.value);
   isReading.value = true;
   try {
-    const selection = await resolveAgentSelection(requestedQuestion);
+    const selection = forcedBasicAgentSelection.value || await resolveAgentSelection(requestedQuestion);
     if (sessionId !== chatSessionId) return;
     if (selection.mode === 'continue') {
       if (hasCurrentReading && await continueCurrentReading(requestedQuestion)) return;
@@ -4123,7 +4213,8 @@ async function beginReading() {
     applyAgentSelection(selection, requestedQuestion);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return;
-    formError.value = error instanceof Error ? error.message : 'AI 暂时无法选择合适的工具。';
+    if (appPreferences.displayLevel === 'basic') openBasicAiFallback(error, requestedQuestion);
+    else formError.value = error instanceof Error ? error.message : 'AI 暂时无法选择合适的工具。';
     return;
   } finally {
     if (sessionId === chatSessionId) isReading.value = false;
@@ -4134,6 +4225,7 @@ async function beginReading() {
       openCases();
       return;
     }
+    if (usingBasicFallbackSelection) forcedBasicAgentSelection.value = null;
     const kind = homeChartKind.value;
     const chartQuestion = requestedQuestion;
     const chartAiQuestion = selectedInspirationPrompt.value || chartQuestion;
@@ -4245,6 +4337,7 @@ async function beginReading() {
   }
 
   const userQuestion = requestedQuestion;
+  if (usingBasicFallbackSelection) forcedBasicAgentSelection.value = null;
 
   if (selectedKind.value === 'almanac') {
     settings.almanacTopic = inferAlmanacTopic(userQuestion);
@@ -5199,7 +5292,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
             <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
             <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
-            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic'" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>选择工具</strong><button type="button" aria-label="关闭工具面板" @click="showToolPicker = false"><X :size="15" /></button></div><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '选择后开始' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
+            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '选择后开始' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
             <p v-if="formError" class="form-error">{{ formError }}</p>
           </div>
           <p class="home-ai-disclaimer" :class="{ 'is-chat': homeState === 'chat' }">生成内容完全基于 AI 模型的胡言乱语，不构成任何形式建议</p>
@@ -5737,6 +5830,46 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         @close="closeManualReading"
         @complete="finishManualReading"
       />
+
+      <UiDialogShell v-if="showBasicAiFallbackModal" aria-label="AI 暂时不可用" panel-class="basic-ai-fallback-modal" @close="closeBasicAiFallback">
+          <UiDialogHeader
+            :title="activeAiChannel.provider === 'builtin' ? '内置 AI 暂时不可用' : '当前 AI 暂时不可用'"
+            eyebrow="继续完成这次提问"
+            description="刚才的问题已经保留，可以换用自己的 API、手动选择方式，或复制到其他 AI。"
+            close-label="关闭 AI 容灾提示"
+            @close="closeBasicAiFallback"
+          />
+          <UiNotice tone="error" compact>{{ basicAiFallbackError }}</UiNotice>
+          <div class="basic-ai-fallback-options">
+            <button type="button" @click="openBasicAiFallbackSettings">
+              <span><Settings :size="18" /></span>
+              <strong>设置自己的 API</strong>
+              <small>使用你已有的 AI 接口和模型</small>
+              <ChevronRight :size="16" />
+            </button>
+            <button type="button" @click="chooseBasicAiFallbackMode('divination')">
+              <span><Coins :size="18" /></span>
+              <strong>选择占卜</strong>
+              <small>自行选择一种占卜方式继续</small>
+              <ChevronRight :size="16" />
+            </button>
+            <button type="button" @click="chooseBasicAiFallbackMode('chart')">
+              <span><Orbit :size="18" /></span>
+              <strong>选择排盘</strong>
+              <small>使用当前案例生成命盘资料</small>
+              <ChevronRight :size="16" />
+            </button>
+          </div>
+          <p class="basic-ai-fallback-tip">现在复制会包含问题和完整回答要求；选择占卜或排盘后，还可以复制包含实际盘面资料的版本。</p>
+          <div class="basic-ai-fallback-actions">
+            <UiButton variant="secondary" @click="retryBasicAiSelection"><RefreshCw :size="14" />重试</UiButton>
+            <UiButton @click="copyBasicAiFallbackPrompt">
+              <Check v-if="basicAiFallbackCopyState === 'copied'" :size="14" />
+              <Copy v-else :size="14" />
+              {{ basicAiFallbackCopyState === 'copied' ? '完整提示词已复制' : basicAiFallbackCopyState === 'error' ? '复制失败，请重试' : '复制完整提示词' }}
+            </UiButton>
+          </div>
+      </UiDialogShell>
 
       <UiDialogShell v-if="showReadingModal && selectedReadingMessage" aria-label="查看排盘详情" size="wide" :panel-class="{ 'reading-modal': true, 'traditional-reading-modal': ['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi'].includes(selectedReadingMessage.method), 'liuyao-reading-modal': selectedReadingMessage.method === 'liuyao' }" @close="closeReadingModal">
           <UiDialogHeader

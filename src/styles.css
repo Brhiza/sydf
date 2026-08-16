@@ -788,6 +788,36 @@ h1, h2, h3, p { margin-top: 0; }
   .home-default .chat-composer-docked { bottom: max(12px, env(safe-area-inset-bottom)); left: 12px; margin: 0; max-width: none; position: fixed; right: 12px; z-index: 12; }
 }
 
+/* 0 基础模式的 AI 故障出口 */
+.basic-ai-fallback-modal { width: min(560px, 100%); }
+.basic-ai-fallback-modal > .ui-notice { margin-top: 16px; }
+.basic-ai-fallback-options { display: grid; gap: 8px; margin-top: 14px; }
+.basic-ai-fallback-options > button {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--ds-radius-md);
+  color: var(--ink);
+  display: grid;
+  gap: 2px 10px;
+  grid-template-columns: 36px minmax(0, 1fr) 18px;
+  padding: 11px 12px;
+  text-align: left;
+  width: 100%;
+}
+.basic-ai-fallback-options > button:hover { border-color: color-mix(in srgb, var(--accent) 44%, var(--line)); }
+.basic-ai-fallback-options > button > span { align-items: center; background: var(--accent-soft); border-radius: 9px; color: var(--accent-strong); display: inline-flex; grid-row: 1 / span 2; height: 34px; justify-content: center; width: 34px; }
+.basic-ai-fallback-options > button > strong { font-size: var(--type-control); font-weight: 650; }
+.basic-ai-fallback-options > button > small { color: var(--muted); font-size: var(--type-caption); line-height: 1.45; }
+.basic-ai-fallback-options > button > svg { color: var(--subtle); grid-column: 3; grid-row: 1 / span 2; }
+.basic-ai-fallback-tip { color: var(--muted); font-size: var(--type-caption); line-height: 1.6; margin: 13px 2px 0; }
+.basic-ai-fallback-actions { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; padding-top: 14px; }
+
+@media (max-width: 520px) {
+  .basic-ai-fallback-actions { align-items: stretch; flex-direction: column-reverse; }
+  .basic-ai-fallback-actions .ui-button { width: 100%; }
+}
+
 /* 对话页收口：消息独立滚动，输入区固定在内容底部 */
 .tools-screen.is-chat { display: flex; flex-direction: column; min-height: calc(100dvh - 188px); position: relative; }
 .topbar-back {
