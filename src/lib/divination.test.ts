@@ -157,7 +157,7 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).not.toContain('证据链');
   });
 
-  it('六爻支持全部断法合参与单一断法', async () => {
+  it('六爻选择断法后仍保留核心盘面且不附带内部断法文案', async () => {
     const result = await runDivination('liuyao', now);
     const combined = await buildDivinationReadingPrompt('liuyao', result, {
       question: '我的项目能推进吗',
@@ -168,12 +168,18 @@ describe('占卜解读提示词清理', () => {
       schools: ['zengshanbuyi'],
     });
 
-    expect(combined).toContain('火珠林法');
-    expect(combined).toContain('《卜筮正宗》法');
-    expect(combined).toContain('《增删卜易》法');
-    expect(single).toContain('《增删卜易》法');
-    expect(single).not.toContain('火珠林法');
-    expect(single).not.toContain('《卜筮正宗》法');
+    for (const prompt of [combined, single]) {
+      expect(prompt).toContain('核心结构：主卦');
+      expect(prompt).toContain('用神：官鬼');
+      expect(prompt).toContain('世应：');
+      expect(prompt).toContain('动变：');
+      expect(prompt).toContain('月日触发：');
+      expect(prompt).not.toContain('火珠林法');
+      expect(prompt).not.toContain('《卜筮正宗》法');
+      expect(prompt).not.toContain('《增删卜易》法');
+      expect(prompt).not.toContain('断法任务');
+      expect(prompt).not.toContain('合参任务');
+    }
   });
 
   it('奇门保留核心宫、值符值使、时干、旬空与马星', async () => {

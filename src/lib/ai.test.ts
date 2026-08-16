@@ -8,6 +8,14 @@ afterEach(() => {
 });
 
 describe('AI 解读请求', () => {
+  const customConfig = {
+    enabled: true,
+    provider: 'openai-compatible' as const,
+    apiType: 'chat' as const,
+    baseUrl: 'https://api.example.com/v1',
+    model: 'test-model',
+    apiKey: 'test-key',
+  };
   const request: AiInterpretationRequest = {
     mode: 'divination',
     question: '我的项目怎么样',
@@ -67,6 +75,109 @@ describe('AI 解读请求', () => {
     expect(serialized).not.toContain('calculationChain');
   });
 
+  it('自配 Chat 接口优先由浏览器直接请求', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      model: 'test-model',
+      choices: [{ message: { content: '项目仍可推进。' } }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAiInterpretation({ ...request, aiConfig: customConfig })).resolves.toEqual({
+      content: '项目仍可推进。',
+      model: 'test-model',
+      provider: 'custom',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    const serialized = JSON.stringify(body);
+    expect(url).toBe('https://api.example.com/v1/chat/completions');
+    expect(init.headers).toMatchObject({ Authorization: 'Bearer test-key' });
+    expect(body.model).toBe('test-model');
+    expect(serialized).toContain('体用关系');
+    expect(serialized).not.toContain('test-key');
+    expect(serialized).not.toContain('aiConfig');
+    expect(serialized).not.toContain('evidenceAnalysis');
+  });
+
+  it('自配 Responses 接口使用对应地址和正文格式', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      model: 'response-model',
+      output_text: 'Responses 返回内容',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await requestAiInterpretation({
+      ...request,
+      aiConfig: { ...customConfig, apiType: 'responses', model: 'response-model' },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(url).toBe('https://api.example.com/v1/responses');
+    expect(body.instructions).toEqual(expect.any(String));
+    expect(body.input).toEqual(expect.any(Array));
+    expect(body.store).toBe(false);
+    expect(result.content).toBe('Responses 返回内容');
+  });
+
+  it('自配 Anthropic 接口使用对应鉴权和正文格式', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      model: 'claude-test',
+      content: [{ type: 'text', text: 'Anthropic 返回内容' }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await requestAiInterpretation({
+      ...request,
+      aiConfig: {
+        ...customConfig,
+        apiType: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1/messages',
+        model: 'claude-test',
+      },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    expect(headers['x-api-key']).toBe('test-key');
+    expect(headers['anthropic-dangerous-direct-browser-access']).toBe('true');
+    expect(body.system).toEqual(expect.any(String));
+    expect(result.content).toBe('Anthropic 返回内容');
+  });
+
+  it('浏览器无法直连后记住状态，后续请求直接走站点代理', async () => {
+    const blockedConfig = { ...customConfig, baseUrl: 'https://blocked.example.com/v1' };
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ content: '代理返回内容' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAiInterpretation({ ...request, aiConfig: blockedConfig })).resolves.toEqual({ content: '代理返回内容' });
+    await expect(requestAiInterpretation({ ...request, aiConfig: blockedConfig })).resolves.toEqual({ content: '代理返回内容' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://blocked.example.com/v1/chat/completions');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/interpret');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/interpret');
+  });
+
+  it('第三方明确返回配置错误时不重复走代理', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: 'API Key 无效' } }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAiInterpretation({ ...request, aiConfig: customConfig })).rejects.toThrow('API Key 无效');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('命盘请求仍保留案例，有提示词时不重复发送摘要', () => {
     const body = buildAiInterpretationRequestBody({ ...request, mode: 'chart' });
 
@@ -91,8 +202,8 @@ describe('AI 解读请求', () => {
     })));
 
     const pending = requestAiModels({
-      enabled: true,
-      provider: 'openai-compatible',
+      enabled: false,
+      provider: 'builtin',
       apiType: 'chat',
       baseUrl: 'https://api.example.com/v1',
       model: 'test-model',
@@ -101,6 +212,35 @@ describe('AI 解读请求', () => {
     const assertion = expect(pending).rejects.toThrow('获取模型超时，请检查网络或接口地址后重试。');
     await vi.advanceTimersByTimeAsync(20_000);
     await assertion;
+  });
+
+  it('模型列表优先直连，浏览器无法连接时自动走代理', async () => {
+    const blockedConfig = { ...customConfig, baseUrl: 'https://models-blocked.example.com/v1' };
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ models: ['model-b', 'model-a'] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAiModels(blockedConfig)).resolves.toEqual(['model-b', 'model-a']);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://models-blocked.example.com/v1/models');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/models');
+  });
+
+  it('模型列表直连成功时不请求站点代理', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: [{ id: 'model-b' }, { id: 'model-a' }, { id: 'model-a' }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAiModels(customConfig)).resolves.toEqual(['model-a', 'model-b']);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.example.com/v1/models');
+    expect(init.method).toBe('GET');
+    expect(init.headers).toMatchObject({ Authorization: 'Bearer test-key' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('AI 解读等待超时后给出明确错误', async () => {

@@ -136,6 +136,7 @@ import {
 } from './lib/chatExport';
 import AiPromptFallback from './components/AiPromptFallback.vue';
 import AiReadingActions from './components/AiReadingActions.vue';
+import ExternalAiShareButtons from './components/ExternalAiShareButtons.vue';
 import ChatMarkdown from './components/ChatMarkdown.vue';
 import CaseMultiSelect from './components/CaseMultiSelect.vue';
 import ChartCoreFacts from './components/ChartCoreFacts.vue';
@@ -172,6 +173,7 @@ import {
   parseLegacyHistory,
   parseStoredHistory,
   updateHistoryInterpretation,
+  updateHistoryInterpretationError,
   type HistoryRecordEntry,
   type LegacyHistoryRecord,
 } from './lib/historyImport';
@@ -2259,6 +2261,16 @@ function persistHistory() {
 function persistHistoryInterpretation(recordId: string | null, content: string) {
   const updatedHistory = updateHistoryInterpretation(history.value, recordId, content);
   if (updatedHistory === history.value) return;
+  applyUpdatedHistory(updatedHistory, recordId);
+}
+
+function persistHistoryInterpretationError(recordId: string | null, content: string) {
+  const updatedHistory = updateHistoryInterpretationError(history.value, recordId, content);
+  if (updatedHistory === history.value) return;
+  applyUpdatedHistory(updatedHistory, recordId);
+}
+
+function applyUpdatedHistory(updatedHistory: HistoryRecordEntry[], recordId: string | null) {
   history.value = updatedHistory;
   const updatedRecord = updatedHistory.find((record) => record.id === recordId);
   if (updatedRecord && !isLegacyHistoryRecord(updatedRecord)) {
@@ -2410,6 +2422,11 @@ async function runBackgroundInterpretation(
     const response = await requestAiInterpretation(payload, controller.signal);
     persistHistoryInterpretation(recordId, response.content);
     return response;
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+      persistHistoryInterpretationError(recordId, error instanceof Error ? error.message : 'AI 解读暂时失败，请稍后再试。');
+    }
+    throw error;
   } finally {
     runningAiTasks.delete(id);
     backgroundAiControllers.delete(id);
@@ -4920,6 +4937,10 @@ function historyRecordMeta(record: HistoryRecordEntry) {
   return kindMeta[record.kind];
 }
 
+function restoredHistoryInterpretationError(record: HistoryRecordEntry) {
+  return record.interpretation?.trim() ? '' : record.interpretationError?.trim() || '';
+}
+
 async function openRecord(record: HistoryRecordEntry) {
   showHistory.value = false;
   if (isLegacyHistoryRecord(record)) {
@@ -4948,6 +4969,7 @@ async function openRecord(record: HistoryRecordEntry) {
     ];
     lastAiRequest.value = await buildCombinedChartAiRequest(record.question, record.result, relatedZiwei.result);
     lastAiHistoryRecordId.value = record.id;
+    aiError.value = restoredHistoryInterpretationError(record);
     return;
   }
   if (record.kind === 'almanac' && isAlmanac(record.result)) {
@@ -4985,6 +5007,7 @@ async function openRecord(record: HistoryRecordEntry) {
     ];
     lastAiRequest.value = await buildAiRequest('chart', record.question, record.kind, record.result);
     lastAiHistoryRecordId.value = record.id;
+    aiError.value = restoredHistoryInterpretationError(record);
     return;
   }
   if (record.kind === 'ssgw' && isSsgw(record.result)) {
@@ -4997,6 +5020,7 @@ async function openRecord(record: HistoryRecordEntry) {
     aiError.value = '';
     lastAiRequest.value = await buildAiRequest('divination', record.question, record.kind, record.result);
     lastAiHistoryRecordId.value = record.id;
+    aiError.value = restoredHistoryInterpretationError(record);
     return;
   }
   goView('tools');
@@ -5019,6 +5043,7 @@ async function openRecord(record: HistoryRecordEntry) {
     record.result,
   );
   lastAiHistoryRecordId.value = record.id;
+  aiError.value = restoredHistoryInterpretationError(record);
 }
 
 function isMeihua(result: ReadingResult): result is MeihuaData { return 'mainHexagram' in result; }
@@ -5370,10 +5395,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </template>
 
           <div v-if="!chatSelectionMode" class="chat-composer chat-composer-docked" :class="{ 'home-default-composer': homeState === 'default' }">
-            <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
-            <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
-            <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
-            <div v-if="activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读流派</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读流派" @update:model-value="chooseActivePromptSchool" /></div>
+            <div v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
+            <label v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
+            <label v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
+            <div v-if="homeState === 'default' && activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读流派</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读流派" @update:model-value="chooseActivePromptSchool" /></div>
             <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
             <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
             <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '选择后开始' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
@@ -5685,7 +5710,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div class="settings-main-column">
               <section class="settings-channel-panel">
                 <div class="settings-panel-heading"><div><h2><span v-if="configuringAiChannel.provider === 'builtin' || configuringAiChannel.preset">{{ configuringAiChannel.name }}</span><input v-else v-model="configuringAiChannel.name" class="settings-channel-name" aria-label="渠道名称" @input="resetAiTest" /></h2></div><span v-if="activeAiChannel.id === configuringAiChannel.id" class="settings-current-badge"><Check :size="13" />当前使用</span></div>
-                <div class="settings-provider-line"><span class="settings-field-label">渠道类型</span><strong>{{ configuringAiChannel.provider === 'builtin' ? '内置 AI' : configuringAiChannel.preset ? '常用渠道' : '自定义接口' }}</strong><small v-if="configuringAiChannel.provider === 'builtin'">可直接使用，无需填写密钥。AI 解读时，问题、必要的出生资料和盘面摘要会发送给此服务处理。</small><small v-else-if="configuringAiChannel.preset">请求会经站点服务端转发给所选第三方渠道；填写 Key 后获取并选择模型。</small><small v-else>请求会经站点服务端转发给所填第三方地址；填写服务地址、协议与密钥后获取模型。</small></div>
+                <div class="settings-provider-line"><span class="settings-field-label">渠道类型</span><strong>{{ configuringAiChannel.provider === 'builtin' ? '内置 AI' : configuringAiChannel.preset ? '常用渠道' : '自定义接口' }}</strong><small v-if="configuringAiChannel.provider === 'builtin'">可直接使用，无需填写密钥。AI 解读时，问题、必要的出生资料和盘面摘要会发送给此服务处理。</small><small v-else-if="configuringAiChannel.preset">填好 API Key，再选择要使用的模型。</small><small v-else>填好接口信息，再选择要使用的模型。</small></div>
                 <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-channel-fields">
                   <UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiChannel.baseUrl" class="settings-field-wide" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @input="invalidateAiModels(configuringAiChannel)" />
                   <UiSelect v-model="configuringAiChannel.apiType" class="settings-field" label="接口协议" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
@@ -5963,14 +5988,23 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <ChevronRight :size="16" />
             </button>
           </div>
-          <p class="basic-ai-fallback-tip">现在复制会包含问题和完整回答要求；选择占卜或排盘后，还可以复制包含实际盘面资料的版本。</p>
+          <p class="basic-ai-fallback-tip">现在复制只包含问题和必要上下文；选择占卜或排盘后，还会包含实际盘面资料。</p>
           <div class="basic-ai-fallback-actions">
             <UiButton variant="secondary" @click="retryBasicAiSelection"><RefreshCw :size="14" />重试</UiButton>
             <UiButton @click="copyBasicAiFallbackPrompt">
               <Check v-if="basicAiFallbackCopyState === 'copied'" :size="14" />
               <Copy v-else :size="14" />
-              {{ basicAiFallbackCopyState === 'copied' ? '完整提示词已复制' : basicAiFallbackCopyState === 'error' ? '复制失败，请重试' : '复制完整提示词' }}
+              {{ basicAiFallbackCopyState === 'copied' ? '提示词已复制' : basicAiFallbackCopyState === 'error' ? '复制失败，请重试' : '复制提示词' }}
             </UiButton>
+            <ExternalAiShareButtons :request="{
+              mode: 'ask',
+              question: basicAiFallbackQuestion,
+              conversation: currentConversationContext(),
+              preferences: {
+                answerPreference: appPreferences.answerPreference,
+                displayLevel: appPreferences.displayLevel,
+              },
+            }" />
           </div>
       </UiDialogShell>
 
@@ -6166,7 +6200,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><UiSelect v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel" label="模型"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="onboarding-model-empty">请先获取模型</span></div>
               </div>
               <div class="onboarding-ai-current"><span><strong>{{ onboardingAiChannel.name }}</strong><small>{{ onboardingAiChannel.provider === 'builtin' ? '内置 AI' : onboardingAiChannel.model || '尚未选择模型' }}</small></span><Check v-if="isOnboardingAiReady" :size="17" /></div>
-              <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '请求会经站点服务端转发给所选第三方渠道；完成接口、密钥和模型配置后才能继续。' }}</p>
+              <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '填好 API Key 并选择模型后即可使用。' }}</p>
               <p v-if="onboardingError" class="onboarding-error">{{ onboardingError }}</p>
               <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(3)"><ArrowLeft :size="15" />返回</UiButton><UiButton :disabled="isLoadingAiModels" @click="continueOnboardingAi">继续<ChevronRight :size="15" /></UiButton></div></div>
             </template>
@@ -6203,7 +6237,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <span class="record-icon">{{ historyRecordMeta(record).icon }}</span>
               <span class="record-main">
                 <strong>{{ record.question }}</strong>
-                <small><span>{{ record.methodLabel }} · {{ formatReadingTime(record.createdAt) }}</span><em :class="{ ready: record.interpretation?.trim(), running: isHistoryRecordRunning(record.id) }">{{ isHistoryRecordRunning(record.id) ? '解读中' : record.interpretation?.trim() ? '已解读' : '未解读' }}</em></small>
+                <small><span>{{ record.methodLabel }} · {{ formatReadingTime(record.createdAt) }}</span><em :class="{ ready: record.interpretation?.trim(), running: isHistoryRecordRunning(record.id) }">{{ isHistoryRecordRunning(record.id) ? '解读中' : record.interpretation?.trim() ? '已解读' : record.interpretationError?.trim() ? '解读失败' : '未解读' }}</em></small>
               </span>
               <ChevronRight :size="15" />
             </button>

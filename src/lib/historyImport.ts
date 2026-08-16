@@ -48,6 +48,7 @@ export interface LegacyHistoryRecord {
   createdAt: number;
   result: LegacyTarotResult | LegacyDailyResult;
   interpretation?: string;
+  interpretationError?: string;
   legacySource: 'sydf.cc';
 }
 
@@ -301,6 +302,20 @@ export function updateHistoryInterpretation(
   const index = records.findIndex((record) => record.id === recordId);
   if (index < 0 || records[index].interpretation === content) return records;
   const updated = [...records];
-  updated[index] = { ...updated[index], interpretation: content };
+  updated[index] = { ...updated[index], interpretation: content, interpretationError: undefined };
+  return updated;
+}
+
+export function updateHistoryInterpretationError(
+  records: HistoryRecordEntry[],
+  recordId: string | null | undefined,
+  errorMessage: string,
+): HistoryRecordEntry[] {
+  const content = errorMessage.trim();
+  if (!recordId || !content) return records;
+  const index = records.findIndex((record) => record.id === recordId);
+  if (index < 0 || records[index].interpretation?.trim() || records[index].interpretationError === content) return records;
+  const updated = [...records];
+  updated[index] = { ...updated[index], interpretationError: content };
   return updated;
 }

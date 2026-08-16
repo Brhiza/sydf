@@ -21,6 +21,14 @@ afterEach(() => {
 });
 
 describe('Agent 工具结果前端校验', () => {
+  const customConfig = {
+    enabled: true,
+    provider: 'openai-compatible' as const,
+    apiType: 'chat' as const,
+    baseUrl: 'https://api.example.com/v1',
+    model: 'test-model',
+    apiKey: 'test-key',
+  };
   it('首次对话已选梅花时直接使用当前工具', () => {
     expect(getImmediateActiveDivinationSelection('你好', 'meihua', false)).toEqual({ mode: 'divination', divinationKind: 'meihua' });
   });
@@ -73,6 +81,44 @@ describe('Agent 工具结果前端校验', () => {
       chartKind: 'astrolabe',
       astrolabeFortune: { scope: 'daily' },
     });
+  });
+
+  it('自配接口的工具选择优先由浏览器直接请求', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { tool_calls: [{ function: { name: 'cast_qimen', arguments: JSON.stringify({ scope: 'day' }) } }] } }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAgentToolSelection({ ...baseRequest, aiConfig: customConfig })).resolves.toEqual({
+      mode: 'divination',
+      divinationKind: 'qimen',
+      qimenScope: 'day',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(url).toBe('https://api.example.com/v1/chat/completions');
+    expect(init.headers).toMatchObject({ Authorization: 'Bearer test-key' });
+    expect(body.tools).toEqual(expect.any(Array));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('自配接口无法直连后记住状态，后续工具选择直接走代理', async () => {
+    const blockedConfig = { ...customConfig, baseUrl: 'https://agent-blocked.example.com/v1' };
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ selection: { mode: 'continue' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestAgentToolSelection({ ...baseRequest, aiConfig: blockedConfig })).resolves.toEqual({ mode: 'continue' });
+    await expect(requestAgentToolSelection({ ...baseRequest, aiConfig: blockedConfig })).resolves.toEqual({ mode: 'continue' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://agent-blocked.example.com/v1/chat/completions');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/agent');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/agent');
   });
 
   it('工具选择超时后结束等待并提示重试', async () => {

@@ -6,7 +6,7 @@ import { buildChartReadingPrompt } from './chartPrompt';
 import { buildDivinationReadingPrompt } from './divination';
 
 describe('AI 降级提示词', () => {
-  it('保留问题、解答风格、案例和专业盘面文本', () => {
+  it('只保留问题、案例、对话和专业盘面文本', () => {
     const prompt = buildExternalAiPrompt({
       mode: 'chart',
       question: '请分析未来三年的事业重点。',
@@ -19,9 +19,6 @@ describe('AI 降级提示词', () => {
 
     expect(prompt).toContain('请分析未来三年的事业重点。');
     expect(prompt).toContain('【八字盘面】\n甲辰 甲戌 庚午 甲申');
-    expect(prompt).toContain('采用“专业人士”解读框架');
-    expect(prompt).toContain('问题界定—核心结论—关键结构');
-    expect(prompt).toContain('读者熟悉术数');
     expect(prompt).toContain('此前对话');
     expect(prompt).toContain('时月 · 女 · 公历2024-11-02');
     expect(prompt).not.toContain('"label"');
@@ -30,6 +27,12 @@ describe('AI 降级提示词', () => {
     expect(prompt).not.toContain('证据链');
     expect(prompt).not.toContain('显示层级');
     expect(prompt).not.toContain('回答偏好');
+    expect(prompt).not.toContain('【回答要求】');
+    expect(prompt).not.toContain('采用“专业人士”解读框架');
+    expect(prompt).not.toContain('问题界定—核心结论—关键结构');
+    expect(prompt).not.toContain('读者熟悉术数');
+    expect(prompt).not.toContain('第一部分必须让用户直接看懂结论');
+    expect(prompt).not.toContain('只能使用以上问题');
     expect(prompt).not.toContain('内部分析步骤');
     expect(prompt).not.toContain('工程字段');
   });
@@ -144,6 +147,31 @@ describe('AI 降级提示词', () => {
     expect(prompt).not.toContain('重复的方法说明');
     expect(prompt).not.toContain('重复的问题');
     expect(prompt).not.toContain('重复的底层任务');
+  });
+
+  it('外部 AI 提示词不携带盘面内置的断法和合参要求', () => {
+    const prompt = buildExternalAiPrompt({
+      mode: 'divination',
+      question: '这件事会怎么发展？',
+      method: '梅花易数',
+      reading: {
+        prompt: [
+          '【盘面资料】',
+          '主卦：兑为泽',
+          '【多法合参】',
+          '断法1：体用生克法',
+          '断法任务：结合主互变形成判断。',
+          '断法2：象数取象法',
+          '合参任务：归纳共同结论和分歧。',
+        ].join('\n'),
+      },
+    });
+
+    expect(prompt).toContain('主卦：兑为泽');
+    expect(prompt).not.toContain('多法合参');
+    expect(prompt).not.toContain('断法1');
+    expect(prompt).not.toContain('断法任务');
+    expect(prompt).not.toContain('合参任务');
   });
 
   it('只有结构化对象时也不会复制原始 JSON', () => {
