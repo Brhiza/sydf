@@ -40,4 +40,4 @@ Thumbs.db
 
 # Keep only the mingyu-core package used by package.json
 vendor/*.tgz
-!vendor/mingyu-core-0.1.28.tgz
+!vendor/mingyu-core-0.1.29.tgz
