@@ -6,6 +6,7 @@ import { drawTarotSpread, getCardEvidence, tarotCards, tarotSpreads } from 'ming
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
 import { getShiyueTarotName, tarotCardBackUrl } from '../lib/tarotDeck';
+import { resolvePromptSchoolIds } from '../lib/promptSchools';
 import TarotSpreadBoard from './TarotSpreadBoard.vue';
 import { UiButton, UiNotice, UiSectionHeading, UiSelect, UiToolPage, UiWorkspaceSurface } from './ui';
 
@@ -356,6 +357,7 @@ async function resolveReading() {
       data: coreResult,
       question: question.value.trim(),
       isCustomQuestion: true,
+      schools: resolvePromptSchoolIds('tarot', props.preferences?.displayLevel, props.preferences?.promptSchoolChoices),
     }).trim();
     if (!prompt) throw new Error('塔罗解读资料生成失败，请重新抽牌。');
     if (currentRequest !== requestId) return;

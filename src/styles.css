@@ -1441,6 +1441,19 @@ body { background: var(--canvas); }
   width: 94px;
 }
 .setting-row .wuyun-year-input:focus { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 18%, transparent); }
+.prompt-school-row select {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--type-small);
+  height: 30px;
+  max-width: min(260px, calc(100vw - 120px));
+  padding: 0 28px 0 9px;
+  text-overflow: ellipsis;
+}
+.prompt-school-row select:focus { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 18%, transparent); }
 
 @media (max-width: 720px) {
   .chat-composer-docked .composer-toolbar::after {
