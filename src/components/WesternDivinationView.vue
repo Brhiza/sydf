@@ -5,6 +5,8 @@ import type { AiCustomConfig, AiPreferences } from '../lib/ai';
 import type { TarotSpreadType, WesternDeckType, WesternInterpretationPayload, WesternSpreadType } from '../lib/tarot';
 import { getWesternSpreadOptions } from '../lib/westernDecks';
 import { getDivinationBannerUrl } from '../lib/divinationTheme';
+import { getPromptSchoolChoiceOptions, type PromptSchoolChoice } from '../lib/promptSchools';
+import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import TarotView from './TarotView.vue';
 import WesternDeckDrawView from './WesternDeckDrawView.vue';
 import { UiActionBar, UiButton, UiPageShell, UiSelect, UiTextField, UiWorkspaceSurface } from './ui';
@@ -15,7 +17,10 @@ const props = defineProps<{
   castingPreference?: 'auto' | 'manual';
 }>();
 
-const emit = defineEmits<{ interpret: [payload: WesternInterpretationPayload] }>();
+const emit = defineEmits<{
+  interpret: [payload: WesternInterpretationPayload];
+  'update:prompt-school-choice': [method: PromptSchoolMethod, choice: PromptSchoolChoice];
+}>();
 
 const deckOptions: Array<{ value: WesternDeckType; label: string; description: string }> = [
   { value: 'tarot', label: '塔罗牌', description: '选择牌阵，观察事情的层次与发展' },
@@ -59,6 +64,16 @@ const selectedSpreadSummary = computed(() => {
     return { name: `${item.label} · ${item.count} 张`, detail: item.description };
   }
   return { name: `${selectedTarotSpread.value.label} · ${selectedTarotSpread.value.count} 张`, detail: selectedTarotSpread.value.description };
+});
+const promptSchoolMethod = computed<PromptSchoolMethod | null>(() => deckType.value === 'tarot'
+  ? 'tarot'
+  : deckType.value === 'lenormand' ? 'lenormand' : null);
+const promptSchoolOptions = computed(() => promptSchoolMethod.value ? getPromptSchoolChoiceOptions(promptSchoolMethod.value) : []);
+const promptSchoolChoice = computed({
+  get: () => promptSchoolMethod.value ? props.preferences?.promptSchoolChoices?.[promptSchoolMethod.value] ?? 'all' : 'all',
+  set: (choice: PromptSchoolChoice) => {
+    if (promptSchoolMethod.value) emit('update:prompt-school-choice', promptSchoolMethod.value, choice);
+  },
 });
 
 function begin() {
@@ -126,6 +141,7 @@ function reset() {
           </div>
           <UiSelect v-if="deckType === 'tarot'" v-model="tarotSpread" class="western-spread" label="牌阵" :options="visibleSpreadOptions" :hint="selectedSpreadSummary.detail" />
           <UiSelect v-else v-model="selectedWesternSpread" class="western-spread" label="牌阵" :options="visibleSpreadOptions" :hint="selectedSpreadSummary.detail" />
+          <UiSelect v-if="preferences?.displayLevel === 'master' && promptSchoolMethod" v-model="promptSchoolChoice" class="western-school" label="解读流派" :options="promptSchoolOptions" />
         </fieldset>
         <UiTextField id="western-question" v-model="question" label="所问之事" multiline :rows="3" :maxlength="10000" :error="errorMessage" placeholder="写下此刻想问的事" @keydown="handleQuestionKeydown" @update:model-value="errorMessage = ''" />
         <UiActionBar align="center"><UiButton @click="begin"><Sparkles :size="16" />开始{{ selectedDeck.label }}</UiButton></UiActionBar>
@@ -150,6 +166,7 @@ function reset() {
 .western-decks button.active { background: var(--ds-surface-raised); box-shadow: 0 1px 5px rgba(41,33,52,.1); color: var(--ds-accent-strong); }
 .western-decks button:focus-visible { box-shadow: var(--ds-focus-ring); outline: none; }
 .western-spread { margin-top: 14px; }
+.western-school { margin-top: 14px; }
 .western-result { margin-inline: auto; }
 .western-result-head { align-items: flex-start; display: flex; gap: 18px; justify-content: space-between; margin-bottom: 22px; }
 .western-result-head span { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); letter-spacing: .08em; }

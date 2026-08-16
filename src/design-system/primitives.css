@@ -7,6 +7,8 @@
 :root {
   --font-sans: var(--ds-font-sans);
   --ink: var(--ds-text-primary);
+  --ink-muted: var(--ds-text-secondary);
+  --ink-faint: var(--ds-text-tertiary);
   --muted: var(--ds-text-secondary);
   --subtle: var(--ds-text-tertiary);
   --line: var(--ds-line);
@@ -33,6 +35,7 @@
   --sage-soft: var(--ds-sage-soft);
   --gold: var(--ds-gold);
   --shadow: var(--ds-shadow-md);
+  --shadow-elevated: var(--ds-shadow-overlay);
   --type-micro: var(--ds-text-xs);
   --type-caption: var(--ds-text-xs);
   --type-small: var(--ds-text-sm);
@@ -45,6 +48,8 @@
  * 避免别名提前在 :root 解析后固定为“月”主题颜色。 */
 .app-shell {
   --ink: var(--ds-text-primary);
+  --ink-muted: var(--ds-text-secondary);
+  --ink-faint: var(--ds-text-tertiary);
   --muted: var(--ds-text-secondary);
   --subtle: var(--ds-text-tertiary);
   --line: var(--ds-line);
@@ -70,6 +75,8 @@
   --sage: var(--ds-sage);
   --sage-soft: var(--ds-sage-soft);
   --gold: var(--ds-gold);
+  --shadow: var(--ds-shadow-md);
+  --shadow-elevated: var(--ds-shadow-overlay);
 }
 
 html,

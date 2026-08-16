@@ -117,6 +117,14 @@ import {
   type AgentZiweiFortune,
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
+import {
+  getPromptSchoolChoiceOptions,
+  getPromptSchoolMethod,
+  normalizePromptSchoolChoices,
+  resolvePromptSchoolIds,
+  type PromptSchoolChoice,
+} from './lib/promptSchools';
+import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
 import { formatDailyHexagramAiContext, type DailyHexagramResult } from './lib/dailyHexagram';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
@@ -1298,6 +1306,7 @@ const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiC
   answerPreference: 'fortune-master',
   displayLevel: 'beginner',
   castingPreference: 'auto',
+  promptSchoolChoices: {},
 });
 const visibleDivinationKinds = computed(() => appPreferences.displayLevel === 'master' ? masterDivinationKinds : beginnerDivinationKinds);
 
@@ -2004,6 +2013,18 @@ const homeModeLabel = computed(() => {
   if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '西方占卜';
   return homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label;
 });
+const activePromptSchoolMethod = computed(() => {
+  if (appPreferences.displayLevel !== 'master') return null;
+  if (homeMode.value === 'chart' && homeChartKind.value === 'bazi-ziwei') return null;
+  const kind: DivinationKind = homeMode.value === 'chart' ? homeChartKind.value as ChartKind : selectedKind.value;
+  return getPromptSchoolMethod(kind);
+});
+const activePromptSchoolOptions = computed(() => activePromptSchoolMethod.value
+  ? getPromptSchoolChoiceOptions(activePromptSchoolMethod.value)
+  : []);
+const activePromptSchoolChoice = computed(() => activePromptSchoolMethod.value
+  ? appPreferences.promptSchoolChoices?.[activePromptSchoolMethod.value] ?? 'all'
+  : 'all');
 const manualDivinationKinds: ManualDivinationKind[] = ['meihua', 'liuyao', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi'];
 const isManualDivinationKind = (kind: DivinationKind): kind is ManualDivinationKind => manualDivinationKinds.includes(kind as ManualDivinationKind);
 
@@ -2030,6 +2051,7 @@ function restorePreferences() {
     appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
     if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
     if (parsedPreferences.castingPreference === 'auto' || parsedPreferences.castingPreference === 'manual') appPreferences.castingPreference = parsedPreferences.castingPreference;
+    appPreferences.promptSchoolChoices = normalizePromptSchoolChoices(parsedPreferences.promptSchoolChoices);
     if (Array.isArray(parsedPreferences.aiChannels) && parsedPreferences.aiChannels.length) {
       const channels = mergeDefaultAiChannels(parsedPreferences.aiChannels);
       appPreferences.aiChannels = channels;
@@ -2470,6 +2492,7 @@ function persistPreferences() {
     answerPreference: appPreferences.answerPreference,
     displayLevel: appPreferences.displayLevel,
     castingPreference: appPreferences.castingPreference,
+    promptSchoolChoices: appPreferences.promptSchoolChoices,
     activeAiChannelId: appPreferences.activeAiChannelId,
     aiChannels: appPreferences.aiChannels.map(({ apiKey: _apiKey, ...channel }) => channel),
   };
@@ -2824,6 +2847,22 @@ function chooseDisplayLevel(level: DisplayLevel) {
   appPreferences.displayLevel = level;
   showToolPicker.value = false;
   persistPreferences();
+}
+
+function choosePromptSchool(method: PromptSchoolMethod, choice: PromptSchoolChoice) {
+  const options = getPromptSchoolChoiceOptions(method);
+  const normalizedChoice = options.some(item => item.value === choice) ? choice : 'all';
+  appPreferences.promptSchoolChoices = {
+    ...appPreferences.promptSchoolChoices,
+    [method]: normalizedChoice,
+  };
+  persistPreferences();
+}
+
+function chooseActivePromptSchool(choice: string | number) {
+  const method = activePromptSchoolMethod.value;
+  if (!method) return;
+  choosePromptSchool(method, String(choice));
 }
 
 function clearTransientAiState() {
@@ -3958,9 +3997,11 @@ async function buildAiRequest(
     aiConfig: channelToAiConfig(channel),
   };
   if (result && kind) {
-    const corePrompt = mode === 'divination' ? await buildDivinationReadingPrompt(kind, result, { question: questionText }) : undefined;
+    const schoolMethod = getPromptSchoolMethod(kind);
+    const schools = resolvePromptSchoolIds(schoolMethod, appPreferences.displayLevel, appPreferences.promptSchoolChoices);
+    const corePrompt = mode === 'divination' ? await buildDivinationReadingPrompt(kind, result, { question: questionText, schools }) : undefined;
     const chartPrompt = mode === 'chart' && isChartReading(kind)
-      ? (await import('./lib/chartPrompt')).buildChartReadingPrompt(kind, result, { ...chartPromptOptions, question: questionText })
+      ? (await import('./lib/chartPrompt')).buildChartReadingPrompt(kind, result, { ...chartPromptOptions, question: questionText, schools })
       : undefined;
     request.reading = {
       summary: formatReadingSummary(kind, result),
@@ -3982,7 +4023,12 @@ async function buildCombinedChartAiRequest(
   request.reading = {
     summary: `八字：${formatReadingSummary('bazi', bazi)}；紫微：${formatReadingSummary('ziwei', ziwei)}`,
     data: { kind: 'bazi-ziwei' },
-    prompt: (await import('./lib/chartPrompt')).buildBaziZiweiCombinedPrompt(bazi, ziwei, { question: questionText, baziFortune }),
+    prompt: (await import('./lib/chartPrompt')).buildBaziZiweiCombinedPrompt(bazi, ziwei, {
+      question: questionText,
+      baziFortune,
+      baziSchools: resolvePromptSchoolIds('bazi', appPreferences.displayLevel, appPreferences.promptSchoolChoices),
+      ziweiSchools: resolvePromptSchoolIds('ziwei', appPreferences.displayLevel, appPreferences.promptSchoolChoices),
+    }),
   };
   return request;
 }
@@ -5327,6 +5373,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
             <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
             <label v-if="appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
+            <div v-if="activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读流派</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读流派" @update:model-value="chooseActivePromptSchool" /></div>
             <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
             <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
             <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '选择后开始' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
@@ -5471,7 +5518,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
         <FengShuiView
           v-else-if="activeView === 'fengshui'"
-          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel, promptSchoolChoices: appPreferences.promptSchoolChoices }"
           :ai-config="activeAiRequestConfig"
           :cases="selectableCaseProfiles"
           :selected-case-ids="fengShuiCaseIds"
@@ -5495,9 +5542,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
         <WesternDivinationView
           v-else-if="activeView === 'tarot'"
-          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel, promptSchoolChoices: appPreferences.promptSchoolChoices }"
           :ai-config="activeAiRequestConfig"
           :casting-preference="appPreferences.castingPreference"
+          @update:prompt-school-choice="choosePromptSchool"
           @interpret="startTarotInterpretation"
         />
 
@@ -5574,7 +5622,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           v-else-if="activeView === 'compatibility'"
           :cases="cases"
           :active-case-id="currentCase.id"
-          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel, promptSchoolChoices: appPreferences.promptSchoolChoices }"
           :ai-config="activeAiRequestConfig"
           :history-record="compatibilityHistoryRecord"
           :request-background-interpretation="requestCompatibilityInterpretation"

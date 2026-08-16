@@ -8,6 +8,7 @@ import type { WesternCardReadingResult, WesternDeckType, WesternInterpretationPa
 import { getWesternDeck, getWesternSpreadOptions } from '../lib/westernDecks';
 import { buildShiyueOraclePrompt } from '../lib/shiyueOracle';
 import { tarotCardBackUrl } from '../lib/tarotDeck';
+import { resolvePromptSchoolIds } from '../lib/promptSchools';
 import WesternCardBoard from './WesternCardBoard.vue';
 import { UiButton, UiNotice, UiToolPage, UiWorkspaceSurface } from './ui';
 
@@ -178,7 +179,13 @@ async function resolveReading(animated = false) {
             imageUrl: localCard?.imageUrl || '',
           };
         }), timestamp: result.timestamp, meta: result.meta, draw: result.draw };
-      prompt.value = buildDivinationPrompt({ method: 'lenormand', data: result, question: props.initialQuestion, isCustomQuestion: true }).trim();
+      prompt.value = buildDivinationPrompt({
+        method: 'lenormand',
+        data: result,
+        question: props.initialQuestion,
+        isCustomQuestion: true,
+        schools: resolvePromptSchoolIds('lenormand', props.preferences?.displayLevel, props.preferences?.promptSchoolChoices),
+      }).trim();
     } else {
       const cards = ids.map((id, index) => ({ ...deck.value.find(card => card.id === id)!, position: spread.value.positions[index]! }));
       reading.value = { deckType: 'shiyue-oracle', deckName: '时月神谕', spreadType: spread.value.value, spreadName: spread.value.label, cards, timestamp: Date.now(),

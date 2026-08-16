@@ -22,6 +22,7 @@ import FengShuiImageWorkspace from './FengShuiImageWorkspace.vue';
 import { UiButton, UiNotice, UiSectionHeading, UiSegmentedControl, UiSelect, UiToolPage, UiWorkspaceSurface } from './ui';
 import type { SelectableCaseProfile } from '../lib/caseSelection';
 import { buildFengShuiResidentBaziContext } from '../lib/fengShuiResidents';
+import { appendPromptSchoolGuidance, resolvePromptSchoolIds } from '../lib/promptSchools';
 import {
   FENG_SHUI_COLUMNS,
   FENG_SHUI_ROWS,
@@ -842,7 +843,11 @@ async function interpretPlan() {
   }
   const requestId = ++interpretationId;
   const context = modelContext.value;
-  const readingPrompt = [context.summary, residentBaziContext.value.prompt].filter(Boolean).join('\n\n');
+  const residentialSchools = resolvePromptSchoolIds('residential', props.preferences.displayLevel, props.preferences.promptSchoolChoices);
+  const readingPrompt = [
+    appendPromptSchoolGuidance(context.summary, 'residential', residentialSchools),
+    residentBaziContext.value.prompt,
+  ].filter(Boolean).join('\n\n');
   isInterpreting.value = true;
   aiError.value = '';
   answerOutdated.value = false;

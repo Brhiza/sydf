@@ -14,6 +14,7 @@ coverage/
 __pycache__/
 
 # 大型主题制作原稿仅保存在本机；网站使用 public/divination-themes 下的成品。
+/theme-sources/月/
 /theme-sources/时/
 /theme-sources/墨/
 /theme-sources/传统仪式/
@@ -40,4 +41,4 @@ Thumbs.db
 
 # Keep only the mingyu-core package used by package.json
 vendor/*.tgz
-!vendor/mingyu-core-0.1.28.tgz
+!vendor/mingyu-core-0.1.29.tgz

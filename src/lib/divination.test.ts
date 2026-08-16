@@ -157,6 +157,25 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).not.toContain('证据链');
   });
 
+  it('六爻支持全部断法合参与单一断法', async () => {
+    const result = await runDivination('liuyao', now);
+    const combined = await buildDivinationReadingPrompt('liuyao', result, {
+      question: '我的项目能推进吗',
+      schools: ['huozhulin', 'bushizhengzong', 'zengshanbuyi'],
+    });
+    const single = await buildDivinationReadingPrompt('liuyao', result, {
+      question: '我的项目能推进吗',
+      schools: ['zengshanbuyi'],
+    });
+
+    expect(combined).toContain('火珠林法');
+    expect(combined).toContain('《卜筮正宗》法');
+    expect(combined).toContain('《增删卜易》法');
+    expect(single).toContain('《增删卜易》法');
+    expect(single).not.toContain('火珠林法');
+    expect(single).not.toContain('《卜筮正宗》法');
+  });
+
   it('奇门保留核心宫、值符值使、时干、旬空与马星', async () => {
     const prompt = await buildDivinationReadingPrompt('qimen', await runDivination('qimen', now));
 
