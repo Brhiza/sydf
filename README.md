@@ -1,14 +1,29 @@
-# 时月东方
-
 <p align="center">
   <img src="./public/logo.webp" width="112" alt="时月东方">
 </p>
 
-时月东方是一款面向普通用户的东方术数与 AI 解读应用。项目将传统排盘、占卜、日历与现代交互结合，尽量用直观的页面和现代语言呈现复杂盘面，同时保留可供深入查看的传统资料。
+<h1 align="center">时月东方</h1>
+
+<p align="center">融合东方术数、西方占卜、传统日历与 AI 解读的现代化 Web 应用</p>
+
+<p align="center">
+  <a href="https://sydf.cc">在线使用</a>
+  ·
+  <a href="https://github.com/Brhiza/sydf/actions/workflows/ci.yml"><img src="https://github.com/Brhiza/sydf/actions/workflows/ci.yml/badge.svg" alt="持续集成"></a>
+  ·
+  <img src="https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white" alt="Vue 3.5">
+  <img src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white" alt="TypeScript 5.7">
+  <img src="https://img.shields.io/badge/PWA-ready-5a0fc8" alt="PWA ready">
+</p>
+
+时月东方是一款面向普通用户的术数、占卜与 AI 解读应用。项目将传统排盘、东西方占卜、日历与现代交互结合，尽量用直观的页面和现代语言呈现复杂结果，同时保留可供深入查看的专业资料。
+
+> 在线地址：[https://sydf.cc](https://sydf.cc)
 
 ## 主要功能
 
 - 问事与占卜：梅花易数、六爻、三山国王灵签、小六壬、金口诀、奇门遁甲、大六壬、太乙神数等。
+- 西方占卜：塔罗牌、雷诺曼与时月神谕，支持多种牌阵和可视化牌面。
 - 命盘与合盘：八字、紫微斗数、西洋星盘、七政四余、八字紫微合参，以及双人综合合盘。
 - 日常工具：今日运势、每日一卦、传统黄历、个人历与居家风水。
 - AI 解读：支持内置 AI、自定义兼容接口、后台解读、历史记录，以及服务不可用时复制提示词到其他 AI。
@@ -32,9 +47,11 @@
 
 ## 本地运行
 
-项目使用 `pnpm`：
+需要 Node.js 20 或 22，以及 pnpm 10。克隆仓库并安装依赖：
 
 ```bash
+git clone https://github.com/Brhiza/sydf.git
+cd sydf
 pnpm install
 pnpm dev
 ```
@@ -102,3 +119,11 @@ functions/shared/ AI 接口共用逻辑
 public/          图标、插图与 PWA 静态资源
 vendor/          当前接入的 mingyu-core 本地包
 ```
+
+## 技术栈
+
+- Vue 3、TypeScript 与 Vite；
+- Vitest 与 vue-tsc；
+- Cloudflare Pages Functions；
+- vite-plugin-pwa 与 Workbox；
+- mingyu-core、iztro 与 celestine。
