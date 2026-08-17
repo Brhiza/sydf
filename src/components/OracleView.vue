@@ -69,7 +69,7 @@ async function drawSign() {
   throws.value = [];
   const [nextPreview] = await Promise.all([
     previewInteractiveSsgw(signSample.value),
-    new Promise((resolve) => window.setTimeout(resolve, 1_850)),
+    new Promise((resolve) => window.setTimeout(resolve, 3_600)),
   ]);
   if (ritualVersion.value !== currentRitual) return;
   preview.value = nextPreview;
@@ -178,6 +178,7 @@ onBeforeUnmount(() => {
           <img v-for="index in 7" :key="index" class="sign-in-vessel" :class="`sign-in-vessel--${index}`" src="/divination-assets/temple/fortune-stick.png" alt="" />
           <img class="sign-rising" src="/divination-assets/temple/fortune-stick.png" alt="" />
           <img class="sign-cylinder" src="/divination-assets/temple/fortune-cylinder.png" alt="" />
+          <img class="sign-falling" src="/divination-assets/temple/fortune-stick.png" alt="" />
         </div>
         <strong>诚心摇签中</strong>
         <small>请静心默念所问之事</small>
@@ -239,19 +240,31 @@ onBeforeUnmount(() => {
 .sign-casting-stage > strong { color: var(--ink); font-family: 'STKaiti', 'KaiTi', serif; font-size: 18px; font-weight: 600; letter-spacing: .1em; margin-top: 8px; }
 .sign-casting-stage > small { color: var(--muted); font-size: 11px; letter-spacing: .06em; margin-top: 5px; }
 .sign-vessel { height: 330px; isolation: isolate; position: relative; width: 260px; }
-.sign-cylinder { animation: sign-cylinder-shake .18s ease-in-out infinite; bottom: 0; filter: drop-shadow(0 15px 18px rgba(68, 18, 17, .25)); height: 300px; left: 50%; object-fit: contain; position: absolute; transform: translateX(-50%); width: 220px; z-index: 3; }
-.sign-in-vessel { animation: sign-bundle-shake .22s ease-in-out infinite alternate; height: 180px; left: 50%; object-fit: contain; position: absolute; top: -1px; transform-origin: 50% 100%; width: 60px; z-index: 4; }
-.sign-in-vessel--1 { margin-left: -56px; transform: rotate(-14deg); }
-.sign-in-vessel--2 { margin-left: -40px; transform: rotate(-9deg); animation-delay: -.08s; }
-.sign-in-vessel--3 { margin-left: -24px; transform: rotate(-4deg); animation-delay: -.13s; }
-.sign-in-vessel--4 { margin-left: -8px; transform: rotate(2deg); animation-delay: -.04s; }
-.sign-in-vessel--5 { margin-left: 8px; transform: rotate(7deg); animation-delay: -.16s; }
-.sign-in-vessel--6 { margin-left: 24px; transform: rotate(11deg); animation-delay: -.1s; }
-.sign-in-vessel--7 { margin-left: 40px; transform: rotate(16deg); animation-delay: -.19s; }
-.sign-rising { animation: sign-rise 1.85s cubic-bezier(.25, .75, .32, 1) forwards; height: 196px; left: 50%; object-fit: contain; opacity: 0; position: absolute; top: 26px; transform: translateX(-50%); width: 65px; z-index: 5; }
+.sign-cylinder { animation: sign-cylinder-shake .18s ease-in-out 9 alternate; bottom: 0; filter: drop-shadow(0 15px 18px rgba(68, 18, 17, .25)); height: 300px; left: 50%; object-fit: contain; position: absolute; transform: translateX(-50%); width: 220px; z-index: 3; }
+.sign-in-vessel { animation: sign-bundle-shake .22s ease-in-out 8 alternate; height: 215px; left: 50%; object-fit: contain; position: absolute; top: -58px; transform: translateX(-50%) translateX(var(--stick-x)) rotate(var(--stick-angle)); transform-origin: 50% 100%; width: 72px; z-index: 2; }
+.sign-in-vessel--1 { --stick-angle: -10deg; --stick-x: -38px; }
+.sign-in-vessel--2 { --stick-angle: -7deg; --stick-x: -25px; animation-delay: -.08s; }
+.sign-in-vessel--3 { --stick-angle: -4deg; --stick-x: -13px; animation-delay: -.13s; }
+.sign-in-vessel--4 { --stick-angle: 0deg; --stick-x: 0; animation-delay: -.04s; }
+.sign-in-vessel--5 { --stick-angle: 4deg; --stick-x: 13px; animation-delay: -.16s; }
+.sign-in-vessel--6 { --stick-angle: 7deg; --stick-x: 25px; animation-delay: -.1s; }
+.sign-in-vessel--7 { --stick-angle: 10deg; --stick-x: 38px; animation-delay: -.19s; }
+.sign-rising, .sign-falling { height: 180px; left: 50%; object-fit: contain; opacity: 0; position: absolute; top: -35px; transform-origin: 50% 92%; width: 60px; }
+.sign-rising { animation: sign-rise 3.6s cubic-bezier(.25, .75, .32, 1) forwards; z-index: 2; }
+.sign-falling { animation: sign-fall 3.6s cubic-bezier(.2, .72, .32, 1) forwards; z-index: 4; }
 @keyframes sign-cylinder-shake { 0%, 100% { transform: translateX(-50%) rotate(-1.5deg); } 50% { transform: translateX(-50%) rotate(1.5deg); } }
 @keyframes sign-bundle-shake { from { translate: -2px 2px; } to { translate: 2px -3px; } }
-@keyframes sign-rise { 0%, 36% { opacity: 0; transform: translate(-50%, 45px) rotate(-3deg); } 46% { opacity: 1; } 76% { opacity: 1; transform: translate(-50%, -118px) rotate(3deg); } 100% { opacity: 0; transform: translate(-50%, -168px) rotate(7deg); } }
+@keyframes sign-rise {
+  0%, 20% { opacity: 0; transform: translate(-50%, 0) rotate(-2deg); }
+  23% { opacity: 1; }
+  57% { opacity: 1; transform: translate(-50%, -118px) rotate(2deg); }
+  58%, 100% { opacity: 0; transform: translate(-50%, -118px) rotate(2deg); }
+}
+@keyframes sign-fall {
+  0%, 57% { opacity: 0; transform: translate(-50%, -118px) rotate(2deg); }
+  58% { opacity: 1; transform: translate(-50%, -118px) rotate(2deg); }
+  82%, 100% { opacity: 1; transform: translate(var(--fall-x, 48px), var(--fall-y, 22px)) rotate(72deg); }
+}
 .oracle-drawn-head { align-items: center; display: flex; flex-direction: column; }
 .oracle-drawn-head > span { margin-top: 0; }
 .drawn-sign { align-items: baseline; color: var(--muted); display: flex; gap: 7px; justify-content: center; margin-top: 7px; }
@@ -298,8 +311,9 @@ onBeforeUnmount(() => {
   .sign-casting-stage { min-height: 370px; }
   .sign-vessel { height: 285px; width: 220px; }
   .sign-cylinder { height: 260px; width: 190px; }
-  .sign-in-vessel { height: 155px; top: 2px; width: 52px; }
-  .sign-rising { height: 170px; width: 56px; }
+  .sign-in-vessel { height: 160px; top: -10px; width: 54px; }
+  .sign-rising, .sign-falling { height: 158px; top: -30px; width: 53px; }
+  .sign-falling { --fall-x: 18px; --fall-y: 34px; }
   .drawn-sign > strong { font-size: 47px; }
   .cup-heading { margin-top: 19px; padding-top: 16px; }
   .cup-stage { min-height: 148px; }
@@ -309,6 +323,6 @@ onBeforeUnmount(() => {
 }
 @media (prefers-reduced-motion: reduce) {
   .sign-cylinder, .sign-in-vessel { animation: none; }
-  .sign-rising { animation-duration: .01ms; }
+  .sign-rising, .sign-falling { animation-duration: .01ms; }
 }
 </style>
