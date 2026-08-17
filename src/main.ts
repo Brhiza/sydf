@@ -3,6 +3,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
+import { prepareServiceWorkerUpdate } from './lib/serviceWorkerUpdate';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
@@ -11,48 +12,22 @@ createApp(App).mount('#app');
 
 let serviceWorkerRegistration: ServiceWorkerRegistration | undefined;
 
-function waitForWorkerInstalled(worker: ServiceWorker) {
-  if (worker.state === 'installed' || worker.state === 'activated') return Promise.resolve();
-  return new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error('service worker install timeout')), 15_000);
-    const handleStateChange = () => {
-      if (worker.state === 'installed' || worker.state === 'activated') {
-        window.clearTimeout(timeout);
-        worker.removeEventListener('statechange', handleStateChange);
-        resolve();
-      } else if (worker.state === 'redundant') {
-        window.clearTimeout(timeout);
-        worker.removeEventListener('statechange', handleStateChange);
-        reject(new Error('service worker install failed'));
-      }
-    };
-    worker.addEventListener('statechange', handleStateChange);
-  });
-}
-
 async function prepareWebUpdate() {
-  const registration = serviceWorkerRegistration || await navigator.serviceWorker?.getRegistration();
-  if (!registration) return;
-  await registration.update();
-  const worker = registration.installing;
-  if (worker) await waitForWorkerInstalled(worker);
-  const waiting = registration.waiting;
-  if (!waiting) return;
-  const controllerChanged = navigator.serviceWorker.controller
-    ? new Promise<void>((resolve) => navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true }))
-    : Promise.resolve();
-  waiting.postMessage({ type: 'SKIP_WAITING' });
-  await Promise.race([
-    controllerChanged,
-    new Promise<void>((resolve) => window.setTimeout(resolve, 5_000)),
-  ]);
+  const serviceWorker = navigator.serviceWorker;
+  const registration = serviceWorkerRegistration || await serviceWorker?.getRegistration();
+  if (!serviceWorker || !registration) throw new Error('service worker is unavailable');
+  await prepareServiceWorkerUpdate(registration, serviceWorker);
 }
 
 if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
-  const updateSW = registerSW({
+  registerSW({
     immediate: true,
     onNeedRefresh() {
-      window.dispatchEvent(new CustomEvent('shiyue:pwa-update', { detail: { updateSW } }));
+      window.dispatchEvent(new CustomEvent('shiyue:pwa-update', { detail: { prepareUpdate: prepareWebUpdate } }));
+    },
+    // 页面会在新 Service Worker 确认接管后带版本参数刷新，避免插件过早刷新到旧缓存。
+    onNeedReload() {
+      // 由页面更新流程统一处理。
     },
     onRegisteredSW(_swUrl, registration) {
       if (registration) serviceWorkerRegistration = registration;
