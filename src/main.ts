@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
+import { scheduleAfterPageLoad } from './lib/deferredWork';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
@@ -47,25 +48,29 @@ async function prepareWebUpdate() {
   ]);
 }
 
-const updateSW = registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    window.dispatchEvent(new CustomEvent('shiyue:pwa-update', { detail: { updateSW } }));
-  },
-  onRegisteredSW(_swUrl, registration) {
-    if (!registration) return;
-    serviceWorkerRegistration = registration;
-    void registration.update().catch((error) => console.error('PWA 更新检查失败', error));
-  },
-  onRegisterError(error) {
-    console.error('PWA 注册失败', error);
-  },
-});
+if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
+  const updateSW = registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      window.dispatchEvent(new CustomEvent('shiyue:pwa-update', { detail: { updateSW } }));
+    },
+    onRegisteredSW(_swUrl, registration) {
+      if (registration) serviceWorkerRegistration = registration;
+    },
+    onRegisterError(error) {
+      console.error('PWA 注册失败', error);
+    },
+  });
 
-createAppUpdateController({
-  currentVersion: __APP_VERSION__,
-  onUpdateAvailable(latestVersion) {
-    void serviceWorkerRegistration?.update();
-    window.dispatchEvent(new CustomEvent('shiyue:web-update', { detail: { version: latestVersion, prepareUpdate: prepareWebUpdate } }));
-  },
+  createAppUpdateController({
+    currentVersion: __APP_VERSION__,
+    onUpdateAvailable(latestVersion) {
+      void serviceWorkerRegistration?.update();
+      window.dispatchEvent(new CustomEvent('shiyue:web-update', { detail: { version: latestVersion, prepareUpdate: prepareWebUpdate } }));
+    },
+  });
+}, {
+  // 首屏和交互先完成，再开始 PWA 安装与版本检查，避免弱网下争抢连接。
+  delayMs: 1_200,
+  idleTimeoutMs: 5_000,
 });

@@ -72,7 +72,15 @@ export default defineConfig(({ mode }) => {
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+        // 安装时只缓存应用壳；功能分块和大图在真正使用后进入运行时缓存。
+        globPatterns: [
+          'index.html',
+          'assets/app-*.js',
+          'assets/index-*.css',
+          'assets/vendor-vue-*.js',
+          'assets/vendor-icons-*.js',
+          '*.{ico,png,svg,webp}',
+        ],
         globIgnores: [
           'favicon-32x32.png',
           'apple-touch-icon.png',
@@ -84,6 +92,15 @@ export default defineConfig(({ mode }) => {
         ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'shiyue-app-assets-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 96, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
           {
             urlPattern: ({ request, url }) => request.destination === 'image'
               && url.origin === self.location.origin
@@ -112,6 +129,7 @@ export default defineConfig(({ mode }) => {
   build: {
     rollupOptions: {
       output: {
+        entryFileNames: 'assets/app-[hash].js',
         manualChunks(id) {
           const path = id.replace(/\\/g, '/');
           if (path.includes('/node_modules/vue/') || path.includes('/node_modules/@vue/')) return 'vendor-vue';

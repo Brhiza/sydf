@@ -202,6 +202,23 @@ function buildProviderBody(config: AiProviderConfig, userPrompt: string) {
   return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'required', temperature: 0, max_tokens: 700 };
 }
 
+function buildProviderFallbackBody(config: AiProviderConfig, userPrompt: string) {
+  const fallbackTools = agentTools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+  const fallbackInstruction = `${systemPrompt}\n\n可用工具定义：${JSON.stringify(fallbackTools)}\n\n当前接口不能使用工具调用。只输出一个 JSON 对象，格式为 {"name":"工具名","arguments":{}}，name 必须来自上述工具名称，不能输出解释或 Markdown。`;
+  if (config.apiType === 'responses') {
+    return { model: config.model, instructions: fallbackInstruction, input: [{ role: 'user', content: userPrompt }], store: false, max_output_tokens: 300 };
+  }
+  if (config.apiType === 'anthropic') {
+    return { model: config.model, system: fallbackInstruction, messages: [{ role: 'user', content: userPrompt }], temperature: 0, max_tokens: 300 };
+  }
+  return {
+    model: config.model,
+    messages: [{ role: 'system', content: fallbackInstruction }, { role: 'user', content: userPrompt }],
+    temperature: 0,
+    max_tokens: 300,
+  };
+}
+
 function normalizeArguments(value: unknown) {
   if (value && typeof value === 'object') return value as Record<string, unknown>;
   if (typeof value !== 'string' || !value.trim()) return {};
@@ -244,6 +261,38 @@ function extractToolCall(result: unknown, apiType: AiApiType): { name: AgentTool
   }
   if (!allowedToolNames.has(name as AgentToolName)) return null;
   return { name: name as AgentToolName, arguments: normalizeArguments(args) };
+}
+
+function extractFallbackToolCall(result: unknown, apiType: AiApiType): { name: AgentToolName; arguments: Record<string, unknown> } | null {
+  if (!result || typeof result !== 'object') return null;
+  const record = result as Record<string, unknown>;
+  let content = '';
+  if (apiType === 'responses') {
+    if (typeof record.output_text === 'string') content = record.output_text;
+    else if (Array.isArray(record.output)) {
+      content = record.output.flatMap((item) => {
+        if (!item || typeof item !== 'object') return [];
+        const blocks = (item as Record<string, unknown>).content;
+        return Array.isArray(blocks) ? blocks.map((block) => block && typeof block === 'object' && typeof (block as Record<string, unknown>).text === 'string' ? String((block as Record<string, unknown>).text) : '') : [];
+      }).join('');
+    }
+  } else if (apiType === 'anthropic' && Array.isArray(record.content)) {
+    content = record.content.map((item) => item && typeof item === 'object' && typeof (item as Record<string, unknown>).text === 'string' ? String((item as Record<string, unknown>).text) : '').join('');
+  } else if (Array.isArray(record.choices)) {
+    const choice = record.choices[0] as Record<string, unknown> | undefined;
+    const message = choice?.message as Record<string, unknown> | undefined;
+    content = typeof message?.content === 'string' ? message.content : '';
+  }
+  const jsonText = content.match(/\{[\s\S]*\}/)?.[0];
+  if (!jsonText) return null;
+  try {
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    const name = typeof parsed.name === 'string' ? parsed.name : typeof parsed.tool === 'string' ? parsed.tool : '';
+    if (!allowedToolNames.has(name as AgentToolName)) return null;
+    return { name: name as AgentToolName, arguments: normalizeArguments(parsed.arguments) };
+  } catch {
+    return null;
+  }
 }
 
 function selectionFromCall(call: { name: AgentToolName; arguments: Record<string, unknown> }) {
@@ -348,10 +397,18 @@ async function requestSelection(config: AiProviderConfig, userPrompt: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
-    const result = await requestProviderJson(config, buildProviderBody(config, userPrompt), controller.signal);
-    const call = extractToolCall(result, config.apiType);
-    if (!call) throw new Error('model did not call an allowed tool');
-    return selectionFromCall(call);
+    try {
+      const result = await requestProviderJson(config, buildProviderBody(config, userPrompt), controller.signal);
+      const call = extractToolCall(result, config.apiType);
+      if (call) return selectionFromCall(call);
+    } catch (error) {
+      if (controller.signal.aborted) throw error;
+      // 部分兼容接口能正常生成文本，但不接受 tools/tool_choice，改用严格 JSON 路由。
+    }
+    const fallbackResult = await requestProviderJson(config, buildProviderFallbackBody(config, userPrompt), controller.signal);
+    const fallbackCall = extractFallbackToolCall(fallbackResult, config.apiType);
+    if (!fallbackCall) throw new Error('model did not return an allowed tool');
+    return selectionFromCall(fallbackCall);
   } finally {
     clearTimeout(timeout);
   }

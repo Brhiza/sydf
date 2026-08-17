@@ -111,6 +111,7 @@ import {
 } from './lib/ai';
 import {
   getImmediateActiveDivinationSelection,
+  getLocalAgentSelection,
   requestAgentToolSelection,
   type AgentToolSelection,
   type AgentAstrolabeFortune,
@@ -126,6 +127,7 @@ import {
 } from './lib/promptSchools';
 import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
+import { scheduleAfterPageLoad } from './lib/deferredWork';
 import { formatDailyHexagramAiContext, type DailyHexagramResult } from './lib/dailyHexagram';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
@@ -1170,6 +1172,7 @@ let availableWebVersion = '';
 let prepareWebUpdate: (() => Promise<void>) | null = null;
 let toastTimer: number | undefined;
 let basicAiFallbackCopyTimer: number | undefined;
+let cancelHomePreviewWarmup: (() => void) | undefined;
 interface RunningAiTask {
   id: string;
   recordId: string | null;
@@ -2208,7 +2211,10 @@ onMounted(() => {
   }
   // 页面每次启动都创建空白会话；历史只保留在记录页，不恢复到聊天输入区。
   leaveChat();
-  void refreshHomeFortunePreview();
+  cancelHomePreviewWarmup = scheduleAfterPageLoad(() => void refreshHomeFortunePreview(), {
+    delayMs: 1_500,
+    idleTimeoutMs: 5_000,
+  });
 });
 
 onBeforeUnmount(() => {
@@ -2218,6 +2224,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('shiyue:web-update', handleWebUpdate);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
+  cancelHomePreviewWarmup?.();
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
   if (basicAiFallbackCopyTimer !== undefined) window.clearTimeout(basicAiFallbackCopyTimer);
 });
@@ -2841,9 +2848,7 @@ async function resolveAgentSelection(questionText: string) {
     const activeTool = appPreferences.displayLevel === 'basic'
       ? undefined
       : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value;
-    const immediateSelection = getImmediateActiveDivinationSelection(questionText, activeTool, chatMessages.value.length > 0);
-    if (immediateSelection) return immediateSelection;
-    const selection = await requestAgentToolSelection({
+    const selectionPayload = {
       question: questionText,
       hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
       inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
@@ -2852,7 +2857,12 @@ async function resolveAgentSelection(questionText: string) {
       castingPreference: appPreferences.castingPreference,
       conversation,
       aiConfig: activeAiRequestConfig.value,
-    }, controller.signal);
+    };
+    const localSelection = getLocalAgentSelection(selectionPayload);
+    if (localSelection) return localSelection;
+    const immediateSelection = getImmediateActiveDivinationSelection(questionText, activeTool, chatMessages.value.length > 0);
+    if (immediateSelection) return immediateSelection;
+    const selection = await requestAgentToolSelection(selectionPayload, controller.signal);
     if (sessionId !== chatSessionId || controller.signal.aborted) throw new DOMException('会话已结束', 'AbortError');
     return selection;
   } finally {

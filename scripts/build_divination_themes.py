@@ -13,8 +13,9 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw
 
 
-CARD_QUALITY = 92
+CARD_QUALITY = 82
 GENERAL_QUALITY = 92
+CARD_MAX_SIZE = (360, 540)
 
 GROUP_FILES: dict[str, tuple[str, ...]] = {
     "brand": ("logo.webp",),
@@ -59,9 +60,27 @@ def save_webp(image: Image.Image, target: Path, quality: int = GENERAL_QUALITY) 
 
 def save_card_webp(image: Image.Image, target: Path) -> None:
     converted = image.convert("RGB")
-    converted.thumbnail((720, 1080), Image.Resampling.LANCZOS)
+    # 页面最大只显示约 150×230 CSS 像素；360×540 可覆盖常见高分屏，同时显著降低移动端下载与解码成本。
+    converted.thumbnail(CARD_MAX_SIZE, Image.Resampling.LANCZOS)
     save_webp(converted, target, CARD_QUALITY)
     converted.close()
+
+
+def optimize_existing_tarot(output_root: Path) -> None:
+    tarot_files = sorted(output_root.glob("*/cards/tarot/*.webp"))
+    if not tarot_files:
+        raise ValueError(f"没有找到现有塔罗资源：{output_root}")
+    before_bytes = sum(path.stat().st_size for path in tarot_files)
+    for path in tarot_files:
+        temporary = path.with_name(f"{path.stem}.optimized.webp")
+        try:
+            with Image.open(path) as image:
+                save_card_webp(image, temporary)
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    after_bytes = sum(path.stat().st_size for path in tarot_files)
+    print(f"塔罗资源优化完成：{len(tarot_files)} 张，{before_bytes / 1024 / 1024:.2f} MiB → {after_bytes / 1024 / 1024:.2f} MiB")
 
 
 def convert_file(source: Path, target: Path, quality: int = GENERAL_QUALITY) -> None:
@@ -455,11 +474,15 @@ def main() -> None:
     parser.add_argument("--yue-tarot-zip", type=Path)
     parser.add_argument("--themes", nargs="+", choices=builders, default=list(builders))
     parser.add_argument("--logos-only", action="store_true", help="只更新所选主题的 Logo，不重建其他主题资源")
+    parser.add_argument("--optimize-existing-tarot", action="store_true", help="原地缩小并重新压缩现有塔罗牌图")
     args = parser.parse_args()
 
     project_root = args.project_root.resolve()
     output_root = project_root / "public/divination-themes"
     output_root.mkdir(parents=True, exist_ok=True)
+    if args.optimize_existing_tarot:
+        optimize_existing_tarot(output_root)
+        return
     if not args.logos_only:
         build_shared_ritual(project_root)
         if "yue" in args.themes:

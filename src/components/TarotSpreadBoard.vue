@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { TarotCardResult, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
 import { getShiyueTarotCard, getShiyueTarotName } from '../lib/tarotDeck';
 import { getTarotThemeImageUrl } from '../lib/divinationTheme';
@@ -43,6 +43,21 @@ const spreadLayouts: Record<TarotSpreadType, SpreadPose[]> = {
 };
 
 const denseSpread = computed(() => props.reading.cards.length >= 7);
+const releasedImageCount = ref(Math.min(2, props.reading.cards.length));
+const settledImages = new Set<number>();
+
+function resetImageQueue() {
+  settledImages.clear();
+  releasedImageCount.value = Math.min(2, props.reading.cards.length);
+}
+
+function releaseNextImage(index: number) {
+  if (settledImages.has(index)) return;
+  settledImages.add(index);
+  releasedImageCount.value = Math.min(props.reading.cards.length, releasedImageCount.value + 1);
+}
+
+watch(() => props.reading, resetImageQueue);
 
 function spreadCardStyle(index: number) {
   const pose = spreadLayouts[props.reading.spreadType][index] || { x: 50, y: 50 };
@@ -72,13 +87,17 @@ function spreadCardStyle(index: number) {
         <span class="tarot-position"><i>{{ index + 1 }}</i>{{ card.position }}</span>
         <div class="tarot-face" :class="{ 'is-reversed': card.reversed }">
           <img
+            v-if="index < releasedImageCount"
             :src="getTarotThemeImageUrl((getShiyueTarotCard(card.id)?.traditionalNumber) ?? 0)"
-            :loading="index < 3 ? 'eager' : 'lazy'"
-            :fetchpriority="index === 0 ? 'high' : 'auto'"
+            :loading="index === 0 ? 'eager' : 'lazy'"
+            :fetchpriority="index === 0 ? 'high' : 'low'"
             decoding="async"
             alt=""
             draggable="false"
+            @load="releaseNextImage(index)"
+            @error="releaseNextImage(index)"
           />
+          <span v-else class="tarot-image-placeholder" aria-hidden="true"></span>
         </div>
         <strong>{{ getShiyueTarotName(card.id) || card.name }}</strong>
         <span class="tarot-orientation" :class="{ reversed: card.reversed }">{{ card.reversed ? '逆位' : '正位' }}</span>
@@ -108,6 +127,7 @@ function spreadCardStyle(index: number) {
 .tarot-face { aspect-ratio: 2 / 3; border-radius: var(--ds-radius-md); filter: drop-shadow(0 11px 13px rgba(41,33,52,.18)); flex: 0 0 auto; overflow: hidden; position: relative; transform: rotate(var(--spread-rotation)); width: var(--spread-card-width); }
 .tarot-face::after { background: linear-gradient(90deg, transparent 5%, rgba(197,160,94,.74) 16%, rgba(233,211,164,.92) 50%, rgba(197,160,94,.74) 84%, transparent 95%); bottom: 1px; content: ''; height: 1px; left: 0; pointer-events: none; position: absolute; right: 0; }
 .tarot-face img { display: block; height: 100%; object-fit: contain; transition: transform .3s; user-select: none; width: 100%; }
+.tarot-image-placeholder { animation: tarot-image-pulse 1.5s ease-in-out infinite; background: linear-gradient(135deg, var(--ds-accent-soft), var(--ds-surface-muted)); display: block; height: 100%; width: 100%; }
 .tarot-face.is-reversed img { transform: rotate(180deg); }
 .tarot-result-item > strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); line-height: 1.35; margin-top: 9px; max-width: 100%; overflow-wrap: anywhere; width: 100%; }
 .tarot-orientation { background: var(--ds-success-soft); border-radius: var(--ds-radius-round); color: var(--ds-success); font-size: 10px; margin-top: 5px; padding: 2px 7px; }
@@ -217,4 +237,5 @@ function spreadCardStyle(index: number) {
   .tarot-spread-board.spread-year .tarot-result-item:nth-child(12) { --spread-x: 12.5% !important; --spread-y: 39% !important; }
 }
 @media (prefers-reduced-motion: reduce) { .tarot-spread-board.is-dealing .tarot-result-item { animation: none; } }
+@keyframes tarot-image-pulse { 50% { opacity: .66; } }
 </style>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getImmediateActiveDivinationSelection, requestAgentToolSelection } from './agent';
+import { getImmediateActiveDivinationSelection, getLocalAgentSelection, requestAgentToolSelection } from './agent';
 
 const baseRequest = {
   question: '请继续看岁运',
@@ -39,6 +39,28 @@ describe('Agent 工具结果前端校验', () => {
 
   it('0 基础没有预选术式时继续交给 Agent 自动选择', () => {
     expect(getImmediateActiveDivinationSelection('接下来十年财运怎么样', undefined, false)).toBeNull();
+  });
+
+  it('明确术式、本地择日和单件问事不请求 AI', () => {
+    expect(getLocalAgentSelection({ question: '请用紫微看明年流年', hasProfile: true })).toEqual({
+      mode: 'chart', chartKind: 'ziwei', ziweiFortune: { scope: 'yearly', year: new Date().getFullYear() + 1 },
+    });
+    expect(getLocalAgentSelection({ question: '搬家选哪个日子比较好', hasProfile: false })).toEqual({ mode: 'divination', divinationKind: 'almanac' });
+    expect(getLocalAgentSelection({ question: '这次面试能不能录取', hasProfile: false })).toEqual({ mode: 'divination', divinationKind: 'liuyao' });
+  });
+
+  it('长期综合问题使用命盘，模糊问题仍交给 AI', () => {
+    expect(getLocalAgentSelection({ question: '全面分析未来十年的事业、财富和婚姻', hasProfile: true })).toEqual({
+      mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' }, ziweiFortune: { scope: 'full' },
+    });
+    expect(getLocalAgentSelection({ question: '最近总觉得不太顺，帮我看看', hasProfile: true })).toBeNull();
+  });
+
+  it('命盘连续对话只在明确改年份时本地续接', () => {
+    expect(getLocalAgentSelection({ question: '明年呢', hasProfile: true, previousTool: 'bazi', conversation: [{ role: 'user', content: '今年财运' }] })).toEqual({
+      mode: 'chart', chartKind: 'bazi', baziFortune: { scope: 'year', year: new Date().getFullYear() + 1 },
+    });
+    expect(getLocalAgentSelection({ question: '为什么会这样', hasProfile: true, previousTool: 'bazi', conversation: [{ role: 'user', content: '今年财运' }] })).toBeNull();
   });
 
   it('识别小六壬工具调用结果', async () => {
