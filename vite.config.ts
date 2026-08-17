@@ -135,7 +135,10 @@ export default defineConfig(({ mode }) => {
           if (path.includes('/node_modules/vue/') || path.includes('/node_modules/@vue/')) return 'vendor-vue';
           if (path.includes('/node_modules/lucide-vue-next/')) return 'vendor-icons';
           if (path.includes('/mingyu-core/dist/location/') || path.includes('/mingyu-core/dist/location.js')) return 'mingyu-location';
-          if (path.includes('/mingyu-core/dist/bazi/') || path.includes('/mingyu-core/dist/ganzhi/') || path.includes('/mingyu-core/dist/shensha/') || path.includes('/mingyu-core/dist/wuxing/')) return 'mingyu-bazi';
+          // 日历也依赖基础干支/五行；若与完整八字引擎合包，会让首页被迫预载整套八字代码。
+          if (path.includes('/mingyu-core/dist/ganzhi/')) return 'mingyu-ganzhi';
+          if (path.includes('/mingyu-core/dist/wuxing/')) return 'mingyu-wuxing';
+          if (path.includes('/mingyu-core/dist/bazi/') || path.includes('/mingyu-core/dist/shensha/')) return 'mingyu-bazi';
           if (path.includes('/node_modules/tyme4ts/')) return 'vendor-tyme';
           if (path.includes('/mingyu-core/dist/calendar/')) return 'mingyu-calendar';
           return undefined;
