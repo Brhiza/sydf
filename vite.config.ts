@@ -72,7 +72,15 @@ export default defineConfig(({ mode }) => {
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+        // 安装时只缓存应用壳；功能分块和大图在真正使用后进入运行时缓存。
+        globPatterns: [
+          'index.html',
+          'assets/app-*.js',
+          'assets/index-*.css',
+          'assets/vendor-vue-*.js',
+          'assets/vendor-icons-*.js',
+          '*.{ico,png,svg,webp}',
+        ],
         globIgnores: [
           'favicon-32x32.png',
           'apple-touch-icon.png',
@@ -85,17 +93,26 @@ export default defineConfig(({ mode }) => {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
+            urlPattern: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'shiyue-app-assets-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 96, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
             urlPattern: ({ request, url }) => request.destination === 'image'
               && url.origin === self.location.origin
               && (url.pathname.startsWith('/divination-themes/') || url.pathname.startsWith('/divination-assets/')),
             // 图片地址自带独立素材版本，同一版本命中缓存后无需重复请求。
             handler: 'CacheFirst',
             options: {
-              cacheName: 'shiyue-divination-theme-images-v5',
+              cacheName: 'shiyue-divination-theme-images-v6',
               cacheableResponse: { statuses: [0, 200] },
               expiration: {
-                // 可覆盖两套完整塔罗和常用牌阵，仍限制移动设备的长期占用。
-                maxEntries: 256,
+                // 可覆盖三套主题的全部牌面；实际只会按当前主题在后台逐步补齐。
+                maxEntries: 1_024,
                 maxAgeSeconds: 60 * 60 * 24 * 90,
               },
             },
@@ -112,12 +129,16 @@ export default defineConfig(({ mode }) => {
   build: {
     rollupOptions: {
       output: {
+        entryFileNames: 'assets/app-[hash].js',
         manualChunks(id) {
           const path = id.replace(/\\/g, '/');
           if (path.includes('/node_modules/vue/') || path.includes('/node_modules/@vue/')) return 'vendor-vue';
           if (path.includes('/node_modules/lucide-vue-next/')) return 'vendor-icons';
           if (path.includes('/mingyu-core/dist/location/') || path.includes('/mingyu-core/dist/location.js')) return 'mingyu-location';
-          if (path.includes('/mingyu-core/dist/bazi/') || path.includes('/mingyu-core/dist/ganzhi/') || path.includes('/mingyu-core/dist/shensha/') || path.includes('/mingyu-core/dist/wuxing/')) return 'mingyu-bazi';
+          // 日历也依赖基础干支/五行；若与完整八字引擎合包，会让首页被迫预载整套八字代码。
+          if (path.includes('/mingyu-core/dist/ganzhi/')) return 'mingyu-ganzhi';
+          if (path.includes('/mingyu-core/dist/wuxing/')) return 'mingyu-wuxing';
+          if (path.includes('/mingyu-core/dist/bazi/') || path.includes('/mingyu-core/dist/shensha/')) return 'mingyu-bazi';
           if (path.includes('/node_modules/tyme4ts/')) return 'vendor-tyme';
           if (path.includes('/mingyu-core/dist/calendar/')) return 'mingyu-calendar';
           return undefined;

@@ -51,30 +51,15 @@ import type {
   TaiyiResult,
   XiaoliurenData,
 } from 'mingyu-core/types';
-import {
-  buildCurrentBaziFortuneSelection,
-  buildFortuneSelectionContext,
-  getLifeStage,
-  getLuckCycleForDate,
-  getTenGod,
-  ShenShaCalculator,
-  type BaziChartResult,
-  type FortuneSelectionContext,
-} from 'mingyu-core/bazi';
-import { BRANCH_HIDDEN_STEMS, getNayin, getNayinWuxing } from 'mingyu-core/ganzhi';
+import type { BaziChartResult, FortuneSelectionContext } from 'mingyu-core/bazi';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
-import {
-  findBirthPlaceByDisplayName,
-  findBirthPlaceByRegionId,
-  getBirthPlaceCityOptions,
-  getBirthPlaceDistrictOptions,
-  getBirthPlaceProvinceOptions,
-  resolveBirthPlaceApproximateLatitude,
-  type BirthPlaceCascadePath,
-  type BirthPlaceCityOption,
-  type BirthPlaceDistrictOption,
+import type {
+  BirthPlaceCascadePath,
+  BirthPlaceCityOption,
+  BirthPlaceDistrictOption,
+  BirthPlaceProvinceOption,
 } from 'mingyu-core/location';
 import type { AstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
 import {
@@ -111,6 +96,7 @@ import {
 } from './lib/ai';
 import {
   getImmediateActiveDivinationSelection,
+  getLocalAgentSelection,
   requestAgentToolSelection,
   type AgentToolSelection,
   type AgentAstrolabeFortune,
@@ -126,7 +112,8 @@ import {
 } from './lib/promptSchools';
 import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
-import { formatDailyHexagramAiContext, type DailyHexagramResult } from './lib/dailyHexagram';
+import { scheduleAfterPageLoad } from './lib/deferredWork';
+import type { DailyHexagramResult } from './lib/dailyHexagram';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
 import {
   createChatDocument,
@@ -178,7 +165,7 @@ import {
   type LegacyHistoryRecord,
 } from './lib/historyImport';
 import type { DailyFortuneResult, FortunePeriod } from './lib/dailyFortune';
-import { getModernAlmanacHours, getModernAlmanacPersonalNotes, modernizeAlmanacDay } from './lib/modernAlmanac';
+import type { ModernAlmanacResult } from './lib/modernAlmanac';
 import type { SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
@@ -193,24 +180,12 @@ import {
   getDivinationThemeLogoUrl,
   setDivinationTheme,
 } from './lib/divinationTheme';
-import {
-  almanacTopicGroups,
-  almanacTopicOptions,
-  evaluateAlmanacPurposeDay,
-  generateLocalAlmanac,
-  getDefaultAlmanacPurpose,
-  getAlmanacCalendarDateMeta,
-  getAlmanacDateChunks,
-  getAlmanacMonthRange,
-  getDefaultAlmanacMonth,
-  getAlmanacPeriodRange,
-  isAlmanacProfileComplete,
-  shiftAlmanacMonth,
-  type AlmanacCalendarDateMeta,
-  type AlmanacAuspiceLevel,
-  type AlmanacMode,
-  type AlmanacPurpose,
-  type AlmanacPurposeEvaluation,
+import type {
+  AlmanacCalendarDateMeta,
+  AlmanacAuspiceLevel,
+  AlmanacMode,
+  AlmanacPurpose,
+  AlmanacPurposeEvaluation,
 } from './lib/almanac';
 
 const ManualDivinationDialog = defineAsyncComponent(() => import('./components/ManualDivinationDialog.vue'));
@@ -224,6 +199,195 @@ const WesternDivinationView = defineAsyncComponent(() => import('./components/We
 const TarotSpreadBoard = defineAsyncComponent(() => import('./components/TarotSpreadBoard.vue'));
 const WesternCardBoard = defineAsyncComponent(() => import('./components/WesternCardBoard.vue'));
 const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
+
+type BaziRuntime = typeof import('mingyu-core/bazi') & typeof import('mingyu-core/ganzhi');
+type LocationRuntime = typeof import('mingyu-core/location');
+type AlmanacRuntime = typeof import('./lib/almanac') & typeof import('./lib/modernAlmanac');
+
+let baziRuntime: BaziRuntime | null = null;
+let baziRuntimePromise: Promise<BaziRuntime> | null = null;
+let locationRuntime: LocationRuntime | null = null;
+let locationRuntimePromise: Promise<LocationRuntime> | null = null;
+let almanacRuntime: AlmanacRuntime | null = null;
+let almanacRuntimePromise: Promise<AlmanacRuntime> | null = null;
+let almanacTopicGroups: typeof import('./lib/almanac')['almanacTopicGroups'] = [];
+let almanacTopicOptions: typeof import('./lib/almanac')['almanacTopicOptions'] = [];
+
+function ensureBaziRuntime() {
+  if (baziRuntime) return Promise.resolve(baziRuntime);
+  if (!baziRuntimePromise) {
+    baziRuntimePromise = Promise.all([
+      import('mingyu-core/bazi'),
+      import('mingyu-core/ganzhi'),
+    ]).then(([bazi, ganzhi]) => {
+      baziRuntime = { ...bazi, ...ganzhi } as BaziRuntime;
+      return baziRuntime;
+    }).catch((error) => {
+      baziRuntimePromise = null;
+      throw error;
+    });
+  }
+  return baziRuntimePromise;
+}
+
+function requireBaziRuntime() {
+  if (!baziRuntime) throw new Error('八字功能仍在加载，请稍后重试。');
+  return baziRuntime;
+}
+
+function ensureLocationRuntime() {
+  if (locationRuntime) return Promise.resolve(locationRuntime);
+  if (!locationRuntimePromise) {
+    locationRuntimePromise = import('mingyu-core/location').then((module) => {
+      locationRuntime = module;
+      provinceOptions.value = module.getBirthPlaceProvinceOptions();
+      return module;
+    }).catch((error) => {
+      locationRuntimePromise = null;
+      throw error;
+    });
+  }
+  return locationRuntimePromise;
+}
+
+function requireLocationRuntime() {
+  if (!locationRuntime) throw new Error('地区数据仍在加载，请稍后重试。');
+  return locationRuntime;
+}
+
+function ensureAlmanacRuntime() {
+  if (almanacRuntime) return Promise.resolve(almanacRuntime);
+  if (!almanacRuntimePromise) {
+    almanacRuntimePromise = Promise.all([
+      import('./lib/almanac'),
+      import('./lib/modernAlmanac'),
+    ]).then(([almanac, modern]) => {
+      almanacRuntime = { ...almanac, ...modern } as AlmanacRuntime;
+      almanacTopicGroups = almanac.almanacTopicGroups;
+      almanacTopicOptions = almanac.almanacTopicOptions;
+      return almanacRuntime;
+    }).catch((error) => {
+      almanacRuntimePromise = null;
+      throw error;
+    });
+  }
+  return almanacRuntimePromise;
+}
+
+function requireAlmanacRuntime() {
+  if (!almanacRuntime) throw new Error('黄历功能仍在加载，请稍后重试。');
+  return almanacRuntime;
+}
+
+function evaluateAlmanacPurposeDay(...args: Parameters<AlmanacRuntime['evaluateAlmanacPurposeDay']>) {
+  return requireAlmanacRuntime().evaluateAlmanacPurposeDay(...args);
+}
+
+function generateLocalAlmanac(...args: Parameters<AlmanacRuntime['generateLocalAlmanac']>) {
+  return requireAlmanacRuntime().generateLocalAlmanac(...args);
+}
+
+function getDefaultAlmanacPurpose(...args: Parameters<AlmanacRuntime['getDefaultAlmanacPurpose']>) {
+  return requireAlmanacRuntime().getDefaultAlmanacPurpose(...args);
+}
+
+function getAlmanacCalendarDateMeta(...args: Parameters<AlmanacRuntime['getAlmanacCalendarDateMeta']>) {
+  return requireAlmanacRuntime().getAlmanacCalendarDateMeta(...args);
+}
+
+function getAlmanacDateChunks(...args: Parameters<AlmanacRuntime['getAlmanacDateChunks']>) {
+  return requireAlmanacRuntime().getAlmanacDateChunks(...args);
+}
+
+function getAlmanacMonthRange(...args: Parameters<AlmanacRuntime['getAlmanacMonthRange']>) {
+  return requireAlmanacRuntime().getAlmanacMonthRange(...args);
+}
+
+function getDefaultAlmanacMonth(...args: Parameters<AlmanacRuntime['getDefaultAlmanacMonth']>) {
+  return requireAlmanacRuntime().getDefaultAlmanacMonth(...args);
+}
+
+function getAlmanacPeriodRange(...args: Parameters<AlmanacRuntime['getAlmanacPeriodRange']>) {
+  return requireAlmanacRuntime().getAlmanacPeriodRange(...args);
+}
+
+function shiftAlmanacMonth(...args: Parameters<AlmanacRuntime['shiftAlmanacMonth']>) {
+  return requireAlmanacRuntime().shiftAlmanacMonth(...args);
+}
+
+function modernizeAlmanacDay(...args: Parameters<AlmanacRuntime['modernizeAlmanacDay']>): ModernAlmanacResult {
+  return requireAlmanacRuntime().modernizeAlmanacDay(...args);
+}
+
+function getModernAlmanacHours(...args: Parameters<AlmanacRuntime['getModernAlmanacHours']>) {
+  return requireAlmanacRuntime().getModernAlmanacHours(...args);
+}
+
+function getModernAlmanacPersonalNotes(...args: Parameters<AlmanacRuntime['getModernAlmanacPersonalNotes']>) {
+  return requireAlmanacRuntime().getModernAlmanacPersonalNotes(...args);
+}
+
+function isAlmanacProfileComplete(profile?: BirthForm | null) {
+  if (!profile || !/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return false;
+  const [year, month, day] = profile.date.split('-').map(Number);
+  const [hour, minute] = profile.time.split(':').map(Number);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return false;
+  return !getBirthDateValidationMessage({
+    year,
+    month,
+    day,
+    dateType: profile.dateType,
+    isLeapMonth: profile.dateType === 'lunar' && profile.isLeapMonth,
+  });
+}
+
+function buildCurrentBaziFortuneSelection(...args: Parameters<BaziRuntime['buildCurrentBaziFortuneSelection']>) {
+  return requireBaziRuntime().buildCurrentBaziFortuneSelection(...args);
+}
+
+function buildFortuneSelectionContext(...args: Parameters<BaziRuntime['buildFortuneSelectionContext']>) {
+  return requireBaziRuntime().buildFortuneSelectionContext(...args);
+}
+
+function getLifeStage(...args: Parameters<BaziRuntime['getLifeStage']>) {
+  return requireBaziRuntime().getLifeStage(...args);
+}
+
+function getLuckCycleForDate(...args: Parameters<BaziRuntime['getLuckCycleForDate']>) {
+  return requireBaziRuntime().getLuckCycleForDate(...args);
+}
+
+function getTenGod(...args: Parameters<BaziRuntime['getTenGod']>) {
+  return requireBaziRuntime().getTenGod(...args);
+}
+
+function getNayin(...args: Parameters<BaziRuntime['getNayin']>) {
+  return requireBaziRuntime().getNayin(...args);
+}
+
+function getNayinWuxing(...args: Parameters<BaziRuntime['getNayinWuxing']>) {
+  return requireBaziRuntime().getNayinWuxing(...args);
+}
+
+function getBirthPlaceCityOptions(...args: Parameters<LocationRuntime['getBirthPlaceCityOptions']>) {
+  return requireLocationRuntime().getBirthPlaceCityOptions(...args);
+}
+
+function getBirthPlaceDistrictOptions(...args: Parameters<LocationRuntime['getBirthPlaceDistrictOptions']>) {
+  return requireLocationRuntime().getBirthPlaceDistrictOptions(...args);
+}
+
+function findBirthPlaceByRegionId(...args: Parameters<LocationRuntime['findBirthPlaceByRegionId']>) {
+  return requireLocationRuntime().findBirthPlaceByRegionId(...args);
+}
+
+function findBirthPlaceByDisplayName(...args: Parameters<LocationRuntime['findBirthPlaceByDisplayName']>) {
+  return requireLocationRuntime().findBirthPlaceByDisplayName(...args);
+}
+
+function resolveBirthPlaceApproximateLatitude(...args: Parameters<LocationRuntime['resolveBirthPlaceApproximateLatitude']>) {
+  return requireLocationRuntime().resolveBirthPlaceApproximateLatitude(...args);
+}
 
 type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'tarot' | 'charts' | 'compatibility' | 'cases' | 'settings';
 type SettingsSection = 'preferences' | 'ai';
@@ -386,7 +550,7 @@ type ZiweiScope = 'origin' | 'decadal' | 'yearly';
 const CHART_CACHE_STORAGE_KEY = 'shiyue-chart-cache-v1';
 const CHART_CACHE_LIMIT = 12;
 
-const provinceOptions = getBirthPlaceProvinceOptions();
+const provinceOptions = ref<readonly BirthPlaceProvinceOption[]>([]);
 const legacyRegionIds: Record<string, string> = {
   beijing: '110101',
   shanghai: '310101',
@@ -443,468 +607,25 @@ const aiChannelPresets: Array<{ preset: AiChannelPreset; id: string; name: strin
   { preset: 'zhipu', id: 'preset-zhipu', name: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiType: 'chat' },
   { preset: 'anthropic', id: 'preset-anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1', apiType: 'anthropic' },
 ];
-type InspirationMode = 'matter' | 'natal';
-type InspirationItem = { label: string; text: string; prompt?: string; keywords?: string };
-type InspirationGroup = { key: string; label: string; icon: string; description: string; questions: InspirationItem[] };
+type InspirationMode = import('./lib/inspirationLibrary').InspirationMode;
+type InspirationItem = import('./lib/inspirationLibrary').InspirationItem;
+type InspirationGroup = import('./lib/inspirationLibrary').InspirationGroup;
 
-const q = (label: string, text: string, keywords = ''): InspirationItem => ({ label, text, keywords });
-const n = (label: string, text: string, scope: string, keywords = ''): InspirationItem => ({
-  label,
-  text,
-  keywords,
-  prompt: `请完整解读“${label}”，重点覆盖：${scope}。结合本命、当前大运和相关流年，先给明确结论，再说明现实表现、时间节奏、风险边界与可调整部分。只引用少量真正影响结论的盘面信息，不列分析步骤，不把传统象意写成已经发生的事实。`,
-});
+let inspirationLibraries: Record<InspirationMode, InspirationGroup[]> = { matter: [], natal: [] };
+let inspirationLibraryPromise: Promise<void> | null = null;
 
-const matterInspirationGroups: InspirationGroup[] = [
-  { key: 'matter-life', label: '人生方向与重大选择', icon: '途', description: '去留、转折、优先级与长期方向', questions: [
-    q('方向判断', '我现在走的方向值得继续坚持，还是应该及时调整？'),
-    q('阶段重点', '我接下来最应该把时间和精力放在哪件事上？'),
-    q('机会取舍', '眼前这个机会适合抓住吗，代价和风险在哪里？'),
-    q('二选一', '这两个选择分别会带来什么，我更适合哪一个？'),
-    q('主动或等待', '这件事我应该主动推进，还是先观察等待？'),
-    q('止损判断', '这件事应该继续投入，还是已经到了止损的时候？'),
-    q('重新开始', '我现在适合重新开始一条路吗，第一步应该做什么？'),
-    q('未来重点', '未来半年最可能改变我生活重心的事情是什么？'),
-  ] },
-  { key: 'matter-single', label: '单身、桃花与相识', icon: '遇', description: '新缘分、暧昧、表白与对象判断', questions: [
-    q('近期桃花', '我近期有遇到合适对象的机会吗，可能出现在哪里？'),
-    q('新认识的人', '我刚认识的这个人值得继续了解吗？'),
-    q('对方态度', '对方现在怎样看待我和这段关系？'),
-    q('暧昧走向', '这段暧昧会自然推进，还是会逐渐淡下来？'),
-    q('主动联系', '我现在适合主动联系或约对方见面吗？'),
-    q('是否表白', '现在适合表达心意吗，需要注意什么？'),
-    q('相亲对象', '这次相亲认识的人适合继续接触吗？'),
-    q('网恋异地', '这段网络或异地关系值得投入并走向现实吗？'),
-  ] },
-  { key: 'matter-relationship', label: '恋爱、伴侣与婚姻', icon: '缘', description: '推进、磨合、承诺、婚姻与边界', questions: [
-    q('关系走向', '我和对方接下来一段时间的关系会怎样发展？'),
-    q('关系推进', '这段关系现在适合更进一步吗？'),
-    q('长期可能', '我们适合长期相处或进入婚姻吗？'),
-    q('沟通矛盾', '这次矛盾真正的症结是什么，怎样沟通更有效？'),
-    q('信任问题', '这段关系中的不安来自哪里，应该如何建立信任？'),
-    q('承诺婚期', '近期适合谈婚论嫁、订婚或确定婚期吗？'),
-    q('家庭阻力', '双方家庭对这段关系的影响该怎样处理？'),
-    q('现实条件', '距离、工作或经济问题会怎样影响这段关系？'),
-    q('婚姻危机', '我们的婚姻目前主要问题在哪里，还有修复空间吗？'),
-    q('分居离婚', '面对分居或离婚的选择，我最需要评估什么？', '婚变 婚姻去留'),
-    q('第三方影响', '关系受到第三方影响时，我应该先确认什么并建立怎样的边界？', '第三者 出轨 外遇'),
-    q('再婚家庭', '这段再婚关系或重组家庭需要提前磨合什么？'),
-    q('相处边界', '我在这段关系里最需要建立什么边界？'),
-    q('关系取舍', '这段关系值得继续投入吗，我最该看清什么？'),
-  ] },
-  { key: 'matter-breakup', label: '冷战、分手与复合', icon: '合', description: '联系时机、复合条件与关系收尾', questions: [
-    q('冷战破冰', '现在适合主动打破冷战吗，怎样开口更合适？'),
-    q('分手原因', '这次分开的核心原因是什么，还有修复空间吗？'),
-    q('复合可能', '我们还有重新开始的可能吗，需要满足什么条件？'),
-    q('联系时机', '我应该现在联系对方，还是再给彼此一些时间？'),
-    q('对方近况', '对方目前对这段关系还保留怎样的态度？'),
-    q('旧人新缘', '我更适合等待旧关系，还是向新的缘分开放？'),
-    q('是否放下', '这段关系是否已经到了应该真正放下的时候？'),
-    q('体面收尾', '我应该怎样结束这段关系，减少反复和消耗？'),
-  ] },
-  { key: 'matter-career', label: '求职、工作与职场', icon: '业', description: '面试、入职、升迁、离职与职场关系', questions: [
-    q('求职机会', '我近期的求职机会怎样，应该重点投什么方向？'),
-    q('面试结果', '这次面试或考核的进展如何，我还应补足什么？'),
-    q('录用选择', '这份工作或录用机会适合我吗？'),
-    q('试用转正', '试用期能否顺利推进，我需要重点改善什么？'),
-    q('升职加薪', '近期适合争取升职、加薪或更大职责吗？'),
-    q('换岗调动', '我适合申请转岗、调动或改变职责吗？'),
-    q('离职时机', '我现在适合离职吗，怎样安排风险更小？', '辞职 裸辞 跳槽'),
-    q('裁员变动', '面对裁员、降薪或组织调整，我应该提前准备什么？', '失业 优化 劝退'),
-    q('工作选择', '稳定但普通的工作和更有风险的新机会，我该怎样取舍？'),
-    q('留下发展', '当前公司还有值得我继续积累的发展空间吗？'),
-    q('上下级关系', '我该怎样处理与领导、下属或同事的关系？'),
-    q('职场冲突', '眼前的职场冲突应该正面处理还是暂时回避？'),
-  ] },
-  { key: 'matter-retirement', label: '退休、返聘与人生转型', icon: '休', description: '退休时机、收入安排、生活重心与第二职业', questions: [
-    q('退休时机', '我现阶段适合按计划退休、延后退休，还是提前做过渡安排？'),
-    q('返聘选择', '这次返聘、顾问或兼职机会适合接受吗，边界应该怎样约定？'),
-    q('第二职业', '退休或离开原行业后，我适合发展怎样的第二职业？', '再就业 退休创业 顾问 兼职'),
-    q('收入衔接', '从工作收入转向养老金和储蓄后，我最需要先调整什么？'),
-    q('生活重心', '退休后的生活重心应该放在家庭、兴趣、社交还是继续工作？'),
-    q('退休居所', '退休后继续留在当前城市、回乡还是换一个地方生活更合适？'),
-    q('家庭协商', '退休安排会怎样影响伴侣与家人，哪些现实问题需要提前谈清楚？'),
-    q('照护准备', '进入退休阶段前，我应怎样准备健康管理、长期照护和紧急支持？'),
-  ] },
-  { key: 'matter-business', label: '创业、项目与经营', icon: '商', description: '立项、合伙、客户、团队与经营节奏', questions: [
-    q('是否创业', '我现在适合开始创业或独立经营吗？'),
-    q('项目立项', '这个项目值得立项推进吗，关键风险是什么？'),
-    q('项目成败', '当前项目的阻力在哪里，怎样提高落地机会？'),
-    q('合伙判断', '这个合伙人适合长期合作吗，权责应怎样划分？'),
-    q('客户合作', '这个客户或订单值得接吗，需要防范什么？'),
-    q('合同谈判', '这次商务谈判应该坚持什么、让步什么？'),
-    q('团队用人', '这个人适合加入团队或承担关键职位吗？'),
-    q('扩大经营', '现在适合扩店、扩团队或增加投入吗？'),
-    q('收缩转型', '当前业务应该继续、收缩还是转型？'),
-    q('产品发布', '这个产品或服务现在适合发布吗，应该先验证什么？'),
-    q('推广获客', '当前推广和获客的突破口可能在哪里？', '营销 流量 销售'),
-    q('开业选址', '这个开业时间和经营地点是否合适？'),
-  ] },
-  { key: 'matter-money', label: '收入、投资与交易', icon: '财', description: '收入、借贷、买卖、回款与风险控制', questions: [
-    q('收入机会', '我近期增加收入的机会主要来自哪里？'),
-    q('副业选择', '这项副业值得开始吗，适合怎样投入？'),
-    q('投资风险', '这项投资当前最大的风险是什么，我该怎样控制投入？'),
-    q('买入卖出', '这项资产现在更适合买入、持有还是退出？'),
-    q('借钱给人', '这笔钱适合借给对方吗，回收风险如何？'),
-    q('借款融资', '我现在适合借款、贷款或引入资金吗？'),
-    q('债务处理', '当前债务应该优先处理哪一部分？'),
-    q('回款到账', '这笔款项的回收会遇到什么阻力，如何推进？'),
-    q('大额消费', '这笔大额支出现在值得做吗？'),
-    q('交易签约', '这次买卖或交易适合成交吗，需要核对什么？'),
-  ] },
-  { key: 'matter-protection', label: '保险、社保与长期保障', icon: '保', description: '投保理赔、医保社保、养老金与家庭保障', questions: [
-    q('投保判断', '这份保险是否符合我的实际保障缺口，投保前最需要核对什么？'),
-    q('险种取舍', '面对几种保障方案，我应该优先覆盖哪类风险？', '医疗险 重疾险 意外险 寿险'),
-    q('理赔进展', '这次保险理赔可能卡在哪个环节，我应该补齐哪些现实材料？'),
-    q('医保社保', '当前医保、社保或灵活就业参保安排最需要先处理什么？'),
-    q('公积金安排', '这次公积金提取、贷款或账户转移应该怎样安排更稳妥？'),
-    q('养老储备', '现阶段的养老金和长期储蓄准备是否需要调整重点？'),
-    q('家庭保障', '家庭成员之间应该怎样分配保障预算和紧急备用金？'),
-    q('受益人安排', '保单受益人和家庭财务安排有哪些关系需要提前说明？'),
-  ] },
-  { key: 'matter-study', label: '学业、考试与进修', icon: '学', description: '择校、专业、考试、考证与深造', questions: [
-    q('专业选择', '我更适合选择哪个专业或学习方向？'),
-    q('择校判断', '这所学校或这个培养项目适合我吗？'),
-    q('考试趋势', '这次考试的准备状态如何，薄弱点在哪里？', '高考 中考 考研 考公 考编 考证 教资'),
-    q('复试面试', '复试、答辩或学业面试需要重点准备什么？'),
-    q('考证进修', '现在准备这项证书或进修计划时机合适吗？'),
-    q('升学深造', '我适合继续读研、读博或出国深造吗？'),
-    q('转学转专业', '我现在适合转学、转专业或改变研究方向吗？'),
-    q('导师合作', '我与导师或研究团队的合作该怎样推进？'),
-    q('学习瓶颈', '我目前学习效率低的关键原因是什么？'),
-  ] },
-  { key: 'matter-family', label: '父母、手足与家庭', icon: '家', description: '家庭沟通、照护、共同决定与亲属关系', questions: [
-    q('父母沟通', '我和父母之间当前最需要改善的沟通是什么？'),
-    q('手足关系', '我与兄弟姐妹的矛盾应该怎样处理？'),
-    q('亲属往来', '这段亲属关系应该亲近、保持距离还是重新协商边界？'),
-    q('家庭决定', '这项家庭共同决定怎样推进更稳妥？'),
-    q('婆媳姻亲', '我该怎样处理伴侣家庭或姻亲关系？'),
-    q('家庭分歧', '家人意见不一致时，我应该怎样促成共识？'),
-    q('家庭边界', '面对家人的期待和责任，我应该承担到什么程度？'),
-    q('家庭变动', '近期家庭结构、成员关系或共同生活会出现什么变化？'),
-  ] },
-  { key: 'matter-elder', label: '长辈、养老与家产', icon: '承', description: '长辈健康、照护安排、祖业继承与家庭资源', questions: [
-    q('长辈健康', '从传统盘面看，家中长辈近期更需要留意哪些健康与安全问题，现实中应先做哪些检查？'),
-    q('照护安排', '家中长辈的照护、陪诊与生活支持怎样协调更合适？'),
-    q('养老选择', '居家养老、与子女同住或机构照护，应该重点比较哪些现实条件？'),
-    q('重大治疗', '面对长辈的重大治疗与照护决定，家庭应该先统一哪些信息和底线？'),
-    q('临终准备', '当长辈进入生命末期或长期重病阶段，家人应怎样安排陪伴、照护与未尽事项？', '终末期 安宁疗护 后事'),
-    q('家庭财务', '这项家庭共同财务安排最需要先解决什么？'),
-    q('祖业家产', '祖业、房产或家庭资源应该怎样管理和延续更稳妥？'),
-    q('遗产分配', '涉及遗嘱、家产或继承协商时，我最需要注意什么？'),
-    q('家族责任', '这项家族责任应该由谁承担，怎样避免长期失衡？'),
-  ] },
-  { key: 'matter-children', label: '子女、备孕、孕产与教育', icon: '子', description: '子息缘、备孕孕产、亲子沟通与成长选择', questions: [
-    q('家庭准备', '我们现阶段适合开始准备迎接孩子吗？'),
-    q('生育决定', '我们是否适合在现阶段进入养育孩子的人生阶段？', '怀孕 要孩子 生育 二胎'),
-    q('子息缘分', '从传统术数角度看，我们当前的子息缘、主要阻力与可把握的条件是什么？', '子女缘 子嗣'),
-    q('备孕时机', '当前备孕计划处在怎样的节奏，哪些时间窗口更值得积极准备？'),
-    q('生育结果', '从传统盘面看，这次备孕计划的趋势、阻力与可能转折在哪里？'),
-    q('辅助生殖', '这次辅助生殖或医学助孕计划应怎样安排节奏、资源和心理准备？', '试管 人工授精 IVF'),
-    q('孕期关注', '当前孕期更需要重视哪些身心状态、家庭支持与现实检查？', '怀孕 保胎 产检'),
-    q('分娩安排', '临近分娩时，家庭、医疗与时间安排最需要提前准备什么？', '生产 剖腹产 顺产'),
-    q('再育选择', '我们现阶段适合准备二胎或继续扩大家庭吗，主要压力在哪里？', '二胎 三胎 再生育'),
-    q('子女数量象意', '传统盘面中的子女缘厚薄、数量象意与养育承载如何理解？', '几个孩子 子女数量'),
-    q('亲子关系', '我和孩子之间最需要改善的互动是什么？'),
-    q('教育方向', '孩子当前更需要培养哪方面能力？'),
-    q('学校选择', '这个学校、班级或教育环境适合孩子吗？'),
-    q('兴趣培养', '这项兴趣或特长值得孩子继续投入吗？'),
-    q('青春期沟通', '面对孩子当前的反抗或沉默，我该怎样沟通？'),
-    q('家庭分工', '围绕孩子的照护和教育，家庭分工怎样调整更好？'),
-  ] },
-  { key: 'matter-home', label: '租房、买房与居住', icon: '宅', description: '选房、搬家、装修、室友与居住环境', questions: [
-    q('买房时机', '我现在适合买房吗，应该优先考虑什么？'),
-    q('房源选择', '这个房源适合长期居住或持有吗？'),
-    q('卖房时机', '这套房现在适合出售吗，怎样安排更顺利？'),
-    q('租房判断', '这套出租房或租约适合签下吗？'),
-    q('搬家安排', '我近期适合搬家吗，怎样选择时间和方向？'),
-    q('装修动工', '这次装修或动工怎样安排更稳妥？'),
-    q('室友相处', '这位室友或合租安排是否合适？'),
-    q('邻里问题', '当前邻里或居住纠纷应该怎样处理？'),
-    q('空间调整', '我最需要先调整家中哪个空间或生活动线？'),
-  ] },
-  { key: 'matter-vehicle', label: '车辆、驾考与交通工具', icon: '车', description: '买卖车辆、驾考上路、维修事故与长途出行', questions: [
-    q('买车选择', '我现阶段适合买车吗，应该优先考虑预算、用途还是使用成本？'),
-    q('车辆判断', '这辆新车或二手车值得购买吗，现实中最需要检查什么？'),
-    q('卖车换车', '当前适合出售或更换车辆吗，怎样安排损失更小？'),
-    q('驾考安排', '这次驾考的准备重点在哪里，考试前怎样调整更稳？'),
-    q('新手上路', '我近期开始独立驾驶最需要注意哪些安全与心理问题？'),
-    q('维修取舍', '这辆车更适合继续维修、处理后出售还是直接更换？'),
-    q('事故处理', '发生交通事故后，我应先按什么顺序处理安全、证据、保险和沟通？'),
-    q('牌照过户', '这次上牌、过户、年检或手续办理会卡在哪里？'),
-    q('长途自驾', '这次长途自驾是否适合按原计划进行，应重点检查哪些车辆与路线条件？'),
-  ] },
-  { key: 'matter-travel', label: '出行、换城与远行', icon: '行', description: '旅行、差旅、迁居、留学与异地发展', questions: [
-    q('近期出行', '这次出行适合按原计划进行吗？'),
-    q('旅行时间', '这趟旅行现在出发合适，还是应该改期？'),
-    q('差旅任务', '这次出差能否达到目的，需要注意什么？'),
-    q('换城发展', '我适合去这座城市生活或工作吗？'),
-    q('长期定居', '这个地区适合我长期定居吗？'),
-    q('海外发展', '我现阶段适合留学、外派或海外发展吗？'),
-    q('同行关系', '这次和对方同行是否顺利，分工要注意什么？'),
-    q('行程变化', '面对行程延误或临时变化，我应该怎样调整？'),
-  ] },
-  { key: 'matter-social', label: '朋友、人际与合作', icon: '友', description: '友情、贵人、团队、信任与边界', questions: [
-    q('友情去留', '这段友情值得继续投入和维护吗？'),
-    q('重新和好', '我适合主动修复这段朋友关系吗？'),
-    q('对方可信度', '这个人是否值得信任，我需要观察哪些现实信号？'),
-    q('贵人机会', '近期谁或哪类关系可能给我带来帮助？'),
-    q('社交圈层', '我是否应该进入这个圈子或参加这项社交活动？'),
-    q('团队合作', '这个团队的合作前景怎样，我适合承担什么角色？'),
-    q('人情往来', '这次人情往来应该怎样把握分寸？'),
-    q('借物借钱', '对方提出的借物或借钱请求应该怎样处理？'),
-    q('关系边界', '面对这段消耗我的关系，我该怎样建立边界？'),
-  ] },
-  { key: 'matter-competition', label: '竞赛、竞标与竞争结果', icon: '竞', description: '比赛、评选、投标、竞聘与公开竞争', questions: [
-    q('比赛准备', '这次比赛或竞技活动的胜算和短板在哪里？'),
-    q('评选入围', '这次评选、申报或评奖我应该重点准备什么？'),
-    q('投标竞标', '这次投标或竞标值得投入吗，竞争关键在哪里？'),
-    q('竞聘岗位', '这次竞聘或内部选拔我应该怎样提高机会？'),
-    q('竞争对手', '面对当前竞争者，我应该正面竞争还是调整策略？'),
-    q('结果等待', '这项竞争结果尚未公布，我还可以补做什么？'),
-  ] },
-  { key: 'matter-creative', label: '创作、发布与个人影响力', icon: '创', description: '作品、内容、自媒体、曝光与个人品牌', questions: [
-    q('创作方向', '我现在最值得长期投入的创作方向是什么？'),
-    q('作品发布', '这件作品现在适合发布吗，还需要补足什么？'),
-    q('内容选题', '我接下来做什么内容更容易形成稳定积累？'),
-    q('自媒体发展', '这个自媒体或个人账号值得继续经营吗？'),
-    q('合作创作', '这次联合创作或内容合作适合推进吗？'),
-    q('公开表达', '我现在适合公开表达这个观点或经历吗？'),
-    q('个人品牌', '我应该怎样确立自己的专业形象和个人定位？'),
-  ] },
-  { key: 'matter-reputation', label: '名誉、舆情与公众形象', icon: '名', description: '公开表达、隐私泄露、争议回应与声誉修复', questions: [
-    q('名誉趋势', '这件事会怎样影响我的名誉、信用或公众评价？'),
-    q('公开回应', '面对当前争议，我适合公开回应、私下沟通还是暂时沉默？'),
-    q('舆情风险', '这次发布、直播或公开行动可能引发什么误读与舆情风险？'),
-    q('隐私泄露', '面对隐私泄露、偷拍视频或信息扩散，我应该先完成哪些现实止损？'),
-    q('举报投诉', '遭遇举报、投诉或平台处罚时，怎样准备证据和回应更稳妥？'),
-    q('谣言诽谤', '面对谣言、诽谤或恶意评价，我应该怎样判断回应边界？'),
-    q('信用修复', '当前受损的个人信用、职业评价或合作信任应怎样逐步修复？'),
-    q('危机公关', '这次公众形象危机的核心矛盾是什么，处理顺序应该怎样安排？'),
-  ] },
-  { key: 'matter-image', label: '外貌、改名与个人呈现', icon: '形', description: '形象调整、医美健身、姓名与对外风格', questions: [
-    q('形象调整', '我现阶段最值得调整的个人形象、穿搭或表达风格是什么？'),
-    q('减重塑形', '这次减重、增肌或体态改善计划怎样安排更容易长期坚持？'),
-    q('医美选择', '在确认医疗风险与资质后，这项医美或外形调整是否符合我的真实需求？'),
-    q('改名取名', '我现在是否有必要改名、使用艺名或调整常用称呼？'),
-    q('职业形象', '怎样的专业形象更符合我的优势并有利于当前发展？'),
-    q('上镜曝光', '近期适合拍摄、上镜、演出或进行重要公开展示吗？'),
-  ] },
-  { key: 'matter-wellbeing', label: '健康、疾病、治疗与恢复', icon: '养', description: '体质风险、检查治疗、康复与生活节奏', questions: [
-    q('近期状态', '我近期的身心状态最需要留意和调整什么？'),
-    q('寿元长短', '按传统术数的寿元判断，我的先天生命力、寿元长短倾向与影响寿元的关键因素是什么？请同时指出哪些部分不能只凭盘面确定。', '寿命 寿元 阳寿 长寿 夭寿'),
-    q('生命关口', '哪些年龄段或年份在传统盘面中属于健康与安全压力较高的生命关口，应提前做哪些现实检查和防护？', '生死关 大限 关煞'),
-    q('疾病倾向', '从传统术数角度看，我当前更容易出现哪些失衡或疾病风险，可能在哪些阶段显现？', '疾厄 病灶 患病'),
-    q('病情趋势', '这段健康问题目前处在怎样的发展阶段，我应优先完成哪些检查和现实处理？', '病情 好转 恶化'),
-    q('检查结果', '这次检查或复查前后最需要关注什么，后续恢复节奏如何？', '体检 化验 影像 复查'),
-    q('求医选择', '当前更适合继续原有诊疗、寻求第二意见，还是先补齐检查信息？', '医生 医院 转院'),
-    q('治疗取舍', '面对不同治疗方案，我应重点比较哪些现实条件、风险与承受能力？', '用药 治疗方案'),
-    q('手术时机', '在医生确认手术必要性的前提下，怎样安排手术与恢复节奏更稳妥？'),
-    q('康复转折', '当前康复过程的主要阻力、可能转折和需要长期坚持的部分是什么？'),
-    q('复发风险', '从传统节律看哪些阶段更需要防范旧疾反复，并提前做好医学随访？'),
-    q('压力来源', '我反复感到压力或疲惫的主要来源是什么？'),
-    q('情绪循环', '我为什么总在同一种情绪里反复，突破口在哪里？'),
-    q('作息习惯', '我当前最需要先改变哪项生活习惯？'),
-    q('休息恢复', '我现在更需要休息恢复，还是适度行动起来？'),
-    q('检查准备', '这次检查或就医前该怎样准备，重点关注哪些环节？'),
-    q('低谷应对', '我该怎样度过目前的低谷，先恢复哪一部分生活？'),
-    q('自我边界', '我怎样减少内耗，同时保持对现实负责？'),
-  ] },
-  { key: 'matter-safety', label: '灾关、安全与突发风险', icon: '安', description: '事故隐患、冲突风险、防骗与应急准备', questions: [
-    q('近期风险', '我近期是否处在更需要谨慎的阶段，最该排查哪些现实风险？', '灾关 劫数 关口'),
-    q('出行安全', '这次出行有哪些安全隐患需要提前规避，是否应调整路线或时间？'),
-    q('事故隐患', '当前生活、工作或居住环境中，哪类事故隐患最值得优先检查？'),
-    q('冲突升级', '眼前的矛盾是否有升级风险，我应怎样保护自己并减少正面冲突？'),
-    q('诈骗骗局', '这件事是否存在诈骗、隐瞒或诱导风险，我应核验哪些现实证据？', '被骗 资金盘 杀猪盘'),
-    q('财物损失', '近期怎样降低破财、盗损、遗失或错误付款的风险？'),
-    q('应急准备', '面对当前不确定情况，我最需要准备哪些备用方案、联系人和现实资源？'),
-  ] },
-  { key: 'matter-contract', label: '合同、手续与维权', icon: '契', description: '签约、审批、纠纷、证据与协商，不代替法律意见', questions: [
-    q('合同签署', '这份合同适合签吗，最需要核对哪些条款和风险？'),
-    q('手续审批', '这项申请、审批或手续会卡在哪里？'),
-    q('纠纷协商', '当前纠纷更适合协商、调解还是准备正式程序？'),
-    q('维权节奏', '在咨询专业人士的前提下，我该怎样安排维权步骤？'),
-    q('证据准备', '这件事最需要先保留和整理哪些现实证据？'),
-    q('投诉申诉', '这次投诉、申诉或复议应该怎样组织重点？'),
-    q('诉讼判断', '在获得法律意见后，这件事推进诉讼还需权衡什么？', '官司 起诉 应诉 仲裁'),
-    q('和解条件', '什么样的和解条件对我更稳妥？'),
-  ] },
-  { key: 'matter-admin', label: '证件、申请与行政事务', icon: '申', description: '签证、户籍、许可、申报、审核与办理进度', questions: [
-    q('签证申请', '这次签证或出入境申请最需要准备什么？', '护照 移民 留学签 工作签'),
-    q('户籍手续', '这项户籍、居住证或身份手续应该怎样推进？'),
-    q('资格许可', '这项资质、牌照或许可申请会卡在哪里？'),
-    q('材料审核', '这次材料审核最容易遗漏什么，我该怎样补足？'),
-    q('申报审批', '这项申报或审批近期会怎样推进？'),
-    q('申诉复核', '这次复核、申诉或重新申请应该调整什么？'),
-    q('办理时机', '这项手续现在办理合适，还是换一个时间更顺？'),
-  ] },
-  { key: 'matter-digital', label: '数码、账号与平台事务', icon: '网', description: '账号申诉、数据设备、网购纠纷与线上合作', questions: [
-    q('账号申诉', '账号被限制、封禁或误判后，我应该怎样准备材料并推进申诉？', '封号 限流 平台处罚'),
-    q('数据恢复', '面对文件、照片或聊天记录丢失，我应该先采取哪些安全的恢复措施？'),
-    q('设备更换', '这台手机、电脑或数码设备适合维修、升级还是更换？'),
-    q('网购纠纷', '这次网购、二手交易或平台纠纷应该怎样保留证据并推进处理？'),
-    q('线上合作', '这次远程合作、网络签约或线上接单值得推进吗，怎样明确交付边界？'),
-    q('隐私处置', '发现账号或个人信息可能泄露后，我应该先完成哪些止损和安全设置？'),
-    q('网络骗局', '这个链接、客服、投资或兼职信息是否可疑，我应核验哪些证据再行动？', '钓鱼 盗号 刷单 虚假客服'),
-    q('平台变现', '当前平台上的内容、店铺或服务适合继续投入并尝试变现吗？'),
-  ] },
-  { key: 'matter-timing', label: '日期、时机与行动安排', icon: '时', description: '婚礼、搬家、开业、签约与重要行动', questions: [
-    q('结婚领证', '结婚、领证或办婚礼应该怎样选择日期？'),
-    q('搬家入宅', '搬家或入宅应该怎样选择合适时间？'),
-    q('开业开张', '开业、开店或发布项目应该怎样择日？'),
-    q('签约交易', '签约、交割或重要交易哪段时间更合适？'),
-    q('出行启程', '远行、出差或启程应该怎样安排日期？'),
-    q('考试面试', '考试、面试或答辩前后怎样安排节奏更顺？'),
-    q('装修动工', '装修、动工或安装应该怎样选择时间？'),
-    q('重要会面', '谈判、表白或重要会面什么时候推进更合适？'),
-  ] },
-  { key: 'matter-daily', label: '日常琐事与即时决定', icon: '事', description: '联系、见面、购物、安排与临时变化', questions: [
-    q('今天提醒', '今天最值得留意的事情和行动提醒是什么？'),
-    q('是否联系', '我现在适合主动联系对方，还是再等一等？'),
-    q('是否见面', '今天或近期适合安排这场见面吗？'),
-    q('信息回复', '这条消息应该现在回复吗，语气要注意什么？'),
-    q('临时邀约', '这个临时邀约值得参加吗？'),
-    q('购买决定', '这件东西现在值得买吗，还是再等等？'),
-    q('退换处理', '这件商品更适合保留、退换还是转卖？'),
-    q('维修更换', '这个物品应该继续维修还是直接更换？'),
-    q('预约安排', '这个预约或办事时间是否合适？'),
-    q('临时变化', '面对突然出现的变化，我应该先做什么？'),
-    q('等待结果', '这件正在等待结果的事情近期会有怎样的进展？'),
-    q('今晚行动', '我今天剩下的时间最适合处理什么？'),
-  ] },
-  { key: 'matter-lost', label: '失物、宠物与寻找', icon: '寻', description: '寻找方向、行动顺序与现实线索', questions: [
-    q('寻找失物', '丢失的物品还有机会找回吗，应该先去哪里找？'),
-    q('失物方位', '这件失物可能在哪个方向或环境中？'),
-    q('寻找时机', '现在应该立刻寻找，还是等待线索出现？'),
-    q('宠物走失', '走失的宠物可能往哪里去，我应优先采取什么行动？'),
-    q('领养宠物', '这只宠物适合进入我的家庭吗，需要准备什么？'),
-    q('宠物照护', '近期怎样调整宠物的照护安排更稳妥？'),
-    q('联系失联者', '面对暂时失联的人，我该按什么顺序确认情况？'),
-    q('快递物件', '这件延误或遗失的快递该怎样推进处理？'),
-  ] },
-  { key: 'matter-tradition', label: '梦境、祈福与传统习俗', icon: '祈', description: '梦境象意、祭祖祈愿、还愿与民俗安排', questions: [
-    q('反复梦境', '这个反复出现的梦在传统象意与现实心理层面分别可能提醒什么？'),
-    q('异常梦象', '这个印象强烈的梦更像近期情绪、生活线索还是传统象意，我应怎样验证？'),
-    q('祈福许愿', '围绕当前愿望，我适合怎样安排祈福、许愿与现实行动？'),
-    q('还愿履愿', '这项还愿、履愿或答谢应该怎样安排才真诚且量力而行？'),
-    q('祭祖追思', '近期适合怎样安排祭祖、追思或家族纪念活动？'),
-    q('居所不安', '最近在居所中感到不安，我应先排查哪些环境、睡眠与安全因素，再怎样理解传统象意？'),
-    q('传统仪式', '这项传统仪式是否适合进行，怎样避免铺张、迷信消费或影响正常生活？'),
-    q('心灵方向', '我近期对宗教、玄学或修行的兴趣来自什么需求，适合怎样理性探索？'),
-  ] },
-];
-
-const natalInspirationGroups: InspirationGroup[] = [
-  { key: 'natal-overview', label: '完整命书', icon: '命', description: '从命局根基到一生运势的全景解读', questions: [
-    n('完整命书', '请为我完成一份完整命书', '命局主轴与承载、外貌性格与天赋、家庭六亲、学业事业与财富、田宅名望、婚恋子息、健康寿元、灾关官非、人际迁移、精神世界与晚年归宿，以及一生主要阶段和近期时间窗口', '综合 全盘 一生命运 人生总论 寿元 疾病 生育 灾关'),
-  ] },
-  { key: 'natal-structure', label: '命局结构', icon: '衡', description: '旺衰、喜忌、体用、格局与盘面骨架', questions: [
-    n('命局结构', '请完整解读我的命局结构', '核心力量的强弱与承载、整体流通和平衡、格局体用与喜忌、主导结构和辅助因素，以及这些结构对性格、事业、财富、关系和健康的影响', '旺衰 身强 身弱 喜忌 用神 十神 体用 格局 调候 宫位 星曜 相位'),
-  ] },
-  { key: 'natal-appearance', label: '外貌与气质', icon: '形', description: '体貌特征、气质辨识度、审美与年龄变化', questions: [
-    n('外貌与气质', '请完整解读我的外貌、气质与个人呈现', '体态轮廓、五官与神态、声音表达、第一印象、审美和穿搭倾向、可强化的形象优势，以及不同人生阶段的气质变化；区分稳定倾向与无法从盘面确认的细节', '外貌 长相 五官 身材 气质 形象 穿搭'),
-  ] },
-  { key: 'natal-character', label: '性格与天赋', icon: '性', description: '人格底色、能力优势、盲点与成长路线', questions: [
-    n('性格与天赋', '请完整解读我的性格、天赋与成长课题', '内在驱动力、思维情绪与沟通方式、决策和压力反应、稳定天赋与可迁移能力、容易过度使用的优势、认知和关系盲点，以及成长和环境选择', '性格 天赋 优势 盲点 成长 人格 能力'),
-  ] },
-  { key: 'natal-emotion', label: '情绪模式与心理韧性', icon: '心', description: '安全感、压力反应、内耗来源与恢复方式', questions: [
-    n('情绪模式与心理韧性', '请完整解读我的情绪模式、内在安全感与心理韧性', '情绪感受和表达方式、安全感来源、压力与冲突反应、反复内耗的触发条件、独处和关系中的恢复方式、可依赖的心理资源，以及容易失衡和逐渐成熟的阶段', '情绪 心理 安全感 内耗 焦虑 压力 韧性 恢复'),
-  ] },
-  { key: 'natal-creativity', label: '才艺、创作与表达能力', icon: '艺', description: '审美灵感、语言表演、作品路线与长期积累', questions: [
-    n('才艺、创作与表达能力', '请完整解读我的才艺、创作与表达能力', '审美和灵感来源、文字语言、音乐表演、视觉设计或手工实作等倾向，创作纪律、公开表达和被看见的方式，兴趣与职业化的边界，以及作品积累、突破和形成影响力的阶段', '才艺 艺术 创作 写作 音乐 表演 设计 表达 灵感 作品'),
-  ] },
-  { key: 'natal-family', label: '祖业、父母与家庭起点', icon: '亲', description: '家境根基、父母关系、祖业资源与早年塑造', questions: [
-    n('祖业、父母与家庭起点', '请完整解读我的祖业、父母与原生家庭', '家庭资源与文化氛围、祖业和迁徙背景、父母各自的角色及亲疏模式、早年支持和限制、代际影响、离家独立、继承分配与后续照护责任', '祖业 父母 家境 原生家庭 长辈 家族 祖荫'),
-  ] },
-  { key: 'natal-siblings', label: '手足与同辈关系', icon: '同', description: '兄弟姐妹、同辈竞争、互助与资源边界', questions: [
-    n('手足与同辈关系', '请完整解读我的手足、同辈与资源竞争', '兄弟姐妹或同辈缘分、亲疏互助和资源竞争、成年后的责任边界、利益协作与冲突条件，以及关系变化和共同事务的阶段', '兄弟 姐妹 手足 同辈 比劫 竞争 伙伴'),
-  ] },
-  { key: 'natal-study', label: '学历、考试与学习能力', icon: '学', description: '认知方式、学历层次、考试节奏与终身学习', questions: [
-    n('学历、考试与学习能力', '请完整解读我的学业、考试与学习路线', '理解、记忆、表达、研究、实作和应试能力，适合的学科与评价方式，学历和专业路线、师生关系、留学进修与证书积累，以及重要学习阶段和可验证的学习策略', '学业 学历 考试 高考 考研 读博 留学 专业 学习能力'),
-  ] },
-  { key: 'natal-career', label: '事业、权责与社会成就', icon: '业', description: '职业赛道、组织位置、权力责任与成就上限', questions: [
-    n('事业、权责与社会成就', '请完整解读我的事业格局与社会成就', '适合的行业、职能、组织和工作方式，技术、管理、顾问、创作、运营或自由职业的适配度，领导执行与资源整合能力，职位和成就条件，以及入行、升迁、跳槽、转型和收获阶段', '事业 职业 工作 行业 升迁 权力 地位 成就 官禄'),
-  ] },
-  { key: 'natal-career-fit', label: '适合行业与工作方式', icon: '职', description: '行业选择、岗位角色、组织环境与职业适配', questions: [
-    n('适合行业与工作方式', '请具体解读我适合的行业、岗位与工作方式', '更能发挥优势的行业属性和职能角色，适合技术、管理、销售、顾问、创作、运营或自由职业的条件，大组织与小团队、稳定路径与高变化环境的适配度，容易消耗的工作模式，以及择业和转型的验证标准', '适合行业 职业方向 岗位 工作方式 上班 创业 自由职业 转行'),
-  ] },
-  { key: 'natal-business', label: '创业、经营与合伙', icon: '商', description: '商业能力、经营模式、团队合伙与成败条件', questions: [
-    n('创业、经营与合伙', '请完整解读我的创业、经营与合伙格局', '适合承担的创业角色、产品和客户判断、获客品牌、现金流与成本纪律、团队和控制权、适合的经营模式、常见合伙及扩张风险，以及立项、融资、开业、转型和退出节奏', '创业 经商 生意 经营 合伙 公司 团队 商业模式'),
-  ] },
-  { key: 'natal-wealth', label: '财富与资产', icon: '财', description: '收入结构、守财能力、经营投资与积累周期', questions: [
-    n('财富与资产', '请完整解读我的财富结构与资产运势', '主要收入来源及稳定性、赚钱和守财方式、消费储蓄、现金流、杠杆借贷、共同财务与投资风险，以及收入增长、资产积累、债务压力、破财和收缩阶段', '财富 财运 收入 资产 投资 守财 财库 破财 现金流'),
-  ] },
-  { key: 'natal-wealth-style', label: '财库、守财与风险偏好', icon: '库', description: '财富留存、消费习惯、投资边界与破财条件', questions: [
-    n('财库、守财与风险偏好', '请具体解读我的财库、守财能力与风险偏好', '收入留存和现金流习惯、消费与储蓄驱动力、适合主动经营还是稳健积累、投资和杠杆的承受边界、共同财务及人情借贷风险、容易破财的情境，以及改善财富纪律和积累效率的阶段', '财库 守财 存钱 消费 投资 风险偏好 破财 借贷 现金流'),
-  ] },
-  { key: 'natal-property', label: '田宅、置业与家产', icon: '宅', description: '房产缘、居住环境、继承分配与不动产周期', questions: [
-    n('田宅、置业与家产', '请完整解读我的田宅、置业与家产运势', '稳定居所和不动产倾向、置业与持有方式、居住环境、家庭出资和共同产权、祖宅继承与分配争议，以及购置、出售、搬迁、装修和资产重组阶段', '田宅 房产 买房 卖房 置业 祖宅 家产 继承 居住'),
-  ] },
-  { key: 'natal-reputation', label: '名望、公众形象与评价', icon: '名', description: '社会声誉、曝光表达、口碑与影响力形成', questions: [
-    n('名望、公众形象与评价', '请完整解读我的名望、公众形象与社会评价', '在组织、行业和公众中的形象、被认可的方式、适合的表达与曝光路线、名望形成条件、隐私舆情和声誉风险，以及口碑增长、争议放大和形象修复阶段', '名望 名气 声誉 公众形象 影响力 成名 舆情 口碑'),
-  ] },
-  { key: 'natal-love', label: '婚恋与伴侣', icon: '缘', description: '情感模式、适配对象、婚缘节奏与婚后课题', questions: [
-    n('婚恋与伴侣', '请完整解读我的婚恋、伴侣与亲密关系', '吸引和依恋模式、情绪沟通与亲密边界、适配伴侣的性格及生活条件、短期吸引和长期适配、婚期婚后分工、家庭经济与异地影响，以及相识、承诺、危机、分合和再婚倾向', '婚恋 感情 伴侣 婚姻 桃花 配偶 夫妻宫 早婚 晚婚 离婚 再婚'),
-  ] },
-  { key: 'natal-partner-profile', label: '正缘画像与婚恋时机', icon: '侣', description: '对象特征、相识环境、关系识别与婚期窗口', questions: [
-    n('正缘画像与婚恋时机', '请具体解读我的适配伴侣、相识方式与婚恋时机', '长期适配对象的性格、价值观、生活方式和现实条件，容易相识的环境与关系路径，短期吸引和稳定关系的识别信号，关系中的互补与冲突，以及较适合相识、确认、结婚和重新选择的阶段', '正缘 配偶画像 对象特征 相识 桃花 婚期 结婚 早婚 晚婚'),
-  ] },
-  { key: 'natal-children', label: '生育、子息与传承', icon: '子', description: '子息缘、孕育节律、数量象意、亲子教育与传承', questions: [
-    n('生育、子息与传承', '请完整解读我的生育、子息与家庭传承', '子息缘和生育意愿、孕育承载与阻力、数量和性别的传统象意、晚育再育或收养等可能、备孕孕产的现实配合、亲子关系和教育方式，以及孕育养育和关系变化阶段', '子女 子息 生育 怀孕 备孕 数量 性别 晚育 流产 亲子 传承'),
-  ] },
-  { key: 'natal-health', label: '疾厄、体质与疾病风险', icon: '疾', description: '易感系统、疾病象意、情绪身心与恢复能力', questions: [
-    n('疾厄、体质与疾病风险', '请完整解读我的体质、疾厄与疾病风险', '先天体质与恢复倾向、主要和次要易感系统、慢性急性、外伤手术、睡眠情绪与压力反应，以及容易失衡、反复和恢复的阶段与现实检查方向', '健康 疾病 病灶 体质 脏腑 慢性病 手术 心理 疾厄'),
-  ] },
-  { key: 'natal-lifestyle', label: '饮食、作息与生活方式', icon: '养', description: '精力节律、饮食睡眠、运动习惯与环境调整', questions: [
-    n('饮食、作息与生活方式', '请完整解读适合我的饮食、作息与生活方式', '精力高低和恢复节律、饮食偏好与容易失衡的习惯、睡眠压力、运动和体重管理、工作休息边界、适合的居住及自然环境，以及不同年龄阶段需要优先调整的生活方式；不替代医学诊断和营养建议', '饮食 作息 睡眠 运动 生活习惯 养生 精力 体重 环境'),
-  ] },
-  { key: 'natal-longevity', label: '寿元与生命节律', icon: '寿', description: '生命力、寿元层次、健康承载与关键关口', questions: [
-    n('寿元与生命节律', '请按传统体系完整解读我的寿元与生命节律', '先天生命力、恢复力与寿元层次的传统倾向，童年到晚年的生命节律，健康和安全压力较高的阶段、保护因素和可调整条件；资料不足时不确定具体死亡年龄', '寿命 寿元 阳寿 长寿 短寿 夭寿 生死关 生命力'),
-  ] },
-  { key: 'natal-safety', label: '灾关、意外与高风险阶段', icon: '安', description: '伤灾事故、手术冲突、破财官非与风险窗口', questions: [
-    n('灾关、意外与高风险阶段', '请完整解读我的灾关、意外与高风险阶段', '外伤手术、交通、水火电器、运动高处、冲突、工作事故、被骗盗损和突发破财等传统风险象意，区分低频高损、日常可控与纯象征，并给出高风险阶段、触发条件、保护因素和现实防护', '灾关 意外 事故 伤灾 手术 车关 水火 破财 劫数'),
-  ] },
-  { key: 'natal-legal', label: '官非、口舌与规则风险', icon: '法', description: '合同诉讼、权力冲突、是非争议与守法边界', questions: [
-    n('官非、口舌与规则风险', '请完整解读我的官非、口舌与规则风险', '与制度、权威、合同和组织规则的互动，误会口舌、劳动合同、税务合规、知识产权、投诉处罚、诉讼仲裁和权力冲突的风险场景，以及易发、协商和解决阶段', '官非 官司 诉讼 口舌 纠纷 合同 举报 处罚 法律'),
-  ] },
-  { key: 'natal-social', label: '人际、贵人与合作', icon: '交', description: '社交圈层、贵人小人、合作角色与利益边界', questions: [
-    n('人际、贵人与合作', '请完整解读我的人际、贵人与合作格局', '社交需求、信任沟通与人情边界，贵人和消耗型关系的特征，团队中的适合角色、授权协商、利益分配、朋友借贷与长期合作风险，以及圈层变化和合作成败阶段', '人际 贵人 小人 合作 团队 社交 朋友 圈层 信任'),
-  ] },
-  { key: 'natal-support-network', label: '贵人、小人与关键人脉', icon: '助', description: '助力来源、消耗型关系、识人边界与合作年份', questions: [
-    n('贵人、小人与关键人脉', '请具体解读我的贵人、小人与关键人脉', '容易提供机会、资源或保护的贵人特征和相识场景，消耗型、竞争型或失信关系的识别信号，自己在关系中的盲点，适合的社交圈层与合作边界，以及贵人出现、关系洗牌和合作风险较高的阶段', '贵人 小人 人脉 圈层 朋友 合作 助力 背叛 识人'),
-  ] },
-  { key: 'natal-migration', label: '迁移、海外与环境适配', icon: '迁', description: '离乡发展、城市选择、远行海外与安居条件', questions: [
-    n('迁移、海外与环境适配', '请完整解读我的迁移、异地与环境发展', '留乡、换城、跨区域、留学外派或海外发展的适配条件，迁移对事业、财富、关系和身心的影响，不同城市环境与生活节奏的选择，以及远行、搬迁、定居和回流阶段', '迁移 换城 异地 海外 留学 移民 外派 定居 环境 驿马'),
-  ] },
-  { key: 'natal-location-fit', label: '适合城市、方位与气候', icon: '方', description: '地域属性、生活节奏、气候环境与长期定居', questions: [
-    n('适合城市、方位与气候', '请具体解读我适合的城市、方位与生活环境', '更适配的地域属性、城市规模、产业结构、生活节奏、气候湿燥寒热和自然环境，留乡与离乡、内陆与沿海、国内与海外的现实取舍，环境对事业关系和身心的影响，以及迁居和定居的有利阶段', '城市 方位 地域 气候 沿海 内陆 南方 北方 定居 环境'),
-  ] },
-  { key: 'natal-spiritual', label: '精神世界与玄学缘分', icon: '玄', description: '直觉梦境、信仰修行、艺术灵感与内在安顿', questions: [
-    n('精神世界与玄学缘分', '请完整解读我的精神世界、信仰与玄学缘分', '直觉梦境、想象和艺术感受，独处与意义追问，对宗教哲学、传统文化、心理学或术数的亲近方式，洞察和焦虑投射的区别，以及适合的学习边界和精神转折阶段', '玄学 宗教 信仰 修行 灵性 梦境 直觉 华盖 偏印'),
-  ] },
-  { key: 'natal-fortune', label: '福德、享受与生活品质', icon: '福', description: '满足感、福分承载、休闲方式与精神富足', questions: [
-    n('福德、享受与生活品质', '请完整解读我的福德、满足感与生活品质', '感受幸福和放松的方式、物质享受与精神满足的平衡、兴趣休闲和独处能力、获得支持与承接好运的条件、容易空耗或过度追逐的部分，以及生活品质提升、内在安定和福分积累的阶段', '福德 福气 享受 幸福感 生活品质 兴趣 休闲 精神富足'),
-  ] },
-  { key: 'natal-later-life', label: '晚年、养老与人生收束', icon: '归', description: '晚景质量、养老资源、子女支持与精神归宿', questions: [
-    n('晚年、养老与人生收束', '请完整解读我的晚年、养老与人生归宿', '中晚年的物质和居住基础、伴侣子女与社交支持、健康照护和自主能力、适合的生活形态、孤独与代际边界，以及退休转换、资产收束、养老地点、照护预案和传承安排', '晚年 晚景 养老 退休 归宿 子女照护 遗嘱 传承'),
-  ] },
-  { key: 'natal-retirement', label: '退休转型与第二人生', icon: '休', description: '退出职场、角色转换、第二事业与生活重建', questions: [
-    n('退休转型与第二人生', '请完整解读我的退休转型与第二人生', '适合离开主职或降低工作强度的条件，退休前后的身份和收入转换，返聘、顾问、兴趣事业或公益参与的适配度，伴侣家庭和社交关系的重新分配，以及退休准备、第二成长和生活稳定的阶段', '退休 返聘 第二职业 第二人生 顾问 兴趣事业 生活转型'),
-  ] },
-  { key: 'natal-timing', label: '关键年份与重要应期', icon: '期', description: '人生转折、事件触发、验证线索与提前准备', questions: [
-    n('关键年份与重要应期', '请梳理我的关键年份、人生转折与重要应期', '学业、事业、财富、婚恋、家庭、迁移和健康安全等领域的重要阶段，事件被触发的盘面条件、前兆与现实验证线索，区分机会窗口、压力测试和结果落地，并重点说明已经历阶段、当前阶段和未来可准备的年份', '关键年份 应期 转折点 大事 时间节点 过去验证 未来阶段'),
-  ] },
-  { key: 'natal-decadal', label: '大运与人生阶段', icon: '运', description: '十年周期、阶段主线、转折与资源变化', questions: [
-    n('大运与人生阶段', '请完整解读我的大运与人生阶段', '每一主要人生周期的核心主题、身份和资源变化，事业财富、关系家庭、健康安全与迁移重点，起步、上升、转换、压力、收获和休整阶段，并详解当前与下一阶段的转折和行动重点', '大运 十年运 人生阶段 转折 起伏 当前大运 下一大运'),
-  ] },
-  { key: 'natal-annual', label: '流年与近期运势', icon: '年', description: '当年主题、未来趋势、关键月份与行动窗口', questions: [
-    n('流年与近期运势', '请完整解读我的流年与近期运势', '今年的核心主题、机会压力和行动顺序，事业财富、关系家庭、健康安全、人际迁移等领域，明年及未来三年的承接关系，以及未来十二个月适合推进、沟通、签约、修复、检查和谨慎决策的窗口', '流年 今年 明年 未来三年 流月 近期运势 时间窗口'),
-  ] },
-];
-const inspirationLibraries: Record<InspirationMode, InspirationGroup[]> = {
-  matter: matterInspirationGroups,
-  natal: natalInspirationGroups,
-};
+function ensureInspirationLibrary() {
+  if (inspirationLibraries.matter.length && inspirationLibraries.natal.length) return Promise.resolve();
+  if (!inspirationLibraryPromise) {
+    inspirationLibraryPromise = import('./lib/inspirationLibrary').then((module) => {
+      inspirationLibraries = module.inspirationLibraries;
+    }).catch((error) => {
+      inspirationLibraryPromise = null;
+      throw error;
+    });
+  }
+  return inspirationLibraryPromise;
+}
 
 function createCase(id = 'default-case', label = '时月', isDefault = true): CaseProfile {
   return {
@@ -939,6 +660,12 @@ function createNewCaseDraft(): CaseProfile {
   };
 }
 
+function caseNeedsLocationRuntime(raw: Partial<CaseProfile>) {
+  const legacyKey = raw.regionKey || '';
+  if (legacyKey === 'tokyo' || legacyKey === 'singapore' || raw.provinceId === 'overseas') return false;
+  return !(raw.provinceId && raw.cityId && raw.regionId && raw.locationName && raw.latitude && raw.longitude);
+}
+
 function hydrateCase(raw: Partial<CaseProfile>, index = 0): CaseProfile {
   const storedTimeBasis = normalizeStoredTimeBasis(raw.timeBasis);
   const profile: CaseProfile = {
@@ -957,6 +684,7 @@ function hydrateCase(raw: Partial<CaseProfile>, index = 0): CaseProfile {
     profile.timeBasis = storedTimeBasis;
     return profile;
   }
+  if (!caseNeedsLocationRuntime(raw)) return profile;
   const regionId = raw.regionId
     || (/^\d{2,6}$/.test(legacyKey) ? legacyKey : '')
     || legacyRegionIds[legacyKey]
@@ -969,7 +697,8 @@ function hydrateCase(raw: Partial<CaseProfile>, index = 0): CaseProfile {
   return profile;
 }
 
-const initialAlmanacMonth = getDefaultAlmanacMonth();
+const initialAlmanacDate = new Date();
+const initialAlmanacMonth = `${initialAlmanacDate.getFullYear()}-${String(initialAlmanacDate.getMonth() + 1).padStart(2, '0')}`;
 
 const activeView = ref<AppView>('tools');
 const activeSettingsSection = ref<SettingsSection>('preferences');
@@ -1170,6 +899,7 @@ let availableWebVersion = '';
 let prepareWebUpdate: (() => Promise<void>) | null = null;
 let toastTimer: number | undefined;
 let basicAiFallbackCopyTimer: number | undefined;
+let cancelHomePreviewWarmup: (() => void) | undefined;
 interface RunningAiTask {
   id: string;
   recordId: string | null;
@@ -1364,7 +1094,12 @@ const baziWuxingElements: Record<string, string> = {
 const baziHeavenlyStems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 const baziEarthlyBranches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 // 底层保留全部神煞，再由当前页面的常用名单统一决定展示范围，避免重复筛选。
-const baziShenShaCalculator = new ShenShaCalculator({ scope: 'all' });
+let baziShenShaCalculator: InstanceType<BaziRuntime['ShenShaCalculator']> | null = null;
+
+function getBaziShenShaCalculator() {
+  if (!baziShenShaCalculator) baziShenShaCalculator = new (requireBaziRuntime().ShenShaCalculator)({ scope: 'all' });
+  return baziShenShaCalculator;
+}
 const commonBaziShensha = [
   '天乙贵人', '天德贵人', '月德贵人', '太极贵人', '文昌贵人', '国印贵人', '福星贵人',
   '天官贵人', '天印贵人', '天福贵人', '天厨贵人', '文星贵', '德秀贵人', '金舆', '词馆', '学馆',
@@ -1703,7 +1438,7 @@ function calculateBaziKongWang(gan: string, zhi: string) {
 function calculateBaziFortuneShensha(result: BaziChartResult, gan: string, zhi: string) {
   if (!baziStemElements[gan] || !baziBranchElements[zhi]) return [];
   try {
-    const shensha = baziShenShaCalculator.calculateAllShenSha([
+    const shensha = getBaziShenShaCalculator().calculateAllShenSha([
       [result.pillars.year.gan, result.pillars.year.zhi],
       [result.pillars.month.gan, result.pillars.month.zhi],
       [result.pillars.day.gan, result.pillars.day.zhi],
@@ -1739,7 +1474,7 @@ function baziGanTenGodShort(ganZhi: string, dayMaster: string) {
 
 function baziZhiTenGodShort(ganZhi: string, dayMaster: string) {
   const zhi = ganZhi.slice(1, 2);
-  const mainHiddenStem = BRANCH_HIDDEN_STEMS[zhi]?.[0] || '';
+  const mainHiddenStem = requireBaziRuntime().BRANCH_HIDDEN_STEMS[zhi]?.[0] || '';
   return mainHiddenStem ? shortBaziTenGod(getTenGod(mainHiddenStem, dayMaster)) : '—';
 }
 
@@ -1787,7 +1522,7 @@ const baziTraditionalColumns = computed<BaziTraditionalColumn[]>(() => {
     const gan = ganZhi[0] || '';
     const zhi = ganZhi[1] || '';
     const validGanZhi = Boolean(baziStemElements[gan] && baziBranchElements[zhi]);
-    const hiddenStems = validGanZhi ? BRANCH_HIDDEN_STEMS[zhi] || [] : [];
+    const hiddenStems = validGanZhi ? requireBaziRuntime().BRANCH_HIDDEN_STEMS[zhi] || [] : [];
     return {
       key,
       label,
@@ -2094,14 +1829,18 @@ function restoreAiKeys() {
   onboardingAiChannelId.value = appPreferences.activeAiChannelId;
 }
 
-function restoreCases() {
+async function restoreCases() {
   try {
     const storedCases = parseLocalStorageJson<CaseProfile[]>(localStorage, 'shiyue-cases');
     if (Array.isArray(storedCases) && storedCases.length) {
+      if (storedCases.some(caseNeedsLocationRuntime)) await ensureLocationRuntime();
       cases.value = storedCases.map((item, index) => hydrateCase(item, index));
     } else if (!localStorage.getItem('shiyue-cases')) {
       const oldBirth = parseLocalStorageJson<Partial<BirthForm>>(localStorage, 'guangxing-birth');
-      if (oldBirth) cases.value = [hydrateCase({ ...oldBirth, timeBasis: 'clock', isDefault: true }, 0)];
+      if (oldBirth) {
+        await ensureLocationRuntime();
+        cases.value = [hydrateCase({ ...oldBirth, timeBasis: 'clock', isDefault: true }, 0)];
+      }
     }
   } catch {
     cases.value = [];
@@ -2177,7 +1916,7 @@ onMounted(() => {
   }
   restorePreferences();
   restoreAiKeys();
-  restoreCases();
+  void restoreCases();
   restoreHistory();
   try {
     const legacyHistory = localStorage.getItem(LEGACY_HISTORY_STORAGE_KEY);
@@ -2208,7 +1947,10 @@ onMounted(() => {
   }
   // 页面每次启动都创建空白会话；历史只保留在记录页，不恢复到聊天输入区。
   leaveChat();
-  void refreshHomeFortunePreview();
+  cancelHomePreviewWarmup = scheduleAfterPageLoad(() => void refreshHomeFortunePreview(), {
+    delayMs: 1_500,
+    idleTimeoutMs: 5_000,
+  });
 });
 
 onBeforeUnmount(() => {
@@ -2218,6 +1960,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('shiyue:web-update', handleWebUpdate);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
+  cancelHomePreviewWarmup?.();
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
   if (basicAiFallbackCopyTimer !== undefined) window.clearTimeout(basicAiFallbackCopyTimer);
 });
@@ -2841,9 +2584,7 @@ async function resolveAgentSelection(questionText: string) {
     const activeTool = appPreferences.displayLevel === 'basic'
       ? undefined
       : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value;
-    const immediateSelection = getImmediateActiveDivinationSelection(questionText, activeTool, chatMessages.value.length > 0);
-    if (immediateSelection) return immediateSelection;
-    const selection = await requestAgentToolSelection({
+    const selectionPayload = {
       question: questionText,
       hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
       inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
@@ -2852,7 +2593,12 @@ async function resolveAgentSelection(questionText: string) {
       castingPreference: appPreferences.castingPreference,
       conversation,
       aiConfig: activeAiRequestConfig.value,
-    }, controller.signal);
+    };
+    const localSelection = getLocalAgentSelection(selectionPayload);
+    if (localSelection) return localSelection;
+    const immediateSelection = getImmediateActiveDivinationSelection(questionText, activeTool, chatMessages.value.length > 0);
+    if (immediateSelection) return immediateSelection;
+    const selection = await requestAgentToolSelection(selectionPayload, controller.signal);
     if (sessionId !== chatSessionId || controller.signal.aborted) throw new DOMException('会话已结束', 'AbortError');
     return selection;
   } finally {
@@ -2927,7 +2673,15 @@ function closeNavigationOverlays() {
   if (!showOnboarding.value) closeBirthPicker();
 }
 
-function goView(view: AppView, options: { preservePageState?: boolean } = {}) {
+async function goView(view: AppView, options: { preservePageState?: boolean } = {}) {
+  if (view === 'almanac' || view === 'settings') {
+    try {
+      await ensureAlmanacRuntime();
+    } catch {
+      showToast('黄历数据加载失败，请检查网络后重试。');
+      return;
+    }
+  }
   const previousView = activeView.value;
   const changedView = previousView !== view;
   const fallbackQuestionToRestore = view === 'tools' && restoreBasicAiFallbackQuestionOnHome.value
@@ -3250,7 +3004,13 @@ function toggleInspirationGroup(key: string) {
     : [...expandedInspirationGroups.value, key];
 }
 
-function openInspirationModal() {
+async function openInspirationModal() {
+  try {
+    await ensureInspirationLibrary();
+  } catch {
+    showToast('问题灵感加载失败，请检查网络后重试。');
+    return;
+  }
   showInspirationModal.value = true;
   showToolPicker.value = false;
   inspirationMode.value = homeMode.value === 'chart' ? 'natal' : 'matter';
@@ -3392,8 +3152,16 @@ function updateHuangjiYear(event: Event) {
   formError.value = '';
 }
 
-function chooseChart(kind: ChartKind) {
+async function chooseChart(kind: ChartKind) {
   showBaziColumnSettings.value = false;
+  if (kind === 'bazi') {
+    try {
+      await ensureBaziRuntime();
+    } catch {
+      showToast('八字排盘加载失败，请检查网络后重试。');
+      return;
+    }
+  }
   chartKind.value = kind;
   const cached = currentCase.value?.date && currentCase.value?.time ? getCachedChart(kind, currentCase.value) : null;
   if (cached) {
@@ -3484,8 +3252,8 @@ const externalRegions = [
 
 function selectableProvinceOptions(profile: CaseProfile) {
   return profile.provinceId === 'overseas'
-    ? [...provinceOptions, { id: 'overseas', label: '海外常用' }]
-    : provinceOptions;
+    ? [...provinceOptions.value, { id: 'overseas', label: '海外常用' }]
+    : provinceOptions.value;
 }
 
 function cityOptionsFor(profile: CaseProfile): ReadonlyArray<{ id: string; label: string }> {
@@ -3733,7 +3501,15 @@ function birthPickerFieldValue(kind: BirthPickerKind, profile: CaseProfile) {
   return profile.locationName || '请选择';
 }
 
-function openBirthPicker(kind: BirthPickerKind, target: BirthPickerTarget) {
+async function openBirthPicker(kind: BirthPickerKind, target: BirthPickerTarget) {
+  if (kind === 'region') {
+    try {
+      await ensureLocationRuntime();
+    } catch {
+      showToast('地区数据加载失败，请检查网络后重试。');
+      return;
+    }
+  }
   const profile = profileForBirthPicker(target);
   birthPicker.kind = kind;
   birthPicker.target = target;
@@ -4141,6 +3917,7 @@ async function completeDivination(
   sessionId = chatSessionId,
 ) {
   if (sessionId !== chatSessionId) return;
+  if (kind === 'bazi') await ensureBaziRuntime();
   const createdAt = Date.now();
   const record: ReadingRecord = {
     id: `${createdAt}-${Math.random().toString(16).slice(2)}`,
@@ -4280,7 +4057,7 @@ async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
       data: result.chart,
       prompt: [
         request.reading?.prompt,
-        formatDailyHexagramAiContext(result, dateLabel),
+        (await import('./lib/dailyHexagram')).formatDailyHexagramAiContext(result, dateLabel),
       ].filter((item): item is string => Boolean(item)).join('\n\n'),
     };
     await requestInterpretation(request, false, chatSessionId, null);
@@ -4440,6 +4217,7 @@ async function beginReading() {
   if (usingBasicFallbackSelection) forcedBasicAgentSelection.value = null;
 
   if (selectedKind.value === 'almanac') {
+    await ensureAlmanacRuntime();
     settings.almanacTopic = inferAlmanacTopic(userQuestion);
     almanacMode.value = activeAlmanacProfile.value ? 'personal' : 'general';
     almanacMonth.value = getDefaultAlmanacMonth();
@@ -4512,6 +4290,7 @@ function astrolabeTargetDate(fortune?: AgentAstrolabeFortune | null) {
 
 async function calculateChart(kind: ChartKind, birth: CaseProfile, options: AgentChartCalculationOptions = {}): Promise<ReadingResult> {
   if (kind === 'ziwei') return await runZiweiChart(birth, options.ziweiFortune || { scope: 'full' });
+  if (kind === 'bazi') await ensureBaziRuntime();
   const result = await runDivination(kind, new Date(), birth);
   if (kind === 'astrolabe' && isAstrolabe(result)) {
     const { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } = await import('mingyu-core/divination/astrolabe-scope');
@@ -4544,6 +4323,7 @@ async function calculateUncachedChart(kind: ChartKind, birth: CaseProfile, optio
 }
 
 async function calculateCachedChart(kind: ChartKind, birth: CaseProfile) {
+  if (kind === 'bazi') await ensureBaziRuntime();
   const cached = getCachedChart(kind, birth);
   if (cached) return { result: cached.result, createdAt: cached.createdAt };
   const result = await calculateChart(kind, birth);
@@ -4727,6 +4507,15 @@ async function runChart(shouldRecord = true) {
   }
   const kind = chartKind.value as ChartKind;
   const profile: CaseProfile = { ...currentCase.value };
+  if (kind === 'bazi') {
+    try {
+      await ensureBaziRuntime();
+    } catch {
+      chartLoading.value = false;
+      chartError.value = '八字排盘加载失败，请检查网络后重试。';
+      return;
+    }
+  }
   const cached = getCachedChart(kind, profile);
   if (cached) {
     applyChartResult(kind, cached.result, cached.createdAt);
@@ -4942,11 +4731,19 @@ function restoredHistoryInterpretationError(record: HistoryRecordEntry) {
 }
 
 async function openRecord(record: HistoryRecordEntry) {
-  showHistory.value = false;
   if (isLegacyHistoryRecord(record)) {
+    showHistory.value = false;
     selectedLegacyHistory.value = record;
     return;
   }
+  try {
+    if (record.kind === 'almanac') await ensureAlmanacRuntime();
+    if (record.kind === 'bazi' || record.relatedResults?.some((item) => item.kind === 'bazi')) await ensureBaziRuntime();
+  } catch {
+    showToast('记录所需数据加载失败，请检查网络后重试。');
+    return;
+  }
+  showHistory.value = false;
   if (record.compatibility) {
     goView('compatibility');
     compatibilityHistoryRecord.value = record;

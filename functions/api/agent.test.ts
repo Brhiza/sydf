@@ -198,8 +198,10 @@ describe('0 基础 Agent 工具调用', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('自定义渠道不支持工具调用时不会调用内置渠道', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ choices: [{ message: { content: '普通文本' } }] }));
+  it('自定义渠道不支持工具调用时改用同一渠道的 JSON 路由', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: '普通文本' } }] }))
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: '{"name":"cast_meihua","arguments":{}}' } }] }));
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await onRequestPost({
@@ -214,8 +216,11 @@ describe('0 基础 Agent 工具调用', () => {
       env: {},
     });
 
-    expect(response.status).toBe(502);
-    expect(fetchMock.mock.calls.filter(([url]) => url === 'https://custom.example/v1/chat/completions')).toHaveLength(1);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'meihua' } });
+    expect(fetchMock.mock.calls.filter(([url]) => url === 'https://custom.example/v1/chat/completions')).toHaveLength(2);
     expect(fetchMock.mock.calls.some(([url]) => url === 'https://primary.example/v1/chat/completions')).toBe(false);
+    const fallbackBody = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body)) as Record<string, unknown>;
+    expect(fallbackBody).not.toHaveProperty('tools');
   });
 });

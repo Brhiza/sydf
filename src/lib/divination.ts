@@ -1,6 +1,5 @@
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import { LunarUtil, resolveTrueSolarBirthTime } from 'mingyu-core/calendar';
-import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import type { QizhengResult } from 'mingyu-core/qizheng';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
@@ -289,6 +288,7 @@ export async function runDivination(
     case 'almanac': {
       const startDate = options.almanacStartDate ?? toDateOnly(now);
       const endDate = options.almanacEndDate ?? toDateOnly(addDays(new Date(`${startDate}T12:00:00`), 6));
+      const { generateAlmanacSelection } = await import('mingyu-core/divination/almanac');
       return generateAlmanacSelection({ topic: options.almanacTopic ?? 'study', startDate, endDate });
     }
     case 'bazi': {
