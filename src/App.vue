@@ -894,7 +894,6 @@ const toastMessage = ref('');
 const pwaUpdateAvailable = ref(false);
 const showPwaUpdateDialog = ref(false);
 const isApplyingPwaUpdate = ref(false);
-let applyPwaUpdate: ((reloadPage?: boolean) => Promise<void>) | null = null;
 let availableWebVersion = '';
 let prepareWebUpdate: (() => Promise<void>) | null = null;
 let toastTimer: number | undefined;
@@ -1864,9 +1863,9 @@ function restoreHistory() {
 }
 
 function handlePwaUpdate(event: Event) {
-  const update = (event as CustomEvent<{ updateSW?: (reloadPage?: boolean) => Promise<void> }>).detail?.updateSW;
-  if (!update) return;
-  applyPwaUpdate = update;
+  const prepareUpdate = (event as CustomEvent<{ prepareUpdate?: () => Promise<void> }>).detail?.prepareUpdate;
+  if (!prepareUpdate) return;
+  prepareWebUpdate = prepareUpdate;
   pwaUpdateAvailable.value = true;
   showPwaUpdateDialog.value = false;
 }
@@ -1887,8 +1886,8 @@ async function refreshToPwaUpdate() {
   if (isApplyingPwaUpdate.value) return;
   isApplyingPwaUpdate.value = true;
   try {
-    if (applyPwaUpdate) await applyPwaUpdate(false);
-    else if (prepareWebUpdate) await prepareWebUpdate();
+    if (!prepareWebUpdate) throw new Error('update preparation is unavailable');
+    await prepareWebUpdate();
     window.location.replace(buildUpdateReloadUrl(window.location, availableWebVersion));
   } catch {
     isApplyingPwaUpdate.value = false;
@@ -6059,7 +6058,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
       <div v-if="pwaUpdateAvailable && !showPwaUpdateDialog" class="pwa-update-bar" role="status" aria-live="polite">
         <span>新版本可用</span>
-        <UiButton size="small" :loading="isApplyingPwaUpdate" @click="showPwaUpdateDialog = true">立即更新</UiButton>
+        <UiButton size="small" :loading="isApplyingPwaUpdate" @click="refreshToPwaUpdate">立即更新</UiButton>
       </div>
 
     </div>
