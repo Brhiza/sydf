@@ -163,7 +163,7 @@ const THEME_STORAGE_KEY = 'shiyue-divination-theme-v1';
 const THEME_ROOT = '/divination-themes';
 const SHARED_ASSET_ROOT = '/divination-assets';
 // 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
-export const DIVINATION_THEME_ASSET_VERSION = '20260817-performance-v2';
+export const DIVINATION_THEME_ASSET_VERSION = '20260817-performance-v3';
 
 function isThemeId(value: unknown): value is DivinationThemeId {
   return DIVINATION_THEMES.some(theme => theme.id === value);
@@ -210,6 +210,7 @@ export function setDivinationTheme(themeId: DivinationThemeId) {
   } catch {
     // 浏览器禁用本地存储时，主题仍在当前页面会话中生效。
   }
+  window.dispatchEvent(new CustomEvent('shiyue:divination-theme-change', { detail: { themeId } }));
 }
 
 syncDocumentTheme(activeDivinationThemeId.value);

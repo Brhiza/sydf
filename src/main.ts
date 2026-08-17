@@ -74,3 +74,13 @@ if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
   delayMs: 1_200,
   idleTimeoutMs: 5_000,
 });
+
+if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
+  void import('./lib/cardImageCache').then(({ startCardImageCacheWarmup }) => {
+    startCardImageCacheWarmup();
+  });
+}, {
+  // 先让页面、PWA 和用户操作稳定下来，再以单请求低优先级补齐牌面缓存。
+  delayMs: 6_000,
+  idleTimeoutMs: 12_000,
+});

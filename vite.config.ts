@@ -108,11 +108,11 @@ export default defineConfig(({ mode }) => {
             // 图片地址自带独立素材版本，同一版本命中缓存后无需重复请求。
             handler: 'CacheFirst',
             options: {
-              cacheName: 'shiyue-divination-theme-images-v5',
+              cacheName: 'shiyue-divination-theme-images-v6',
               cacheableResponse: { statuses: [0, 200] },
               expiration: {
-                // 可覆盖两套完整塔罗和常用牌阵，仍限制移动设备的长期占用。
-                maxEntries: 256,
+                // 可覆盖三套主题的全部牌面；实际只会按当前主题在后台逐步补齐。
+                maxEntries: 1_024,
                 maxAgeSeconds: 60 * 60 * 24 * 90,
               },
             },
