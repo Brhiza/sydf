@@ -158,7 +158,6 @@ onBeforeUnmount(() => {
       <header class="oracle-intro">
         <div class="oracle-portrait"><img src="/ssgw.webp" alt="三山国王神像" /></div>
         <section class="temple-entry">
-          <span>三山国王庙</span>
           <UiButton variant="secondary" @click="showTemple = true"><Flame :size="16" />进庙上香</UiButton>
         </section>
         <span>三山国王九十二签</span>
@@ -285,8 +284,7 @@ onBeforeUnmount(() => {
 .oracle-ai-markdown :deep(> :first-child) { margin-top: 0; }
 .oracle-ai-markdown :deep(> :last-child) { margin-bottom: 0; }
 .oracle-ai p.error { color: var(--plum); }
-.temple-entry { align-items: center; display: flex; justify-content: space-between; margin-top: 17px; width: min(100%, 560px); }
-.temple-entry > span { color: var(--muted); font-size: 11px; letter-spacing: .1em; }
+.temple-entry { align-items: center; display: flex; justify-content: center; margin-top: 17px; width: min(100%, 560px); }
 .temple-entry :deep(.ui-button--secondary) { border-color: color-mix(in srgb, var(--gold) 38%, var(--line)); color: var(--gold); }
 .temple-entry :deep(.ui-button--secondary:hover:not(:disabled)) { background: color-mix(in srgb, var(--gold) 12%, var(--surface-muted)); border-color: color-mix(in srgb, var(--gold) 60%, var(--line)); color: var(--ink); }
 @media (max-width: 720px) {
