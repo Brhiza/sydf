@@ -17,6 +17,19 @@
 /startup-recovery.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+/manifest.webmanifest
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/api/recover.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/api/recovery-bridge.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /404.html
   Cache-Control: no-cache, no-store, must-revalidate
 

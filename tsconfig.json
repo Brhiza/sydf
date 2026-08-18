@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "vite-plugin-pwa/client"]
+    "types": ["vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "functions/**/*.ts", "vite.config.ts"]
 }

@@ -3,20 +3,28 @@
 
   var STORAGE_KEY = 'shiyue:startup-recovery';
   var RECOVERY_WINDOW_MS = 10 * 60 * 1000;
-  var MAX_AUTOMATIC_ATTEMPTS = 3;
+  var MAX_AUTOMATIC_ATTEMPTS = 2;
   var CLEANUP_TIMEOUT_MS = 4 * 1000;
-  var NETWORK_RECOVERY_TIMEOUT_MS = 8 * 1000;
+  var RECOVERY_BRIDGE = 'https://sydf.pages.dev/api/recover.html';
   var recovering = false;
+
+  function queryAttempt() {
+    try {
+      return Math.max(0, Number(new URL(location.href).searchParams.get('__recoveryAttempt')) || 0);
+    } catch (_) {
+      return 0;
+    }
+  }
 
   function readState() {
     try {
       var value = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
       if (!value || typeof value.at !== 'number' || Date.now() - value.at > RECOVERY_WINDOW_MS) {
-        return { attempts: 0, at: Date.now() };
+        return { attempts: queryAttempt(), at: Date.now() };
       }
-      return { attempts: Number(value.attempts) || 0, at: value.at };
+      return { attempts: Math.max(Number(value.attempts) || 0, queryAttempt()), at: value.at };
     } catch (_) {
-      return { attempts: 0, at: Date.now() };
+      return { attempts: queryAttempt(), at: Date.now() };
     }
   }
 
@@ -24,7 +32,7 @@
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (_) {
-      // 隐私模式禁用会话存储时仍可完成当前一次恢复。
+      // 隐私模式禁用会话存储时，地址中的次数仍能阻止自动循环。
     }
   }
 
@@ -101,14 +109,6 @@
     }
   }
 
-  function recoveryUrl() {
-    var url = new URL(location.href);
-    // 旧版本号只用于触发一次更新，恢复时移除，避免问题链接被继续传播。
-    url.searchParams.delete('__update');
-    url.searchParams.set('__recover', String(Date.now()));
-    return url;
-  }
-
   function withTimeout(promise, timeoutMs) {
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () { reject(new Error('recovery timeout')); }, timeoutMs);
@@ -122,63 +122,57 @@
     });
   }
 
-  async function fetchFreshShell(url) {
-    var response = await withTimeout(fetch(url.toString(), {
-      cache: 'no-store',
-      headers: { Accept: 'text/html' },
-    }), NETWORK_RECOVERY_TIMEOUT_MS);
-    if (!response.ok) throw new Error('fresh shell request failed');
-    var contentType = response.headers.get('content-type') || '';
-    if (contentType.indexOf('text/html') < 0) throw new Error('fresh shell is not html');
-    var html = await response.text();
-    if (html.indexOf('id="app"') < 0 || !/\/assets\/app-[^"']+\.js/.test(html)) {
-      throw new Error('fresh shell is invalid');
+  function recoveryUrl(attempt) {
+    var current = new URL(location.href);
+    if (current.protocol === 'https:' && (current.hostname === 'sydf.cc' || current.hostname === 'www.sydf.cc')) {
+      var bridge = new URL(RECOVERY_BRIDGE);
+      bridge.searchParams.set('v', String(Date.now()));
+      bridge.searchParams.set('attempt', String(attempt));
+      return bridge;
     }
-    return html;
-  }
-
-  async function restartFromNetwork() {
-    var url = recoveryUrl();
-    try {
-      // 先确认网络上已有完整的新页面壳，再执行一次真正的页面导航。
-      // document.write 会让当前页面继续受旧 SW 控制，模块脚本仍可能从旧缓存读取并再次触发恢复。
-      await fetchFreshShell(url);
-      location.replace(url.toString());
-    } catch (_) {
-      // 网络较差时仍保留带随机参数的导航兜底，让浏览器自己的错误页提供重试机会。
-      location.replace(url.toString());
-    }
+    current.searchParams.delete('__update');
+    current.searchParams.delete('__recovered');
+    current.searchParams.set('__recoveryAttempt', String(attempt));
+    return current;
   }
 
   async function recover(force) {
     if (recovering) return;
     recovering = true;
-    var state = readState();
+    var state = force ? { attempts: 0, at: Date.now() } : readState();
     if (!force && state.attempts >= MAX_AUTOMATIC_ATTEMPTS) {
       renderMessage('页面资源更新未完成，请重新加载。', true);
       recovering = false;
       return;
     }
-    writeState({ attempts: state.attempts + 1, at: state.at });
+    var attempt = state.attempts + 1;
+    writeState({ attempts: attempt, at: state.at });
     renderMessage('正在恢复最新版本…', false);
     await withTimeout(clearBrokenAppState(), CLEANUP_TIMEOUT_MS).catch(function () {});
-    await restartFromNetwork();
+    location.replace(recoveryUrl(attempt).toString());
   }
 
   window.addEventListener('error', function (event) {
-    if (isAssetLoadError(event)) void recover();
+    if (isAssetLoadError(event)) void recover(false);
   }, true);
   window.addEventListener('unhandledrejection', function (event) {
-    if (isDynamicImportError(event.reason)) void recover();
+    if (isDynamicImportError(event.reason)) void recover(false);
   });
 
   window.__SHIYUE_STARTUP_RECOVERY__ = {
     markReady: function () {
       clearState();
       var url = new URL(location.href);
-      if (!url.searchParams.has('__recover')) return;
-      url.searchParams.delete('__recover');
-      history.replaceState(history.state, '', url.toString());
+      var changed = false;
+      ['__update', '__recover', '__recovered', '__recoveryAttempt'].forEach(function (name) {
+        if (!url.searchParams.has(name)) return;
+        url.searchParams.delete(name);
+        changed = true;
+      });
+      if (changed) history.replaceState(history.state, '', url.toString());
     },
   };
+
+  // 新版脚本即使由旧页面壳加载，也会主动完成一次迁移，不等资源先报错。
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) void recover(false);
 })();
