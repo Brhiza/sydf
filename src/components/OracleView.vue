@@ -45,10 +45,35 @@ const cupAnimating = ref(false);
 const showStoredResult = ref(true);
 const ritualVersion = ref(0);
 const showTemple = ref(false);
+const shakeVideoFailed = ref(false);
+
+let shakeAnimationTimer: number | undefined;
+let resolveShakeAnimation: (() => void) | undefined;
 
 const displayResult = computed(() => completedResult.value || (phase.value === 'idle' && showStoredResult.value ? props.result || null : null));
 const latestThrow = computed(() => throws.value.at(-1));
 const canThrow = computed(() => phase.value === 'drawn' && !cupAnimating.value);
+
+function finishShakeAnimation() {
+  if (shakeAnimationTimer !== undefined) window.clearTimeout(shakeAnimationTimer);
+  shakeAnimationTimer = undefined;
+  resolveShakeAnimation?.();
+  resolveShakeAnimation = undefined;
+}
+
+function waitForShakeAnimation() {
+  finishShakeAnimation();
+  return new Promise<void>((resolve) => {
+    resolveShakeAnimation = resolve;
+    shakeAnimationTimer = window.setTimeout(finishShakeAnimation, 5_800);
+  });
+}
+
+function handleShakeVideoError() {
+  shakeVideoFailed.value = true;
+  if (shakeAnimationTimer !== undefined) window.clearTimeout(shakeAnimationTimer);
+  shakeAnimationTimer = window.setTimeout(finishShakeAnimation, 3_600);
+}
 
 watch(() => props.initialQuestion, (value) => {
   if (!value) return;
@@ -67,9 +92,10 @@ async function drawSign() {
   completedResult.value = null;
   cupSamples.value = [];
   throws.value = [];
+  shakeVideoFailed.value = false;
   const [nextPreview] = await Promise.all([
     previewInteractiveSsgw(signSample.value),
-    new Promise((resolve) => window.setTimeout(resolve, 3_600)),
+    waitForShakeAnimation(),
   ]);
   if (ritualVersion.value !== currentRitual) return;
   preview.value = nextPreview;
@@ -81,6 +107,7 @@ async function beginOracleCasting() {
   try {
     await drawSign();
   } catch (error) {
+    finishShakeAnimation();
     phase.value = 'idle';
     oracleError.value = error instanceof Error ? error.message : '求签没有完成。';
   }
@@ -101,7 +128,7 @@ function consecutiveYinCount(nextThrows: SsgwRitualThrow[]) {
   return count;
 }
 
-function cupImage(face?: '阳面' | '阴面') {
+function cupImage(face: '阳面' | '阴面') {
   return getShengbeiImageUrl(face === '阳面' ? 'yang' : 'yin');
 }
 
@@ -136,6 +163,7 @@ async function throwCups() {
 
 function resetRitual(clearQuestion = true) {
   ritualVersion.value += 1;
+  finishShakeAnimation();
   phase.value = 'idle';
   signSample.value = null;
   cupSamples.value = [];
@@ -149,6 +177,7 @@ function resetRitual(clearQuestion = true) {
 
 onBeforeUnmount(() => {
   ritualVersion.value += 1;
+  finishShakeAnimation();
 });
 </script>
 
@@ -174,7 +203,10 @@ onBeforeUnmount(() => {
 
     <UiWorkspaceSurface v-else-if="phase === 'drawing' || phase === 'drawn' || phase === 'confirming' || phase === 'rejected'" class="oracle-workspace oracle-ritual" padding="standard" aria-live="polite">
       <div v-if="phase === 'drawing'" class="sign-casting-stage">
-        <div class="sign-vessel" aria-hidden="true">
+        <video v-if="!shakeVideoFailed" class="shake-video" autoplay muted playsinline preload="auto" aria-hidden="true" @ended="finishShakeAnimation" @error="handleShakeVideoError">
+          <source src="/divination-assets/ritual/fortune-shake.webm" type="video/webm" />
+        </video>
+        <div v-else class="sign-vessel" aria-hidden="true">
           <img v-for="index in 7" :key="index" class="sign-in-vessel" :class="`sign-in-vessel--${index}`" src="/divination-assets/temple/fortune-stick.png" alt="" />
           <img class="sign-rising" src="/divination-assets/temple/fortune-stick.png" alt="" />
           <img class="sign-cylinder" src="/divination-assets/temple/fortune-cylinder.png" alt="" />
@@ -193,8 +225,8 @@ onBeforeUnmount(() => {
 
         <div class="cup-heading"><strong>{{ latestThrow ? `第 ${throws.length} 次 · ${latestThrow.result}` : '请掷圣杯确认此签' }}</strong><small>{{ throws.length }} / 12</small></div>
         <div class="cup-stage" :class="{ throwing: cupAnimating }">
-          <figure><img :src="cupImage(latestThrow?.firstFace)" alt="第一枚筊杯" /><figcaption>{{ latestThrow?.firstFace || '第一杯' }}</figcaption></figure>
-          <figure><img :src="cupImage(latestThrow?.secondFace)" alt="第二枚筊杯" /><figcaption>{{ latestThrow?.secondFace || '第二杯' }}</figcaption></figure>
+          <figure><img :src="cupImage(latestThrow?.firstFace ?? '阳面')" alt="第一枚筊杯" /></figure>
+          <figure><img :src="cupImage(latestThrow?.secondFace ?? '阴面')" alt="第二枚筊杯" /></figure>
         </div>
         <div v-if="throws.length" class="cup-history"><span v-for="(item, index) in throws" :key="index" :class="{ sacred: item.result === '圣杯' }">{{ index + 1 }} · {{ item.result }}</span></div>
         <p v-if="phase === 'confirming'" class="oracle-confirming">圣杯已成，稍候奉请签文</p>
@@ -239,6 +271,7 @@ onBeforeUnmount(() => {
 .sign-casting-stage { align-items: center; display: flex; flex-direction: column; min-height: 450px; justify-content: center; }
 .sign-casting-stage > strong { color: var(--ink); font-family: 'STKaiti', 'KaiTi', serif; font-size: 18px; font-weight: 600; letter-spacing: .1em; margin-top: 8px; }
 .sign-casting-stage > small { color: var(--muted); font-size: 11px; letter-spacing: .06em; margin-top: 5px; }
+.shake-video { display: block; height: 390px; max-width: 100%; object-fit: contain; width: 360px; }
 .sign-vessel { height: 330px; isolation: isolate; position: relative; width: 260px; }
 .sign-cylinder { animation: sign-cylinder-shake .18s ease-in-out 9 alternate; bottom: 0; filter: drop-shadow(0 15px 18px rgba(68, 18, 17, .25)); height: 300px; left: 50%; object-fit: contain; position: absolute; transform: translateX(-50%); width: 220px; z-index: 3; }
 .sign-in-vessel { animation: sign-bundle-shake .22s ease-in-out 8 alternate; height: 215px; left: 50%; object-fit: contain; position: absolute; top: -58px; transform: translateX(-50%) translateX(var(--stick-x)) rotate(var(--stick-angle)); transform-origin: 50% 100%; width: 72px; z-index: 2; }
@@ -276,9 +309,10 @@ onBeforeUnmount(() => {
 .cup-heading small { color: var(--subtle); font-size: 11px; position: absolute; right: 0; }
 .cup-stage { align-items: center; display: flex; gap: 8px; justify-content: center; min-height: 172px; overflow: hidden; }
 .cup-stage figure { margin: 0; text-align: center; width: 40%; }
+.cup-stage figure:first-child { transform: translateX(72px); }
+.cup-stage figure:nth-child(2) { transform: translateX(-72px); }
 .cup-stage img { height: 105px; max-width: 100%; object-fit: contain; transition: transform .25s; }
-.cup-stage figure:nth-child(2) img { transform: scaleX(-1) rotate(4deg); }
-.cup-stage figcaption { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.cup-stage figure:nth-child(2) img { transform: scaleX(-1) rotate(4deg) scale(1.16); }
 .cup-stage.throwing img { animation: cup-throw .46s ease-in-out; }
 .cup-stage.throwing figure:nth-child(2) img { animation-delay: .04s; }
 @keyframes cup-throw { 0% { transform: translateY(0) rotate(0); } 45% { transform: translateY(-38px) rotate(150deg); } 100% { transform: translateY(0) rotate(360deg); } }
@@ -309,6 +343,7 @@ onBeforeUnmount(() => {
   .oracle-question :deep(.ui-text-field__control) { min-height: 82px; }
   .oracle-ritual { margin-top: 2vh; }
   .sign-casting-stage { min-height: 370px; }
+  .shake-video { height: 310px; width: 285px; }
   .sign-vessel { height: 285px; width: 220px; }
   .sign-cylinder { height: 260px; width: 190px; }
   .sign-in-vessel { height: 160px; top: -10px; width: 54px; }
@@ -317,6 +352,8 @@ onBeforeUnmount(() => {
   .drawn-sign > strong { font-size: 47px; }
   .cup-heading { margin-top: 19px; padding-top: 16px; }
   .cup-stage { min-height: 148px; }
+  .cup-stage figure:first-child { transform: translateX(42px); }
+  .cup-stage figure:nth-child(2) { transform: translateX(-42px); }
   .cup-stage img { height: 88px; }
   .oracle-result-head { margin-bottom: 10px; min-height: 32px; }
   .temple-entry { margin-top: 13px; }
