@@ -90,7 +90,7 @@ describe('启动资源恢复', () => {
     expect(context.deleteCache).not.toHaveBeenCalledWith('shiyue-divination-theme-images-v6');
     const reloadUrl = new URL(String(context.replace.mock.calls[0]?.[0]));
     expect(reloadUrl.origin).toBe('https://sydf.pages.dev');
-    expect(reloadUrl.pathname).toBe('/api/recover.html');
+    expect(reloadUrl.pathname).toBe('/api/recover');
     expect(reloadUrl.searchParams.get('attempt')).toBe('1');
   });
 

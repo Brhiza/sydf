@@ -5,7 +5,7 @@
   var RECOVERY_WINDOW_MS = 10 * 60 * 1000;
   var MAX_AUTOMATIC_ATTEMPTS = 2;
   var CLEANUP_TIMEOUT_MS = 4 * 1000;
-  var RECOVERY_BRIDGE = 'https://sydf.pages.dev/api/recover.html';
+  var RECOVERY_BRIDGE = 'https://sydf.pages.dev/api/recover';
   var recovering = false;
 
   function queryAttempt() {
