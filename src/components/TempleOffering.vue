@@ -95,7 +95,14 @@ const burnEndsAt = ref(0);
 const currentTime = ref(Date.now());
 const placedOfferingKeys = ref<string[]>([]);
 const ceremonyMessage = ref('');
+const templeScene = ref<HTMLElement | null>(null);
+const incenseBundle = ref<HTMLElement | null>(null);
+const incenseHolding = ref(false);
+const incenseDragOffset = ref({ x: 0, y: 0 });
 let timerId: number | undefined;
+let incensePointerId: number | null = null;
+let incenseDragStart = { clientX: 0, clientY: 0, offsetX: 0, offsetY: 0 };
+let incenseDragBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
 const activeIncense = computed(() => incenseOptions.find((item) => item.key === selectedIncense.value) || incenseOptions[0]);
 const placedOfferings = computed(() => placedOfferingKeys.value
@@ -111,6 +118,9 @@ const burnCutPercent = computed(() => burnProgress.value * activeIncense.value.b
 const incenseVisualStyle = computed(() => ({
   '--burn-cut': `${burnCutPercent.value}%`,
 } as CSSProperties));
+const incenseBundleStyle = computed(() => ({
+  transform: `translate3d(${incenseDragOffset.value.x}px, ${incenseDragOffset.value.y}px, 0)`,
+}));
 const burnHeadStyle = computed(() => ({
   top: `${burnCutPercent.value}%`,
 }));
@@ -146,6 +156,64 @@ function lightIncense() {
 function refreshSmokeParticle(stickIndex: number, particleIndex: number) {
   if (!incenseLit.value) return;
   smokeParticles.value[stickIndex][particleIndex] = createSmokeParticle(stickIndex, particleIndex);
+}
+
+function startIncenseHold(event: PointerEvent) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const scene = templeScene.value;
+  const handle = event.currentTarget as HTMLElement;
+  if (!scene) return;
+
+  const sceneRect = scene.getBoundingClientRect();
+  const handleRect = handle.getBoundingClientRect();
+  let offset = incenseDragOffset.value;
+  if (incenseBundle.value) {
+    const matrix = new DOMMatrixReadOnly(window.getComputedStyle(incenseBundle.value).transform);
+    offset = { x: matrix.m41, y: matrix.m42 };
+    incenseDragOffset.value = offset;
+  }
+  const restLeft = handleRect.left - offset.x;
+  const restRight = handleRect.right - offset.x;
+  const restTop = handleRect.top - offset.y;
+  const restBottom = handleRect.bottom - offset.y;
+  const edgePadding = 6;
+
+  incenseDragBounds = {
+    minX: sceneRect.left + edgePadding - restLeft,
+    maxX: sceneRect.right - edgePadding - restRight,
+    minY: sceneRect.top + edgePadding - restTop,
+    maxY: sceneRect.bottom - edgePadding - restBottom,
+  };
+  incenseDragStart = {
+    clientX: event.clientX,
+    clientY: event.clientY,
+    offsetX: offset.x,
+    offsetY: offset.y,
+  };
+  incensePointerId = event.pointerId;
+  incenseHolding.value = true;
+  handle.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function moveHeldIncense(event: PointerEvent) {
+  if (!incenseHolding.value || incensePointerId !== event.pointerId) return;
+  const nextX = incenseDragStart.offsetX + event.clientX - incenseDragStart.clientX;
+  const nextY = incenseDragStart.offsetY + event.clientY - incenseDragStart.clientY;
+  incenseDragOffset.value = {
+    x: Math.min(incenseDragBounds.maxX, Math.max(incenseDragBounds.minX, nextX)),
+    y: Math.min(incenseDragBounds.maxY, Math.max(incenseDragBounds.minY, nextY)),
+  };
+  event.preventDefault();
+}
+
+function releaseHeldIncense(event: PointerEvent) {
+  if (incensePointerId !== event.pointerId) return;
+  const handle = event.currentTarget as HTMLElement;
+  incensePointerId = null;
+  incenseHolding.value = false;
+  incenseDragOffset.value = { x: 0, y: 0 };
+  if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
 }
 
 function persistBurnState() {
@@ -280,7 +348,7 @@ onBeforeUnmount(() => {
         <button type="button" aria-label="离开庙堂" title="离开庙堂" @click="emit('close')"><X :size="19" /></button>
       </header>
 
-      <div class="temple-scene" aria-label="三山国王庙供桌">
+      <div ref="templeScene" class="temple-scene" aria-label="三山国王庙供桌">
         <div class="temple-lantern-glow temple-lantern-glow--left"></div>
         <div class="temple-lantern-glow temple-lantern-glow--right"></div>
         <img class="temple-deities" src="/ssgw.webp" alt="三山国王神像" />
@@ -299,24 +367,43 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="temple-incense" :class="[`is-${selectedIncense}`, { 'is-lit': incenseLit }]">
-          <div v-for="index in 3" :key="index" class="temple-incense-stick" :class="`temple-incense-stick--${index}`">
-            <div class="temple-burning-stick" :style="incenseVisualStyle">
-              <img class="temple-incense-art" :src="activeIncense.image" :alt="index === 1 ? `三支${activeIncense.label}` : ''" />
-              <div v-if="incenseLit" class="temple-burn-head" :style="burnHeadStyle" aria-hidden="true">
-                <span class="temple-ash-cap"></span>
-                <span class="temple-ember"></span>
-                <span v-if="showIgnitionFlame" class="temple-flame"></span>
-                <span
-                  v-for="(particle, particleIndex) in smokeParticles[index - 1]"
-                  :key="particle.id"
-                  class="temple-smoke-particle"
-                  :style="particle.style"
-                  aria-hidden="true"
-                  @animationiteration="refreshSmokeParticle(index - 1, particleIndex)"
-                ></span>
-                <span class="temple-ash-fall temple-ash-fall--one"></span>
+          <div
+            ref="incenseBundle"
+            class="temple-incense-bundle"
+            :class="{ 'is-holding': incenseHolding }"
+            :style="incenseBundleStyle"
+          >
+            <div v-for="index in 3" :key="index" class="temple-incense-stick" :class="`temple-incense-stick--${index}`">
+              <div class="temple-burning-stick" :style="incenseVisualStyle">
+                <img class="temple-incense-art" :src="activeIncense.image" :alt="index === 1 ? `三支${activeIncense.label}` : ''" draggable="false" />
+                <div v-if="incenseLit" class="temple-burn-head" :style="burnHeadStyle" aria-hidden="true">
+                  <span class="temple-ash-cap"></span>
+                  <span class="temple-ember"></span>
+                  <span v-if="showIgnitionFlame" class="temple-flame"></span>
+                  <span
+                    v-for="(particle, particleIndex) in smokeParticles[index - 1]"
+                    :key="particle.id"
+                    class="temple-smoke-particle"
+                    :style="particle.style"
+                    aria-hidden="true"
+                    @animationiteration="refreshSmokeParticle(index - 1, particleIndex)"
+                  ></span>
+                  <span class="temple-ash-fall temple-ash-fall--one"></span>
+                </div>
               </div>
             </div>
+            <div
+              class="temple-incense-handle"
+              role="button"
+              tabindex="0"
+              aria-label="按住拖动三支香"
+              title="按住拖动三支香"
+              @pointerdown="startIncenseHold"
+              @pointermove="moveHeldIncense"
+              @pointerup="releaseHeldIncense"
+              @pointercancel="releaseHeldIncense"
+              @lostpointercapture="releaseHeldIncense"
+            ></div>
           </div>
           <img class="temple-burner" src="/divination-assets/temple/incense-burner.png" alt="香炉" />
         </div>
@@ -385,10 +472,15 @@ onBeforeUnmount(() => {
 .temple-lantern-glow--left { left: 2%; }
 .temple-lantern-glow--right { right: 2%; }
 .temple-altar { height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 2; }
-.temple-deities { border: 2px solid rgba(221, 170, 69, .78); box-shadow: 0 0 28px rgba(215, 86, 24, .4); height: 29%; left: 50%; object-fit: cover; object-position: center 35%; position: absolute; top: 24%; transform: translateX(-50%); width: 45%; z-index: 3; }
+.temple-deities { border: 2px solid rgba(221, 170, 69, .78); box-shadow: 0 0 28px rgba(215, 86, 24, .4); height: 29%; left: 50%; object-fit: cover; object-position: center 35%; position: absolute; top: 24%; transform: translateX(-50%); width: 45%; z-index: 7; }
 .temple-offerings { inset: 0; position: absolute; z-index: 4; }
 .temple-offering-art { bottom: var(--offering-bottom); filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: var(--offering-height); object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, bottom .3s ease, height .3s ease, opacity .2s ease, transform .3s ease; width: 14%; z-index: var(--offering-z); }
 .temple-incense { inset: 0; pointer-events: none; position: absolute; z-index: 6; }
+.temple-incense-bundle { inset: 0; pointer-events: none; position: absolute; transition: transform .48s cubic-bezier(.2, .88, .25, 1.12); will-change: transform; z-index: 4; }
+.temple-incense-bundle.is-holding { transition: none; }
+.temple-incense-handle { background: transparent; bottom: 16%; cursor: grab; height: 25.5%; left: 42%; outline: none; pointer-events: auto; position: absolute; touch-action: none; width: 16%; z-index: 9; }
+.temple-incense-handle:active { cursor: grabbing; }
+.temple-incense-handle:focus-visible { border: 1px solid rgba(255, 222, 147, .62); border-radius: 45% 45% 12px 12px; box-shadow: 0 0 0 3px rgba(255, 191, 78, .12); }
 .temple-incense-stick { --ash-delay: 0s; --insert-cut: 13.7%; bottom: 16%; height: 25.5%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 15%; z-index: 4; }
 .temple-incense-stick::after { background: rgba(49, 27, 16, .58); border-radius: 50%; bottom: calc(var(--insert-cut) - 1px); box-shadow: 0 1px 2px rgba(236, 218, 183, .28); content: ''; height: 3px; left: 50%; position: absolute; transform: translateX(-50%); width: 6px; z-index: 6; }
 .temple-incense-stick--1 { left: 48.7%; --ash-delay: 0s; --stick-angle: -1.8deg; }
@@ -480,6 +572,7 @@ onBeforeUnmount(() => {
   .offering-sprite { height: 31px; width: 40px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .temple-incense-bundle { transition-duration: .01ms; }
   .temple-flame, .temple-smoke-particle, .temple-ember, .temple-ash-cap, .temple-ash-fall { animation: none; }
   .temple-smoke-particle { opacity: .22; transform: translate(-50%, -16px); }
 }
