@@ -33,14 +33,14 @@ const incenseOptions: IncenseOption[] = [
 ];
 
 const offeringOptions: OfferingOption[] = [
-  { key: 'apple', label: '苹果', image: '/divination-assets/temple/offerings/apple.png' },
-  { key: 'orange', label: '柑橘', image: '/divination-assets/temple/offerings/orange.png' },
-  { key: 'banana', label: '香蕉', image: '/divination-assets/temple/offerings/banana.png' },
-  { key: 'peach', label: '寿桃', image: '/divination-assets/temple/offerings/peach.png' },
-  { key: 'tea', label: '清茶', image: '/divination-assets/temple/offerings/tea.png' },
-  { key: 'rice', label: '白饭', image: '/divination-assets/temple/offerings/rice.png' },
-  { key: 'pastry', label: '糕点', image: '/divination-assets/temple/offerings/pastry.png' },
-  { key: 'lotus', label: '莲花', image: '/divination-assets/temple/offerings/lotus.png' },
+  { key: 'apple', label: '苹果', image: '/gongpin/图层 36.png' },
+  { key: 'orange', label: '柑橘', image: '/gongpin/图层 34.png' },
+  { key: 'banana', label: '香蕉', image: '/gongpin/图层 33.png' },
+  { key: 'peach', label: '寿桃', image: '/gongpin/图层 29.png' },
+  { key: 'tea', label: '清茶', image: '/gongpin/图层 20.png' },
+  { key: 'rice', label: '白饭', image: '/gongpin/图层 21.png' },
+  { key: 'pastry', label: '糕点', image: '/gongpin/图层 18.png' },
+  { key: 'lotus', label: '莲花', image: '/gongpin/图层 9.png' },
 ];
 
 const incenseStorageKey = 'shiyue-temple-incense-v1';
@@ -349,7 +349,7 @@ onBeforeUnmount(() => {
 .temple-altar { height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 2; }
 .temple-deities { border: 2px solid rgba(221, 170, 69, .78); box-shadow: 0 0 28px rgba(215, 86, 24, .4); height: 29%; left: 50%; object-fit: cover; object-position: center 35%; position: absolute; top: 24%; transform: translateX(-50%); width: 45%; z-index: 3; }
 .temple-offerings { inset: 0; position: absolute; z-index: 4; }
-.temple-offering-art { bottom: 39%; filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: 13%; object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, opacity .2s ease, transform .3s ease; width: 14%; }
+.temple-offering-art { bottom: 35.5%; filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: 13%; object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, opacity .2s ease, transform .3s ease; width: 14%; }
 .temple-incense { inset: 0; pointer-events: none; position: absolute; z-index: 6; }
 .temple-incense-stick { bottom: 21.4%; height: 24%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 11%; z-index: 4; }
 .temple-incense-stick--1 { left: 47.7%; --stick-angle: -2.6deg; }
@@ -411,7 +411,7 @@ onBeforeUnmount(() => {
   .temple-header h2 { font-size: 18px; }
   .temple-scene { max-height: none; }
   .temple-deities { height: 30%; top: 23%; width: 47%; }
-  .temple-offering-art { bottom: 39%; height: 13%; width: 15%; }
+  .temple-offering-art { bottom: 35.5%; height: 13%; width: 15%; }
   .temple-burner { bottom: 1%; height: 27%; width: 27%; }
   .temple-controls { grid-template-columns: 1fr; }
   .temple-control-section { padding: 10px 12px 12px; }
