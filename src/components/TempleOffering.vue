@@ -196,7 +196,7 @@ function toggleOffering(key: string) {
     ceremonyMessage.value = '';
     return;
   }
-  if (placedOfferingKeys.value.length >= 5) {
+  if (placedOfferingKeys.value.length >= 10) {
     ceremonyMessage.value = '供桌已摆满，请先撤下一样供品';
     return;
   }
@@ -206,16 +206,14 @@ function toggleOffering(key: string) {
 }
 
 function offeringStyle(index: number) {
-  const positions: Record<number, number[]> = {
-    1: [50],
-    2: [40, 60],
-    3: [34, 50, 66],
-    4: [31, 44, 56, 69],
-    5: [30, 40, 50, 60, 70],
-  };
-  const slots = positions[placedOfferings.value.length] || positions[5];
+  const frontSlots = [50, 41, 59, 32, 68];
+  const backSlots = [45.5, 54.5, 36.5, 63.5, 50];
+  const isBackRow = index >= frontSlots.length;
   return {
-    left: `${slots[index]}%`,
+    '--offering-bottom': isBackRow ? '39.2%' : '34.4%',
+    '--offering-height': isBackRow ? '11.5%' : '13%',
+    '--offering-z': isBackRow ? '1' : '2',
+    left: `${isBackRow ? backSlots[index - frontSlots.length] : frontSlots[index]}%`,
   };
 }
 
@@ -358,7 +356,7 @@ onBeforeUnmount(() => {
 .temple-altar { height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 2; }
 .temple-deities { border: 2px solid rgba(221, 170, 69, .78); box-shadow: 0 0 28px rgba(215, 86, 24, .4); height: 29%; left: 50%; object-fit: cover; object-position: center 35%; position: absolute; top: 24%; transform: translateX(-50%); width: 45%; z-index: 3; }
 .temple-offerings { inset: 0; position: absolute; z-index: 4; }
-.temple-offering-art { bottom: 35.5%; filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: 13%; object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, opacity .2s ease, transform .3s ease; width: 14%; }
+.temple-offering-art { bottom: var(--offering-bottom); filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: var(--offering-height); object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, bottom .3s ease, height .3s ease, opacity .2s ease, transform .3s ease; width: 14%; z-index: var(--offering-z); }
 .temple-incense { inset: 0; pointer-events: none; position: absolute; z-index: 6; }
 .temple-incense-stick { --ash-delay: 0s; --insert-cut: 13.7%; bottom: 16%; height: 25.5%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 15%; z-index: 4; }
 .temple-incense-stick::after { background: rgba(49, 27, 16, .58); border-radius: 50%; bottom: calc(var(--insert-cut) - 1px); box-shadow: 0 1px 2px rgba(236, 218, 183, .28); content: ''; height: 3px; left: 50%; position: absolute; transform: translateX(-50%); width: 6px; z-index: 6; }
@@ -429,7 +427,7 @@ onBeforeUnmount(() => {
   .temple-header h2 { font-size: 18px; }
   .temple-scene { max-height: none; }
   .temple-deities { height: 30%; top: 23%; width: 47%; }
-  .temple-offering-art { bottom: 35.5%; height: 13%; width: 15%; }
+  .temple-offering-art { width: 15%; }
   .temple-burner { bottom: 1%; height: 27%; width: 27%; }
   .temple-controls { grid-template-columns: 1fr; }
   .temple-control-section { padding: 10px 12px 12px; }
