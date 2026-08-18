@@ -309,10 +309,10 @@ onBeforeUnmount(() => {
 .cup-heading small { color: var(--subtle); font-size: 11px; position: absolute; right: 0; }
 .cup-stage { align-items: center; display: flex; gap: 8px; justify-content: center; min-height: 172px; overflow: hidden; }
 .cup-stage figure { margin: 0; text-align: center; width: 40%; }
-.cup-stage figure:first-child { transform: translateX(72px); }
-.cup-stage figure:nth-child(2) { transform: translateX(-72px); }
+.cup-stage figure:first-child { transform: translateX(28px); }
+.cup-stage figure:nth-child(2) { transform: translateX(-28px); }
 .cup-stage img { height: 105px; max-width: 100%; object-fit: contain; transition: transform .25s; }
-.cup-stage figure:nth-child(2) img { transform: scaleX(-1) rotate(4deg) scale(1.16); }
+.cup-stage figure:nth-child(2) img { transform: rotate(-2deg) scale(1.16); }
 .cup-stage.throwing img { animation: cup-throw .46s ease-in-out; }
 .cup-stage.throwing figure:nth-child(2) img { animation-delay: .04s; }
 @keyframes cup-throw { 0% { transform: translateY(0) rotate(0); } 45% { transform: translateY(-38px) rotate(150deg); } 100% { transform: translateY(0) rotate(360deg); } }
@@ -352,8 +352,8 @@ onBeforeUnmount(() => {
   .drawn-sign > strong { font-size: 47px; }
   .cup-heading { margin-top: 19px; padding-top: 16px; }
   .cup-stage { min-height: 148px; }
-  .cup-stage figure:first-child { transform: translateX(42px); }
-  .cup-stage figure:nth-child(2) { transform: translateX(-42px); }
+  .cup-stage figure:first-child { transform: translateX(18px); }
+  .cup-stage figure:nth-child(2) { transform: translateX(-18px); }
   .cup-stage img { height: 88px; }
   .oracle-result-head { margin-bottom: 10px; min-height: 32px; }
   .temple-entry { margin-top: 13px; }
