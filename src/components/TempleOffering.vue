@@ -38,9 +38,13 @@ const offeringOptions: OfferingOption[] = [
   { key: 'orange', label: '柑橘', image: '/gongpin/图层 34.png' },
   { key: 'banana', label: '香蕉', image: '/gongpin/图层 33.png' },
   { key: 'peach', label: '寿桃', image: '/gongpin/图层 29.png' },
+  { key: 'grape', label: '葡萄', image: '/gongpin/图层 1.png' },
+  { key: 'zongzi', label: '粽子', image: '/gongpin/图层 3.png' },
+  { key: 'fish', label: '鲜鱼', image: '/gongpin/图层 4.png' },
+  { key: 'chicken', label: '全鸡', image: '/gongpin/图层 5.png' },
   { key: 'tea', label: '清茶', image: '/gongpin/图层 20.png' },
-  { key: 'rice', label: '白饭', image: '/gongpin/图层 21.png' },
   { key: 'pastry', label: '糕点', image: '/gongpin/图层 18.png' },
+  { key: 'rice-cake', label: '粿品', image: '/gongpin/图层 14.png' },
   { key: 'lotus', label: '莲花', image: '/gongpin/图层 9.png' },
 ];
 
@@ -356,15 +360,18 @@ onBeforeUnmount(() => {
 .temple-offerings { inset: 0; position: absolute; z-index: 4; }
 .temple-offering-art { bottom: 35.5%; filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: 13%; object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, opacity .2s ease, transform .3s ease; width: 14%; }
 .temple-incense { inset: 0; pointer-events: none; position: absolute; z-index: 6; }
-.temple-incense-stick { --ash-delay: 0s; bottom: 21.4%; height: 25.5%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 15%; z-index: 4; }
+.temple-incense-stick { --ash-delay: 0s; --insert-cut: 13.7%; bottom: 16%; height: 25.5%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 15%; z-index: 4; }
+.temple-incense-stick::after { background: rgba(49, 27, 16, .58); border-radius: 50%; bottom: calc(var(--insert-cut) - 1px); box-shadow: 0 1px 2px rgba(236, 218, 183, .28); content: ''; height: 3px; left: 50%; position: absolute; transform: translateX(-50%); width: 6px; z-index: 6; }
 .temple-incense-stick--1 { left: 48.7%; --ash-delay: -.8s; --stick-angle: -1.8deg; }
 .temple-incense-stick--3 { left: 51.3%; --ash-delay: -1.6s; --stick-angle: 1.8deg; }
 .temple-incense.is-medium .temple-incense-stick--1 { left: 48.1%; }
 .temple-incense.is-medium .temple-incense-stick--3 { left: 51.9%; }
-.temple-incense.is-large .temple-incense-stick--1 { left: 46.8%; --stick-angle: -1.4deg; }
-.temple-incense.is-large .temple-incense-stick--3 { left: 53.2%; --stick-angle: 1.4deg; }
+.temple-incense.is-medium .temple-incense-stick::after { width: 8px; }
+.temple-incense.is-large .temple-incense-stick--1 { left: 45.5%; --stick-angle: -1deg; }
+.temple-incense.is-large .temple-incense-stick--3 { left: 54.5%; --stick-angle: 1deg; }
+.temple-incense.is-large .temple-incense-stick::after { height: 4px; width: 11px; }
 .temple-burning-stick { bottom: 0; height: 100%; left: 0; position: absolute; width: 100%; }
-.temple-incense-art { clip-path: inset(var(--burn-cut, 0%) 0 0); height: 100%; inset: 0; object-fit: contain; position: absolute; transition: clip-path 1s linear; width: 100%; z-index: 2; }
+.temple-incense-art { clip-path: inset(var(--burn-cut, 0%) 0 var(--insert-cut)); height: 100%; inset: 0; object-fit: contain; position: absolute; transition: clip-path 1s linear; width: 100%; z-index: 2; }
 .temple-burn-head { height: 0; left: 0; position: absolute; transition: top 1s linear; width: 100%; z-index: 5; }
 .temple-burner { bottom: 1.5%; filter: drop-shadow(0 6px 8px rgba(18, 2, 2, .55)); height: 28%; left: 50%; object-fit: contain; position: absolute; transform: translateX(-50%); width: 24%; z-index: 3; }
 .temple-ash-cap { animation: temple-ash-form 6.4s ease-in-out var(--ash-delay) infinite; background: linear-gradient(90deg, #8f8880, #ded9cf 48%, #827a72); border-radius: 5px 5px 2px 2px; bottom: -1px; box-shadow: 0 -2px 3px rgba(224, 218, 207, .24); height: 8px; left: 50%; position: absolute; transform: translateX(-50%); transform-origin: 50% 100%; width: 4px; z-index: 5; }
@@ -406,7 +413,7 @@ onBeforeUnmount(() => {
 .incense-options button.active, .offering-options button.active { background: rgba(175, 48, 22, .24); border-color: rgba(244, 191, 86, .68); box-shadow: inset 0 0 15px rgba(221, 103, 32, .1); color: #ffe2a1; }
 .temple-control-section :deep(.ui-button--primary) { background: #8d2818; border-color: #b4512d; color: #ffefc8; }
 .temple-control-section :deep(.ui-button--primary:hover:not(:disabled)) { background: #a9361e; border-color: #d17845; }
-.offering-options { display: grid; gap: 6px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.offering-options { display: grid; gap: 6px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .offering-options button { display: grid; gap: 2px; justify-items: center; padding: 3px 3px 5px; }
 .offering-options small { font-size: 9px; }
 .offering-sprite { display: block; height: 48px; object-fit: contain; width: min(100%, 62px); }
