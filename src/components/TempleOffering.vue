@@ -68,10 +68,10 @@ function createSmokeParticle(stickIndex: number, particleIndex: number): SmokePa
       '--smoke-rise-1': `${-randomBetween(22, 34).toFixed(1)}px`,
       '--smoke-rise-2': `${-randomBetween(47, 67).toFixed(1)}px`,
       '--smoke-rise-3': `${-randomBetween(82, 126).toFixed(1)}px`,
-      '--smoke-duration': `${randomBetween(3.2, 6.4).toFixed(2)}s`,
-      '--smoke-delay': `${-randomBetween(0, 6.2).toFixed(2)}s`,
+      '--smoke-duration': `${randomBetween(14, 22).toFixed(2)}s`,
+      '--smoke-delay': `${-randomBetween(0, 22).toFixed(2)}s`,
       '--smoke-scale': `${randomBetween(.82, 1.72).toFixed(2)}`,
-      '--smoke-opacity': `${randomBetween(.34, .68).toFixed(2)}`,
+      '--smoke-opacity': `${randomBetween(.16, .34).toFixed(2)}`,
       '--smoke-width': `${randomBetween(6, 11).toFixed(1)}px`,
       '--smoke-height': `${randomBetween(16, 27).toFixed(1)}px`,
       '--smoke-blur': `${randomBetween(1.4, 2.8).toFixed(1)}px`,
@@ -82,7 +82,7 @@ function createSmokeParticle(stickIndex: number, particleIndex: number): SmokePa
 
 function createSmokeParticles() {
   return Array.from({ length: 3 }, (_, stickIndex) => (
-    Array.from({ length: 9 }, (_, particleIndex) => createSmokeParticle(stickIndex, particleIndex))
+    Array.from({ length: 4 }, (_, particleIndex) => createSmokeParticle(stickIndex, particleIndex))
   ));
 }
 
@@ -114,7 +114,7 @@ const burnHeadStyle = computed(() => ({
   top: `${burnCutPercent.value}%`,
 }));
 const showIgnitionFlame = computed(() => (
-  incenseLit.value && currentTime.value - burnStartedAt.value < 4_000
+  incenseLit.value && currentTime.value - burnStartedAt.value < 3_000
 ));
 const burnRemainingLabel = computed(() => {
   const totalSeconds = Math.ceil(burnRemainingMs.value / 1000);
@@ -283,7 +283,6 @@ onBeforeUnmount(() => {
                   @animationiteration="refreshSmokeParticle(index - 1, particleIndex)"
                 ></span>
                 <span class="temple-ash-fall temple-ash-fall--one"></span>
-                <span class="temple-ash-fall temple-ash-fall--two"></span>
               </div>
             </div>
           </div>
@@ -360,8 +359,9 @@ onBeforeUnmount(() => {
 .temple-incense { inset: 0; pointer-events: none; position: absolute; z-index: 6; }
 .temple-incense-stick { --ash-delay: 0s; --insert-cut: 13.7%; bottom: 16%; height: 25.5%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 15%; z-index: 4; }
 .temple-incense-stick::after { background: rgba(49, 27, 16, .58); border-radius: 50%; bottom: calc(var(--insert-cut) - 1px); box-shadow: 0 1px 2px rgba(236, 218, 183, .28); content: ''; height: 3px; left: 50%; position: absolute; transform: translateX(-50%); width: 6px; z-index: 6; }
-.temple-incense-stick--1 { left: 48.7%; --ash-delay: -.8s; --stick-angle: -1.8deg; }
-.temple-incense-stick--3 { left: 51.3%; --ash-delay: -1.6s; --stick-angle: 1.8deg; }
+.temple-incense-stick--1 { left: 48.7%; --ash-delay: 0s; --stick-angle: -1.8deg; }
+.temple-incense-stick--2 { --ash-delay: -12s; }
+.temple-incense-stick--3 { left: 51.3%; --ash-delay: -24s; --stick-angle: 1.8deg; }
 .temple-incense.is-medium .temple-incense-stick--1 { left: 48.1%; }
 .temple-incense.is-medium .temple-incense-stick--3 { left: 51.9%; }
 .temple-incense.is-medium .temple-incense-stick::after { width: 8px; }
@@ -372,19 +372,18 @@ onBeforeUnmount(() => {
 .temple-incense-art { clip-path: inset(var(--burn-cut, 0%) 0 var(--insert-cut)); height: 100%; inset: 0; object-fit: contain; position: absolute; transition: clip-path 1s linear; width: 100%; z-index: 2; }
 .temple-burn-head { height: 0; left: 0; position: absolute; transition: top 1s linear; width: 100%; z-index: 5; }
 .temple-burner { bottom: 1.5%; filter: drop-shadow(0 6px 8px rgba(18, 2, 2, .55)); height: 28%; left: 50%; object-fit: contain; position: absolute; transform: translateX(-50%); width: 24%; z-index: 3; }
-.temple-ash-cap { animation: temple-ash-form 6.4s ease-in-out var(--ash-delay) infinite; background: linear-gradient(90deg, #8f8880, #ded9cf 48%, #827a72); border-radius: 5px 5px 2px 2px; bottom: -1px; box-shadow: 0 -2px 3px rgba(224, 218, 207, .24); height: 8px; left: 50%; position: absolute; transform: translateX(-50%); transform-origin: 50% 100%; width: 4px; z-index: 5; }
+.temple-ash-cap { animation: temple-ash-form 36s ease-in-out var(--ash-delay) infinite; background: linear-gradient(90deg, #8f8880, #ded9cf 48%, #827a72); border-radius: 5px 5px 2px 2px; bottom: -1px; box-shadow: 0 -2px 3px rgba(224, 218, 207, .24); height: 8px; left: 50%; position: absolute; transform: translateX(-50%); transform-origin: 50% 100%; width: 4px; z-index: 5; }
 .is-medium .temple-ash-cap { height: 10px; width: 6px; }
 .is-large .temple-ash-cap { height: 13px; width: 12px; }
-.temple-ember { animation: temple-ember 1.25s ease-in-out infinite alternate; background: #ff6a20; border-radius: 50%; box-shadow: 0 0 7px #ff7228, 0 0 14px rgba(255, 80, 15, .72); height: 4px; left: 50%; position: absolute; top: -2px; transform: translateX(-50%); width: 5px; z-index: 7; }
+.temple-ember { animation: temple-ember 3.2s ease-in-out infinite alternate; background: #ff6a20; border-radius: 50%; box-shadow: 0 0 7px #ff7228, 0 0 14px rgba(255, 80, 15, .72); height: 4px; left: 50%; position: absolute; top: -2px; transform: translateX(-50%); width: 5px; z-index: 7; }
 .is-medium .temple-ember { height: 5px; width: 7px; }
 .is-large .temple-ember { height: 7px; top: -3px; width: 12px; }
-.temple-flame { animation: temple-flame 1s ease-in-out infinite alternate; background: #ffe691; border-radius: 50% 50% 50% 12%; box-shadow: 0 0 8px #ff9d2e, 0 0 18px rgba(255, 96, 20, .75); height: 9px; left: 50%; position: absolute; top: -10px; transform: translateX(-50%) rotate(45deg); width: 8px; z-index: 6; }
+.temple-flame { animation: temple-flame 2.4s ease-in-out infinite alternate; background: #ffe691; border-radius: 50% 50% 50% 12%; box-shadow: 0 0 8px #ff9d2e, 0 0 18px rgba(255, 96, 20, .75); height: 9px; left: 50%; position: absolute; top: -10px; transform: translateX(-50%) rotate(45deg); width: 8px; z-index: 6; }
 .is-large .temple-flame { height: 13px; top: -14px; width: 11px; }
 .temple-smoke-particle { animation: temple-smoke-random var(--smoke-duration) ease-out var(--smoke-delay) infinite; background: rgba(235, 231, 222, .48); border-radius: 48% 52% 55% 45%; filter: blur(var(--smoke-blur)); height: var(--smoke-height); left: calc(50% + var(--smoke-start-x)); opacity: 0; position: absolute; top: -17px; width: var(--smoke-width); z-index: 3; }
-.temple-ash-fall { animation: temple-ash-fall-right 4.6s ease-in var(--ash-delay) infinite; background: #c8c0b5; border-radius: 50%; height: 2px; left: 50%; opacity: 0; position: absolute; top: -4px; width: 2px; z-index: 6; }
-.temple-ash-fall--two { animation-name: temple-ash-fall-left; animation-delay: calc(var(--ash-delay) - 2.3s); }
+.temple-ash-fall { animation: temple-ash-fall-right 36s ease-in var(--ash-delay) infinite; background: #c8c0b5; border-radius: 50%; height: 2px; left: 50%; opacity: 0; position: absolute; top: -4px; width: 2px; z-index: 6; }
 @keyframes temple-flame { from { transform: translateX(-50%) rotate(43deg) scale(.84); } to { transform: translateX(-50%) rotate(49deg) scale(1.14); } }
-@keyframes temple-ember { from { opacity: .72; } to { opacity: 1; transform: translateX(-50%) scale(1.18); } }
+@keyframes temple-ember { from { opacity: .78; } to { opacity: 1; transform: translateX(-50%) scale(1.08); } }
 @keyframes temple-ash-form { 0%, 12% { opacity: .35; transform: translateX(-50%) scaleY(.22); } 68% { opacity: 1; transform: translateX(-50%) scaleY(1); } 74%, 100% { opacity: .2; transform: translateX(-50%) scaleY(.28); } }
 @keyframes temple-smoke-random {
   0% { opacity: 0; transform: translate(-50%, 3px) rotate(0) scale(.36); }
