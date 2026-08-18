@@ -15,6 +15,21 @@ import { getWesternDeck } from './westernDecks';
 
 const assetPath = (url: string) => url.split('?')[0];
 
+function lightThemeColor(value = '') {
+  return value.match(/^light-dark\((#[0-9a-f]{6})/i)?.[1] || '';
+}
+
+function relativeLuminance(hex: string) {
+  const channels = [1, 3, 5].map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255)
+    .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+}
+
+function contrastRatio(foreground: string, background: string) {
+  const values = [relativeLuminance(foreground), relativeLuminance(background)].sort((a, b) => b - a);
+  return (values[0]! + 0.05) / (values[1]! + 0.05);
+}
+
 describe('占卜主题资源映射', () => {
   afterEach(() => {
     setDivinationTheme('yue');
@@ -76,6 +91,21 @@ describe('占卜主题资源映射', () => {
     expect(activeDivinationThemeStyle.value['--ds-accent']).not.toBe(yueAccent);
     expect(dataset.divinationTheme).toBe('shi');
     expect(rootVariables['--ds-accent']).toBe(activeDivinationThemeStyle.value['--ds-accent']);
+  });
+
+  it('三个浅色主题的辅助文字都保持清晰可读', () => {
+    for (const themeId of ['yue', 'shi', 'mo'] as const) {
+      setDivinationTheme(themeId);
+      const palette = activeDivinationThemeStyle.value;
+      expect(contrastRatio(
+        lightThemeColor(palette['--ds-text-secondary']),
+        lightThemeColor(palette['--ds-sidebar']),
+      )).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(
+        lightThemeColor(palette['--ds-text-tertiary']),
+        lightThemeColor(palette['--ds-surface-raised']),
+      )).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('已创建的牌组数据也会立即跟随主题切换', () => {

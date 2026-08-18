@@ -549,6 +549,17 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-dialog.ui-dialog--padding-compact { padding: var(--ds-space-4); }
 .ui-dialog.ui-dialog--padding-standard { padding: var(--ds-space-5); }
 
+.drawer-layer.ui-dialog-layer { align-items: stretch; justify-content: flex-end; padding: 0; }
+.drawer-layer > .history-drawer.ui-dialog {
+  border: 0;
+  border-radius: 0;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  padding: 29px 22px;
+  width: 390px;
+}
+
 .ui-dialog-header {
   align-items: flex-start;
   border-bottom: 1px solid var(--ds-line);
@@ -705,7 +716,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
     width: calc(100% + var(--ds-page-gutter) + var(--ds-page-gutter));
   }
   .ui-segmented-control--underline { gap: var(--ds-space-5); }
-  .ui-segmented-control--underline > button { min-height: 40px; }
+  .ui-segmented-control--underline > button { min-height: 44px; }
   .ui-segmented-control--pill { width: 100%; }
   .ui-segmented-control--pill > button { flex: 1 1 0; min-width: 0; padding-inline: 8px; }
   .ui-segmented-control.almanac-mode-tabs { width: auto; }
@@ -718,6 +729,12 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   .ui-date-navigator__reset { padding-inline: 7px; }
   .ui-tool-tabs.ui-segmented-control { flex: 0 0 auto; width: auto; }
   .ui-tool-tabs.ui-segmented-control > button { flex: 0 1 auto; min-width: 46px; padding-inline: 8px; }
+  .ui-button,
+  .ui-select__control,
+  .ui-select-menu__option,
+  .ui-segmented-control > button,
+  .birth-picker-trigger { min-height: 44px; }
+  .ui-button--icon-only { min-width: 44px; width: 44px; }
   .ui-tool-surface,
   .ui-workspace-surface { border-radius: var(--ds-radius-md); }
   .ui-workspace-surface--standard { padding: var(--ds-space-4); }
@@ -754,6 +771,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   .preference-section { border-left: 0; border-radius: 0; border-right: 0; box-shadow: none; padding: var(--ds-space-4) 0; }
   .preference-section:first-child { border-top: 0; }
   .ui-empty-state { min-height: 180px; }
+  .drawer-layer > .history-drawer.ui-dialog { padding: 24px 15px; width: min(390px, 100%); }
 }
 
 @media (prefers-reduced-motion: reduce) {

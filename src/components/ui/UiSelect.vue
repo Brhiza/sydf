@@ -9,6 +9,7 @@ import {
   onMounted,
   ref,
   useAttrs,
+  useId,
   useSlots,
   type CSSProperties,
   type VNode,
@@ -33,8 +34,6 @@ interface RenderOption extends UiSelectOption {
   group?: string;
   key: string;
 }
-
-let nextSelectId = 0;
 
 const props = withDefaults(defineProps<{
   modelValue?: string | number;
@@ -75,7 +74,7 @@ const menu = ref<HTMLElement | null>(null);
 const isOpen = ref(false);
 const activeIndex = ref(-1);
 const menuStyle = ref<CSSProperties>({});
-const generatedId = `ui-select-${++nextSelectId}`;
+const generatedId = `ui-select-${useId()}`;
 const controlId = computed(() => props.id || generatedId);
 const listboxId = computed(() => `${controlId.value}-listbox`);
 const rootClass = computed(() => attrs.class);
@@ -83,6 +82,19 @@ const rootStyle = computed(() => attrs.style);
 const triggerAttrs = computed(() => {
   const { class: _class, style: _style, ...rest } = attrs;
   return rest;
+});
+const describedBy = computed<string | undefined>(() => {
+  const externalValue = triggerAttrs.value['aria-describedby'];
+  return typeof externalValue === 'string'
+    ? externalValue
+    : props.hint || props.error ? `${controlId.value}-message` : undefined;
+});
+const ariaInvalid = computed<boolean | 'true' | 'false' | 'grammar' | 'spelling' | undefined>(() => {
+  const externalValue = triggerAttrs.value['aria-invalid'];
+  if (typeof externalValue === 'boolean' || externalValue === 'true' || externalValue === 'false' || externalValue === 'grammar' || externalValue === 'spelling') {
+    return externalValue;
+  }
+  return Boolean(props.error) || undefined;
 });
 
 function nodeText(node: VNode): string {
@@ -251,8 +263,8 @@ onBeforeUnmount(() => {
       :disabled="disabled"
       :aria-expanded="isOpen"
       :aria-controls="listboxId"
-      :aria-invalid="Boolean(error) || undefined"
-      :aria-describedby="hint || error ? `${controlId}-message` : undefined"
+      :aria-invalid="ariaInvalid"
+      :aria-describedby="describedBy"
       :aria-activedescendant="isOpen && activeIndex >= 0 ? `${controlId}-option-${activeIndex}` : undefined"
       @click="toggleMenu"
       @keydown="handleKeydown"

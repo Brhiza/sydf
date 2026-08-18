@@ -1913,7 +1913,7 @@ watch([activeView, activeSettingsSection, activeCasesSection, showHistory], sync
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
-  document.addEventListener('keydown', closeChatSelectionFromKeyboard);
+  document.addEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.addEventListener('shiyue:web-update', handleWebUpdate);
   window.addEventListener('popstate', handleAppRouteNavigation);
   window.addEventListener('hashchange', handleAppRouteNavigation);
@@ -1970,7 +1970,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
-  document.removeEventListener('keydown', closeChatSelectionFromKeyboard);
+  document.removeEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.removeEventListener('shiyue:web-update', handleWebUpdate);
   window.removeEventListener('popstate', handleAppRouteNavigation);
   window.removeEventListener('hashchange', handleAppRouteNavigation);
@@ -2156,8 +2156,17 @@ function exportSelectedChatDocument() {
   }
 }
 
-function closeChatSelectionFromKeyboard(event: KeyboardEvent) {
-  if (event.key === 'Escape' && chatSelectionMode.value) cancelChatSelection();
+function closeFloatingPanelsFromKeyboard(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return;
+  if (showHistory.value) showHistory.value = false;
+  else if (showMobileNav.value) showMobileNav.value = false;
+  else if (showToolPicker.value) showToolPicker.value = false;
+  else if (showAiPicker.value) showAiPicker.value = false;
+  else if (showCaseSwitcher.value) {
+    showCaseSwitcher.value = false;
+    caseSwitcherSearch.value = '';
+  } else if (showBaziColumnSettings.value) showBaziColumnSettings.value = false;
+  else if (chatSelectionMode.value) cancelChatSelection();
 }
 
 function notifyBackgroundTasksForView(view: AppView) {
@@ -3674,19 +3683,28 @@ function caseValidationMessage(profile: CaseProfile) {
   return '';
 }
 
+function setNewCaseError(message: string, controlId: string) {
+  caseError.value = message;
+  nextTick(() => document.getElementById(controlId)?.focus());
+}
+
 function saveNewCase() {
   const profile = { ...newCaseDraft.value };
-  if (!newCaseGenderConfirmed.value) {
-    caseError.value = '请选择性别。';
+  if (!profile.label.trim() && !profile.name.trim()) {
+    setNewCaseError('请填写案例名称。', 'new-case-label');
     return;
   }
-  if (!newCaseRegionConfirmed.value) {
-    caseError.value = '请选择出生地区。';
+  if (!newCaseGenderConfirmed.value) {
+    setNewCaseError('请选择性别。', 'new-case-gender');
     return;
   }
   const validationError = caseValidationMessage(profile);
   if (validationError) {
-    caseError.value = validationError;
+    setNewCaseError(validationError, validationError.includes('地区') ? 'new-case-region' : 'new-case-date');
+    return;
+  }
+  if (!newCaseRegionConfirmed.value) {
+    setNewCaseError('请选择出生地区。', 'new-case-region');
     return;
   }
   const isFirstCase = cases.value.length === 0;
@@ -5046,7 +5064,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
 <template>
   <div class="app-shell" :class="{ 'mobile-nav-open': showMobileNav }" :data-divination-theme="activeDivinationThemeId" :style="activeDivinationThemeStyle">
-    <aside class="sidebar" :class="{ 'mobile-sidebar-open': showMobileNav }">
+    <aside id="app-sidebar" class="sidebar" :class="{ 'mobile-sidebar-open': showMobileNav }">
       <div class="sidebar-header"><button class="brand" type="button" @click="goView('tools')"><img class="brand-mark" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="" aria-hidden="true" /><span><strong>时月东方</strong><small>东方术数</small></span></button><button class="mobile-sidebar-close" type="button" aria-label="关闭导航" @click="showMobileNav = false"><X :size="18" /></button></div>
       <nav class="main-nav main-nav-primary" aria-label="主要功能">
         <button v-for="item in primaryNavItems" :key="item.key" type="button" :title="item.label" :class="{ active: activeView === item.key }" @click="goView(item.key)"><component :is="item.icon" :size="17" /><span>{{ item.label }}</span><ChevronRight v-if="activeView === item.key" :size="14" class="nav-arrow" /></button>
@@ -5060,7 +5078,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
     <div class="app-main">
       <header class="topbar" :class="{ 'is-page': activeView !== 'tools' }">
         <button v-if="activeView === 'tools' && homeState === 'chat'" class="topbar-back" type="button" @click="leaveChat"><ArrowLeft :size="17" /><span>返回</span></button>
-        <button v-else class="mobile-nav-toggle" type="button" aria-label="打开导航" @click="showMobileNav = true"><Menu :size="19" /></button>
+        <button v-else class="mobile-nav-toggle" type="button" aria-label="打开导航" aria-controls="app-sidebar" :aria-expanded="showMobileNav" @click="showMobileNav = true"><Menu :size="19" /></button>
         <div v-if="activeView === 'tools'" ref="topbarAiPickerRef" class="topbar-ai-picker">
           <button type="button" class="topbar-ai-trigger" :aria-expanded="showAiPicker" aria-label="调整解答风格和 AI 模型" :title="`${activeAnswerPreference.label} · ${activeAiChannel.name} · ${activeAiModelLabel}`" @click="toggleAiPicker">
             <span class="topbar-ai-trigger-copy"><strong>{{ activeAnswerPreference.label }}</strong><small>{{ activeAiModelLabel }}</small></span>
@@ -5459,18 +5477,18 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <section v-if="activeCasesSection === 'input'" class="case-input-page">
             <UiWorkspaceSurface as="div" class="case-input-form" padding="standard">
               <div class="form-grid">
-                <UiTextField v-model="newCaseDraft.label" label="案例名称" autocomplete="off" placeholder="例如：自己、家人" @update:model-value="caseError = ''" />
-                <UiTextField v-model="newCaseDraft.name" label="姓名" autocomplete="off" placeholder="可选" @update:model-value="caseError = ''" />
-                <div class="birth-picker-control"><span>性别</span><button type="button" class="birth-picker-trigger" aria-label="选择性别" @click="openBirthPicker('gender', 'create')"><UserRound :size="16" /><strong>{{ newCaseGenderConfirmed ? birthPickerFieldValue('gender', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
+                <UiTextField id="new-case-label" v-model="newCaseDraft.label" label="案例名称" autocomplete="off" placeholder="例如：自己、家人" :aria-invalid="caseError.includes('案例名称') || undefined" :aria-describedby="caseError.includes('案例名称') ? 'new-case-error' : undefined" @update:model-value="caseError = ''" />
+                <UiTextField id="new-case-name" v-model="newCaseDraft.name" label="姓名" autocomplete="off" placeholder="可选" @update:model-value="caseError = ''" />
+                <div class="birth-picker-control"><span>性别</span><button id="new-case-gender" type="button" class="birth-picker-trigger" aria-label="选择性别" :aria-invalid="caseError.includes('性别') || undefined" :aria-describedby="caseError.includes('性别') ? 'new-case-error' : undefined" @click="openBirthPicker('gender', 'create')"><UserRound :size="16" /><strong>{{ newCaseGenderConfirmed ? birthPickerFieldValue('gender', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生历法</span><button type="button" class="birth-picker-trigger" aria-label="选择出生历法" @click="openBirthPicker('calendar', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('calendar', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
-                <div class="birth-picker-control"><span>出生日期</span><button type="button" class="birth-picker-trigger" aria-label="选择出生日期" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="birth-picker-control"><span>出生日期</span><button id="new-case-date" type="button" class="birth-picker-trigger" aria-label="选择出生日期" :aria-invalid="caseError.includes('日期') || caseError.includes('时间') || undefined" :aria-describedby="caseError.includes('日期') || caseError.includes('时间') ? 'new-case-error' : undefined" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'create')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
-                <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button type="button" class="birth-picker-trigger" aria-label="选择出生地区" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button id="new-case-region" type="button" class="birth-picker-trigger" aria-label="选择出生地区" :aria-invalid="caseError.includes('地区') || undefined" :aria-describedby="caseError.includes('地区') ? 'new-case-error' : undefined" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
               </div>
               <div v-if="newCaseCalendar" class="birth-calendar"><div><small>公历</small><strong>{{ newCaseCalendar.solar }}</strong></div><div><small>农历</small><strong>{{ newCaseCalendar.lunar }}</strong></div><div><small>干支</small><strong>{{ newCaseCalendar.ganzhi }}</strong></div><div><small>节气 / 时辰</small><strong>{{ newCaseCalendar.jieqi }} · {{ newCaseCalendar.shichen }}</strong></div></div>
               <div v-if="newCaseCalendar?.trueSolar" class="solar-details"><div><small>真太阳时</small><strong>{{ newCaseCalendar.trueSolar.correctedDateTime }}</strong></div><div><small>校正时辰</small><strong>{{ newCaseCalendar.trueSolar.shichen }}</strong></div><div><small>总修正</small><strong>{{ newCaseCalendar.trueSolar.totalCorrectionMinutes.toFixed(1) }} 分钟</strong></div></div>
               <UiActionBar><UiButton @click="saveNewCase"><Plus :size="15" />保存案例</UiButton></UiActionBar>
-              <UiNotice v-if="caseError" class="case-form-notice" tone="error" compact>{{ caseError }}</UiNotice>
+              <UiNotice v-if="caseError" id="new-case-error" class="case-form-notice" tone="error" compact>{{ caseError }}</UiNotice>
             </UiWorkspaceSurface>
           </section>
 
@@ -5960,13 +5978,12 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         </section>
       </div>
 
-      <div v-if="showHistory" class="drawer-layer" @click.self="showHistory = false">
-        <aside class="history-drawer">
+      <UiDialogShell v-if="showHistory" labelledby="history-drawer-title" layer-class="drawer-layer" panel-class="history-drawer" padding="none" @close="showHistory = false">
           <div class="drawer-title">
-            <div><span class="eyebrow">本机记录</span><h2>记录</h2></div>
+            <div><span class="eyebrow">本机记录</span><h2 id="history-drawer-title">记录</h2></div>
             <UiButton variant="ghost" icon-only aria-label="关闭记录" @click="showHistory = false"><X :size="18" /></UiButton>
           </div>
-          <div class="search-box"><Search :size="15" /><input v-model="historySearch" type="search" placeholder="搜索问题、工具或案例" /></div>
+          <div class="search-box"><Search :size="15" /><input v-model="historySearch" type="search" placeholder="搜索问题、工具或案例" aria-label="搜索记录" autofocus /></div>
           <div class="history-filters">
             <UiSelect v-model="historyCategory" label="类型" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option></UiSelect>
             <UiSelect v-model="historyMethod" label="工具" aria-label="按工具筛选"><option value="all">全部工具</option><option v-for="method in historyMethodOptions" :key="method" :value="method">{{ method }}</option></UiSelect>
@@ -5987,8 +6004,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             </button>
           </div>
           <div v-else class="drawer-empty"><Clock3 :size="18" /><span>{{ history.length ? '没有符合条件的记录' : '还没有记录' }}</span><UiButton v-if="history.length && hasActiveHistoryFilters" variant="ghost" size="small" @click="resetHistoryFilters">清除筛选</UiButton></div>
-        </aside>
-      </div>
+      </UiDialogShell>
       <LegacyHistoryDetail v-if="selectedLegacyHistory" :record="selectedLegacyHistory" @close="selectedLegacyHistory = null" />
 
       <Transition name="app-toast">
