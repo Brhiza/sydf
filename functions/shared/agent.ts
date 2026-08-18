@@ -7,6 +7,7 @@ import {
   type AiProviderConfig,
   type AiRequestConfig,
 } from './interpret';
+import { getChatThinkingControl } from '../../src/lib/aiProvider';
 import { guardApiRequest, readJsonBody, RequestBodyTooLargeError } from './security';
 
 type AgentToolName =
@@ -194,19 +195,19 @@ function toolDefinitions(apiType: AiApiType) {
 function buildProviderBody(config: AiProviderConfig, userPrompt: string) {
   const tools = toolDefinitions(config.apiType);
   if (config.apiType === 'responses') {
-    return { model: config.model, instructions: systemPrompt, input: [{ role: 'user', content: userPrompt }], tools, tool_choice: 'required', store: false, max_output_tokens: 700 };
+    return { model: config.model, instructions: systemPrompt, input: [{ role: 'user', content: userPrompt }], tools, tool_choice: 'required', store: false };
   }
   if (config.apiType === 'anthropic') {
     return { model: config.model, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }], tools, tool_choice: { type: 'any' }, temperature: 0, max_tokens: 700 };
   }
-  return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'required', temperature: 0, max_tokens: 700 };
+  return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'required', temperature: 0, ...getChatThinkingControl(config) };
 }
 
 function buildProviderFallbackBody(config: AiProviderConfig, userPrompt: string) {
   const fallbackTools = agentTools.map(({ name, description, parameters }) => ({ name, description, parameters }));
   const fallbackInstruction = `${systemPrompt}\n\n可用工具定义：${JSON.stringify(fallbackTools)}\n\n当前接口不能使用工具调用。只输出一个 JSON 对象，格式为 {"name":"工具名","arguments":{}}，name 必须来自上述工具名称，不能输出解释或 Markdown。`;
   if (config.apiType === 'responses') {
-    return { model: config.model, instructions: fallbackInstruction, input: [{ role: 'user', content: userPrompt }], store: false, max_output_tokens: 300 };
+    return { model: config.model, instructions: fallbackInstruction, input: [{ role: 'user', content: userPrompt }], store: false };
   }
   if (config.apiType === 'anthropic') {
     return { model: config.model, system: fallbackInstruction, messages: [{ role: 'user', content: userPrompt }], temperature: 0, max_tokens: 300 };
@@ -215,7 +216,7 @@ function buildProviderFallbackBody(config: AiProviderConfig, userPrompt: string)
     model: config.model,
     messages: [{ role: 'system', content: fallbackInstruction }, { role: 'user', content: userPrompt }],
     temperature: 0,
-    max_tokens: 300,
+    ...getChatThinkingControl(config),
   };
 }
 
@@ -435,7 +436,7 @@ export async function handleAgentPost(context: { request: Request; env: AiEnv })
     try {
       return jsonResponse({ selection: await requestSelection(customConfig, userPrompt) });
     } catch {
-      return jsonResponse({ error: '当前 AI 无法完成工具选择。' }, 502);
+      return jsonResponse({ error: '当前 AI 无法完成工具选择。' }, 503);
     }
   }
 
@@ -445,6 +446,6 @@ export async function handleAgentPost(context: { request: Request; env: AiEnv })
   try {
     return jsonResponse({ selection: await requestSelection(builtinConfig, userPrompt) });
   } catch {
-    return jsonResponse({ error: '暂时无法自动选择合适的方式。' }, 502);
+    return jsonResponse({ error: '暂时无法自动选择合适的方式。' }, 503);
   }
 }

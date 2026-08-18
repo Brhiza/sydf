@@ -134,22 +134,55 @@ describe('内置 AI 服务', () => {
     expect(await response.json()).toEqual({ error: 'AI 解读等待超时，请稍后重试。' });
   });
 
-  it('三种解答框架使用匹配的输出预算', async () => {
+  it('Chat 与 Responses 接口不再发送输出 token 上限', async () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(successfulUpstream()));
     vi.stubGlobal('fetch', fetchMock);
 
-    const expectations = [
-      ['chat', 1100],
-      ['fortune-master', 2000],
-      ['professional', 3000],
-    ] as const;
-    for (const [preference, maxTokens] of expectations) {
-      const response = await onRequestPost({ request: createRequest(undefined, preference), env: builtinEnv });
-      expect(response.status).toBe(200);
-      const call = fetchMock.mock.calls.at(-1) as [string, RequestInit] | undefined;
-      const body = JSON.parse(String(call?.[1].body)) as Record<string, unknown>;
-      expect(body.max_tokens).toBe(maxTokens);
-    }
+    const chatResponse = await onRequestPost({ request: createRequest(undefined, 'professional'), env: builtinEnv });
+    expect(chatResponse.status).toBe(200);
+    const chatBody = JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body)) as Record<string, unknown>;
+    expect(chatBody.max_tokens).toBeUndefined();
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ output_text: 'Responses 成功' }), { status: 200 }));
+    const responsesResponse = await onRequestPost({
+      request: createRequest(),
+      env: { ...builtinEnv, AI_API_TYPE: 'responses' },
+    });
+    expect(responsesResponse.status).toBe(200);
+    const responsesBody = JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body)) as Record<string, unknown>;
+    expect(responsesBody.max_output_tokens).toBeUndefined();
+  });
+
+  it('DeepSeek 官方 V4 关闭不可见思考，避免耗尽最终答案预算', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulUpstream());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({
+      request: createRequest(),
+      env: {
+        AI_BASE_URL: 'https://api.deepseek.com/v1',
+        AI_API_KEY: 'deepseek-key',
+        AI_MODEL: 'deepseek-v4-flash',
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>;
+    expect(body.thinking).toEqual({ type: 'disabled' });
+  });
+
+  it('只有思考内容而没有最终答案时返回可读的 503', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{
+        finish_reason: 'length',
+        message: { content: '', reasoning_content: '不会返回给用户的思考内容' },
+      }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'AI 服务未生成完整答案，请重新解读。' });
   });
 
   it('用户选择的第三方渠道失败时不会调用内置渠道', async () => {
@@ -169,7 +202,7 @@ describe('内置 AI 服务', () => {
     });
     const result = await response.json() as Record<string, unknown>;
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
     expect(result.error).toBe('AI 服务返回了错误，请检查模型、接口地址和密钥配置。');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -194,5 +227,7 @@ describe('内置 AI 服务', () => {
     expect(await response.json()).toMatchObject({ content: '测试成功', provider: 'custom' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.deepseek.com/v1/chat/completions');
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>;
+    expect(body.thinking).toBeUndefined();
   });
 });
