@@ -644,9 +644,8 @@ h1, h2, h3, p { margin-top: 0; }
   .settings-workspace { gap: var(--ds-space-4); grid-template-columns: 1fr; }
   .settings-channel-rail { border-bottom: 1px solid var(--line); border-right: 0; padding: 0 0 var(--ds-space-4); }
   .settings-rail-heading { margin-bottom: var(--ds-space-2); }
-  .settings-channel-list { display: flex; margin-right: calc(-1 * var(--ds-space-4)); overflow-x: auto; padding: 0 var(--ds-space-4) 2px 0; scrollbar-width: none; }
-  .settings-channel-list::-webkit-scrollbar { display: none; }
-  .settings-channel-item { flex: 0 0 min(190px, 66vw); }
+  .settings-channel-list { display: grid; gap: var(--ds-space-1); }
+  .settings-channel-item { width: 100%; }
   .settings-rail-footer { display: none; }
   .settings-channel-fields { grid-template-columns: 1fr; }
   .settings-model-heading { align-items: flex-start; }
@@ -744,13 +743,14 @@ h1, h2, h3, p { margin-top: 0; }
 .tool-panel-section-head { margin-bottom: 8px; }
 .tool-panel-section-head strong { color: var(--ink); font-family: 'Noto Serif SC', serif; font-size: 11px; }
 .tool-panel-section-head small { color: var(--muted); font-size: 8px; }
-.tool-panel-grid { display: grid; gap: 6px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.tool-panel-item { align-items: center; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 9px; color: var(--muted); display: flex; justify-content: flex-start; min-height: 36px; min-width: 0; text-align: left; transition: background .2s, border-color .2s, transform .2s; }
+.tool-panel-grid { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tool-panel-item { align-items: center; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 9px; color: var(--muted); display: flex; gap: 9px; justify-content: flex-start; min-height: 54px; min-width: 0; text-align: left; transition: background .2s, border-color .2s, transform .2s; }
 .tool-panel-item:hover { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); transform: translateY(-1px); }
 .tool-panel-item > span:last-child { min-width: 0; text-align: left; width: 100%; }
 .tool-panel-item strong, .tool-panel-item small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-panel-item strong { color: var(--ink); font-family: 'Noto Serif SC', serif; font-size: 12px; font-weight: 600; }
-.tool-panel-item small, .tool-panel-icon, .tool-panel-section-head small { display: none; }
+.tool-panel-item small { line-height: 1.5; margin-top: 3px; white-space: normal; }
+.tool-panel-icon { align-items: center; background: var(--accent-soft); border-radius: 8px; color: var(--accent-strong); display: inline-flex; flex: 0 0 auto; font-family: 'Noto Serif SC', serif; height: 30px; justify-content: center; width: 30px; }
 .chart-tools .tool-panel-icon { background: var(--blue-soft); color: var(--blue); }
 
 /* 问题灵感：问事与命书两套树状内容 */
@@ -970,8 +970,8 @@ h1, h2, h3, p { margin-top: 0; }
     max-height: min(58vh, 460px);
     width: min(350px, calc(100vw - 24px));
   }
-  .tool-panel-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tool-panel-item { min-height: 36px; padding: 7px; }
+  .tool-panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tool-panel-item { min-height: 62px; padding: 7px; }
 
   .tools-screen.is-chat { min-height: calc(100dvh - 58px); }
   .tools-screen.is-chat .chat-conversation {

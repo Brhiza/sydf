@@ -112,6 +112,13 @@ import {
 } from './lib/promptSchools';
 import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
+import {
+  buildAppRouteHash,
+  parseAppRoute,
+  type AppRouteCasesSection,
+  type AppRouteSettingsSection,
+  type AppRouteView,
+} from './lib/appRoute';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
 import type { DailyHexagramResult } from './lib/dailyHexagram';
 import type { TarotReadingResult, WesternInterpretationPayload, WesternReadingResult } from './lib/tarot';
@@ -389,9 +396,9 @@ function resolveBirthPlaceApproximateLatitude(...args: Parameters<LocationRuntim
   return requireLocationRuntime().resolveBirthPlaceApproximateLatitude(...args);
 }
 
-type AppView = 'tools' | 'fortune' | 'xiaoliuren' | 'daily-hexagram' | 'almanac' | 'fengshui' | 'oracle' | 'tarot' | 'charts' | 'compatibility' | 'cases' | 'settings';
-type SettingsSection = 'preferences' | 'ai';
-type CasesSection = 'input' | 'records';
+type AppView = AppRouteView;
+type SettingsSection = AppRouteSettingsSection;
+type CasesSection = AppRouteCasesSection;
 type ChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng';
 type HomeChartKind = ChartKind | 'bazi-ziwei';
 type HomeMode = 'divination' | 'chart';
@@ -400,11 +407,11 @@ type AlmanacMonthFilter = 'all' | AlmanacPurpose;
 
 const ONBOARDING_STORAGE_KEY = 'shiyue-onboarding-v1';
 const BAZI_FORTUNE_COLUMN_STORAGE_KEY = 'shiyue-bazi-fortune-columns-v1';
-const onboardingSteps = ['案例', '回答', '内容', '起卦', 'AI', '须知'] as const;
-const answerPreferenceOptions: Array<{ value: AiAnswerPreference; label: string; mark: string; summary: string; description: string }> = [
-  { value: 'chat', label: '日常聊天', mark: '聊', summary: '自然直说', description: '像熟悉你的朋友，用白话直接回答' },
-  { value: 'fortune-master', label: '算命大师', mark: '命', summary: '传统断法', description: '先断主旨，再讲盘理、时机与趋避' },
-  { value: 'professional', label: '专业人士', mark: '研', summary: '严谨推演', description: '展开结构、条件、分歧与专业判断' },
+const onboardingSteps = ['内容', '须知'] as const;
+const answerPreferenceOptions: Array<{ value: AiAnswerPreference; label: string; summary: string; description: string }> = [
+  { value: 'chat', label: '日常聊天', summary: '自然直说', description: '像熟悉你的朋友，用白话直接回答' },
+  { value: 'fortune-master', label: '算命大师', summary: '传统断法', description: '先断主旨，再讲盘理、时机与趋避' },
+  { value: 'professional', label: '专业人士', summary: '严谨推演', description: '展开结构、条件、分歧与专业判断' },
 ];
 const displayLevelOptions: Array<{ value: DisplayLevel; label: string; description: string }> = [
   { value: 'basic', label: '0 基础', description: 'AI 自动选择术式，只显示易懂解答' },
@@ -509,7 +516,7 @@ interface CaseProfile extends BirthForm {
 }
 
 type BirthPickerKind = 'gender' | 'calendar' | 'date' | 'time' | 'region';
-type BirthPickerTarget = 'create' | 'editor' | 'onboarding';
+type BirthPickerTarget = 'create' | 'editor';
 
 interface PickerOption {
   value: string;
@@ -562,16 +569,16 @@ const legacyRegionIds: Record<string, string> = {
   taipei: '710101',
 };
 
-const chartOptions: Array<{ kind: ChartKind; label: string; icon: string }> = [
-  { kind: 'bazi', label: '八字', icon: '命' },
-  { kind: 'ziwei', label: '紫微', icon: '紫' },
-  { kind: 'astrolabe', label: '星盘', icon: '星' },
-  { kind: 'qizheng', label: '七政四余', icon: '政' },
+const chartOptions: Array<{ kind: ChartKind; label: string; icon: string; description: string }> = [
+  { kind: 'bazi', label: '八字', icon: '命', description: '看四柱、日主和五行结构' },
+  { kind: 'ziwei', label: '紫微', icon: '紫', description: '看命宫、星曜和十二宫' },
+  { kind: 'astrolabe', label: '星盘', icon: '星', description: '看星体、上升和主要相位' },
+  { kind: 'qizheng', label: '七政四余', icon: '政', description: '看传统星命与二十八宿' },
 ];
 const chartKindTabs = chartOptions.map((item) => ({ value: item.kind, label: item.label }));
-const homeChartOptions: Array<{ kind: HomeChartKind; label: string; icon: string }> = [
+const homeChartOptions: Array<{ kind: HomeChartKind; label: string; icon: string; description: string }> = [
   ...chartOptions,
-  { kind: 'bazi-ziwei', label: '八字紫微合参', icon: '合' },
+  { kind: 'bazi-ziwei', label: '八字紫微合参', icon: '合', description: '结合两种命盘交叉查看' },
 ];
 const ziweiScopeOptions: Array<{ value: ZiweiScope; label: string }> = [
   { value: 'origin', label: '本命' },
@@ -828,6 +835,8 @@ const cases = ref<CaseProfile[]>([]);
 const almanacCaseIds = ref<string[]>([]);
 const fengShuiCaseIds = ref<string[]>([]);
 const newCaseDraft = ref<CaseProfile>(createNewCaseDraft());
+const newCaseGenderConfirmed = ref(false);
+const newCaseRegionConfirmed = ref(false);
 const caseEditorDraft = ref<CaseProfile | null>(null);
 const showHistory = ref(false);
 const showCaseEditor = ref(false);
@@ -919,12 +928,6 @@ const onboardingStep = ref(0);
 const onboardingDisclaimerAccepted = ref(false);
 const onboardingError = ref('');
 const configuringAiChannelId = ref('builtin');
-const onboardingAiChannelId = ref('builtin');
-const onboardingCase = reactive<CaseProfile>({
-  ...createCase('onboarding-case', '我的案例', true),
-  date: '',
-  time: '',
-});
 const birthPicker = reactive<{
   open: boolean;
   kind: BirthPickerKind;
@@ -1130,10 +1133,8 @@ const selectableCaseProfiles = computed<SelectableCaseProfile[]>(() => sortedCas
 const activeAiChannel = computed(() => appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId) || appPreferences.aiChannels[0] || createBuiltinAiChannel());
 const activeAiRequestConfig = computed<AiCustomConfig>(() => channelToAiConfig(activeAiChannel.value));
 const configuringAiChannel = computed(() => appPreferences.aiChannels.find((channel) => channel.id === configuringAiChannelId.value) || activeAiChannel.value);
-const onboardingAiChannel = computed(() => appPreferences.aiChannels.find((channel) => channel.id === onboardingAiChannelId.value) || activeAiChannel.value);
 const activeAiModelOptions = computed(() => normalizeAiModels(activeAiChannel.value.models, []));
 const configuringAiModelOptions = computed(() => normalizeAiModels(configuringAiChannel.value.models, []));
-const onboardingAiModelOptions = computed(() => normalizeAiModels(onboardingAiChannel.value.models, []));
 const activeAiModelLabel = computed(() => activeAiChannel.value.provider === 'builtin' ? '内置 AI' : activeAiChannel.value.model || activeAiChannel.value.name);
 const activeAnswerPreference = computed(() => answerPreferenceOptions.find((item) => item.value === appPreferences.answerPreference) || answerPreferenceOptions[1]);
 function channelToAiConfig(channel: AiChannel): AiCustomConfig {
@@ -1151,7 +1152,6 @@ function isAiChannelReady(channel: AiChannel) {
   return Boolean(channel.baseUrl.trim() && channel.apiKey.trim() && channel.model.trim());
 }
 const configuredAiChannels = computed(() => appPreferences.aiChannels.filter(isAiChannelReady));
-const isOnboardingAiReady = computed(() => isAiChannelReady(onboardingAiChannel.value));
 const selectedAiModel = computed({
   get: () => activeAiChannel.value.model,
   set: (model: string) => {
@@ -1168,15 +1168,6 @@ const selectedConfiguringAiModel = computed({
     configuringAiChannel.value.model = model;
     if (!configuringAiChannel.value.models.includes(model)) configuringAiChannel.value.models = [model, ...configuringAiChannel.value.models];
     resetAiTest();
-  },
-});
-const selectedOnboardingAiModel = computed({
-  get: () => onboardingAiChannel.value.model,
-  set: (model: string) => {
-    if (onboardingAiChannel.value.provider === 'builtin') return;
-    onboardingAiChannel.value.model = model;
-    if (!onboardingAiChannel.value.models.includes(model)) onboardingAiChannel.value.models = [model, ...onboardingAiChannel.value.models];
-    onboardingError.value = '';
   },
 });
 const configuringAiModelsText = computed({
@@ -1736,14 +1727,6 @@ const newCaseCalendar = computed(() => {
     return null;
   }
 });
-const onboardingCalendar = computed(() => {
-  if (!onboardingCase.date || !onboardingCase.time) return null;
-  try {
-    return getBirthCalendarInfo(onboardingCase);
-  } catch {
-    return null;
-  }
-});
 const homeChartMeta = computed(() => homeChartOptions.find((item) => item.kind === homeChartKind.value) || homeChartOptions[0]!);
 const homeModeLabel = computed(() => {
   if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '西方占卜';
@@ -1825,7 +1808,6 @@ function restoreAiKeys() {
   const activeChannel = appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId);
   if (!activeChannel || !isAiChannelReady(activeChannel)) appPreferences.activeAiChannelId = 'builtin';
   configuringAiChannelId.value = appPreferences.activeAiChannelId;
-  onboardingAiChannelId.value = appPreferences.activeAiChannelId;
 }
 
 async function restoreCases() {
@@ -1889,10 +1871,52 @@ async function refreshToPwaUpdate() {
   }
 }
 
+let applyingAppRoute = false;
+
+function currentAppRouteHash() {
+  return buildAppRouteHash({
+    view: activeView.value,
+    settingsSection: activeSettingsSection.value,
+    casesSection: activeCasesSection.value,
+    history: showHistory.value,
+  });
+}
+
+function syncAppRouteToLocation() {
+  if (applyingAppRoute) return;
+  const hash = currentAppRouteHash();
+  if (window.location.hash === hash) return;
+  window.history.pushState(null, '', hash);
+}
+
+async function applyAppRouteFromLocation() {
+  if (applyingAppRoute) return;
+  applyingAppRoute = true;
+  try {
+    const route = parseAppRoute(window.location.hash);
+    await goView(route.view);
+    activeSettingsSection.value = route.settingsSection;
+    activeCasesSection.value = route.casesSection;
+    showHistory.value = route.history;
+    const canonicalHash = currentAppRouteHash();
+    if (window.location.hash !== canonicalHash) window.history.replaceState(null, '', canonicalHash);
+  } finally {
+    applyingAppRoute = false;
+  }
+}
+
+function handleAppRouteNavigation() {
+  void applyAppRouteFromLocation();
+}
+
+watch([activeView, activeSettingsSection, activeCasesSection, showHistory], syncAppRouteToLocation);
+
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeChatSelectionFromKeyboard);
   window.addEventListener('shiyue:web-update', handleWebUpdate);
+  window.addEventListener('popstate', handleAppRouteNavigation);
+  window.addEventListener('hashchange', handleAppRouteNavigation);
   try {
     const storedBaziColumns = localStorage.getItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY);
     if (storedBaziColumns) {
@@ -1937,6 +1961,7 @@ onMounted(() => {
   }
   // 页面每次启动都创建空白会话；历史只保留在记录页，不恢复到聊天输入区。
   leaveChat();
+  void applyAppRouteFromLocation();
   cancelHomePreviewWarmup = scheduleAfterPageLoad(() => void refreshHomeFortunePreview(), {
     delayMs: 1_500,
     idleTimeoutMs: 5_000,
@@ -1947,6 +1972,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeChatSelectionFromKeyboard);
   window.removeEventListener('shiyue:web-update', handleWebUpdate);
+  window.removeEventListener('popstate', handleAppRouteNavigation);
+  window.removeEventListener('hashchange', handleAppRouteNavigation);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
   cancelHomePreviewWarmup?.();
@@ -2313,44 +2340,6 @@ function continueOnboarding() {
   onboardingStep.value = Math.min(onboardingStep.value + 1, onboardingSteps.length - 1);
 }
 
-function continueOnboardingAi() {
-  const channel = onboardingAiChannel.value;
-  if (!isAiChannelReady(channel)) {
-    if (!channel.baseUrl.trim()) onboardingError.value = '请先填写接口地址。';
-    else if (!channel.apiKey.trim()) onboardingError.value = '请先填写 API Key。';
-    else onboardingError.value = '请先获取并选择一个模型。';
-    return;
-  }
-  appPreferences.activeAiChannelId = channel.id;
-  continueOnboarding();
-}
-
-function skipOnboardingCase() {
-  continueOnboarding();
-}
-
-function saveOnboardingCase() {
-  const validationError = caseValidationMessage(onboardingCase);
-  if (validationError) {
-    onboardingError.value = validationError;
-    return;
-  }
-  const id = `case-${Date.now()}`;
-  const label = onboardingCase.label.trim() || '我的案例';
-  applyRegion(onboardingCase);
-  const profile: CaseProfile = {
-    ...onboardingCase,
-    id,
-    label,
-    name: onboardingCase.name.trim() || label,
-    isDefault: cases.value.length === 0,
-  };
-  cases.value = [...cases.value, profile];
-  selectedCaseId.value = id;
-  persistCases();
-  continueOnboarding();
-}
-
 function finishOnboarding() {
   if (!onboardingDisclaimerAccepted.value) {
     onboardingError.value = '请先确认已知悉 AI 内容说明。';
@@ -2361,7 +2350,7 @@ function finishOnboarding() {
 
 function skipOnboardingAsMaster() {
   appPreferences.displayLevel = 'master';
-  completeOnboarding();
+  continueOnboarding();
 }
 
 function completeOnboarding() {
@@ -2408,18 +2397,14 @@ function invalidateAiModels(channel: AiChannel) {
   channel.modelsFetchedAt = undefined;
   aiModelMessage.value = '';
   aiModelState.value = 'idle';
-  onboardingError.value = '';
   resetAiTest();
 }
 
-async function loadAiModels(channel: AiChannel, source: 'settings' | 'onboarding' = 'settings') {
+async function loadAiModels(channel: AiChannel) {
   if (isLoadingAiModels.value || channel.provider === 'builtin') return;
   const setError = (message: string) => {
-    if (source === 'onboarding') onboardingError.value = message;
-    else {
-      aiModelMessage.value = message;
-      aiModelState.value = 'error';
-    }
+    aiModelMessage.value = message;
+    aiModelState.value = 'error';
   };
   if (!channel.baseUrl.trim()) {
     setError('请先填写接口地址。');
@@ -2432,7 +2417,6 @@ async function loadAiModels(channel: AiChannel, source: 'settings' | 'onboarding
   isLoadingAiModels.value = true;
   aiModelMessage.value = '';
   aiModelState.value = 'idle';
-  if (source === 'onboarding') onboardingError.value = '';
   try {
     const models = await requestAiModels({
       enabled: true,
@@ -2713,11 +2697,17 @@ async function goView(view: AppView, options: { preservePageState?: boolean } = 
   if (shouldRefreshCurrentFortune) void refreshDailyFortune();
 }
 
-function openSettingsSection(section: SettingsSection) {
-  goView('settings');
-  activeSettingsSection.value = section;
-  if (section === 'ai') configuringAiChannelId.value = appPreferences.activeAiChannelId;
-  contentRef.value?.scrollTo({ top: 0, behavior: 'smooth' });
+async function openSettingsSection(section: SettingsSection) {
+  applyingAppRoute = true;
+  try {
+    await goView('settings');
+    activeSettingsSection.value = section;
+    if (section === 'ai') configuringAiChannelId.value = appPreferences.activeAiChannelId;
+    contentRef.value?.scrollTo({ top: 0, behavior: 'smooth' });
+  } finally {
+    applyingAppRoute = false;
+    syncAppRouteToLocation();
+  }
 }
 
 function openBasicAiFallback(error: unknown, questionText: string) {
@@ -2779,12 +2769,18 @@ async function copyBasicAiFallbackPrompt() {
   }, 2200);
 }
 
-function openCasesSection(section: CasesSection = 'input') {
-  goView('cases');
-  activeCasesSection.value = section;
-  caseError.value = '';
-  if (section === 'records') caseSearch.value = '';
-  contentRef.value?.scrollTo({ top: 0, behavior: 'smooth' });
+async function openCasesSection(section: CasesSection = 'input') {
+  applyingAppRoute = true;
+  try {
+    await goView('cases');
+    activeCasesSection.value = section;
+    caseError.value = '';
+    if (section === 'records') caseSearch.value = '';
+    contentRef.value?.scrollTo({ top: 0, behavior: 'smooth' });
+  } finally {
+    applyingAppRoute = false;
+    syncAppRouteToLocation();
+  }
 }
 
 function chooseAlmanacMode(mode: AlmanacMode) {
@@ -3412,7 +3408,6 @@ function normalizeRegionPickerValues(values: string[], profile: CaseProfile) {
 }
 
 function profileForBirthPicker(target = birthPicker.target) {
-  if (target === 'onboarding') return onboardingCase;
   if (target === 'create') return newCaseDraft.value;
   return editableCase.value;
 }
@@ -3527,7 +3522,10 @@ function closeBirthPicker() {
 function confirmBirthPicker(values: string[]) {
   updateBirthPickerValues(values);
   const profile = profileForBirthPicker();
-  if (birthPicker.kind === 'gender') profile.gender = birthPicker.values[0] === 'male' ? 'male' : 'female';
+  if (birthPicker.kind === 'gender') {
+    profile.gender = birthPicker.values[0] === 'male' ? 'male' : 'female';
+    if (birthPicker.target === 'create') newCaseGenderConfirmed.value = true;
+  }
   else if (birthPicker.kind === 'calendar') {
     const dateType = birthPicker.values[0] === 'lunar' ? 'lunar' : 'solar';
     if (profile.dateType !== dateType) profile.date = '';
@@ -3548,7 +3546,9 @@ function confirmBirthPicker(values: string[]) {
       const path = findBirthPlaceByRegionId(regionId || cityId || provinceId);
       if (path) applyBirthPlacePath(profile, path);
     }
+    if (birthPicker.target === 'create') newCaseRegionConfirmed.value = true;
   }
+  caseError.value = '';
   closeBirthPicker();
 }
 
@@ -3648,6 +3648,8 @@ function matchesCaseSearch(profile: CaseProfile, search: string) {
 
 function resetNewCaseDraft() {
   newCaseDraft.value = createNewCaseDraft();
+  newCaseGenderConfirmed.value = false;
+  newCaseRegionConfirmed.value = false;
   caseError.value = '';
 }
 
@@ -3674,6 +3676,14 @@ function caseValidationMessage(profile: CaseProfile) {
 
 function saveNewCase() {
   const profile = { ...newCaseDraft.value };
+  if (!newCaseGenderConfirmed.value) {
+    caseError.value = '请选择性别。';
+    return;
+  }
+  if (!newCaseRegionConfirmed.value) {
+    caseError.value = '请选择出生地区。';
+    return;
+  }
   const validationError = caseValidationMessage(profile);
   if (validationError) {
     caseError.value = validationError;
@@ -5059,8 +5069,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <div v-if="showAiPicker" class="topbar-ai-menu">
             <section class="topbar-answer-section">
               <div class="topbar-ai-menu-heading"><strong>解答偏好</strong><small>切换表达与推演方式</small></div>
-              <div class="topbar-answer-options">
-                <button v-for="item in answerPreferenceOptions" :key="item.value" type="button" :class="{ active: appPreferences.answerPreference === item.value }" @click="chooseAnswerPreference(item.value)">
+              <div class="topbar-answer-options" role="group" aria-label="解答偏好">
+                <button v-for="item in answerPreferenceOptions" :key="item.value" type="button" :class="{ active: appPreferences.answerPreference === item.value }" :aria-pressed="appPreferences.answerPreference === item.value" @click="chooseAnswerPreference(item.value)">
                   <span><strong>{{ item.label }}</strong><small>{{ item.summary }}</small></span>
                   <Check v-if="appPreferences.answerPreference === item.value" :size="13" />
                 </button>
@@ -5187,7 +5197,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div v-if="homeState === 'default' && activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读流派</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读流派" @update:model-value="chooseActivePromptSchool" /></div>
             <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
             <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
-            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '选择后开始' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].eyebrow }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ cases.length ? currentCase.label : '当前案例' }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
+            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '按想了解的事情选择' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].description }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>会读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
             <p v-if="formError" class="form-error">{{ formError }}</p>
           </div>
           <p class="home-ai-disclaimer" :class="{ 'is-chat': homeState === 'chat' }">生成内容完全基于 AI 模型的胡言乱语，不构成任何形式建议</p>
@@ -5451,11 +5461,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <div class="form-grid">
                 <UiTextField v-model="newCaseDraft.label" label="案例名称" autocomplete="off" placeholder="例如：自己、家人" @update:model-value="caseError = ''" />
                 <UiTextField v-model="newCaseDraft.name" label="姓名" autocomplete="off" placeholder="可选" @update:model-value="caseError = ''" />
-                <div class="birth-picker-control"><span>性别</span><button type="button" class="birth-picker-trigger" aria-label="选择性别" @click="openBirthPicker('gender', 'create')"><UserRound :size="16" /><strong>{{ birthPickerFieldValue('gender', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="birth-picker-control"><span>性别</span><button type="button" class="birth-picker-trigger" aria-label="选择性别" @click="openBirthPicker('gender', 'create')"><UserRound :size="16" /><strong>{{ newCaseGenderConfirmed ? birthPickerFieldValue('gender', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生历法</span><button type="button" class="birth-picker-trigger" aria-label="选择出生历法" @click="openBirthPicker('calendar', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('calendar', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生日期</span><button type="button" class="birth-picker-trigger" aria-label="选择出生日期" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'create')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
-                <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button type="button" class="birth-picker-trigger" aria-label="选择出生地区" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ birthPickerFieldValue('region', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button type="button" class="birth-picker-trigger" aria-label="选择出生地区" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
               </div>
               <div v-if="newCaseCalendar" class="birth-calendar"><div><small>公历</small><strong>{{ newCaseCalendar.solar }}</strong></div><div><small>农历</small><strong>{{ newCaseCalendar.lunar }}</strong></div><div><small>干支</small><strong>{{ newCaseCalendar.ganzhi }}</strong></div><div><small>节气 / 时辰</small><strong>{{ newCaseCalendar.jieqi }} · {{ newCaseCalendar.shichen }}</strong></div></div>
               <div v-if="newCaseCalendar?.trueSolar" class="solar-details"><div><small>真太阳时</small><strong>{{ newCaseCalendar.trueSolar.correctedDateTime }}</strong></div><div><small>校正时辰</small><strong>{{ newCaseCalendar.trueSolar.shichen }}</strong></div><div><small>总修正</small><strong>{{ newCaseCalendar.trueSolar.totalCorrectionMinutes.toFixed(1) }} 分钟</strong></div></div>
@@ -5487,8 +5497,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <UiWorkspaceSurface v-if="activeSettingsSection === 'ai'" as="div" class="settings-workspace" padding="standard">
             <aside class="settings-channel-rail">
               <div class="settings-rail-heading"><div><h2>AI 渠道</h2></div><UiButton variant="secondary" size="small" icon-only aria-label="添加 AI 渠道" @click="addAiChannel"><Plus :size="15" /></UiButton></div>
-              <div class="settings-channel-list">
-                <button v-for="channel in appPreferences.aiChannels" :key="channel.id" type="button" class="settings-channel-item" :class="{ active: configuringAiChannel.id === channel.id, current: activeAiChannel.id === channel.id }" @click="selectConfiguringAiChannel(channel.id)"><span class="settings-channel-icon"><Sparkles v-if="channel.provider === 'builtin'" :size="15" /><Settings v-else :size="15" /></span><span><strong>{{ channel.name }}</strong><small v-if="channel.provider === 'builtin'">无需配置</small><small v-else-if="isAiChannelReady(channel)">{{ channel.model }}</small><small v-else>待配置</small></span><Check v-if="activeAiChannel.id === channel.id" :size="15" /></button>
+              <div class="settings-channel-list" role="group" aria-label="AI 渠道">
+                <button v-for="channel in appPreferences.aiChannels" :key="channel.id" type="button" class="settings-channel-item" :class="{ active: configuringAiChannel.id === channel.id, current: activeAiChannel.id === channel.id }" :aria-pressed="configuringAiChannel.id === channel.id" @click="selectConfiguringAiChannel(channel.id)"><span class="settings-channel-icon"><Sparkles v-if="channel.provider === 'builtin'" :size="15" /><Settings v-else :size="15" /></span><span><strong>{{ channel.name }}</strong><small v-if="channel.provider === 'builtin'">无需配置</small><small v-else-if="isAiChannelReady(channel)">{{ channel.model }}</small><small v-else>待配置</small></span><Check v-if="activeAiChannel.id === channel.id" :size="15" /></button>
               </div>
               <div class="settings-rail-footer"><span>API Key 仅保存在当前浏览器会话。</span><UiButton variant="ghost" size="small" @click="addAiChannel"><Plus :size="13" />添加渠道</UiButton></div>
             </aside>
@@ -5513,7 +5523,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="占卜主题" description="统一更换界面风格和占卜图片" compact />
               <div>
-                <div class="preference-option-grid is-three">
+                <div class="preference-option-grid is-three" role="group" aria-label="占卜主题">
                   <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">当前界面与占卜图片使用“{{ activeDivinationThemeLabel }}”主题</p>
@@ -5523,8 +5533,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="解答偏好" description="选择 AI 的表达风格和解读框架" compact />
               <div>
-                <div class="preference-option-grid is-three">
-                  <button v-for="item in answerPreferenceOptions" :key="item.value" type="button" class="preference-option" :class="{ active: appPreferences.answerPreference === item.value }" @click="chooseAnswerPreference(item.value)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="appPreferences.answerPreference === item.value" :size="15" /></button>
+                <div class="preference-option-grid is-three" role="group" aria-label="解答偏好">
+                  <button v-for="item in answerPreferenceOptions" :key="item.value" type="button" class="preference-option" :class="{ active: appPreferences.answerPreference === item.value }" :aria-pressed="appPreferences.answerPreference === item.value" @click="chooseAnswerPreference(item.value)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="appPreferences.answerPreference === item.value" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">{{ answerPreferenceOptions.find((item) => item.value === appPreferences.answerPreference)?.description }}</p>
               </div>
@@ -5533,8 +5543,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="内容层级" description="决定可见术式和盘面信息" compact />
               <div>
-                <div class="preference-option-grid is-three">
-                  <button v-for="item in displayLevelOptions" :key="item.value" type="button" class="preference-option" :class="{ active: appPreferences.displayLevel === item.value }" @click="chooseDisplayLevel(item.value)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="appPreferences.displayLevel === item.value" :size="15" /></button>
+                <div class="preference-option-grid is-three" role="group" aria-label="内容层级">
+                  <button v-for="item in displayLevelOptions" :key="item.value" type="button" class="preference-option" :class="{ active: appPreferences.displayLevel === item.value }" :aria-pressed="appPreferences.displayLevel === item.value" @click="chooseDisplayLevel(item.value)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="appPreferences.displayLevel === item.value" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">{{ displayLevelOptions.find((item) => item.value === appPreferences.displayLevel)?.description }}</p>
               </div>
@@ -5543,8 +5553,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="起卦方式" description="设置占卜时的默认操作" compact />
               <div>
-                <div class="preference-option-grid is-two">
-                  <button v-for="item in castingPreferenceOptions" :key="item.value" type="button" class="preference-option" :class="{ active: appPreferences.castingPreference === item.value }" @click="chooseCastingPreference(item.value)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="appPreferences.castingPreference === item.value" :size="15" /></button>
+                <div class="preference-option-grid is-two" role="group" aria-label="起卦方式">
+                  <button v-for="item in castingPreferenceOptions" :key="item.value" type="button" class="preference-option" :class="{ active: appPreferences.castingPreference === item.value }" :aria-pressed="appPreferences.castingPreference === item.value" @click="chooseCastingPreference(item.value)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="appPreferences.castingPreference === item.value" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">{{ castingPreferenceOptions.find((item) => item.value === appPreferences.castingPreference)?.description }}</p>
               </div>
@@ -5932,63 +5942,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
           <div class="onboarding-body">
             <template v-if="onboardingStep === 0">
-              <div class="onboarding-copy"><h3>添加常用案例</h3><p>出生资料默认保存在当前浏览器，用于排盘时自动载入；使用 AI 解读时，必要资料会发送给所选 AI 服务处理。</p></div>
-              <div v-if="cases.length" class="onboarding-case-ready"><span class="case-avatar">{{ defaultCase.label.slice(0, 1) }}</span><span><strong>{{ defaultCase.label }}</strong><small>{{ formatCaseDate(defaultCase) }} · {{ defaultCase.time }} · {{ defaultCase.locationName }}</small></span><Check :size="17" /></div>
-              <template v-else>
-                <div class="onboarding-case-grid">
-                  <UiTextField v-model="onboardingCase.label" label="案例名称" autocomplete="off" placeholder="例如：我的案例" />
-                  <div class="birth-picker-control"><span>性别</span><button type="button" class="birth-picker-trigger" aria-label="选择性别" @click="openBirthPicker('gender', 'onboarding')"><UserRound :size="16" /><strong>{{ birthPickerFieldValue('gender', onboardingCase) }}</strong><ChevronRight :size="15" /></button></div>
-                  <div class="birth-picker-control"><span>出生历法</span><button type="button" class="birth-picker-trigger" aria-label="选择出生历法" @click="openBirthPicker('calendar', 'onboarding')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('calendar', onboardingCase) }}</strong><ChevronRight :size="15" /></button></div>
-                  <div class="birth-picker-control"><span>出生日期</span><button type="button" class="birth-picker-trigger" aria-label="选择出生日期" @click="openBirthPicker('date', 'onboarding')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', onboardingCase) }}</strong><ChevronRight :size="15" /></button></div>
-                  <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'onboarding')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', onboardingCase) }}</strong><ChevronRight :size="15" /></button></div>
-                  <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button type="button" class="birth-picker-trigger" aria-label="选择出生地区" @click="openBirthPicker('region', 'onboarding')"><MapPin :size="16" /><strong>{{ birthPickerFieldValue('region', onboardingCase) }}</strong><ChevronRight :size="15" /></button></div>
-                </div>
-                <div v-if="onboardingCalendar?.trueSolar" class="onboarding-solar-result"><span>真太阳时</span><strong>{{ onboardingCalendar.trueSolar.correctedDateTime }}</strong><small>{{ onboardingCalendar.trueSolar.shichen }} · 共修正 {{ onboardingCalendar.trueSolar.totalCorrectionMinutes.toFixed(1) }} 分钟</small></div>
-              </template>
-              <p v-if="onboardingError" class="onboarding-error">{{ onboardingError }}</p>
-              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton v-if="!cases.length" variant="secondary" @click="skipOnboardingCase">暂不添加</UiButton><UiButton @click="cases.length ? continueOnboarding() : saveOnboardingCase()">{{ cases.length ? '继续' : '保存并继续' }}<ChevronRight :size="15" /></UiButton></div></div>
-            </template>
-
-            <template v-else-if="onboardingStep === 1">
-              <div class="onboarding-copy"><h3>选择解答风格</h3><p>决定 AI 如何组织判断和表达结果，之后可以在设置中修改。</p></div>
-              <div class="onboarding-choice-list">
-                <button v-for="item in answerPreferenceOptions" :key="item.value" type="button" :class="{ active: appPreferences.answerPreference === item.value }" @click="chooseAnswerPreference(item.value)"><span>{{ item.mark }}</span><div><strong>{{ item.label }}</strong><small>{{ item.description }}</small></div><Check v-if="appPreferences.answerPreference === item.value" :size="16" /></button>
-              </div>
-              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(0)"><ArrowLeft :size="15" />返回</UiButton><UiButton @click="continueOnboarding">继续<ChevronRight :size="15" /></UiButton></div></div>
-            </template>
-
-            <template v-else-if="onboardingStep === 2">
               <div class="onboarding-copy"><h3>选择内容层级</h3><p>控制工具选择、盘面信息和术语的显示深度。</p></div>
-              <div class="onboarding-level-grid">
-                <button type="button" :class="{ active: appPreferences.displayLevel === 'basic' }" @click="chooseDisplayLevel('basic')"><strong>0 基础</strong><span>AI 自动选择方式，只看易懂解答</span><Check v-if="appPreferences.displayLevel === 'basic'" :size="16" /></button>
-                <button type="button" :class="{ active: appPreferences.displayLevel === 'beginner' }" @click="chooseDisplayLevel('beginner')"><strong>小白</strong><span>可选核心术式，保留少量术语</span><Check v-if="appPreferences.displayLevel === 'beginner'" :size="16" /></button>
-                <button type="button" :class="{ active: appPreferences.displayLevel === 'master' }" @click="chooseDisplayLevel('master')"><strong>完整</strong><span>全部工具、盘面和推演信息</span><Check v-if="appPreferences.displayLevel === 'master'" :size="16" /></button>
+              <div class="onboarding-level-grid" role="group" aria-label="内容层级">
+                <button v-for="item in displayLevelOptions" :key="item.value" type="button" :class="{ active: appPreferences.displayLevel === item.value }" :aria-pressed="appPreferences.displayLevel === item.value" @click="chooseDisplayLevel(item.value)"><strong>{{ item.label }}</strong><span>{{ item.description }}</span><Check v-if="appPreferences.displayLevel === item.value" :size="16" /></button>
               </div>
-              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(1)"><ArrowLeft :size="15" />返回</UiButton><UiButton @click="continueOnboarding">继续<ChevronRight :size="15" /></UiButton></div></div>
-            </template>
-
-            <template v-else-if="onboardingStep === 3">
-              <div class="onboarding-copy"><h3>选择默认起法</h3><p>自动起卦会直接进入解读；手动起卦可亲自取数、摇卦或指定结果。</p></div>
-              <div class="onboarding-choice-list">
-                <button type="button" :class="{ active: appPreferences.castingPreference === 'auto' }" @click="chooseCastingPreference('auto')"><span>自</span><div><strong>自动起卦</strong><small>默认由电脑完成起卦</small></div><Check v-if="appPreferences.castingPreference === 'auto'" :size="16" /></button>
-                <button type="button" :class="{ active: appPreferences.castingPreference === 'manual' }" @click="chooseCastingPreference('manual')"><span>手</span><div><strong>手动起卦</strong><small>默认亲自取数、摇卦或确认起课</small></div><Check v-if="appPreferences.castingPreference === 'manual'" :size="16" /></button>
-              </div>
-              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(2)"><ArrowLeft :size="15" />返回</UiButton><UiButton @click="continueOnboarding">继续<ChevronRight :size="15" /></UiButton></div></div>
-            </template>
-
-            <template v-else-if="onboardingStep === 4">
-              <div class="onboarding-copy"><h3>选择 AI</h3><p>选择负责生成解答的渠道和模型。</p></div>
-              <div class="onboarding-ai-fields">
-                <UiSelect v-model="onboardingAiChannelId" label="AI 渠道" @change="onboardingError = ''"><option v-for="channel in appPreferences.aiChannels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></UiSelect>
-                <UiSelect v-if="onboardingAiChannel.provider !== 'builtin'" v-model="onboardingAiChannel.apiType" label="接口协议" @change="onboardingError = ''"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
-                <UiTextField v-if="onboardingAiChannel.provider !== 'builtin' && !onboardingAiChannel.preset" v-model="onboardingAiChannel.baseUrl" class="onboarding-ai-key" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @update:model-value="invalidateAiModels(onboardingAiChannel)" />
-                <UiTextField v-if="onboardingAiChannel.provider !== 'builtin'" v-model="onboardingAiChannel.apiKey" class="onboarding-ai-key" label="API Key" type="password" autocomplete="off" placeholder="填写对应渠道的 Key" @update:model-value="onboardingError = ''" />
-                <div v-if="onboardingAiChannel.provider !== 'builtin'" class="onboarding-model-row"><UiButton variant="secondary" :loading="isLoadingAiModels" :disabled="!onboardingAiChannel.baseUrl.trim() || !onboardingAiChannel.apiKey.trim()" @click="loadAiModels(onboardingAiChannel, 'onboarding')"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton><UiSelect v-if="onboardingAiModelOptions.length" v-model="selectedOnboardingAiModel" label="模型"><option v-for="model in onboardingAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="onboarding-model-empty">请先获取模型</span></div>
-              </div>
-              <div class="onboarding-ai-current"><span><strong>{{ onboardingAiChannel.name }}</strong><small>{{ onboardingAiChannel.provider === 'builtin' ? '内置 AI' : onboardingAiChannel.model || '尚未选择模型' }}</small></span><Check v-if="isOnboardingAiReady" :size="17" /></div>
-              <p class="onboarding-note">{{ onboardingAiChannel.provider === 'builtin' ? '使用站点提供的默认解答服务。' : '填好 API Key 并选择模型后即可使用。' }}</p>
-              <p v-if="onboardingError" class="onboarding-error">{{ onboardingError }}</p>
-              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(3)"><ArrowLeft :size="15" />返回</UiButton><UiButton :disabled="isLoadingAiModels" @click="continueOnboardingAi">继续<ChevronRight :size="15" /></UiButton></div></div>
+              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，使用完整模式</UiButton><div><UiButton @click="continueOnboarding">继续<ChevronRight :size="15" /></UiButton></div></div>
             </template>
 
             <template v-else>
@@ -5996,7 +5954,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <div class="onboarding-disclaimer"><Sparkles :size="20" /><p>本产品的占卜、排盘解读及问答内容均由 AI 生成，仅供娱乐与自我观察，不代表事实判断，也不构成医疗、法律、投资、心理或其他专业建议。案例与历史默认保存在当前浏览器；使用 AI 解读时，问题、必要的出生资料和盘面摘要会发送给当前选择的 AI 服务处理。请勿据此作出重要决定。</p></div>
               <label class="onboarding-consent"><input v-model="onboardingDisclaimerAccepted" type="checkbox" /><span>我已知悉内容由 AI 生成</span></label>
               <p v-if="onboardingError" class="onboarding-error">{{ onboardingError }}</p>
-              <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，直接跳过</UiButton><div><UiButton variant="secondary" @click="goToOnboardingStep(4)"><ArrowLeft :size="15" />返回</UiButton><UiButton :disabled="!onboardingDisclaimerAccepted" @click="finishOnboarding"><Check :size="15" />完成设置</UiButton></div></div>
+              <div class="onboarding-actions"><span></span><div><UiButton variant="secondary" @click="goToOnboardingStep(0)"><ArrowLeft :size="15" />返回</UiButton><UiButton :disabled="!onboardingDisclaimerAccepted" @click="finishOnboarding"><Check :size="15" />完成设置</UiButton></div></div>
             </template>
           </div>
         </section>
