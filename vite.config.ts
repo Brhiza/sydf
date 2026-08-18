@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
         ],
       },
       workbox: {
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
@@ -79,6 +80,12 @@ export default defineConfig(({ mode }) => {
           'assets/index-*.css',
           'assets/vendor-vue-*.js',
           'assets/vendor-icons-*.js',
+          'assets/vendor-tyme-*.js',
+          'assets/mingyu-calendar-*.js',
+          'assets/mingyu-ganzhi-*.js',
+          'assets/mingyu-wuxing-*.js',
+          'assets/mingyu-bazi-*.js',
+          'assets/mingyu-location-*.js',
           '*.{ico,png,svg,webp}',
         ],
         globIgnores: [
@@ -96,7 +103,7 @@ export default defineConfig(({ mode }) => {
             urlPattern: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/assets/'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'shiyue-app-assets-v1',
+              cacheName: 'shiyue-app-assets-v2',
               cacheableResponse: { statuses: [0, 200] },
               expiration: { maxEntries: 96, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },

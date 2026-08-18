@@ -5,6 +5,7 @@ import {
   type AiConversationMessage,
   type AiCustomConfig,
 } from './ai';
+import { getChatThinkingControl } from './aiProvider';
 import type { AgentToolSelection } from './agent';
 
 type AgentToolName =
@@ -138,12 +139,12 @@ function toolDefinitions(apiType: AiApiType) {
 function buildProviderBody(config: ReturnType<typeof getDirectAiConfig>, userPrompt: string) {
   const tools = toolDefinitions(config.apiType);
   if (config.apiType === 'responses') {
-    return { model: config.model, instructions: systemPrompt, input: [{ role: 'user', content: userPrompt }], tools, tool_choice: 'required', store: false, max_output_tokens: 700 };
+    return { model: config.model, instructions: systemPrompt, input: [{ role: 'user', content: userPrompt }], tools, tool_choice: 'required', store: false };
   }
   if (config.apiType === 'anthropic') {
     return { model: config.model, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }], tools, tool_choice: { type: 'any' }, temperature: 0, max_tokens: 700 };
   }
-  return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'required', temperature: 0, max_tokens: 700 };
+  return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'required', temperature: 0, ...getChatThinkingControl(config) };
 }
 
 function normalizeArguments(value: unknown) {

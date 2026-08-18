@@ -102,11 +102,11 @@ export async function handleModelsPost(context: { request: Request; env: AiEnv }
   try {
     const response = await fetchWithTimeout(url.toString(), { method: 'GET', headers }, 15_000);
     const result = await response.json().catch(() => null) as unknown;
-    if (!response.ok) return jsonResponse({ error: '获取模型失败，请检查接口地址和密钥。' }, 502);
+    if (!response.ok) return jsonResponse({ error: '获取模型失败，请检查接口地址和密钥。' }, 503);
     const models = collectModelIds(result);
-    if (!models.length) return jsonResponse({ error: '接口没有返回可用模型。' }, 502);
+    if (!models.length) return jsonResponse({ error: '接口没有返回可用模型。' }, 503);
     return jsonResponse({ models });
   } catch {
-    return jsonResponse({ error: '暂时无法连接模型接口，请稍后再试。' }, 502);
+    return jsonResponse({ error: '暂时无法连接模型接口，请稍后再试。' }, 503);
   }
 }

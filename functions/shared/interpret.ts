@@ -5,6 +5,7 @@ import {
   type AiPromptConversationMessage,
   type AiPromptPayload,
 } from '../../src/lib/aiPrompt';
+import { buildInterpretationProviderBody, extractProviderText } from '../../src/lib/aiProvider';
 import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl, type ApiSecurityEnv } from './security';
 
 interface AiChatMessage {
@@ -30,7 +31,6 @@ export interface AiEnv extends ApiSecurityEnv {
   AI_MODEL?: string;
   AI_SYSTEM_PROMPT?: string;
   AI_TEMPERATURE?: string;
-  AI_MAX_TOKENS?: string;
 }
 
 export interface AiRequestConfig {
@@ -49,11 +49,33 @@ interface InterpretationPayload extends AiPromptPayload {
 const MAX_QUESTION_LENGTH = 4000;
 // Cloudflare 公网链路约 100 秒会中止请求；预留边缘返回时间，同时允许较长的专业解读完成。
 const UPSTREAM_REQUEST_TIMEOUT_MS = 90_000;
+const RETRYABLE_UPSTREAM_STATUS = new Set([502, 503, 504]);
+const DEFAULT_UPSTREAM_RETRY_DELAY_MS = 300;
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
+class UpstreamResponseError extends Error {
+  constructor(
+    readonly status: number,
+    readonly retryAfter?: string,
+  ) {
+    super(`upstream response error (${status})`);
+    this.name = 'UpstreamResponseError';
+  }
+}
+
+class EmptyUpstreamResponseError extends Error {
+  constructor(
+    readonly finishReason = '',
+    readonly reasoningLength = 0,
+  ) {
+    super('empty upstream response');
+    this.name = 'EmptyUpstreamResponseError';
+  }
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...headers },
   });
 }
 
@@ -86,65 +108,20 @@ export function getCustomAiConfig(payload: { aiConfig?: AiRequestConfig }, reque
   }
 }
 
-function extractChatText(result: unknown) {
-  if (!result || typeof result !== 'object' || !('choices' in result) || !Array.isArray(result.choices)) return '';
-  const first = result.choices[0];
-  if (!first || typeof first !== 'object' || !('message' in first) || !first.message || typeof first.message !== 'object' || !('content' in first.message)) return '';
-  const content = first.message.content;
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) return content.map((item) => item && typeof item === 'object' && 'text' in item ? String(item.text) : '').join('');
-  return '';
-}
-
-function extractResponsesText(result: unknown) {
-  if (!result || typeof result !== 'object') return '';
-  const record = result as Record<string, unknown>;
-  if (typeof record.output_text === 'string') return record.output_text;
-  if (!Array.isArray(record.output)) return '';
-  return record.output.map((item) => {
-    if (!item || typeof item !== 'object') return '';
-    const content = (item as Record<string, unknown>).content;
-    if (!Array.isArray(content)) return '';
-    return content.map((part) => {
-      if (!part || typeof part !== 'object') return '';
-      const block = part as Record<string, unknown>;
-      return block.type === 'output_text' && typeof block.text === 'string' ? block.text : '';
-    }).join('');
-  }).join('');
-}
-
-function extractAnthropicText(result: unknown) {
-  if (!result || typeof result !== 'object') return '';
-  const content = (result as Record<string, unknown>).content;
-  if (!Array.isArray(content)) return '';
-  return content.map((item) => {
-    if (!item || typeof item !== 'object') return '';
-    const block = item as Record<string, unknown>;
-    return block.type === 'text' && typeof block.text === 'string' ? block.text : '';
-  }).join('');
-}
-
 async function requestProvider(
   config: AiProviderConfig,
   systemPrompt: string,
   providerMessages: AiPromptConversationMessage[],
   messages: AiChatMessage[],
   temperature: number,
-  maxTokens: number,
 ) {
-  const body = config.apiType === 'responses'
-    ? { model: config.model, instructions: systemPrompt, input: providerMessages, store: false, max_output_tokens: maxTokens }
-    : config.apiType === 'anthropic'
-      ? { model: config.model, system: systemPrompt, messages: providerMessages, max_tokens: maxTokens, temperature }
-      : { model: config.model, messages, temperature, max_tokens: maxTokens };
+  const body = buildInterpretationProviderBody(config, systemPrompt, providerMessages, messages, temperature);
   const result = await requestProviderJson(config, body);
-  const content = config.apiType === 'responses'
-    ? extractResponsesText(result)
-    : config.apiType === 'anthropic'
-      ? extractAnthropicText(result)
-      : extractChatText(result);
-  if (!content.trim()) throw new Error('empty upstream response');
-  return content.trim();
+  const extracted = extractProviderText(result, config.apiType);
+  if (!extracted.content.trim()) {
+    throw new EmptyUpstreamResponseError(extracted.finishReason, extracted.reasoningLength);
+  }
+  return extracted.content.trim();
 }
 
 export async function requestProviderJson(config: AiProviderConfig, body: Record<string, unknown>, signal?: AbortSignal) {
@@ -158,16 +135,37 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
   } else {
     headers.Authorization = `Bearer ${config.apiKey}`;
   }
-  const response = await fetchWithTimeout(config.url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal,
-  }, UPSTREAM_REQUEST_TIMEOUT_MS);
-  const result = await response.json().catch(() => null) as unknown;
-  if (!response.ok) throw new Error('upstream response error');
-  if (!result) throw new Error('empty upstream response');
-  return result;
+  const requestBody = JSON.stringify(body);
+  const deadline = Date.now() + UPSTREAM_REQUEST_TIMEOUT_MS;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) throw new DOMException('upstream timeout', 'TimeoutError');
+    const response = await fetchWithTimeout(config.url, {
+      method: 'POST',
+      headers,
+      body: requestBody,
+      signal,
+    }, remainingMs);
+    if (response.ok) {
+      const result = await response.json().catch(() => null) as unknown;
+      if (!result) throw new Error('empty upstream response');
+      return result;
+    }
+
+    await response.arrayBuffer().catch(() => undefined);
+    const retryAfter = response.headers.get('Retry-After')?.trim() || undefined;
+    if (attempt === 0 && RETRYABLE_UPSTREAM_STATUS.has(response.status)) {
+      const seconds = Number(retryAfter);
+      const requestedDelay = Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : DEFAULT_UPSTREAM_RETRY_DELAY_MS;
+      const delayMs = Math.min(1500, Math.max(DEFAULT_UPSTREAM_RETRY_DELAY_MS, requestedDelay));
+      if (deadline - Date.now() > delayMs + 1000) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+    }
+    throw new UpstreamResponseError(response.status, retryAfter);
+  }
+  throw new Error('upstream response error');
 }
 
 function isTimeoutError(error: unknown) {
@@ -176,11 +174,31 @@ function isTimeoutError(error: unknown) {
 
 function providerErrorResponse(error: unknown, customProvider: boolean) {
   if (isTimeoutError(error)) return jsonResponse({ error: 'AI 解读等待超时，请稍后重试。' }, 504);
+  if (error instanceof EmptyUpstreamResponseError) {
+    return jsonResponse({ error: 'AI 服务未生成完整答案，请重新解读。' }, 503);
+  }
+  if (error instanceof UpstreamResponseError) {
+    const retryHeaders: Record<string, string> = error.retryAfter && /^\d+$/.test(error.retryAfter)
+      ? { 'Retry-After': error.retryAfter }
+      : {};
+    if (error.status === 429) {
+      return jsonResponse({ error: 'AI 服务当前请求较多，请稍后重试。' }, 503, retryHeaders);
+    }
+    if (RETRYABLE_UPSTREAM_STATUS.has(error.status)) {
+      return jsonResponse({ error: 'AI 服务当前繁忙，请稍后重试。' }, error.status === 504 ? 504 : 503, retryHeaders);
+    }
+    if (customProvider && [400, 401, 403, 404, 422].includes(error.status)) {
+      return jsonResponse({ error: 'AI 服务返回了配置错误，请检查模型、接口地址和密钥。' }, 400);
+    }
+    if (!customProvider && [400, 401, 403, 404, 422].includes(error.status)) {
+      return jsonResponse({ error: 'AI 服务配置暂时不可用，请稍后再试。' }, 503);
+    }
+  }
   return jsonResponse({
     error: customProvider
       ? 'AI 服务返回了错误，请检查模型、接口地址和密钥配置。'
       : 'AI 解读暂时失败，请稍后再试。',
-  }, 502);
+  }, 503);
 }
 
 export function getBuiltinAiConfig(env: AiEnv): AiProviderConfig | null {
@@ -218,19 +236,9 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   const messages: AiChatMessage[] = [{ role: 'system', content: systemPrompt }, ...providerMessages];
 
   const temperature = Number.isFinite(Number(env.AI_TEMPERATURE)) ? Number(env.AI_TEMPERATURE) : 0.55;
-  const preferenceTokenLimit = payload.preferences?.answerPreference === 'chat'
-    ? 1100
-    : payload.preferences?.answerPreference === 'professional'
-      ? 3000
-      : 2000;
-  const configuredMaxTokens = Number(env.AI_MAX_TOKENS);
-  const maxTokens = Number.isFinite(configuredMaxTokens) && configuredMaxTokens > 0
-    ? Math.min(8000, Math.max(256, Math.round(configuredMaxTokens)))
-    : preferenceTokenLimit;
-
   if (customConfig) {
     try {
-      const content = await requestProvider(customConfig, systemPrompt, providerMessages, messages, temperature, maxTokens);
+      const content = await requestProvider(customConfig, systemPrompt, providerMessages, messages, temperature);
       return jsonResponse({ content, model: customConfig.model, provider });
     } catch (error) {
       return providerErrorResponse(error, true);
@@ -241,7 +249,7 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   if (!builtinConfig) return jsonResponse({ error: 'AI 服务尚未配置，请稍后再试。' }, 503);
 
   try {
-    const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature, maxTokens);
+    const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature);
     return jsonResponse({ content, provider });
   } catch (error) {
     return providerErrorResponse(error, false);

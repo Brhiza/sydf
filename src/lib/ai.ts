@@ -1,5 +1,6 @@
 import type { PromptSchoolChoices } from './promptSchools';
 import { buildAiSystemPrompt, buildAiUserPrompt, sanitizeAiConversation } from './aiPrompt';
+import { buildInterpretationProviderBody, extractProviderText } from './aiProvider';
 
 export type AiInterpretationMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 
@@ -339,7 +340,11 @@ async function requestAiModelsViaProxy(aiConfig: AiCustomConfig, signal?: AbortS
 
 function getErrorMessage(payload: unknown, status: number) {
   if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') return payload.error;
-  return status === 404 ? 'AI 解读服务尚未接入当前预览环境。' : `AI 解读暂时不可用（${status}）。`;
+  if (status === 404) return 'AI 解读服务尚未接入当前预览环境。';
+  if (status === 429) return '请求过于频繁，请稍后再试。';
+  if (status === 502 || status === 503) return 'AI 服务当前繁忙，请稍后重试。';
+  if (status === 504) return 'AI 解读等待超时，请稍后重试。';
+  return `AI 解读暂时不可用（${status}）。`;
 }
 
 export async function requestAiInterpretation(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {
@@ -351,16 +356,7 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
     const conversation = sanitizeAiConversation(request.conversation);
     const providerMessages = [...conversation, { role: 'user' as const, content: buildAiUserPrompt(request) }];
     const messages = [{ role: 'system' as const, content: systemPrompt }, ...providerMessages];
-    const maxTokens = request.preferences?.answerPreference === 'chat'
-      ? 1100
-      : request.preferences?.answerPreference === 'professional'
-        ? 3000
-        : 2000;
-    const body = config.apiType === 'responses'
-      ? { model: config.model, instructions: systemPrompt, input: providerMessages, store: false, max_output_tokens: maxTokens }
-      : config.apiType === 'anthropic'
-        ? { model: config.model, system: systemPrompt, messages: providerMessages, max_tokens: maxTokens, temperature: 0.55 }
-        : { model: config.model, messages, temperature: 0.55, max_tokens: maxTokens };
+    const body = buildInterpretationProviderBody(config, systemPrompt, providerMessages, messages, 0.55);
     let response: Response;
     try {
       response = await fetchWithClientTimeout(config.url, {
@@ -378,11 +374,7 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
     }
     const result = await response.json().catch(() => null) as unknown;
     if (!response.ok) throw new Error(getProviderErrorMessage(result, response.status, '第三方 AI 返回错误，请检查模型、接口地址和密钥'));
-    const content = config.apiType === 'responses'
-      ? extractResponsesText(result)
-      : config.apiType === 'anthropic'
-        ? extractAnthropicText(result)
-        : extractChatText(result);
+    const content = extractProviderText(result, config.apiType).content;
     if (!content.trim()) throw new Error('AI 返回了无法识别的内容。');
     const resultModel = result && typeof result === 'object' && 'model' in result && typeof result.model === 'string'
       ? result.model
@@ -407,44 +399,4 @@ async function requestAiInterpretationViaProxy(payload: AiInterpretationRequest,
     throw new Error('AI 返回了无法识别的内容。');
   }
   return result as AiInterpretationResponse;
-}
-
-function extractChatText(result: unknown) {
-  if (!result || typeof result !== 'object' || !('choices' in result) || !Array.isArray(result.choices)) return '';
-  const first = result.choices[0];
-  if (!first || typeof first !== 'object' || !('message' in first) || !first.message || typeof first.message !== 'object' || !('content' in first.message)) return '';
-  const content = first.message.content;
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content.map((item) => item && typeof item === 'object' && 'text' in item && typeof item.text === 'string' ? item.text : '').join('');
-  }
-  return '';
-}
-
-function extractResponsesText(result: unknown) {
-  if (!result || typeof result !== 'object') return '';
-  const record = result as Record<string, unknown>;
-  if (typeof record.output_text === 'string') return record.output_text;
-  if (!Array.isArray(record.output)) return '';
-  return record.output.map((item) => {
-    if (!item || typeof item !== 'object') return '';
-    const content = (item as Record<string, unknown>).content;
-    if (!Array.isArray(content)) return '';
-    return content.map((part) => {
-      if (!part || typeof part !== 'object') return '';
-      const block = part as Record<string, unknown>;
-      return block.type === 'output_text' && typeof block.text === 'string' ? block.text : '';
-    }).join('');
-  }).join('');
-}
-
-function extractAnthropicText(result: unknown) {
-  if (!result || typeof result !== 'object') return '';
-  const content = (result as Record<string, unknown>).content;
-  if (!Array.isArray(content)) return '';
-  return content.map((item) => {
-    if (!item || typeof item !== 'object') return '';
-    const block = item as Record<string, unknown>;
-    return block.type === 'text' && typeof block.text === 'string' ? block.text : '';
-  }).join('');
 }

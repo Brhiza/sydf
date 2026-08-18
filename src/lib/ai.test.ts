@@ -94,6 +94,7 @@ describe('AI 解读请求', () => {
     expect(url).toBe('https://api.example.com/v1/chat/completions');
     expect(init.headers).toMatchObject({ Authorization: 'Bearer test-key' });
     expect(body.model).toBe('test-model');
+    expect(body.max_tokens).toBeUndefined();
     expect(serialized).toContain('体用关系');
     expect(serialized).not.toContain('test-key');
     expect(serialized).not.toContain('aiConfig');
@@ -118,6 +119,7 @@ describe('AI 解读请求', () => {
     expect(body.instructions).toEqual(expect.any(String));
     expect(body.input).toEqual(expect.any(Array));
     expect(body.store).toBe(false);
+    expect(body.max_output_tokens).toBeUndefined();
     expect(result.content).toBe('Responses 返回内容');
   });
 
@@ -145,6 +147,7 @@ describe('AI 解读请求', () => {
     expect(headers['x-api-key']).toBe('test-key');
     expect(headers['anthropic-dangerous-direct-browser-access']).toBe('true');
     expect(body.system).toEqual(expect.any(String));
+    expect(body.max_tokens).toBe(8192);
     expect(result.content).toBe('Anthropic 返回内容');
   });
 
@@ -268,5 +271,14 @@ describe('AI 解读请求', () => {
     await vi.advanceTimersByTimeAsync(60_000);
 
     await expect(pending).resolves.toMatchObject({ content: '较长解读完成' });
+  });
+
+  it('网关错误页没有 JSON 时也显示清楚的繁忙提示', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>bad gateway</html>', {
+      status: 502,
+      headers: { 'Content-Type': 'text/html' },
+    })));
+
+    await expect(requestAiInterpretation(request)).rejects.toThrow('AI 服务当前繁忙，请稍后重试。');
   });
 });

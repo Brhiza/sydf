@@ -10,6 +10,10 @@ import './design-system/primitives.css';
 
 createApp(App).mount('#app');
 
+type StartupRecoveryBridge = { markReady?: () => void };
+(window as Window & { __SHIYUE_STARTUP_RECOVERY__?: StartupRecoveryBridge })
+  .__SHIYUE_STARTUP_RECOVERY__?.markReady?.();
+
 let serviceWorkerRegistration: ServiceWorkerRegistration | undefined;
 
 async function prepareWebUpdate() {
