@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, type CSSProperties } from 'vue';
-import { Flame, RotateCcw, X } from 'lucide-vue-next';
+import { Flame, ImagePlus, RotateCcw, X } from 'lucide-vue-next';
 import { UiButton, UiDialogShell } from './ui';
 
 const emit = defineEmits<{ close: [] }>();
@@ -20,6 +20,7 @@ interface OfferingOption {
   key: string;
   label: string;
   image: string;
+  custom?: boolean;
 }
 
 interface SmokeParticle {
@@ -50,6 +51,8 @@ const offeringOptions: OfferingOption[] = [
 
 const incenseStorageKey = 'shiyue-temple-incense-v1';
 const offeringStorageKey = 'shiyue-temple-offerings-v1';
+const customOfferingStorageKey = 'shiyue-temple-custom-offerings-v1';
+const customOfferingLimit = 12;
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
@@ -94,12 +97,24 @@ const burnStartedAt = ref(0);
 const burnEndsAt = ref(0);
 const currentTime = ref(Date.now());
 const placedOfferingKeys = ref<string[]>([]);
+const customOfferings = ref<OfferingOption[]>([]);
 const ceremonyMessage = ref('');
+const templeScene = ref<HTMLElement | null>(null);
+const incenseBundle = ref<HTMLElement | null>(null);
+const offeringUploadInput = ref<HTMLInputElement | null>(null);
+const incenseHolding = ref(false);
+const incenseElevated = ref(false);
+const incenseDragOffset = ref({ x: 0, y: 0 });
 let timerId: number | undefined;
+let incenseReturnTimerId: number | undefined;
+let incensePointerId: number | null = null;
+let incenseDragStart = { clientX: 0, clientY: 0, offsetX: 0, offsetY: 0 };
+let incenseDragBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
 const activeIncense = computed(() => incenseOptions.find((item) => item.key === selectedIncense.value) || incenseOptions[0]);
+const availableOfferings = computed(() => [...offeringOptions, ...customOfferings.value]);
 const placedOfferings = computed(() => placedOfferingKeys.value
-  .map((key) => offeringOptions.find((item) => item.key === key))
+  .map((key) => availableOfferings.value.find((item) => item.key === key))
   .filter((item): item is OfferingOption => Boolean(item)));
 const burnRemainingMs = computed(() => Math.max(0, burnEndsAt.value - currentTime.value));
 const burnProgress = computed(() => {
@@ -111,6 +126,9 @@ const burnCutPercent = computed(() => burnProgress.value * activeIncense.value.b
 const incenseVisualStyle = computed(() => ({
   '--burn-cut': `${burnCutPercent.value}%`,
 } as CSSProperties));
+const incenseBundleStyle = computed(() => ({
+  transform: `translate3d(${incenseDragOffset.value.x}px, ${incenseDragOffset.value.y}px, 0)`,
+}));
 const burnHeadStyle = computed(() => ({
   top: `${burnCutPercent.value}%`,
 }));
@@ -146,6 +164,69 @@ function lightIncense() {
 function refreshSmokeParticle(stickIndex: number, particleIndex: number) {
   if (!incenseLit.value) return;
   smokeParticles.value[stickIndex][particleIndex] = createSmokeParticle(stickIndex, particleIndex);
+}
+
+function startIncenseHold(event: PointerEvent) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const scene = templeScene.value;
+  const handle = event.currentTarget as HTMLElement;
+  if (!scene) return;
+
+  const sceneRect = scene.getBoundingClientRect();
+  const handleRect = handle.getBoundingClientRect();
+  let offset = incenseDragOffset.value;
+  if (incenseBundle.value) {
+    const matrix = new DOMMatrixReadOnly(window.getComputedStyle(incenseBundle.value).transform);
+    offset = { x: matrix.m41, y: matrix.m42 };
+    incenseDragOffset.value = offset;
+  }
+  const restLeft = handleRect.left - offset.x;
+  const restRight = handleRect.right - offset.x;
+  const restTop = handleRect.top - offset.y;
+  const restBottom = handleRect.bottom - offset.y;
+  const edgePadding = 6;
+
+  incenseDragBounds = {
+    minX: sceneRect.left + edgePadding - restLeft,
+    maxX: sceneRect.right - edgePadding - restRight,
+    minY: sceneRect.top + edgePadding - restTop,
+    maxY: sceneRect.bottom - edgePadding - restBottom,
+  };
+  incenseDragStart = {
+    clientX: event.clientX,
+    clientY: event.clientY,
+    offsetX: offset.x,
+    offsetY: offset.y,
+  };
+  incensePointerId = event.pointerId;
+  incenseHolding.value = true;
+  incenseElevated.value = true;
+  if (incenseReturnTimerId !== undefined) window.clearTimeout(incenseReturnTimerId);
+  handle.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function moveHeldIncense(event: PointerEvent) {
+  if (!incenseHolding.value || incensePointerId !== event.pointerId) return;
+  const nextX = incenseDragStart.offsetX + event.clientX - incenseDragStart.clientX;
+  const nextY = incenseDragStart.offsetY + event.clientY - incenseDragStart.clientY;
+  incenseDragOffset.value = {
+    x: Math.min(incenseDragBounds.maxX, Math.max(incenseDragBounds.minX, nextX)),
+    y: Math.min(incenseDragBounds.maxY, Math.max(incenseDragBounds.minY, nextY)),
+  };
+  event.preventDefault();
+}
+
+function releaseHeldIncense(event: PointerEvent) {
+  if (incensePointerId !== event.pointerId) return;
+  const handle = event.currentTarget as HTMLElement;
+  incensePointerId = null;
+  incenseHolding.value = false;
+  incenseDragOffset.value = { x: 0, y: 0 };
+  incenseReturnTimerId = window.setTimeout(() => {
+    if (!incenseHolding.value) incenseElevated.value = false;
+  }, 520);
+  if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
 }
 
 function persistBurnState() {
@@ -199,19 +280,168 @@ function persistOfferingState() {
   }
 }
 
+function persistCustomOfferingState(offerings: OfferingOption[]) {
+  try {
+    window.localStorage.setItem(customOfferingStorageKey, JSON.stringify(offerings));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function restoreCustomOfferingState() {
+  try {
+    const raw = window.localStorage.getItem(customOfferingStorageKey);
+    if (!raw) return;
+    const stored = JSON.parse(raw) as unknown;
+    if (!Array.isArray(stored)) return;
+    customOfferings.value = stored.filter((item): item is OfferingOption => (
+      typeof item === 'object'
+      && item !== null
+      && typeof (item as OfferingOption).key === 'string'
+      && (item as OfferingOption).key.startsWith('custom-')
+      && typeof (item as OfferingOption).label === 'string'
+      && typeof (item as OfferingOption).image === 'string'
+      && (item as OfferingOption).image.startsWith('data:image/')
+    )).slice(0, customOfferingLimit).map((item) => ({ ...item, custom: true }));
+  } catch {
+    // 损坏的自定义贡品记录不影响预设贡品。
+  }
+}
+
 function restoreOfferingState() {
   try {
     const raw = window.localStorage.getItem(offeringStorageKey);
     if (!raw) return;
     const stored = JSON.parse(raw) as unknown;
     if (!Array.isArray(stored)) return;
-    const validKeys = new Set(offeringOptions.map((item) => item.key));
+    const validKeys = new Set(availableOfferings.value.map((item) => item.key));
     placedOfferingKeys.value = [...new Set(
       stored.filter((key): key is string => typeof key === 'string' && validKeys.has(key)),
     )].slice(0, 10);
   } catch {
     // 损坏的本地记录不影响本次上供。
   }
+}
+
+function loadOfferingImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('image-decode-failed'));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function prepareOfferingImage(file: File) {
+  const image = await loadOfferingImage(file);
+  const maxSide = 512;
+  const scale = Math.min(1, maxSide / image.naturalWidth, maxSide / image.naturalHeight);
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = width;
+  sourceCanvas.height = height;
+  const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  if (!sourceContext) throw new Error('canvas-unavailable');
+  sourceContext.drawImage(image, 0, 0, width, height);
+
+  const pixels = sourceContext.getImageData(0, 0, width, height).data;
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (pixels[(y * width + x) * 4 + 3] <= 8) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < left || bottom < top) throw new Error('empty-image');
+
+  const padding = 2;
+  left = Math.max(0, left - padding);
+  top = Math.max(0, top - padding);
+  right = Math.min(width - 1, right + padding);
+  bottom = Math.min(height - 1, bottom + padding);
+  const cropWidth = right - left + 1;
+  const cropHeight = bottom - top + 1;
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = cropWidth;
+  outputCanvas.height = cropHeight;
+  const outputContext = outputCanvas.getContext('2d');
+  if (!outputContext) throw new Error('canvas-unavailable');
+  outputContext.drawImage(sourceCanvas, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+  return outputCanvas.toDataURL('image/webp', .86);
+}
+
+function openOfferingUpload() {
+  if (customOfferings.value.length >= customOfferingLimit) {
+    ceremonyMessage.value = '自定义贡品已满，请先删除一项';
+    return;
+  }
+  offeringUploadInput.value?.click();
+}
+
+async function handleOfferingUpload(event: Event) {
+  const input = event.currentTarget as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/avif'].includes(file.type)) {
+    ceremonyMessage.value = '请选择 PNG、JPG、WebP 或 AVIF 图片';
+    return;
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    ceremonyMessage.value = '图片不能超过 12 MB';
+    return;
+  }
+
+  try {
+    const image = await prepareOfferingImage(file);
+    const filename = file.name.replace(/\.[^.]+$/, '').trim();
+    const offering: OfferingOption = {
+      key: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label: (filename || '自定义贡品').slice(0, 16),
+      image,
+      custom: true,
+    };
+    const nextOfferings = [...customOfferings.value, offering];
+    if (!persistCustomOfferingState(nextOfferings)) {
+      ceremonyMessage.value = '图片保存空间不足，请先删除一项自定义贡品';
+      return;
+    }
+    customOfferings.value = nextOfferings;
+    if (placedOfferingKeys.value.length < 10) {
+      placedOfferingKeys.value = [...placedOfferingKeys.value, offering.key];
+      persistOfferingState();
+      ceremonyMessage.value = `${offering.label}已奉上`;
+    } else {
+      ceremonyMessage.value = `${offering.label}已保存，请先撤下一样供品`;
+    }
+  } catch {
+    ceremonyMessage.value = '图片无法读取，请换一张再试';
+  }
+}
+
+function removeCustomOffering(key: string) {
+  const offering = customOfferings.value.find((item) => item.key === key);
+  const nextOfferings = customOfferings.value.filter((item) => item.key !== key);
+  customOfferings.value = nextOfferings;
+  persistCustomOfferingState(nextOfferings);
+  placedOfferingKeys.value = placedOfferingKeys.value.filter((item) => item !== key);
+  persistOfferingState();
+  ceremonyMessage.value = offering ? `${offering.label}已删除` : '';
 }
 
 function toggleOffering(key: string) {
@@ -259,12 +489,14 @@ function handleKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   restoreBurnState();
+  restoreCustomOfferingState();
   restoreOfferingState();
   timerId = window.setInterval(updateBurnClock, 1000);
   window.addEventListener('keydown', handleKeydown);
 });
 onBeforeUnmount(() => {
   if (timerId !== undefined) window.clearInterval(timerId);
+  if (incenseReturnTimerId !== undefined) window.clearTimeout(incenseReturnTimerId);
   window.removeEventListener('keydown', handleKeydown);
 });
 </script>
@@ -280,7 +512,7 @@ onBeforeUnmount(() => {
         <button type="button" aria-label="离开庙堂" title="离开庙堂" @click="emit('close')"><X :size="19" /></button>
       </header>
 
-      <div class="temple-scene" aria-label="三山国王庙供桌">
+      <div ref="templeScene" class="temple-scene" aria-label="三山国王庙供桌">
         <div class="temple-lantern-glow temple-lantern-glow--left"></div>
         <div class="temple-lantern-glow temple-lantern-glow--right"></div>
         <img class="temple-deities" src="/ssgw.webp" alt="三山国王神像" />
@@ -298,73 +530,114 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <div class="temple-incense" :class="[`is-${selectedIncense}`, { 'is-lit': incenseLit }]">
-          <div v-for="index in 3" :key="index" class="temple-incense-stick" :class="`temple-incense-stick--${index}`">
-            <div class="temple-burning-stick" :style="incenseVisualStyle">
-              <img class="temple-incense-art" :src="activeIncense.image" :alt="index === 1 ? `三支${activeIncense.label}` : ''" />
-              <div v-if="incenseLit" class="temple-burn-head" :style="burnHeadStyle" aria-hidden="true">
-                <span class="temple-ash-cap"></span>
-                <span class="temple-ember"></span>
-                <span v-if="showIgnitionFlame" class="temple-flame"></span>
-                <span
-                  v-for="(particle, particleIndex) in smokeParticles[index - 1]"
-                  :key="particle.id"
-                  class="temple-smoke-particle"
-                  :style="particle.style"
-                  aria-hidden="true"
-                  @animationiteration="refreshSmokeParticle(index - 1, particleIndex)"
-                ></span>
-                <span class="temple-ash-fall temple-ash-fall--one"></span>
+        <div class="temple-incense" :class="[`is-${selectedIncense}`, { 'is-lit': incenseLit, 'is-elevated': incenseElevated }]">
+          <div
+            ref="incenseBundle"
+            class="temple-incense-bundle"
+            :class="{ 'is-holding': incenseHolding }"
+            :style="incenseBundleStyle"
+          >
+            <div v-for="index in 3" :key="index" class="temple-incense-stick" :class="`temple-incense-stick--${index}`">
+              <div class="temple-burning-stick" :style="incenseVisualStyle">
+                <img class="temple-incense-art" :src="activeIncense.image" :alt="index === 1 ? `三支${activeIncense.label}` : ''" draggable="false" />
+                <div v-if="incenseLit" class="temple-burn-head" :style="burnHeadStyle" aria-hidden="true">
+                  <span class="temple-ash-cap"></span>
+                  <span class="temple-ember"></span>
+                  <span v-if="showIgnitionFlame" class="temple-flame"></span>
+                  <span
+                    v-for="(particle, particleIndex) in smokeParticles[index - 1]"
+                    :key="particle.id"
+                    class="temple-smoke-particle"
+                    :style="particle.style"
+                    aria-hidden="true"
+                    @animationiteration="refreshSmokeParticle(index - 1, particleIndex)"
+                  ></span>
+                  <span class="temple-ash-fall temple-ash-fall--one"></span>
+                </div>
               </div>
             </div>
+            <div
+              class="temple-incense-handle"
+              role="button"
+              tabindex="0"
+              aria-label="按住拖动三支香"
+              title="按住拖动三支香"
+              @pointerdown="startIncenseHold"
+              @pointermove="moveHeldIncense"
+              @pointerup="releaseHeldIncense"
+              @pointercancel="releaseHeldIncense"
+              @lostpointercapture="releaseHeldIncense"
+            ></div>
           </div>
           <img class="temple-burner" src="/divination-assets/temple/incense-burner.png" alt="香炉" />
         </div>
       </div>
 
-      <div class="temple-controls">
-        <section class="temple-control-section">
-          <div class="temple-control-heading"><strong>敬香</strong><span>{{ incenseLit ? `剩余 ${burnRemainingLabel}` : '每次敬三支香' }}</span></div>
-          <div class="incense-options" role="group" aria-label="选择香型">
-            <button
-              v-for="item in incenseOptions"
-              :key="item.key"
-              type="button"
-              :class="{ active: selectedIncense === item.key }"
-              :aria-pressed="selectedIncense === item.key"
-              :disabled="incenseLit"
-              @click="chooseIncense(item.key)"
-            >
-              <img :src="item.image" alt="" />
-              <span>{{ item.label }}</span>
-              <small>{{ item.durationLabel }}</small>
-            </button>
-          </div>
-          <UiButton block :disabled="incenseLit" @click="lightIncense"><Flame :size="16" />{{ incenseLit ? `燃烧中 ${burnRemainingLabel}` : '点燃三支香' }}</UiButton>
-        </section>
+      <div class="temple-lower-panel">
+        <div class="temple-controls">
+          <section class="temple-control-section">
+            <div class="temple-control-heading"><strong>敬香</strong><span>{{ incenseLit ? `剩余 ${burnRemainingLabel}` : '每次敬三支香' }}</span></div>
+            <div class="incense-options" role="group" aria-label="选择香型">
+              <button
+                v-for="item in incenseOptions"
+                :key="item.key"
+                type="button"
+                :class="{ active: selectedIncense === item.key }"
+                :aria-pressed="selectedIncense === item.key"
+                :disabled="incenseLit"
+                @click="chooseIncense(item.key)"
+              >
+                <img :src="item.image" alt="" />
+                <span>{{ item.label }}</span>
+                <small>{{ item.durationLabel }}</small>
+              </button>
+            </div>
+            <UiButton block :disabled="incenseLit" @click="lightIncense"><Flame :size="16" />{{ incenseLit ? `燃烧中 ${burnRemainingLabel}` : '点燃三支香' }}</UiButton>
+          </section>
 
-        <section class="temple-control-section">
-          <div class="temple-control-heading"><strong>供品</strong><span>点击奉上或撤下</span></div>
-          <div class="offering-options" role="group" aria-label="选择供品">
-            <button
-              v-for="item in offeringOptions"
-              :key="item.key"
-              type="button"
-              :class="{ active: placedOfferingKeys.includes(item.key) }"
-              :aria-pressed="placedOfferingKeys.includes(item.key)"
-              @click="toggleOffering(item.key)"
-            >
-              <img class="offering-sprite" :src="item.image" alt="" />
-              <small>{{ item.label }}</small>
-            </button>
-          </div>
-        </section>
+          <section class="temple-control-section">
+            <div class="temple-control-heading"><strong>供品</strong><span>点击奉上或撤下</span></div>
+            <div class="offering-options" role="group" aria-label="选择供品">
+              <div v-for="item in availableOfferings" :key="item.key" class="offering-option">
+                <button
+                  type="button"
+                  class="offering-choice"
+                  :class="{ active: placedOfferingKeys.includes(item.key) }"
+                  :aria-pressed="placedOfferingKeys.includes(item.key)"
+                  @click="toggleOffering(item.key)"
+                >
+                  <img class="offering-sprite" :src="item.image" alt="" />
+                  <small>{{ item.label }}</small>
+                </button>
+                <button
+                  v-if="item.custom"
+                  type="button"
+                  class="custom-offering-remove"
+                  :aria-label="`删除${item.label}`"
+                  :title="`删除${item.label}`"
+                  @click="removeCustomOffering(item.key)"
+                ><X :size="11" /></button>
+              </div>
+              <button type="button" class="offering-upload" @click="openOfferingUpload">
+                <ImagePlus :size="23" />
+                <small>上传贡品</small>
+              </button>
+              <input
+                ref="offeringUploadInput"
+                hidden
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                @change="handleOfferingUpload"
+              />
+            </div>
+          </section>
+        </div>
+
+        <footer class="temple-footer">
+          <span aria-live="polite">{{ ceremonyMessage || '心诚意敬' }}</span>
+          <UiButton variant="ghost" size="small" @click="clearAltar"><RotateCcw :size="14" />整理供桌</UiButton>
+        </footer>
       </div>
-
-      <footer class="temple-footer">
-        <span aria-live="polite">{{ ceremonyMessage || '心诚意敬' }}</span>
-        <UiButton variant="ghost" size="small" @click="clearAltar"><RotateCcw :size="14" />整理供桌</UiButton>
-      </footer>
     </div>
   </UiDialogShell>
 </template>
@@ -385,10 +658,16 @@ onBeforeUnmount(() => {
 .temple-lantern-glow--left { left: 2%; }
 .temple-lantern-glow--right { right: 2%; }
 .temple-altar { height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 2; }
-.temple-deities { border: 2px solid rgba(221, 170, 69, .78); box-shadow: 0 0 28px rgba(215, 86, 24, .4); height: 29%; left: 50%; object-fit: cover; object-position: center 35%; position: absolute; top: 24%; transform: translateX(-50%); width: 45%; z-index: 3; }
+.temple-deities { border: 2px solid rgba(221, 170, 69, .78); box-shadow: 0 0 28px rgba(215, 86, 24, .4); height: 29%; left: 50%; object-fit: cover; object-position: center 35%; position: absolute; top: 24%; transform: translateX(-50%); width: 45%; z-index: 7; }
 .temple-offerings { inset: 0; position: absolute; z-index: 4; }
 .temple-offering-art { bottom: var(--offering-bottom); filter: drop-shadow(0 5px 5px rgba(24, 3, 2, .45)); height: var(--offering-height); object-fit: contain; object-position: center bottom; position: absolute; transform: translateX(-50%); transition: left .3s ease, bottom .3s ease, height .3s ease, opacity .2s ease, transform .3s ease; width: 14%; z-index: var(--offering-z); }
 .temple-incense { inset: 0; pointer-events: none; position: absolute; z-index: 6; }
+.temple-incense.is-elevated { z-index: 8; }
+.temple-incense-bundle { inset: 0; pointer-events: none; position: absolute; transition: transform .48s cubic-bezier(.2, .88, .25, 1.12); will-change: transform; z-index: 4; }
+.temple-incense-bundle.is-holding { transition: none; }
+.temple-incense-handle { background: transparent; bottom: 16%; cursor: grab; height: 25.5%; left: 42%; outline: none; pointer-events: auto; position: absolute; touch-action: none; width: 16%; z-index: 9; }
+.temple-incense-handle:active { cursor: grabbing; }
+.temple-incense-handle:focus-visible { border: 1px solid rgba(255, 222, 147, .62); border-radius: 45% 45% 12px 12px; box-shadow: 0 0 0 3px rgba(255, 191, 78, .12); }
 .temple-incense-stick { --ash-delay: 0s; --insert-cut: 13.7%; bottom: 16%; height: 25.5%; left: 50%; position: absolute; transform: translateX(-50%) rotate(var(--stick-angle, 0deg)); transform-origin: 50% 100%; width: 15%; z-index: 4; }
 .temple-incense-stick::after { background: rgba(49, 27, 16, .58); border-radius: 50%; bottom: calc(var(--insert-cut) - 1px); box-shadow: 0 1px 2px rgba(236, 218, 183, .28); content: ''; height: 3px; left: 50%; position: absolute; transform: translateX(-50%); width: 6px; z-index: 6; }
 .temple-incense-stick--1 { left: 48.7%; --ash-delay: 0s; --stick-angle: -1.8deg; }
@@ -433,17 +712,22 @@ onBeforeUnmount(() => {
 .temple-control-heading strong { color: #f4d79a; font-size: 13px; letter-spacing: .08em; }
 .temple-control-heading span { color: rgba(239, 213, 156, .58); font-size: 10px; }
 .incense-options { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
-.incense-options button, .offering-options button { background: rgba(255, 250, 232, .055); border: 1px solid rgba(224, 180, 96, .18); border-radius: 9px; color: rgba(248, 223, 170, .72); min-width: 0; }
+.incense-options button, .offering-choice, .offering-upload { background: rgba(255, 250, 232, .055); border: 1px solid rgba(224, 180, 96, .18); border-radius: 9px; color: rgba(248, 223, 170, .72); min-width: 0; }
 .incense-options button { align-items: center; display: flex; flex-direction: column; gap: 1px; height: 81px; justify-content: flex-end; padding: 5px 6px; }
 .incense-options button img { height: 43px; object-fit: contain; width: 32px; }
 .incense-options button span { font-size: 10px; }
 .incense-options button small { color: rgba(239, 213, 156, .5); font-size: 8px; }
 .incense-options button:disabled { cursor: not-allowed; opacity: .62; }
-.incense-options button.active, .offering-options button.active { background: rgba(175, 48, 22, .24); border-color: rgba(244, 191, 86, .68); box-shadow: inset 0 0 15px rgba(221, 103, 32, .1); color: #ffe2a1; }
+.incense-options button.active, .offering-choice.active { background: rgba(175, 48, 22, .24); border-color: rgba(244, 191, 86, .68); box-shadow: inset 0 0 15px rgba(221, 103, 32, .1); color: #ffe2a1; }
 .temple-control-section :deep(.ui-button--primary) { background: #8d2818; border-color: #b4512d; color: #ffefc8; }
 .temple-control-section :deep(.ui-button--primary:hover:not(:disabled)) { background: #a9361e; border-color: #d17845; }
 .offering-options { display: grid; gap: 6px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.offering-options button { display: grid; gap: 2px; justify-items: center; padding: 3px 3px 5px; }
+.offering-option { min-width: 0; position: relative; }
+.offering-choice, .offering-upload { display: grid; gap: 2px; height: 100%; justify-items: center; padding: 3px 3px 5px; width: 100%; }
+.offering-upload { align-content: center; min-height: 58px; }
+.offering-upload:hover { background: rgba(175, 48, 22, .16); border-color: rgba(244, 191, 86, .46); color: #ffe2a1; }
+.custom-offering-remove { align-items: center; background: rgba(66, 9, 7, .86); border: 1px solid rgba(244, 191, 86, .4); border-radius: 50%; color: #f3d99c; display: flex; height: 19px; justify-content: center; padding: 0; position: absolute; right: 3px; top: 3px; width: 19px; z-index: 2; }
+.custom-offering-remove:hover { background: #8d2818; color: #fff0c8; }
 .offering-options small { font-size: 9px; }
 .offering-sprite { display: block; height: 48px; object-fit: contain; width: min(100%, 62px); }
 .temple-footer { align-items: center; border-top: 1px solid rgba(229, 184, 96, .16); display: flex; justify-content: space-between; min-height: 48px; padding: 8px 16px; }
@@ -452,11 +736,12 @@ onBeforeUnmount(() => {
 .temple-footer :deep(.ui-button--ghost:hover:not(:disabled)) { background: rgba(255, 242, 209, .08); border-color: rgba(229, 184, 96, .2); color: #ffe5ad; }
 @media (max-width: 720px) {
   :global(.ui-dialog-layer:has(.temple-dialog)) { align-items: center; padding: 0; }
-  :global(.temple-dialog) { -webkit-overflow-scrolling: touch; border: 0; border-radius: 0; height: 100dvh; max-height: 100dvh; overflow-y: auto; overscroll-behavior-y: contain; }
-  .temple-shell { min-height: 100%; }
+  :global(.temple-dialog) { border: 0; border-radius: 0; height: 100dvh; max-height: 100dvh; overflow: hidden; }
+  .temple-shell { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
   .temple-header { padding: max(11px, env(safe-area-inset-top)) 13px 10px; }
   .temple-header h2 { font-size: 18px; }
-  .temple-scene { max-height: none; }
+  .temple-scene { flex: 0 0 auto; max-height: none; }
+  .temple-lower-panel { -webkit-overflow-scrolling: touch; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
   .temple-deities { height: 30%; top: 23%; width: 47%; }
   .temple-offering-art { width: 15%; }
   .temple-burner { bottom: 1%; height: 27%; width: 27%; }
@@ -476,10 +761,11 @@ onBeforeUnmount(() => {
   .incense-options button { height: 54px; }
   .incense-options button img { height: 25px; }
   .temple-control-section { padding-block: 8px; }
-  .offering-options button { padding-block: 2px 3px; }
+  .offering-choice, .offering-upload { padding-block: 2px 3px; }
   .offering-sprite { height: 31px; width: 40px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .temple-incense-bundle { transition-duration: .01ms; }
   .temple-flame, .temple-smoke-particle, .temple-ember, .temple-ash-cap, .temple-ash-fall { animation: none; }
   .temple-smoke-particle { opacity: .22; transform: translate(-50%, -16px); }
 }

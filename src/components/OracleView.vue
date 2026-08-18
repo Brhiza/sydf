@@ -190,7 +190,7 @@ onBeforeUnmount(() => {
           <UiButton variant="secondary" @click="showTemple = true"><Flame :size="16" />进庙上香</UiButton>
         </section>
         <span>三山国王九十二签</span>
-        <p class="oracle-description">三山国王是潮汕人常拜的“老爷”，是巾山、明山、独山三座山的山神，信仰发源于今揭西河婆一带。随着潮汕人迁徙，这份香火也流传至香港、台湾及东南亚，寄托着人们祈求平安、护佑乡土的心愿。</p>
+        <p class="oracle-description">三山国王是发源于中国粤东的山神信仰，“三山”指揭西县河婆镇北面的巾山、明山、独山。信仰主要流传于古潮州府，并遍及嘉应州、惠州府部分地区及漳州府南部，后来随移民传至香港、台湾和东南亚。如今在潮汕地区，人们普遍尊称三山国王为“老爷”。</p>
       </header>
 
       <section class="oracle-question">
