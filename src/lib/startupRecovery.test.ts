@@ -11,8 +11,6 @@ function createRecoveryContext(href = 'https://sydf.cc/?__update=old') {
   const deleteCache = vi.fn().mockResolvedValue(true);
   const replace = vi.fn();
   const replaceState = vi.fn();
-  const write = vi.fn();
-  const close = vi.fn();
   const freshShell = '<!doctype html><html><body><div id="app"></div><script type="module" src="/assets/app-new.js"></script></body></html>';
   const fetchMock = vi.fn().mockResolvedValue({
     ok: true,
@@ -35,9 +33,6 @@ function createRecoveryContext(href = 'https://sydf.cc/?__update=old') {
   const app = { childElementCount: 0, replaceChildren: vi.fn() };
   const document = {
     getElementById: () => app,
-    open: vi.fn(),
-    write,
-    close,
     createElement: vi.fn((tag: string) => {
       const listeners: Record<string, () => void> = {};
       const element = {
@@ -86,15 +81,15 @@ function createRecoveryContext(href = 'https://sydf.cc/?__update=old') {
     setTimeout,
     clearTimeout,
   });
-  return { window, listeners, stored, unregister, deleteCache, replace, replaceState, write, close, fetchMock, freshShell, elements, ScriptAsset };
+  return { window, listeners, stored, unregister, deleteCache, replace, replaceState, fetchMock, freshShell, elements, ScriptAsset };
 }
 
 describe('启动资源恢复', () => {
-  it('旧哈希脚本加载失败时清理应用缓存、注销旧 SW 并从网络替换最新页面壳', async () => {
+  it('旧哈希脚本加载失败时清理应用缓存、注销旧 SW 并验证最新页面壳后重新导航', async () => {
     const context = createRecoveryContext();
 
     context.listeners.error[0]?.({ target: new context.ScriptAsset('https://sydf.cc/assets/app-old.js') });
-    await vi.waitFor(() => expect(context.write).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(context.replace).toHaveBeenCalledTimes(1));
 
     expect(context.unregister).toHaveBeenCalledTimes(1);
     expect(context.deleteCache).toHaveBeenCalledWith('workbox-precache-old');
@@ -104,9 +99,6 @@ describe('启动资源恢复', () => {
     const reloadUrl = new URL(String(context.fetchMock.mock.calls[0]?.[0]));
     expect(reloadUrl.searchParams.has('__update')).toBe(false);
     expect(reloadUrl.searchParams.get('__recover')).toMatch(/^\d+$/);
-    expect(context.write).toHaveBeenCalledWith(context.freshShell);
-    expect(context.close).toHaveBeenCalledTimes(1);
-    expect(context.replace).not.toHaveBeenCalled();
   });
 
   it('最新页面壳请求失败时仍带随机参数导航兜底', async () => {
@@ -130,7 +122,7 @@ describe('启动资源恢复', () => {
     expect(retryButton).toBeDefined();
 
     retryButton?.click();
-    await vi.waitFor(() => expect(context.write).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(context.replace).toHaveBeenCalledTimes(1));
 
     expect(context.unregister).toHaveBeenCalledTimes(1);
     expect(context.deleteCache).toHaveBeenCalledWith('workbox-precache-old');

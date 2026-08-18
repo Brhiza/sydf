@@ -137,21 +137,15 @@
     return html;
   }
 
-  function installFreshShell(html, url) {
-    history.replaceState(history.state, '', url.toString());
-    document.open();
-    document.write(html);
-    document.close();
-  }
-
   async function restartFromNetwork() {
     var url = recoveryUrl();
     try {
-      // 带随机参数的普通 fetch 不会命中旧 SW 的导航回退；直接替换页面壳可跳出旧缓存控制循环。
-      var html = await fetchFreshShell(url);
-      installFreshShell(html, url);
+      // 先确认网络上已有完整的新页面壳，再执行一次真正的页面导航。
+      // document.write 会让当前页面继续受旧 SW 控制，模块脚本仍可能从旧缓存读取并再次触发恢复。
+      await fetchFreshShell(url);
+      location.replace(url.toString());
     } catch (_) {
-      // 网络较差或浏览器不允许替换文档时，仍保留带随机参数的导航兜底。
+      // 网络较差时仍保留带随机参数的导航兜底，让浏览器自己的错误页提供重试机会。
       location.replace(url.toString());
     }
   }
