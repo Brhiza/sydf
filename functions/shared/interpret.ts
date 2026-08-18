@@ -49,11 +49,23 @@ interface InterpretationPayload extends AiPromptPayload {
 const MAX_QUESTION_LENGTH = 4000;
 // Cloudflare 公网链路约 100 秒会中止请求；预留边缘返回时间，同时允许较长的专业解读完成。
 const UPSTREAM_REQUEST_TIMEOUT_MS = 90_000;
+const RETRYABLE_UPSTREAM_STATUS = new Set([502, 503, 504]);
+const DEFAULT_UPSTREAM_RETRY_DELAY_MS = 300;
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
+class UpstreamResponseError extends Error {
+  constructor(
+    readonly status: number,
+    readonly retryAfter?: string,
+  ) {
+    super(`upstream response error (${status})`);
+    this.name = 'UpstreamResponseError';
+  }
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...headers },
   });
 }
 
@@ -158,16 +170,37 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
   } else {
     headers.Authorization = `Bearer ${config.apiKey}`;
   }
-  const response = await fetchWithTimeout(config.url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal,
-  }, UPSTREAM_REQUEST_TIMEOUT_MS);
-  const result = await response.json().catch(() => null) as unknown;
-  if (!response.ok) throw new Error('upstream response error');
-  if (!result) throw new Error('empty upstream response');
-  return result;
+  const requestBody = JSON.stringify(body);
+  const deadline = Date.now() + UPSTREAM_REQUEST_TIMEOUT_MS;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) throw new DOMException('upstream timeout', 'TimeoutError');
+    const response = await fetchWithTimeout(config.url, {
+      method: 'POST',
+      headers,
+      body: requestBody,
+      signal,
+    }, remainingMs);
+    if (response.ok) {
+      const result = await response.json().catch(() => null) as unknown;
+      if (!result) throw new Error('empty upstream response');
+      return result;
+    }
+
+    await response.arrayBuffer().catch(() => undefined);
+    const retryAfter = response.headers.get('Retry-After')?.trim() || undefined;
+    if (attempt === 0 && RETRYABLE_UPSTREAM_STATUS.has(response.status)) {
+      const seconds = Number(retryAfter);
+      const requestedDelay = Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : DEFAULT_UPSTREAM_RETRY_DELAY_MS;
+      const delayMs = Math.min(1500, Math.max(DEFAULT_UPSTREAM_RETRY_DELAY_MS, requestedDelay));
+      if (deadline - Date.now() > delayMs + 1000) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+    }
+    throw new UpstreamResponseError(response.status, retryAfter);
+  }
+  throw new Error('upstream response error');
 }
 
 function isTimeoutError(error: unknown) {
@@ -176,6 +209,23 @@ function isTimeoutError(error: unknown) {
 
 function providerErrorResponse(error: unknown, customProvider: boolean) {
   if (isTimeoutError(error)) return jsonResponse({ error: 'AI 解读等待超时，请稍后重试。' }, 504);
+  if (error instanceof UpstreamResponseError) {
+    const retryHeaders: Record<string, string> = error.retryAfter && /^\d+$/.test(error.retryAfter)
+      ? { 'Retry-After': error.retryAfter }
+      : {};
+    if (error.status === 429) {
+      return jsonResponse({ error: 'AI 服务当前请求较多，请稍后重试。' }, 503, retryHeaders);
+    }
+    if (RETRYABLE_UPSTREAM_STATUS.has(error.status)) {
+      return jsonResponse({ error: 'AI 服务当前繁忙，请稍后重试。' }, error.status === 504 ? 504 : 503, retryHeaders);
+    }
+    if (customProvider && [400, 401, 403, 404, 422].includes(error.status)) {
+      return jsonResponse({ error: 'AI 服务返回了配置错误，请检查模型、接口地址和密钥。' }, 400);
+    }
+    if (!customProvider && [400, 401, 403, 404, 422].includes(error.status)) {
+      return jsonResponse({ error: 'AI 服务配置暂时不可用，请稍后再试。' }, 503);
+    }
+  }
   return jsonResponse({
     error: customProvider
       ? 'AI 服务返回了错误，请检查模型、接口地址和密钥配置。'

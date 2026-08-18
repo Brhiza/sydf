@@ -269,4 +269,13 @@ describe('AI 解读请求', () => {
 
     await expect(pending).resolves.toMatchObject({ content: '较长解读完成' });
   });
+
+  it('网关错误页没有 JSON 时也显示清楚的繁忙提示', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>bad gateway</html>', {
+      status: 502,
+      headers: { 'Content-Type': 'text/html' },
+    })));
+
+    await expect(requestAiInterpretation(request)).rejects.toThrow('AI 服务当前繁忙，请稍后重试。');
+  });
 });

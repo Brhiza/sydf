@@ -14,6 +14,12 @@
 /version.json
   Cache-Control: no-cache, no-store, must-revalidate
 
+/startup-recovery.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/404.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 

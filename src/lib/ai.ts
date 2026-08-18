@@ -339,7 +339,11 @@ async function requestAiModelsViaProxy(aiConfig: AiCustomConfig, signal?: AbortS
 
 function getErrorMessage(payload: unknown, status: number) {
   if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') return payload.error;
-  return status === 404 ? 'AI 解读服务尚未接入当前预览环境。' : `AI 解读暂时不可用（${status}）。`;
+  if (status === 404) return 'AI 解读服务尚未接入当前预览环境。';
+  if (status === 429) return '请求过于频繁，请稍后再试。';
+  if (status === 502 || status === 503) return 'AI 服务当前繁忙，请稍后重试。';
+  if (status === 504) return 'AI 解读等待超时，请稍后重试。';
+  return `AI 解读暂时不可用（${status}）。`;
 }
 
 export async function requestAiInterpretation(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {

@@ -51,20 +51,54 @@ describe('内置 AI 服务', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('内置 AI 请求失败时不会调用其他渠道', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'failed' }), { status: 502 }));
+  it('内置 AI 短暂 502 时只重试一次，不会调用其他渠道', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'failed' }), { status: 502 }))
+      .mockResolvedValueOnce(successfulUpstream('重试成功'));
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await onRequestPost({
+    const pending = onRequestPost({
       request: createRequest(),
       env: builtinEnv,
     });
-    const result = await response.json() as Record<string, unknown>;
+    await vi.advanceTimersByTimeAsync(300);
+    const response = await pending;
 
-    expect(response.status).toBe(502);
-    expect(result.error).toBe('AI 解读暂时失败，请稍后再试。');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ content: '重试成功' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://primary.example/v1/chat/completions');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://primary.example/v1/chat/completions');
+  });
+
+  it('内置 AI 连续 502 时返回繁忙语义，不暴露成模糊 502', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'failed' }), { status: 502 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = onRequestPost({ request: createRequest(), env: builtinEnv });
+    await vi.advanceTimersByTimeAsync(300);
+    const response = await pending;
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'AI 服务当前繁忙，请稍后重试。' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('内置 AI 限流时保留重试时间且不自动放大请求', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'busy' }), {
+      status: 429,
+      headers: { 'Retry-After': '12' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('Retry-After')).toBe('12');
+    expect(await response.json()).toEqual({ error: 'AI 服务当前请求较多，请稍后重试。' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('内置 AI 超过旧的 45 秒限制后仍可完成解读', async () => {
