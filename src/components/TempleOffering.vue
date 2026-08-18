@@ -49,6 +49,7 @@ const offeringOptions: OfferingOption[] = [
 ];
 
 const incenseStorageKey = 'shiyue-temple-incense-v1';
+const offeringStorageKey = 'shiyue-temple-offerings-v1';
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
@@ -190,9 +191,33 @@ function updateBurnClock() {
   }
 }
 
+function persistOfferingState() {
+  try {
+    window.localStorage.setItem(offeringStorageKey, JSON.stringify(placedOfferingKeys.value));
+  } catch {
+    // 无法访问本地存储时，供品仍在本次页面停留期间保留。
+  }
+}
+
+function restoreOfferingState() {
+  try {
+    const raw = window.localStorage.getItem(offeringStorageKey);
+    if (!raw) return;
+    const stored = JSON.parse(raw) as unknown;
+    if (!Array.isArray(stored)) return;
+    const validKeys = new Set(offeringOptions.map((item) => item.key));
+    placedOfferingKeys.value = [...new Set(
+      stored.filter((key): key is string => typeof key === 'string' && validKeys.has(key)),
+    )].slice(0, 10);
+  } catch {
+    // 损坏的本地记录不影响本次上供。
+  }
+}
+
 function toggleOffering(key: string) {
   if (placedOfferingKeys.value.includes(key)) {
     placedOfferingKeys.value = placedOfferingKeys.value.filter((item) => item !== key);
+    persistOfferingState();
     ceremonyMessage.value = '';
     return;
   }
@@ -201,6 +226,7 @@ function toggleOffering(key: string) {
     return;
   }
   placedOfferingKeys.value = [...placedOfferingKeys.value, key];
+  persistOfferingState();
   const offering = offeringOptions.find((item) => item.key === key);
   ceremonyMessage.value = offering ? `${offering.label}已奉上` : '';
 }
@@ -219,6 +245,11 @@ function offeringStyle(index: number) {
 
 function clearAltar() {
   placedOfferingKeys.value = [];
+  try {
+    window.localStorage.removeItem(offeringStorageKey);
+  } catch {
+    // 本地存储不可用不影响整理供桌。
+  }
   ceremonyMessage.value = '供桌已整理';
 }
 
@@ -228,6 +259,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   restoreBurnState();
+  restoreOfferingState();
   timerId = window.setInterval(updateBurnClock, 1000);
   window.addEventListener('keydown', handleKeydown);
 });
@@ -420,7 +452,7 @@ onBeforeUnmount(() => {
 .temple-footer :deep(.ui-button--ghost:hover:not(:disabled)) { background: rgba(255, 242, 209, .08); border-color: rgba(229, 184, 96, .2); color: #ffe5ad; }
 @media (max-width: 720px) {
   :global(.ui-dialog-layer:has(.temple-dialog)) { align-items: center; padding: 0; }
-  :global(.temple-dialog) { border: 0; border-radius: 0; height: 100dvh; max-height: 100dvh; }
+  :global(.temple-dialog) { -webkit-overflow-scrolling: touch; border: 0; border-radius: 0; height: 100dvh; max-height: 100dvh; overflow-y: auto; overscroll-behavior-y: contain; }
   .temple-shell { min-height: 100%; }
   .temple-header { padding: max(11px, env(safe-area-inset-top)) 13px 10px; }
   .temple-header h2 { font-size: 18px; }
