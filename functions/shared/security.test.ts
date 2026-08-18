@@ -16,6 +16,27 @@ describe('AI 接口安全边界', () => {
     expect((await guardApiRequest(request('{}', { Origin: 'https://evil.example' }), {}))?.status).toBe(403);
   });
 
+  it('允许环境变量配置的公开来源，并严格校验通配子域名边界', async () => {
+    expect(await guardApiRequest(request('{}', { Origin: 'https://sydf.cc' }), {
+      APP_TRUSTED_ORIGINS: 'https://sydf.cc, https://*.sydf.cc',
+    })).toBeNull();
+    expect(await guardApiRequest(request('{}', { Origin: 'https://www.sydf.cc' }), {
+      APP_TRUSTED_ORIGINS: 'https://sydf.cc, https://*.sydf.cc',
+    })).toBeNull();
+    expect((await guardApiRequest(request('{}', { Origin: 'https://sydf.cc' }), {
+      APP_TRUSTED_ORIGINS: 'https://*.sydf.cc',
+    }))?.status).toBe(403);
+    expect((await guardApiRequest(request('{}', { Origin: 'https://evil-sydf.cc' }), {
+      APP_TRUSTED_ORIGINS: 'https://*.sydf.cc',
+    }))?.status).toBe(403);
+    expect((await guardApiRequest(request('{}', { Origin: 'https://sydf.cc.evil.example' }), {
+      APP_TRUSTED_ORIGINS: 'https://*.sydf.cc',
+    }))?.status).toBe(403);
+    expect((await guardApiRequest(request('{}', { Origin: 'http://www.sydf.cc' }), {
+      APP_TRUSTED_ORIGINS: 'https://*.sydf.cc',
+    }))?.status).toBe(403);
+  });
+
   it('实际请求体超过限制时停止解析', async () => {
     await expect(readJsonBody(request(JSON.stringify({ value: '界'.repeat(30_000) })))).rejects.toBeInstanceOf(RequestBodyTooLargeError);
   });

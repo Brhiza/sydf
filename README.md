@@ -100,11 +100,12 @@ AI_BASE_URL=https://api.openai.com/v1
 AI_API_TYPE=chat
 AI_MODEL=gpt-4o-mini
 AI_API_KEY=replace-with-your-key
+APP_TRUSTED_ORIGINS=https://example.com,https://*.example.com
 ```
 
 `AI_API_TYPE` 支持 `chat`、`responses` 和 `anthropic`。还可以按接口需要配置 `AI_API_URL`、`AI_MODELS_URL`、`AI_SYSTEM_PROMPT`、`AI_TEMPERATURE`、`AI_MAX_TOKENS`。密钥必须使用服务端变量名，不能添加 `VITE_` 前缀，也不要提交到仓库。
 
-AI 接口默认带有请求大小、同源和频率保护。可用 `AI_REQUESTS_PER_MINUTE` 调整单个来源每分钟的兜底请求数；生产环境建议在 Cloudflare 中绑定名为 `AI_RATE_LIMITER` 的 Rate Limiting 资源，以便在多实例间统一限流。自定义 AI 地址在正式环境仅接受公网 HTTPS，避免密钥通过明文连接或重定向泄露。
+AI 接口默认带有请求大小、同源和频率保护。反向代理回源域名与公开域名不一致时，用 `APP_TRUSTED_ORIGINS` 配置允许的网页来源；多个来源用逗号分隔，`https://*.example.com` 只匹配 HTTPS 子域名且不包含根域名。可用 `AI_REQUESTS_PER_MINUTE` 调整单个来源每分钟的兜底请求数；生产环境建议在 Cloudflare 中绑定名为 `AI_RATE_LIMITER` 的 Rate Limiting 资源，以便在多实例间统一限流。自定义 AI 地址在正式环境仅接受公网 HTTPS，避免密钥通过明文连接或重定向泄露。
 
 ## 数据与隐私
 
