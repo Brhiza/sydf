@@ -125,5 +125,5 @@ vendor/          当前接入的 mingyu-core 本地包
 - Vue 3、TypeScript 与 Vite；
 - Vitest 与 vue-tsc；
 - Cloudflare Pages Functions；
-- vite-plugin-pwa 与 Workbox；
+- Web App Manifest 与浏览器原生静态资源缓存；
 - mingyu-core、iztro 与 celestine。

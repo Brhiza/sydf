@@ -1,9 +1,7 @@
 import { createApp } from 'vue';
-import { registerSW } from 'virtual:pwa-register';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
-import { prepareServiceWorkerUpdate } from './lib/serviceWorkerUpdate';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
@@ -14,37 +12,29 @@ type StartupRecoveryBridge = { markReady?: () => void };
 (window as Window & { __SHIYUE_STARTUP_RECOVERY__?: StartupRecoveryBridge })
   .__SHIYUE_STARTUP_RECOVERY__?.markReady?.();
 
-let serviceWorkerRegistration: ServiceWorkerRegistration | undefined;
-
 async function prepareWebUpdate() {
-  const serviceWorker = navigator.serviceWorker;
-  const registration = serviceWorkerRegistration || await serviceWorker?.getRegistration();
-  if (!serviceWorker || !registration) throw new Error('service worker is unavailable');
-  await prepareServiceWorkerUpdate(registration, serviceWorker);
+  const cleanup = (async () => {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+    }
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.allSettled(names
+        .filter((name) => name.startsWith('workbox-precache-') || name.startsWith('shiyue-app-assets-'))
+        .map((name) => caches.delete(name)));
+    }
+  })();
+  await Promise.race([
+    cleanup.catch(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, 4_000)),
+  ]);
 }
 
 if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
-  registerSW({
-    immediate: true,
-    onNeedRefresh() {
-      window.dispatchEvent(new CustomEvent('shiyue:pwa-update', { detail: { prepareUpdate: prepareWebUpdate } }));
-    },
-    // 页面会在新 Service Worker 确认接管后带版本参数刷新，避免插件过早刷新到旧缓存。
-    onNeedReload() {
-      // 由页面更新流程统一处理。
-    },
-    onRegisteredSW(_swUrl, registration) {
-      if (registration) serviceWorkerRegistration = registration;
-    },
-    onRegisterError(error) {
-      console.error('PWA 注册失败', error);
-    },
-  });
-
   createAppUpdateController({
     currentVersion: __APP_VERSION__,
     onUpdateAvailable(latestVersion) {
-      void serviceWorkerRegistration?.update();
       window.dispatchEvent(new CustomEvent('shiyue:web-update', { detail: { version: latestVersion, prepareUpdate: prepareWebUpdate } }));
     },
   });

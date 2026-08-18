@@ -4,19 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 const source = readFileSync(new URL('../../public/startup-recovery.js', import.meta.url), 'utf8');
 
-function createRecoveryContext(href = 'https://sydf.cc/?__update=old') {
+function createRecoveryContext(href = 'https://sydf.cc/?__update=old', controlled = false) {
   const listeners: Record<string, Array<(event: Record<string, unknown>) => void>> = {};
   const stored = new Map<string, string>();
   const unregister = vi.fn().mockResolvedValue(true);
   const deleteCache = vi.fn().mockResolvedValue(true);
   const replace = vi.fn();
   const replaceState = vi.fn();
-  const freshShell = '<!doctype html><html><body><div id="app"></div><script type="module" src="/assets/app-new.js"></script></body></html>';
-  const fetchMock = vi.fn().mockResolvedValue({
-    ok: true,
-    headers: { get: () => 'text/html; charset=utf-8' },
-    text: vi.fn().mockResolvedValue(freshShell),
-  });
   const elements: Array<Record<string, unknown>> = [];
   class ScriptAsset {
     constructor(readonly src: string) {}
@@ -60,12 +54,11 @@ function createRecoveryContext(href = 'https://sydf.cc/?__update=old') {
   };
   runInNewContext(source, {
     window,
-    navigator: { serviceWorker: { getRegistrations: vi.fn().mockResolvedValue([{ unregister }]) } },
+    navigator: { serviceWorker: { controller: controlled ? {} : null, getRegistrations: vi.fn().mockResolvedValue([{ unregister }]) } },
     caches: {
       keys: vi.fn().mockResolvedValue(['workbox-precache-old', 'shiyue-app-assets-v1', 'shiyue-divination-theme-images-v6']),
       delete: deleteCache,
     },
-    fetch: fetchMock,
     sessionStorage,
     document,
     HTMLScriptElement: ScriptAsset,
@@ -81,11 +74,11 @@ function createRecoveryContext(href = 'https://sydf.cc/?__update=old') {
     setTimeout,
     clearTimeout,
   });
-  return { window, listeners, stored, unregister, deleteCache, replace, replaceState, fetchMock, freshShell, elements, ScriptAsset };
+  return { window, listeners, stored, unregister, deleteCache, replace, replaceState, elements, ScriptAsset };
 }
 
 describe('启动资源恢复', () => {
-  it('旧哈希脚本加载失败时清理应用缓存、注销旧 SW 并验证最新页面壳后重新导航', async () => {
+  it('旧哈希脚本加载失败时清理应用缓存、注销旧 SW 并跳到跨域恢复桥', async () => {
     const context = createRecoveryContext();
 
     context.listeners.error[0]?.({ target: new context.ScriptAsset('https://sydf.cc/assets/app-old.js') });
@@ -95,29 +88,26 @@ describe('启动资源恢复', () => {
     expect(context.deleteCache).toHaveBeenCalledWith('workbox-precache-old');
     expect(context.deleteCache).toHaveBeenCalledWith('shiyue-app-assets-v1');
     expect(context.deleteCache).not.toHaveBeenCalledWith('shiyue-divination-theme-images-v6');
-    expect(context.fetchMock).toHaveBeenCalledTimes(1);
-    const reloadUrl = new URL(String(context.fetchMock.mock.calls[0]?.[0]));
-    expect(reloadUrl.searchParams.has('__update')).toBe(false);
-    expect(reloadUrl.searchParams.get('__recover')).toMatch(/^\d+$/);
+    const reloadUrl = new URL(String(context.replace.mock.calls[0]?.[0]));
+    expect(reloadUrl.origin).toBe('https://sydf.pages.dev');
+    expect(reloadUrl.pathname).toBe('/api/recover');
+    expect(reloadUrl.searchParams.get('attempt')).toBe('1');
   });
 
-  it('最新页面壳请求失败时仍带随机参数导航兜底', async () => {
-    const context = createRecoveryContext();
-    context.fetchMock.mockRejectedValueOnce(new Error('offline'));
-
-    context.listeners.error[0]?.({ target: new context.ScriptAsset('https://sydf.cc/assets/app-old.js') });
+  it('旧 Service Worker 仍在控制时不等资源报错就主动迁移', async () => {
+    const context = createRecoveryContext('https://sydf.cc/', true);
     await vi.waitFor(() => expect(context.replace).toHaveBeenCalledTimes(1));
 
     const reloadUrl = new URL(String(context.replace.mock.calls[0]?.[0]));
-    expect(reloadUrl.searchParams.has('__update')).toBe(false);
-    expect(reloadUrl.searchParams.get('__recover')).toMatch(/^\d+$/);
+    expect(reloadUrl.origin).toBe('https://sydf.pages.dev');
+    expect(context.unregister).toHaveBeenCalledTimes(1);
   });
 
-  it('自动恢复达到上限后，重新加载按钮会再次清理并强制获取最新页面', async () => {
-    const context = createRecoveryContext();
-    context.stored.set('shiyue:startup-recovery', JSON.stringify({ attempts: 3, at: Date.now() }));
+  it('地址记录的恢复次数达到上限后停止自动跳转，按钮仍可人工重试', async () => {
+    const context = createRecoveryContext('https://sydf.cc/?__recoveryAttempt=2');
 
     context.listeners.error[0]?.({ target: new context.ScriptAsset('https://sydf.cc/assets/app-old.js') });
+    expect(context.replace).not.toHaveBeenCalled();
     const retryButton = context.elements.find((element) => element.tag === 'button') as { click: () => void } | undefined;
     expect(retryButton).toBeDefined();
 
@@ -126,11 +116,12 @@ describe('启动资源恢复', () => {
 
     expect(context.unregister).toHaveBeenCalledTimes(1);
     expect(context.deleteCache).toHaveBeenCalledWith('workbox-precache-old');
-    expect(context.fetchMock).toHaveBeenCalledTimes(1);
+    const reloadUrl = new URL(String(context.replace.mock.calls[0]?.[0]));
+    expect(reloadUrl.searchParams.get('attempt')).toBe('1');
   });
 
   it('应用成功启动后清除恢复次数并整理地址', () => {
-    const context = createRecoveryContext('https://sydf.cc/?__update=new&__recover=123');
+    const context = createRecoveryContext('https://sydf.cc/?__update=new&__recover=123&__recovered=bridge&__recoveryAttempt=1');
     context.stored.set('shiyue:startup-recovery', JSON.stringify({ attempts: 1, at: Date.now() }));
 
     const bridge = context.window.__SHIYUE_STARTUP_RECOVERY__ as { markReady: () => void };
@@ -139,7 +130,9 @@ describe('启动资源恢复', () => {
     expect(context.stored.has('shiyue:startup-recovery')).toBe(false);
     expect(context.replaceState).toHaveBeenCalledTimes(1);
     const cleanedUrl = new URL(String(context.replaceState.mock.calls[0]?.[2]));
-    expect(cleanedUrl.searchParams.get('__update')).toBe('new');
+    expect(cleanedUrl.searchParams.has('__update')).toBe(false);
     expect(cleanedUrl.searchParams.has('__recover')).toBe(false);
+    expect(cleanedUrl.searchParams.has('__recovered')).toBe(false);
+    expect(cleanedUrl.searchParams.has('__recoveryAttempt')).toBe(false);
   });
 });

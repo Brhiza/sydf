@@ -11,6 +11,12 @@ const DEFAULT_CHECK_THROTTLE = 60 * 1000;
 
 export function buildUpdateReloadUrl(location: Pick<Location, 'href'>, version = '') {
   const url = new URL(location.href);
+  if (url.protocol === 'https:' && (url.hostname === 'sydf.cc' || url.hostname === 'www.sydf.cc')) {
+    const bridge = new URL('https://sydf.pages.dev/api/recover');
+    bridge.searchParams.set('v', version || Date.now().toString(36));
+    bridge.searchParams.set('attempt', '1');
+    return bridge.toString();
+  }
   url.searchParams.set('__update', version || Date.now().toString(36));
   return url.toString();
 }

@@ -23,9 +23,14 @@ function stubBrowserGlobals() {
 }
 
 describe('网页版本更新', () => {
-  it('生成带版本标识的刷新地址并保留当前路径与参数', () => {
+  it('正式站更新先离开旧 Service Worker 的控制范围', () => {
     expect(buildUpdateReloadUrl({ href: 'https://sydf.cc/tools?tab=ai#settings' } as Location, 'new-version'))
-      .toBe('https://sydf.cc/tools?tab=ai&__update=new-version#settings');
+      .toBe('https://sydf.pages.dev/api/recover?v=new-version&attempt=1');
+  });
+
+  it('本地与预览环境仍在当前地址直接刷新', () => {
+    expect(buildUpdateReloadUrl({ href: 'http://localhost:5173/tools?tab=ai#settings' } as Location, 'new-version'))
+      .toBe('http://localhost:5173/tools?tab=ai&__update=new-version#settings');
   });
 
   it('发现不同版本时只通知一次', async () => {

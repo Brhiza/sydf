@@ -1862,14 +1862,6 @@ function restoreHistory() {
   }
 }
 
-function handlePwaUpdate(event: Event) {
-  const prepareUpdate = (event as CustomEvent<{ prepareUpdate?: () => Promise<void> }>).detail?.prepareUpdate;
-  if (!prepareUpdate) return;
-  prepareWebUpdate = prepareUpdate;
-  pwaUpdateAvailable.value = true;
-  showPwaUpdateDialog.value = false;
-}
-
 function handleWebUpdate(event: Event) {
   const detail = (event as CustomEvent<{ version?: string; prepareUpdate?: () => Promise<void> }>).detail;
   availableWebVersion = detail?.version || '';
@@ -1900,7 +1892,6 @@ async function refreshToPwaUpdate() {
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeChatSelectionFromKeyboard);
-  window.addEventListener('shiyue:pwa-update', handlePwaUpdate);
   window.addEventListener('shiyue:web-update', handleWebUpdate);
   try {
     const storedBaziColumns = localStorage.getItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY);
@@ -1955,7 +1946,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeChatSelectionFromKeyboard);
-  window.removeEventListener('shiyue:pwa-update', handlePwaUpdate);
   window.removeEventListener('shiyue:web-update', handleWebUpdate);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
