@@ -23,9 +23,9 @@ function stubBrowserGlobals() {
 }
 
 describe('网页版本更新', () => {
-  it('正式站更新先离开旧 Service Worker 的控制范围', () => {
-    expect(buildUpdateReloadUrl({ href: 'https://sydf.cc/tools?tab=ai#settings' } as Location, 'new-version'))
-      .toBe('https://sydf.pages.dev/api/recover?v=new-version&attempt=1');
+  it('正式站更新只刷新当前地址', () => {
+    expect(buildUpdateReloadUrl({ href: 'https://app.example/tools?tab=ai#settings' } as Location, 'new-version'))
+      .toBe('https://app.example/tools?tab=ai&__update=new-version#settings');
   });
 
   it('本地与预览环境仍在当前地址直接刷新', () => {
