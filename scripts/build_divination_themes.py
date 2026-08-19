@@ -426,6 +426,55 @@ def build_mo(project_root: Path, output_root: Path) -> None:
     )
 
 
+def build_lan_yu(project_root: Path, output_root: Path) -> None:
+    source = project_root / "source-assets/card-artwork-deliverables"
+    target = output_root / "lan-yu"
+    ensure_clean_directory(target, output_root)
+
+    tarot_source = source / "cards/tarot"
+    tarot_files = sorted(
+        (item for item in tarot_source.iterdir() if item.is_file() and item.stem.isdigit()),
+        key=lambda item: numeric_prefix(item.name),
+    )
+    tarot_numbers = [numeric_prefix(item.name) for item in tarot_files]
+    if tarot_numbers != list(range(78)):
+        raise ValueError(f"{tarot_source} 编号不完整：预期 0–77，实际 {tarot_numbers}")
+    convert_numbered_files(tarot_files, target / "cards/tarot", 3, 0)
+    convert_numbered_files(indexed_files(source / "cards/lenormand", 36), target / "cards/lenormand", 2, 1)
+    convert_numbered_files(indexed_files(source / "cards/oracle", 60), target / "cards/oracle", 2, 1)
+    convert_numbered_files(indexed_files(source / "cards/hexagrams", 64), target / "cards/hexagrams", 2, 1)
+    convert_numbered_files(indexed_files(source / "cards/ssgw", 92), target / "cards/ssgw", 2, 1)
+    convert_file(source / "cards/tarot/back.webp", target / "cards/tarot/back.webp", CARD_QUALITY)
+
+    support = source / "theme-standard"
+    convert_file(support / "banner.webp", target / "banner.webp")
+    convert_file(support / "logo.webp", target / "logo.webp")
+    crop_sheet(support / "xiaoliuren.png", target / "xiaoliuren", {
+        "da-an": (62, 13, 486, 538),
+        "liu-lian": (513, 13, 938, 538),
+        "su-xi": (966, 13, 1391, 538),
+        "chi-kou": (62, 548, 486, 1075),
+        "xiao-ji": (513, 548, 938, 1075),
+        "kong-wang": (966, 548, 1391, 1075),
+    })
+    crop_sheet(support / "fortune-status.png", target / "fortune-status", {
+        "da-ji": (18, 14, 376, 507),
+        "ji": (400, 14, 758, 507),
+        "xiao-ji": (780, 14, 1138, 507),
+        "ping": (1160, 14, 1518, 507),
+        "xiao-xiong": (198, 522, 558, 1016),
+        "xiong": (590, 522, 950, 1016),
+        "da-xiong": (981, 522, 1341, 1016),
+    })
+
+    write_manifest(
+        target,
+        theme_id="lan-yu",
+        name="吃白饭的蓝色大肥鱼",
+        complete_groups=["brand", "banner", "xiaoliuren", "fortune-status", "tarot", "lenormand", "oracle", "hexagrams", "ssgw"],
+    )
+
+
 def validate_output(output_root: Path) -> None:
     manifests: dict[str, dict[str, object]] = {}
     for root in sorted(item for item in output_root.iterdir() if item.is_dir()):
@@ -468,6 +517,7 @@ def main() -> None:
         "yue": build_yue,
         "shi": build_shi,
         "mo": build_mo,
+        "lan-yu": build_lan_yu,
     }
     parser = argparse.ArgumentParser(description="生成可直接用于网站的占卜主题资源。")
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
@@ -484,7 +534,8 @@ def main() -> None:
         optimize_existing_tarot(output_root)
         return
     if not args.logos_only:
-        build_shared_ritual(project_root)
+        if any(theme_id != "lan-yu" for theme_id in args.themes):
+            build_shared_ritual(project_root)
         if "yue" in args.themes:
             if args.yue_tarot_zip is None:
                 parser.error("重建月主题时必须提供 --yue-tarot-zip")
@@ -493,7 +544,9 @@ def main() -> None:
             build_shi(project_root, output_root)
         if "mo" in args.themes:
             build_mo(project_root, output_root)
-    logo_themes = args.themes if args.logos_only else [theme_id for theme_id in args.themes if theme_id != "mo"]
+        if "lan-yu" in args.themes:
+            build_lan_yu(project_root, output_root)
+    logo_themes = args.themes if args.logos_only else [theme_id for theme_id in args.themes if theme_id not in {"mo", "lan-yu"}]
     for theme_id in logo_themes:
         theme_source = project_root / "theme-sources" / {"yue": "月", "shi": "时", "mo": "墨"}[theme_id]
         theme_target = output_root / theme_id

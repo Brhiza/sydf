@@ -56,7 +56,7 @@ describe('占卜主题资源映射', () => {
   });
 
   it('三个主题共用同一套传统仪式素材', () => {
-    const paths = (['yue', 'shi', 'mo'] as const).map((themeId) => {
+    const paths = (['yue', 'shi', 'mo', 'lan-yu'] as const).map((themeId) => {
       setDivinationTheme(themeId);
       return [
         assetPath(getShengbeiImageUrl('yang')),
@@ -94,7 +94,7 @@ describe('占卜主题资源映射', () => {
   });
 
   it('三个浅色主题的辅助文字都保持清晰可读', () => {
-    for (const themeId of ['yue', 'shi', 'mo'] as const) {
+    for (const themeId of ['yue', 'shi', 'mo', 'lan-yu'] as const) {
       setDivinationTheme(themeId);
       const palette = activeDivinationThemeStyle.value;
       expect(contrastRatio(
