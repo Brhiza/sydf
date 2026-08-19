@@ -117,13 +117,11 @@ src/              Vue 前端、业务逻辑与设计系统
 functions/api/    Cloudflare Pages Functions 入口
 functions/shared/ AI 接口共用逻辑
 public/           网站直接使用的图标、插图、主题成品与 PWA 静态资源
-scripts/          主题资源生成与维护脚本
-source-assets/    仅保存在本机的可重建素材原稿
 vendor/           当前接入的 mingyu-core 本地包
 ```
 
-占卜主题原稿统一放在 `source-assets/divination-themes/<主题 ID>/`，生成后的网站成品放在
-`public/divination-themes/<主题 ID>/`。原稿体积较大，不提交到 Git；成品需随代码提交，保证部署后可直接使用。
+网站使用的占卜主题成品放在 `public/divination-themes/<主题 ID>/`。图片原稿与本地处理工具不提交到
+Git；成品需随代码提交，保证部署后可直接使用。
 
 ## 技术栈
 
