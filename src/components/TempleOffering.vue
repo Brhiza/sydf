@@ -35,18 +35,18 @@ const incenseOptions: IncenseOption[] = [
 ];
 
 const offeringOptions: OfferingOption[] = [
-  { key: 'apple', label: '苹果', image: '/gongpin/图层 36.png' },
-  { key: 'orange', label: '柑橘', image: '/gongpin/图层 34.png' },
-  { key: 'banana', label: '香蕉', image: '/gongpin/图层 33.png' },
-  { key: 'peach', label: '寿桃', image: '/gongpin/图层 29.png' },
-  { key: 'grape', label: '葡萄', image: '/gongpin/图层 1.png' },
-  { key: 'zongzi', label: '粽子', image: '/gongpin/图层 3.png' },
-  { key: 'fish', label: '鲜鱼', image: '/gongpin/图层 4.png' },
-  { key: 'chicken', label: '全鸡', image: '/gongpin/图层 5.png' },
-  { key: 'tea', label: '清茶', image: '/gongpin/图层 20.png' },
-  { key: 'pastry', label: '糕点', image: '/gongpin/图层 18.png' },
-  { key: 'rice-cake', label: '粿品', image: '/gongpin/图层 14.png' },
-  { key: 'lotus', label: '莲花', image: '/gongpin/图层 9.png' },
+  { key: 'apple', label: '苹果', image: '/divination-assets/temple/offerings/图层 36.png' },
+  { key: 'orange', label: '柑橘', image: '/divination-assets/temple/offerings/图层 34.png' },
+  { key: 'banana', label: '香蕉', image: '/divination-assets/temple/offerings/图层 33.png' },
+  { key: 'peach', label: '寿桃', image: '/divination-assets/temple/offerings/图层 29.png' },
+  { key: 'grape', label: '葡萄', image: '/divination-assets/temple/offerings/图层 1.png' },
+  { key: 'zongzi', label: '粽子', image: '/divination-assets/temple/offerings/图层 3.png' },
+  { key: 'fish', label: '鲜鱼', image: '/divination-assets/temple/offerings/图层 4.png' },
+  { key: 'chicken', label: '全鸡', image: '/divination-assets/temple/offerings/图层 5.png' },
+  { key: 'tea', label: '清茶', image: '/divination-assets/temple/offerings/图层 20.png' },
+  { key: 'pastry', label: '糕点', image: '/divination-assets/temple/offerings/图层 18.png' },
+  { key: 'rice-cake', label: '粿品', image: '/divination-assets/temple/offerings/图层 14.png' },
+  { key: 'lotus', label: '莲花', image: '/divination-assets/temple/offerings/图层 9.png' },
 ];
 
 const incenseStorageKey = 'shiyue-temple-incense-v1';
