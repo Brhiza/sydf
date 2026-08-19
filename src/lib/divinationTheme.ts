@@ -196,6 +196,7 @@ const CUSTOM_TAROT_DECKS = [
   { id: 'pleasant-goat', label: '喜羊羊与灰太狼', root: '/card-decks/tarot/pleasant-goat' },
   { id: 'gg-bond', label: '猪猪侠', root: '/card-decks/tarot/gg-bond' },
   { id: 'sacred-milk-dragon', label: '神圣奶龙', root: '/card-decks/tarot/sacred-milk-dragon' },
+  { id: 'danjie-leopard', label: '蛋姐的豹', root: '/card-decks/tarot/danjie-leopard' },
 ] as const;
 
 export type CustomTarotDeckId = (typeof CUSTOM_TAROT_DECKS)[number]['id'];
@@ -211,7 +212,7 @@ const DECK_STORAGE_KEY = 'shiyue-divination-decks-v1';
 const THEME_ROOT = '/divination-themes';
 const SHARED_ASSET_ROOT = '/divination-assets';
 // 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
-export const DIVINATION_THEME_ASSET_VERSION = '20260820-card-decks-v2';
+export const DIVINATION_THEME_ASSET_VERSION = '20260820-card-decks-v3';
 
 function isThemeId(value: unknown): value is DivinationThemeId {
   return DIVINATION_THEMES.some(theme => theme.id === value);

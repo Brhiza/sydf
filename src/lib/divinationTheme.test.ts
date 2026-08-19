@@ -133,7 +133,7 @@ describe('占卜主题资源映射', () => {
 
   it('自定义塔罗牌只出现在塔罗牌组中', () => {
     expect(getDivinationDeckOptions('tarot').map(option => option.value)).toEqual([
-      'theme', 'yue', 'shi', 'mo', 'lan-yu', 'pleasant-goat', 'gg-bond', 'sacred-milk-dragon',
+      'theme', 'yue', 'shi', 'mo', 'lan-yu', 'pleasant-goat', 'gg-bond', 'sacred-milk-dragon', 'danjie-leopard',
     ]);
     expect(getDivinationDeckOptions('lenormand').map(option => option.value)).toEqual([
       'theme', 'yue', 'shi', 'mo', 'lan-yu',
