@@ -186,7 +186,7 @@ const THEME_STORAGE_KEY = 'shiyue-divination-theme-v1';
 const THEME_ROOT = '/divination-themes';
 const SHARED_ASSET_ROOT = '/divination-assets';
 // 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
-export const DIVINATION_THEME_ASSET_VERSION = '20260820-lan-yu-v2';
+export const DIVINATION_THEME_ASSET_VERSION = '20260820-mo-card-back-v1';
 
 function isThemeId(value: unknown): value is DivinationThemeId {
   return DIVINATION_THEMES.some(theme => theme.id === value);

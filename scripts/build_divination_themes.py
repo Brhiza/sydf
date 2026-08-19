@@ -393,7 +393,7 @@ def build_mo(project_root: Path, output_root: Path) -> None:
     convert_numbered_files(indexed_files(source / "cards/oracle", 60), target / "cards/oracle", 2, 1)
     convert_numbered_files(indexed_files(source / "cards/hexagrams", 64), target / "cards/hexagrams", 2, 1)
     convert_numbered_files(indexed_files(source / "cards/ssgw", 92), target / "cards/ssgw", 2, 1)
-    shutil.copyfile(output_root / "yue/cards/tarot/back.webp", target / "cards/tarot/back.webp")
+    convert_card_file(source / "card-back.png", target / "cards/tarot/back.webp")
     convert_file(source / "Banner.png", target / "banner.webp")
 
     xlr_boxes = {
