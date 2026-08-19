@@ -199,7 +199,7 @@ def crop_transparent_ellipse_sheet(source: Path, target: Path, boxes: dict[str, 
 
 
 def build_shared_ritual(project_root: Path) -> None:
-    source = project_root / "theme-sources/传统仪式"
+    source = project_root / "source-assets/divination-themes/shared-ritual"
     target = project_root / "public/divination-assets/ritual"
     target.mkdir(parents=True, exist_ok=True)
     crop_transparent_ellipse_sheet(
@@ -283,7 +283,7 @@ def build_theme_logo(source_root: Path, target_root: Path) -> None:
 
 
 def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
-    source = project_root / "theme-sources/月"
+    source = project_root / "source-assets/divination-themes/yue"
     target = output_root / "yue"
     ensure_clean_directory(target, output_root)
 
@@ -331,7 +331,7 @@ def build_yue(project_root: Path, output_root: Path, tarot_zip: Path) -> None:
 
 
 def build_shi(project_root: Path, output_root: Path) -> None:
-    source = project_root / "theme-sources/时"
+    source = project_root / "source-assets/divination-themes/shi"
     target = output_root / "shi"
     ensure_clean_directory(target, output_root)
 
@@ -378,7 +378,7 @@ def build_shi(project_root: Path, output_root: Path) -> None:
 
 
 def build_mo(project_root: Path, output_root: Path) -> None:
-    source = project_root / "theme-sources/墨"
+    source = project_root / "source-assets/divination-themes/mo"
     target = output_root / "mo"
     target.mkdir(parents=True, exist_ok=True)
     for generated_directory in ("cards", "xiaoliuren", "fortune-status"):
@@ -427,7 +427,7 @@ def build_mo(project_root: Path, output_root: Path) -> None:
 
 
 def build_lan_yu(project_root: Path, output_root: Path) -> None:
-    source = project_root / "source-assets/card-artwork-deliverables"
+    source = project_root / "source-assets/divination-themes/lan-yu"
     target = output_root / "lan-yu"
     ensure_clean_directory(target, output_root)
 
@@ -548,7 +548,7 @@ def main() -> None:
             build_lan_yu(project_root, output_root)
     logo_themes = args.themes if args.logos_only else [theme_id for theme_id in args.themes if theme_id not in {"mo", "lan-yu"}]
     for theme_id in logo_themes:
-        theme_source = project_root / "theme-sources" / {"yue": "月", "shi": "时", "mo": "墨"}[theme_id]
+        theme_source = project_root / "source-assets/divination-themes" / theme_id
         theme_target = output_root / theme_id
         if not theme_target.is_dir():
             raise ValueError(f"主题输出目录不存在：{theme_target}")
