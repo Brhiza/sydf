@@ -131,9 +131,9 @@ describe('占卜主题资源映射', () => {
     expect(assetPath(getWesternDeck('lenormand')[0]?.imageUrl || '')).toBe('/divination-themes/shi/cards/lenormand/01.webp');
   });
 
-  it('喜羊羊和猪猪侠只出现在塔罗牌组中', () => {
+  it('自定义塔罗牌只出现在塔罗牌组中', () => {
     expect(getDivinationDeckOptions('tarot').map(option => option.value)).toEqual([
-      'theme', 'yue', 'shi', 'mo', 'lan-yu', 'pleasant-goat', 'gg-bond',
+      'theme', 'yue', 'shi', 'mo', 'lan-yu', 'pleasant-goat', 'gg-bond', 'sacred-milk-dragon',
     ]);
     expect(getDivinationDeckOptions('lenormand').map(option => option.value)).toEqual([
       'theme', 'yue', 'shi', 'mo', 'lan-yu',

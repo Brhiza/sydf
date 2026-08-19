@@ -195,6 +195,7 @@ export type DivinationCardGroup = (typeof DIVINATION_CARD_GROUPS)[number]['id'];
 const CUSTOM_TAROT_DECKS = [
   { id: 'pleasant-goat', label: '喜羊羊与灰太狼', root: '/card-decks/tarot/pleasant-goat' },
   { id: 'gg-bond', label: '猪猪侠', root: '/card-decks/tarot/gg-bond' },
+  { id: 'sacred-milk-dragon', label: '神圣奶龙', root: '/card-decks/tarot/sacred-milk-dragon' },
 ] as const;
 
 export type CustomTarotDeckId = (typeof CUSTOM_TAROT_DECKS)[number]['id'];
