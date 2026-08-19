@@ -179,13 +179,19 @@ import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/loc
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
 import {
+  DIVINATION_CARD_GROUPS,
   DIVINATION_THEMES,
+  activeDivinationDeckSelections,
   activeDivinationThemeId,
   activeDivinationThemeLabel,
   activeDivinationThemeLogoPosition,
   activeDivinationThemeStyle,
+  getDivinationDeckOptions,
   getDivinationThemeLogoUrl,
+  setDivinationDeckSelection,
   setDivinationTheme,
+  type DivinationCardGroup,
+  type DivinationDeckSelection,
 } from './lib/divinationTheme';
 import type {
   AlmanacCalendarDateMeta,
@@ -203,6 +209,10 @@ const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChar
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
 const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
+
+function chooseDivinationDeck(group: DivinationCardGroup, value: string | number) {
+  setDivinationDeckSelection(group, value as DivinationDeckSelection);
+}
 const TarotSpreadBoard = defineAsyncComponent(() => import('./components/TarotSpreadBoard.vue'));
 const WesternCardBoard = defineAsyncComponent(() => import('./components/WesternCardBoard.vue'));
 const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/LegacyHistoryDetail.vue'));
@@ -5539,12 +5549,26 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
           <div v-else class="preferences-page">
             <section class="preference-section">
-              <UiSectionHeading class="preference-section-heading" title="占卜主题" description="统一更换界面风格和占卜图片" compact />
+              <UiSectionHeading class="preference-section-heading" title="占卜主题" description="更换界面风格；各类牌组可单独设置" compact />
               <div>
                 <div class="preference-option-grid is-three" role="group" aria-label="占卜主题">
                   <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
-                <p class="preference-active-note">当前界面与占卜图片使用“{{ activeDivinationThemeLabel }}”主题</p>
+                <p class="preference-active-note">当前界面使用“{{ activeDivinationThemeLabel }}”主题</p>
+              </div>
+            </section>
+
+            <section class="preference-section">
+              <UiSectionHeading class="preference-section-heading" title="牌组" description="每种牌可跟随主题或固定选择" compact />
+              <div class="preference-deck-grid">
+                <UiSelect
+                  v-for="group in DIVINATION_CARD_GROUPS"
+                  :key="group.id"
+                  :label="group.label"
+                  :model-value="activeDivinationDeckSelections[group.id]"
+                  :options="getDivinationDeckOptions(group.id)"
+                  @update:model-value="chooseDivinationDeck(group.id, $event)"
+                />
               </div>
             </section>
 

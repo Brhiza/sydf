@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  DIVINATION_CARD_GROUPS,
   activeDivinationThemeStyle,
+  getDivinationDeckOptions,
   getNumberedThemeCardImageUrl,
+  getTarotCardBackUrl,
   getTarotThemeImageUrl,
   getDivinationThemeLogoUrl,
   getLiuyaoRitualImageUrl,
   getShengbeiImageUrl,
   getXiaoliurenThemeImageUrl,
   resolveDivinationThemeId,
+  setDivinationDeckSelection,
   setDivinationTheme,
 } from './divinationTheme';
 import { getShiyueTarotCard } from './tarotDeck';
@@ -33,6 +37,7 @@ function contrastRatio(foreground: string, background: string) {
 describe('占卜主题资源映射', () => {
   afterEach(() => {
     setDivinationTheme('yue');
+    for (const group of DIVINATION_CARD_GROUPS) setDivinationDeckSelection(group.id, 'theme');
     vi.unstubAllGlobals();
   });
 
@@ -113,5 +118,25 @@ describe('占卜主题资源映射', () => {
     expect(assetPath(getShiyueTarotCard(1)?.imageUrl || '')).toBe('/divination-themes/shi/cards/tarot/000.webp');
     expect(assetPath(getWesternDeck('lenormand')[0]?.imageUrl || '')).toBe('/divination-themes/shi/cards/lenormand/01.webp');
     expect(assetPath(getWesternDeck('shiyue-oracle')[0]?.imageUrl || '')).toBe('/divination-themes/shi/cards/oracle/01.webp');
+  });
+
+  it('每类牌组可以独立固定或继续跟随主题', () => {
+    setDivinationTheme('shi');
+    setDivinationDeckSelection('tarot', 'pleasant-goat');
+    setDivinationDeckSelection('hexagrams', 'mo');
+
+    expect(assetPath(getTarotThemeImageUrl(0))).toBe('/card-decks/tarot/pleasant-goat/000.webp');
+    expect(assetPath(getTarotCardBackUrl())).toBe('/card-decks/tarot/pleasant-goat/back.webp');
+    expect(assetPath(getNumberedThemeCardImageUrl('hexagrams', 64))).toBe('/divination-themes/mo/cards/hexagrams/64.webp');
+    expect(assetPath(getWesternDeck('lenormand')[0]?.imageUrl || '')).toBe('/divination-themes/shi/cards/lenormand/01.webp');
+  });
+
+  it('喜羊羊和猪猪侠只出现在塔罗牌组中', () => {
+    expect(getDivinationDeckOptions('tarot').map(option => option.value)).toEqual([
+      'theme', 'yue', 'shi', 'mo', 'lan-yu', 'pleasant-goat', 'gg-bond',
+    ]);
+    expect(getDivinationDeckOptions('lenormand').map(option => option.value)).toEqual([
+      'theme', 'yue', 'shi', 'mo', 'lan-yu',
+    ]);
   });
 });

@@ -1,5 +1,6 @@
 import {
   DIVINATION_THEME_ASSET_VERSION,
+  activeDivinationDeckSelections,
   activeDivinationThemeId,
   getNumberedThemeCardImageUrl,
   getTarotCardBackUrl,
@@ -7,8 +8,8 @@ import {
   getWesternThemeCardImageUrl,
 } from './divinationTheme';
 
-const CARD_IMAGE_CACHE_NAME = 'shiyue-divination-theme-images-v6';
-const LEGACY_CARD_IMAGE_CACHE_NAMES = ['shiyue-divination-theme-images-v5'];
+const CARD_IMAGE_CACHE_NAME = 'shiyue-divination-theme-images-v7';
+const LEGACY_CARD_IMAGE_CACHE_NAMES = ['shiyue-divination-theme-images-v5', 'shiyue-divination-theme-images-v6'];
 const THEME_CHANGE_EVENT = 'shiyue:divination-theme-change';
 
 type NetworkInformationLike = {
@@ -86,7 +87,9 @@ async function removeOutdatedCardImages(cache: Cache) {
   const requests = await cache.keys();
   await Promise.all(requests.map(async (request) => {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith('/divination-themes/') || !url.pathname.includes('/cards/')) return;
+    const isThemeCard = url.pathname.startsWith('/divination-themes/') && url.pathname.includes('/cards/');
+    const isCustomDeckCard = url.pathname.startsWith('/card-decks/');
+    if (!isThemeCard && !isCustomDeckCard) return;
     if (url.searchParams.get('v') === DIVINATION_THEME_ASSET_VERSION) return;
     await cache.delete(request);
   }));
@@ -122,7 +125,7 @@ async function warmActiveCardImages(signal: AbortSignal) {
 
 function beginWarmup() {
   if (shouldAvoidBackgroundDownload()) return;
-  const themeId = activeDivinationThemeId.value;
+  const themeId = `${activeDivinationThemeId.value}:${JSON.stringify(activeDivinationDeckSelections.value)}`;
   if (warmupController && !warmupController.signal.aborted && warmupThemeId === themeId) return;
   warmupController?.abort();
   warmupThemeId = themeId;
