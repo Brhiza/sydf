@@ -13,6 +13,9 @@ coverage/
 /temp-assets/
 __pycache__/
 
+# 本地素材原稿与未采用候选；页面使用仓库内已转换、已筛选的成品。
+/source-assets/temple-originals/
+
 # 大型主题制作原稿仅保存在本机；网站使用 public/divination-themes 下的成品。
 /theme-sources/月/
 /theme-sources/时/

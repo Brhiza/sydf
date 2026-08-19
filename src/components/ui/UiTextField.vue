@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue';
+import { computed, useAttrs, useId } from 'vue';
 
 defineOptions({ inheritAttrs: false });
-
-let nextFieldId = 0;
 
 const props = withDefaults(defineProps<{
   modelValue?: string | number;
@@ -38,7 +36,7 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
-const generatedId = `ui-text-field-${++nextFieldId}`;
+const generatedId = `ui-text-field-${useId()}`;
 const controlId = computed(() => props.id || generatedId);
 const rootClass = computed(() => attrs.class);
 const rootStyle = computed(() => attrs.style);
@@ -46,6 +44,8 @@ const controlAttrs = computed(() => {
   const { class: _class, style: _style, ...rest } = attrs;
   return rest;
 });
+const describedBy = computed(() => controlAttrs.value['aria-describedby'] || (props.hint || props.error ? `${controlId.value}-message` : undefined));
+const ariaInvalid = computed(() => controlAttrs.value['aria-invalid'] ?? (Boolean(props.error) || undefined));
 
 function updateValue(event: Event) {
   emit('update:modelValue', (event.target as HTMLInputElement | HTMLTextAreaElement).value);
@@ -69,8 +69,8 @@ function updateValue(event: Event) {
       :maxlength="maxlength"
       :disabled="disabled"
       :required="required"
-      :aria-invalid="Boolean(error) || undefined"
-      :aria-describedby="hint || error ? `${controlId}-message` : undefined"
+      :aria-invalid="ariaInvalid"
+      :aria-describedby="describedBy"
       @input="updateValue"
     ></component>
     <p v-if="error || hint" :id="`${controlId}-message`" class="ui-text-field__message" :class="{ 'is-error': error }">{{ error || hint }}</p>
