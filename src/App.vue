@@ -417,7 +417,7 @@ type AlmanacMonthFilter = 'all' | AlmanacPurpose;
 
 const ONBOARDING_STORAGE_KEY = 'shiyue-onboarding-v1';
 const BAZI_FORTUNE_COLUMN_STORAGE_KEY = 'shiyue-bazi-fortune-columns-v1';
-const onboardingSteps = ['内容', '须知'] as const;
+const onboardingSteps = ['偏好', '须知'] as const;
 const answerPreferenceOptions: Array<{ value: AiAnswerPreference; label: string; summary: string; description: string }> = [
   { value: 'chat', label: '日常聊天', summary: '自然直说', description: '像熟悉你的朋友，用白话直接回答' },
   { value: 'fortune-master', label: '算命大师', summary: '传统断法', description: '先断主旨，再讲盘理、时机与趋避' },
@@ -863,6 +863,15 @@ const formError = ref('');
 const chartError = ref('');
 const caseError = ref('');
 const showInspirationModal = ref(false);
+const showQuestionSupplementModal = ref(false);
+const questionSupplement = reactive({
+  background: '',
+  current: '',
+  timing: '',
+  options: '',
+  focus: '',
+});
+const hasQuestionSupplement = computed(() => Object.values(questionSupplement).some((value) => value.trim()));
 const showBasicAiFallbackModal = ref(false);
 const basicAiFallbackQuestion = ref('');
 const basicAiFallbackError = ref('');
@@ -3028,6 +3037,35 @@ function closeInspirationModal() {
   showInspirationModal.value = false;
   inspirationSearch.value = '';
   formError.value = '';
+}
+
+function openQuestionSupplementModal() {
+  showQuestionSupplementModal.value = true;
+  showToolPicker.value = false;
+}
+
+function closeQuestionSupplementModal() {
+  showQuestionSupplementModal.value = false;
+}
+
+function addQuestionSupplement() {
+  const supplement = [
+    ['事情背景', questionSupplement.background],
+    ['目前情况', questionSupplement.current],
+    ['相关时间', questionSupplement.timing],
+    ['可选方案或顾虑', questionSupplement.options],
+    ['最想了解', questionSupplement.focus],
+  ]
+    .filter(([, value]) => value.trim())
+    .map(([label, value]) => `${label}：${value.trim()}`)
+    .join('\n');
+  if (!supplement) return;
+  const currentQuestion = question.value.trimEnd();
+  question.value = currentQuestion ? `${currentQuestion}\n\n${supplement}` : supplement;
+  selectedInspirationPrompt.value = '';
+  formError.value = '';
+  Object.assign(questionSupplement, { background: '', current: '', timing: '', options: '', focus: '' });
+  closeQuestionSupplementModal();
 }
 
 function openReadingModal(message: ChatReadingMessage) {
@@ -5225,7 +5263,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div v-if="homeState === 'default' && activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读流派</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读流派" @update:model-value="chooseActivePromptSchool" /></div>
             <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
             <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
-            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '按想了解的事情选择' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].description }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>会读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
+            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '按想了解的事情选择' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].description }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>会读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button><button type="button" class="ask-library-button" @click="openQuestionSupplementModal"><FileText :size="14" />补充信息</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
             <p v-if="formError" class="form-error">{{ formError }}</p>
           </div>
           <p class="home-ai-disclaimer" :class="{ 'is-chat': homeState === 'chat' }">生成内容完全基于 AI 模型的胡言乱语，不构成任何形式建议</p>
@@ -5907,6 +5945,27 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <div v-if="!filteredInspirationGroups.length" class="inspiration-empty"><Search :size="17" /><span>没有找到相关问题</span></div>
       </UiDialogShell>
 
+      <UiDialogShell v-if="showQuestionSupplementModal" aria-label="补充信息" size="compact" panel-class="question-supplement-modal" @close="closeQuestionSupplementModal">
+          <UiDialogHeader
+            title="补充信息"
+            eyebrow="让解读更精准"
+            description="提供与问题直接相关的背景即可，不必每项都填写。"
+            close-label="关闭补充信息"
+            @close="closeQuestionSupplementModal"
+          />
+          <form class="question-supplement-form" @submit.prevent="addQuestionSupplement">
+            <label><strong>事情背景</strong><textarea v-auto-resize v-model="questionSupplement.background" maxlength="1000" placeholder="涉及什么人或事，事情是怎么开始的"></textarea></label>
+            <label><strong>目前情况</strong><textarea v-auto-resize v-model="questionSupplement.current" maxlength="1000" placeholder="现在进展到哪一步，有哪些已确定的信息"></textarea></label>
+            <label><strong>相关时间</strong><textarea v-auto-resize v-model="questionSupplement.timing" maxlength="500" placeholder="发生时间、计划时间或希望看到结果的时间"></textarea></label>
+            <label><strong>可选方案或顾虑</strong><textarea v-auto-resize v-model="questionSupplement.options" maxlength="1000" placeholder="正在权衡哪些选择，最担心什么"></textarea></label>
+            <label><strong>最想了解</strong><textarea v-auto-resize v-model="questionSupplement.focus" maxlength="1000" placeholder="希望重点解读的方向或需要做出的决定"></textarea></label>
+          </form>
+          <div class="question-supplement-actions">
+            <UiButton variant="ghost" @click="closeQuestionSupplementModal">暂不补充</UiButton>
+            <UiButton :disabled="!hasQuestionSupplement" @click="addQuestionSupplement">添加到问题</UiButton>
+          </div>
+      </UiDialogShell>
+
       <UiDialogShell v-if="showAlmanacSearchModal" labelledby="almanac-search-title" panel-class="almanac-search-modal" @close="closeAlmanacSearch">
           <UiDialogHeader title="高级择日" title-id="almanac-search-title" :description="settings.almanacTopic ? `${almanacParticipantSummary} · ${activeAlmanacRangeLabel} · ${filteredAlmanacSearchItems.length} 个可用日期` : `${almanacParticipantSummary} · ${activeAlmanacRangeLabel}`" close-label="关闭高级择日" @close="closeAlmanacSearch" />
           <UiNotice v-if="almanacMode === 'general'" tone="info" compact>
@@ -5987,6 +6046,14 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <div class="onboarding-copy"><h3>选择内容层级</h3><p>控制工具选择、盘面信息和术语的显示深度。</p></div>
               <div class="onboarding-level-grid" role="group" aria-label="内容层级">
                 <button v-for="item in displayLevelOptions" :key="item.value" type="button" :class="{ active: appPreferences.displayLevel === item.value }" :aria-pressed="appPreferences.displayLevel === item.value" @click="chooseDisplayLevel(item.value)"><strong>{{ item.label }}</strong><span>{{ item.description }}</span><Check v-if="appPreferences.displayLevel === item.value" :size="16" /></button>
+              </div>
+              <div class="onboarding-copy onboarding-preference-section"><h3>选择解读偏好</h3><p>决定 AI 回答问题时使用的表达方式和分析深度。</p></div>
+              <div class="onboarding-option-grid is-three" role="group" aria-label="解读偏好">
+                <button v-for="item in answerPreferenceOptions" :key="item.value" type="button" :class="{ active: appPreferences.answerPreference === item.value }" :aria-pressed="appPreferences.answerPreference === item.value" @click="chooseAnswerPreference(item.value)"><strong>{{ item.label }}</strong><span>{{ item.description }}</span><Check v-if="appPreferences.answerPreference === item.value" :size="16" /></button>
+              </div>
+              <div class="onboarding-copy onboarding-preference-section"><h3>选择起卦方式</h3><p>设置占卜时默认由系统完成，还是由你亲自操作。</p></div>
+              <div class="onboarding-option-grid is-two" role="group" aria-label="起卦方式">
+                <button v-for="item in castingPreferenceOptions" :key="item.value" type="button" :class="{ active: appPreferences.castingPreference === item.value }" :aria-pressed="appPreferences.castingPreference === item.value" @click="chooseCastingPreference(item.value)"><strong>{{ item.label }}</strong><span>{{ item.description }}</span><Check v-if="appPreferences.castingPreference === item.value" :size="16" /></button>
               </div>
               <div class="onboarding-actions"><UiButton class="onboarding-master-skip" variant="ghost" size="small" @click="skipOnboardingAsMaster">熟悉术数，使用完整模式</UiButton><div><UiButton @click="continueOnboarding">继续<ChevronRight :size="15" /></UiButton></div></div>
             </template>

@@ -1,4 +1,5 @@
 import type { AiAnswerPreference } from './ai';
+import { PROMPT_ANSWER_FRAMEWORK } from 'mingyu-core/prompt';
 
 export type AiPromptMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 export type AiPromptAnswerPreference = AiAnswerPreference;
@@ -345,6 +346,7 @@ export function buildAiSystemPrompt(payload: AiPromptPayload, supplementalSystem
     modeInstruction(payload),
     conversationInstruction(payload),
     preferencePrompt,
+    PROMPT_ANSWER_FRAMEWORK,
     RESPONSE_QUALITY_INSTRUCTION,
     supplemental,
   ].filter(Boolean).join('\n\n');
@@ -364,5 +366,6 @@ export function buildExternalAiPrompt(payload: AiPromptPayload) {
     payload.method ? `【术式】\n${payload.method}` : `【类型】\n${modeLabel(payload.mode)}`,
     profile ? `【案例】\n${profile}` : '',
     reading ? `【盘面资料】\n${reading}` : '',
+    `【回答框架】\n${PROMPT_ANSWER_FRAMEWORK}`,
   ].filter(Boolean).join('\n\n');
 }

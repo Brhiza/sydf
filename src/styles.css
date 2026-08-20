@@ -890,6 +890,21 @@ h1, h2, h3, p { margin-top: 0; }
 .inspiration-empty { align-items: center; color: var(--muted); display: flex; flex-direction: column; gap: 8px; justify-content: center; min-height: 130px; }
 .inspiration-empty svg { color: var(--accent-strong); }
 
+/* 问题补充模板 */
+.question-supplement-modal { width: min(520px, 100%); }
+.question-supplement-form { display: grid; gap: 9px; margin-top: 18px; }
+.question-supplement-form label { display: grid; gap: 5px; }
+.question-supplement-form strong { color: var(--ink); font-size: var(--type-control); font-weight: 650; }
+.question-supplement-form textarea { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); line-height: 1.6; max-height: 110px; min-height: 42px; outline: 0; padding: 9px 11px; resize: vertical; width: 100%; }
+.question-supplement-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.question-supplement-form textarea::placeholder { color: var(--subtle); }
+.question-supplement-actions { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; padding-top: 14px; }
+
+@media (max-width: 520px) {
+  .question-supplement-actions { align-items: stretch; flex-direction: column-reverse; }
+  .question-supplement-actions .ui-button { width: 100%; }
+}
+
 /* 使用项目 logo 统一替换原来的月牙占位图案 */
 .brand-mark, .default-mark, .chat-empty-icon { object-fit: cover; overflow: hidden; }
 .default-mark { border: 0; border-radius: 16px; box-shadow: none; display: block; height: 48px; width: 48px; }
@@ -1596,7 +1611,7 @@ body { background: var(--canvas); }
 .onboarding-progress {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   padding: 13px 20px 4px;
 }
 .onboarding-progress button {
@@ -1653,6 +1668,7 @@ body { background: var(--canvas); }
 .onboarding-body::-webkit-scrollbar { display: none; }
 .onboarding-copy h3 { color: var(--ink); font-family: 'Noto Serif SC', serif; font-size: 21px; font-weight: 600; letter-spacing: .04em; margin: 0; }
 .onboarding-copy p { color: var(--muted); font-size: 10px; line-height: 1.7; margin: 7px 0 0; }
+.onboarding-preference-section { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; }
 .onboarding-case-grid {
   display: grid;
   gap: 12px;
@@ -1758,6 +1774,15 @@ body { background: var(--canvas); }
 .onboarding-level-grid strong { color: var(--ink); display: block; font-family: 'Noto Serif SC', serif; font-size: 15px; }
 .onboarding-level-grid span { display: block; font-size: 9px; line-height: 1.7; margin-top: 9px; }
 .onboarding-level-grid svg { position: absolute; right: 11px; top: 11px; }
+.onboarding-option-grid { display: grid; gap: 10px; margin-top: 22px; }
+.onboarding-option-grid.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.onboarding-option-grid.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.onboarding-option-grid button { background: var(--surface-muted); border: 1px solid transparent; border-radius: 12px; color: var(--muted); min-height: 112px; padding: 18px 14px; position: relative; text-align: left; }
+.onboarding-option-grid button:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.onboarding-option-grid button.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); color: var(--accent-strong); }
+.onboarding-option-grid strong { color: var(--ink); display: block; font-family: 'Noto Serif SC', serif; font-size: 15px; }
+.onboarding-option-grid span { display: block; font-size: 9px; line-height: 1.7; margin-top: 9px; }
+.onboarding-option-grid svg { position: absolute; right: 11px; top: 11px; }
 .onboarding-ai-fields { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-top: 22px; }
 .onboarding-ai-current { align-items: center; border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); color: var(--accent-strong); display: flex; gap: 10px; margin-top: 17px; padding: 13px 2px; }
 .onboarding-ai-current strong,
@@ -1808,6 +1833,8 @@ body { background: var(--canvas); }
   .onboarding-case-grid label:first-child { grid-column: span 2; }
   .onboarding-level-grid { grid-template-columns: 1fr; }
   .onboarding-level-grid button { min-height: 82px; padding: 14px; }
+  .onboarding-option-grid.is-three, .onboarding-option-grid.is-two { grid-template-columns: 1fr; }
+  .onboarding-option-grid button { min-height: 72px; padding: 14px; }
   .onboarding-ai-fields { grid-template-columns: 1fr; }
   .onboarding-actions { align-items: stretch; flex-direction: column; padding-top: 22px; }
   .onboarding-actions > div { width: 100%; }
