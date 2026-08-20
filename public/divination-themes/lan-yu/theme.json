@@ -1,0 +1,21 @@
+{
+  "id": "lan-yu",
+  "name": "吃白饭的蓝色大肥鱼",
+  "inherits": null,
+  "completeGroups": [
+    "brand",
+    "banner",
+    "xiaoliuren",
+    "fortune-status",
+    "tarot",
+    "lenormand",
+    "oracle",
+    "hexagrams",
+    "ssgw"
+  ],
+  "cardStyle": {
+    "frame": false,
+    "textBakedIntoImage": false,
+    "cornerRadius": "ui"
+  }
+}

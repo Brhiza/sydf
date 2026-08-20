@@ -154,16 +154,65 @@ export const DIVINATION_THEMES = [
       themeShadow: ['rgba(103,73,52,.22)', 'rgba(0,0,0,.38)'],
     }),
   },
+  {
+    id: 'lan-yu',
+    label: '吃白饭的蓝色大肥鱼',
+    description: '清透亮蓝画风',
+    groups: allGroups,
+    visual: visualTheme('50% 50%', { light: '#4d6bfe', dark: '#171c2c' }, {
+      canvas: ['#f5f7ff', '#111522'], surface: ['#fbfcff', '#181d2b'],
+      surfaceRaised: ['#ffffff', '#202637'], surfaceMuted: ['#edf1ff', '#272e42'],
+      surfaceOverlay: ['rgba(255,255,255,.97)', 'rgba(24,29,43,.97)'],
+      sidebar: ['#edf1ff', '#151a28'], topbar: ['rgba(248,250,255,.92)', 'rgba(17,21,34,.94)'],
+      textPrimary: ['#20283d', '#f1f4ff'], textSecondary: ['#53617d', '#b9c3dc'], textTertiary: ['#687591', '#8996b2'],
+      line: ['#dbe2f5', '#343d55'], lineStrong: ['#c4cee8', '#46516e'],
+      accent: ['#4d6bfe', '#7890ff'], accentStrong: ['#3451dc', '#a6b5ff'], accentSoft: ['#e3e9ff', '#29355f'], accentContrast: ['#ffffff', '#11162a'],
+      blue: ['#4d6bfe', '#8ca0ff'], blueSoft: ['#e3e9ff', '#28345c'],
+      plum: ['#6c63c7', '#aaa2f3'], plumSoft: ['#ece9fb', '#373459'],
+      sage: ['#417f90', '#80bdcc'], sageSoft: ['#e1f0f3', '#28444c'], gold: ['#a77a42', '#dfb87f'],
+      themeGlow: ['rgba(77,107,254,.16)', 'rgba(92,120,255,.18)'],
+      themeCanvasStart: ['#f8faff', '#151a2a'], themeCanvasEnd: ['#edf2ff', '#0d101a'],
+      themeDot: ['rgba(77,107,254,.15)', 'rgba(139,159,255,.16)'],
+      themeHeroStart: ['#304bd2', '#6e86ff'], themeHeroMiddle: ['#4d6bfe', '#8298ff'], themeHeroEnd: ['#73a5ff', '#68b6ff'],
+      themeShadow: ['rgba(49,77,204,.25)', 'rgba(0,0,0,.38)'],
+    }),
+  },
 ] as const satisfies readonly DivinationThemeDefinitionShape[];
 
 export type DivinationThemeDefinition = (typeof DIVINATION_THEMES)[number];
 export type DivinationThemeId = DivinationThemeDefinition['id'];
 
+export const DIVINATION_CARD_GROUPS = [
+  { id: 'tarot', label: '塔罗牌' },
+  { id: 'lenormand', label: '雷诺曼' },
+  { id: 'oracle', label: '时月神谕' },
+  { id: 'hexagrams', label: '六十四卦' },
+  { id: 'ssgw', label: '三山国王灵签' },
+] as const;
+
+export type DivinationCardGroup = (typeof DIVINATION_CARD_GROUPS)[number]['id'];
+
+const CUSTOM_TAROT_DECKS = [
+  { id: 'pleasant-goat', label: '喜羊羊与灰太狼', root: '/card-decks/tarot/pleasant-goat' },
+  { id: 'gg-bond', label: '猪猪侠', root: '/card-decks/tarot/gg-bond' },
+  { id: 'sacred-milk-dragon', label: '神圣奶龙', root: '/card-decks/tarot/sacred-milk-dragon' },
+  { id: 'danjie-leopard', label: '蛋姐的豹', root: '/card-decks/tarot/danjie-leopard' },
+] as const;
+
+export type CustomTarotDeckId = (typeof CUSTOM_TAROT_DECKS)[number]['id'];
+export type DivinationDeckSelection = 'theme' | DivinationThemeId | CustomTarotDeckId;
+
+export interface DivinationDeckOption {
+  value: DivinationDeckSelection;
+  label: string;
+}
+
 const THEME_STORAGE_KEY = 'shiyue-divination-theme-v1';
+const DECK_STORAGE_KEY = 'shiyue-divination-decks-v1';
 const THEME_ROOT = '/divination-themes';
 const SHARED_ASSET_ROOT = '/divination-assets';
 // 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
-export const DIVINATION_THEME_ASSET_VERSION = '20260817-performance-v3';
+export const DIVINATION_THEME_ASSET_VERSION = '20260820-card-decks-v3';
 
 function isThemeId(value: unknown): value is DivinationThemeId {
   return DIVINATION_THEMES.some(theme => theme.id === value);
@@ -186,6 +235,61 @@ export const activeDivinationTheme = computed(() => (
 export const activeDivinationThemeLabel = computed(() => activeDivinationTheme.value.label);
 export const activeDivinationThemeStyle = computed(() => activeDivinationTheme.value.visual.cssVariables);
 export const activeDivinationThemeLogoPosition = computed(() => activeDivinationTheme.value.visual.logoPosition);
+
+function defaultDeckSelections(): Record<DivinationCardGroup, DivinationDeckSelection> {
+  return { tarot: 'theme', lenormand: 'theme', oracle: 'theme', hexagrams: 'theme', ssgw: 'theme' };
+}
+
+function isCardGroup(value: unknown): value is DivinationCardGroup {
+  return DIVINATION_CARD_GROUPS.some(group => group.id === value);
+}
+
+function isDeckSelection(group: DivinationCardGroup, value: unknown): value is DivinationDeckSelection {
+  if (value === 'theme') return true;
+  if (isThemeId(value)) {
+    return (DIVINATION_THEMES.find(theme => theme.id === value)?.groups as readonly DivinationThemeGroup[] | undefined)?.includes(group) === true;
+  }
+  return group === 'tarot' && CUSTOM_TAROT_DECKS.some(deck => deck.id === value);
+}
+
+function initialDeckSelections(): Record<DivinationCardGroup, DivinationDeckSelection> {
+  const defaults = defaultDeckSelections();
+  if (typeof window === 'undefined') return defaults;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(DECK_STORAGE_KEY) || '{}') as Record<string, unknown>;
+    for (const group of DIVINATION_CARD_GROUPS) {
+      const selection = stored[group.id];
+      if (isDeckSelection(group.id, selection)) defaults[group.id] = selection;
+    }
+  } catch {
+    // 无效或不可读取的本地设置回退为跟随主题。
+  }
+  return defaults;
+}
+
+export const activeDivinationDeckSelections = ref<Record<DivinationCardGroup, DivinationDeckSelection>>(initialDeckSelections());
+
+export function getDivinationDeckOptions(group: DivinationCardGroup): DivinationDeckOption[] {
+  const themeOptions = DIVINATION_THEMES
+    .filter(theme => (theme.groups as readonly DivinationThemeGroup[]).includes(group))
+    .map(theme => ({ value: theme.id, label: theme.label }));
+  const customOptions = group === 'tarot'
+    ? CUSTOM_TAROT_DECKS.map(deck => ({ value: deck.id, label: deck.label }))
+    : [];
+  return [{ value: 'theme', label: '跟随主题' }, ...themeOptions, ...customOptions];
+}
+
+export function setDivinationDeckSelection(group: DivinationCardGroup, selection: DivinationDeckSelection) {
+  if (!isCardGroup(group) || !isDeckSelection(group, selection)) return;
+  activeDivinationDeckSelections.value = { ...activeDivinationDeckSelections.value, [group]: selection };
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(activeDivinationDeckSelections.value));
+  } catch {
+    // 浏览器禁用本地存储时，牌组设置仍在当前页面会话中生效。
+  }
+  window.dispatchEvent(new CustomEvent('shiyue:divination-theme-change', { detail: { group, selection } }));
+}
 
 function syncDocumentTheme(themeId: DivinationThemeId) {
   if (typeof document === 'undefined') return;
@@ -220,7 +324,8 @@ export function resolveDivinationThemeId(
   requestedThemeId: DivinationThemeId = activeDivinationThemeId.value,
 ): DivinationThemeId {
   const visited = new Set<DivinationThemeId>();
-  let themeId: DivinationThemeId | undefined = requestedThemeId;
+  const selection = isCardGroup(group) ? activeDivinationDeckSelections.value[group] : 'theme';
+  let themeId: DivinationThemeId | undefined = isThemeId(selection) ? selection : requestedThemeId;
   while (themeId && !visited.has(themeId)) {
     visited.add(themeId);
     const definition = DIVINATION_THEMES.find(theme => theme.id === themeId);
@@ -266,10 +371,18 @@ export function getTarotThemeImageUrl(traditionalNumber: number) {
   const normalized = Number.isInteger(traditionalNumber) && traditionalNumber >= 0 && traditionalNumber <= 77
     ? traditionalNumber
     : 0;
+  const selection = activeDivinationDeckSelections.value.tarot;
+  const customDeck = CUSTOM_TAROT_DECKS.find(deck => deck.id === selection);
+  if (customDeck) {
+    return `${customDeck.root}/${String(normalized).padStart(3, '0')}.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+  }
   return divinationThemeAssetUrl('tarot', `cards/tarot/${String(normalized).padStart(3, '0')}.webp`);
 }
 
 export function getTarotCardBackUrl() {
+  const selection = activeDivinationDeckSelections.value.tarot;
+  const customDeck = CUSTOM_TAROT_DECKS.find(deck => deck.id === selection);
+  if (customDeck) return `${customDeck.root}/back.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
   return divinationThemeAssetUrl('tarot', 'cards/tarot/back.webp');
 }
 
