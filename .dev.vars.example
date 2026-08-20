@@ -5,3 +5,5 @@ AI_MODEL=gpt-4o-mini
 AI_API_KEY=replace-with-your-key
 # 可选：AI_API_URL、AI_MODELS_URL、AI_SYSTEM_PROMPT、AI_TEMPERATURE、AI_MAX_TOKENS
 # 可选：AI_REQUESTS_PER_MINUTE（未绑定 Cloudflare Rate Limiting 时的单来源每分钟请求数）
+# 反向代理回源域名与公开域名不同时配置；支持逗号分隔的精确来源与 HTTPS 子域名通配
+APP_TRUSTED_ORIGINS=https://example.com,https://*.example.com

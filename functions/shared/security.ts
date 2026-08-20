@@ -5,6 +5,7 @@ export interface RateLimitBinding {
 export interface ApiSecurityEnv {
   AI_RATE_LIMITER?: RateLimitBinding;
   AI_REQUESTS_PER_MINUTE?: string;
+  APP_TRUSTED_ORIGINS?: string;
 }
 
 const MAX_REQUEST_BYTES = 64 * 1024;
@@ -52,6 +53,45 @@ function configuredFallbackLimit(env: ApiSecurityEnv, route: string) {
   return route.endsWith('/interpret') ? 8 : 16;
 }
 
+function parseOriginOnly(value: string) {
+  try {
+    const parsed = new URL(value);
+    if (parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function matchesTrustedOrigin(origin: string, configuredOrigin: string) {
+  const candidate = parseOriginOnly(origin);
+  if (!candidate) return false;
+
+  const wildcard = /^https:\/\/\*\.([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(?::([1-9]\d{0,4}))?$/i.exec(configuredOrigin);
+  if (wildcard) {
+    const [, suffix, configuredPort = ''] = wildcard;
+    const port = Number(configuredPort || 443);
+    const candidatePort = candidate.port || '443';
+    if (port > 65_535 || candidate.protocol !== 'https:' || candidatePort !== String(port)) return false;
+    const hostname = candidate.hostname.toLowerCase();
+    const normalizedSuffix = suffix.toLowerCase();
+    return hostname !== normalizedSuffix && hostname.endsWith(`.${normalizedSuffix}`);
+  }
+
+  const configured = parseOriginOnly(configuredOrigin);
+  return configured?.origin === candidate.origin;
+}
+
+function isTrustedRequestOrigin(origin: string, requestOrigin: string, configuredOrigins = '') {
+  const candidate = parseOriginOnly(origin);
+  if (!candidate) return false;
+  if (candidate.origin === requestOrigin) return true;
+  return configuredOrigins
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .some((configuredOrigin) => matchesTrustedOrigin(candidate.origin, configuredOrigin));
+}
+
 export async function guardApiRequest(request: Request, env: ApiSecurityEnv): Promise<Response | null> {
   const contentType = request.headers.get('Content-Type') || '';
   if (!contentType.toLowerCase().startsWith('application/json')) {
@@ -64,7 +104,7 @@ export async function guardApiRequest(request: Request, env: ApiSecurityEnv): Pr
 
   const requestUrl = new URL(request.url);
   const origin = request.headers.get('Origin');
-  if (origin && origin !== requestUrl.origin) {
+  if (origin && !isTrustedRequestOrigin(origin, requestUrl.origin, env.APP_TRUSTED_ORIGINS)) {
     return jsonError('请求来源不受支持。', 403);
   }
 
