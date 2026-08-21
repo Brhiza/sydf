@@ -2,13 +2,13 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
-import { initializeNativeRuntime, isNativeApp } from './lib/nativeRuntime';
+import { initializeNativeRuntime, isNativeAndroidApp, isNativeApp } from './lib/nativeRuntime';
 import { applyStoredJoytouchCompatibility } from './lib/joytouchCompatibility';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
-applyStoredJoytouchCompatibility();
+applyStoredJoytouchCompatibility(isNativeAndroidApp());
 createApp(App).mount('#app');
 void initializeNativeRuntime();
 
