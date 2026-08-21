@@ -4384,31 +4384,30 @@ body { background: var(--canvas); }
   .mobile-nav-scrim { background: color-mix(in srgb, var(--theme-shadow) 58%, transparent); border: 0; display: block; inset: 0; position: fixed; z-index: 31; }
 }
 
-/* 卓易通等安卓兼容容器可能声明支持 color-mix/transform，却出现实机合成错误。
- * 原生包使用纯 rgba 遮罩和无位移动画抽屉，避免黑屏、渐变光带及菜单留在屏外。 */
+/* 仅在用户明确开启卓易通兼容显示后，使用不依赖合成效果的样式。 */
 @media (max-width: 1180px) {
-  html.native-android .mobile-nav-scrim {
+  html.joytouch-compat .mobile-nav-scrim {
     background: rgba(23, 19, 29, .52);
   }
-  html.native-android .sidebar {
+  html.joytouch-compat .sidebar {
     left: -100%;
     transform: none;
     transition: none;
   }
-  html.native-android .sidebar.mobile-sidebar-open {
+  html.joytouch-compat .sidebar.mobile-sidebar-open {
     box-shadow: none;
     left: 0;
     transform: none;
   }
 }
-html.native-android .onboarding-layer {
+html.joytouch-compat .onboarding-layer {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   background: rgba(23, 19, 29, .68);
 }
 
 @media (prefers-color-scheme: dark) {
-  html.native-android .mobile-nav-scrim { background: rgba(0, 0, 0, .68); }
+  html.joytouch-compat .mobile-nav-scrim { background: rgba(0, 0, 0, .68); }
 }
 
 @media (max-width: 1180px) {

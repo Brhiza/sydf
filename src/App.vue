@@ -178,6 +178,8 @@ import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
+import { applyJoytouchCompatibility, clearRememberedAndroidFallback, PREFERENCES_STORAGE_KEY, resolveCurrentJoytouchCompatibility, type JoytouchCompatibilityMode } from './lib/joytouchCompatibility';
+import { isNativeAndroidApp } from './lib/nativeRuntime';
 import {
   DIVINATION_CARD_GROUPS,
   DIVINATION_THEMES,
@@ -1055,14 +1057,17 @@ function mergeDefaultAiChannels(channels: Partial<AiChannel>[]) {
   return [builtin, ...presets, ...custom];
 }
 
-const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiChannels: AiChannel[]; castingPreference: CastingPreference }>({
+const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiChannels: AiChannel[]; castingPreference: CastingPreference; joytouchCompatibilityMode: JoytouchCompatibilityMode }>({
   activeAiChannelId: 'builtin',
   aiChannels: createDefaultAiChannels(),
   answerPreference: 'fortune-master',
   displayLevel: 'beginner',
   castingPreference: 'auto',
+  joytouchCompatibilityMode: 'auto',
   promptSchoolChoices: {},
 });
+const showJoytouchCompatibilitySetting = isNativeAndroidApp();
+const joytouchCompatibilityActive = ref(document.documentElement.classList.contains('joytouch-compat'));
 const visibleDivinationKinds = computed(() => appPreferences.displayLevel === 'master' ? masterDivinationKinds : beginnerDivinationKinds);
 
 const settings = reactive<{
@@ -1786,11 +1791,14 @@ function toggleBaziFortuneColumn(key: BaziFortuneColumnKey) {
 
 function restorePreferences() {
   try {
-    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference }>(localStorage, 'shiyue-preferences');
+    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference; joytouchCompatibility?: boolean; joytouchCompatibilityMode?: JoytouchCompatibilityMode }>(localStorage, PREFERENCES_STORAGE_KEY);
     if (!parsedPreferences) return;
     appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
     if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
     if (parsedPreferences.castingPreference === 'auto' || parsedPreferences.castingPreference === 'manual') appPreferences.castingPreference = parsedPreferences.castingPreference;
+    if (parsedPreferences.joytouchCompatibilityMode === 'auto' || parsedPreferences.joytouchCompatibilityMode === 'standard' || parsedPreferences.joytouchCompatibilityMode === 'compatibility') appPreferences.joytouchCompatibilityMode = parsedPreferences.joytouchCompatibilityMode;
+    else if (parsedPreferences.joytouchCompatibility === true) appPreferences.joytouchCompatibilityMode = 'compatibility';
+    else if (parsedPreferences.joytouchCompatibility === false) appPreferences.joytouchCompatibilityMode = 'standard';
     appPreferences.promptSchoolChoices = normalizePromptSchoolChoices(parsedPreferences.promptSchoolChoices);
     if (Array.isArray(parsedPreferences.aiChannels) && parsedPreferences.aiChannels.length) {
       const channels = mergeDefaultAiChannels(parsedPreferences.aiChannels);
@@ -1937,12 +1945,18 @@ function handleAppRouteNavigation() {
   void applyAppRouteFromLocation();
 }
 
+function handleCompatibilityChange(event: Event) {
+  const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+  joytouchCompatibilityActive.value = detail?.enabled === true;
+}
+
 watch([activeView, activeSettingsSection, activeCasesSection, showHistory], syncAppRouteToLocation);
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.addEventListener('shiyue:app-update', handleAppUpdate);
+  window.addEventListener('shiyue:compatibility-change', handleCompatibilityChange);
   window.addEventListener('shiyue:native-back', handleNativeBack);
   window.addEventListener('popstate', handleAppRouteNavigation);
   window.addEventListener('hashchange', handleAppRouteNavigation);
@@ -2001,6 +2015,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.removeEventListener('shiyue:app-update', handleAppUpdate);
+  window.removeEventListener('shiyue:compatibility-change', handleCompatibilityChange);
   window.removeEventListener('shiyue:native-back', handleNativeBack);
   window.removeEventListener('popstate', handleAppRouteNavigation);
   window.removeEventListener('hashchange', handleAppRouteNavigation);
@@ -2330,12 +2345,13 @@ function persistPreferences() {
     answerPreference: appPreferences.answerPreference,
     displayLevel: appPreferences.displayLevel,
     castingPreference: appPreferences.castingPreference,
+    joytouchCompatibilityMode: appPreferences.joytouchCompatibilityMode,
     promptSchoolChoices: appPreferences.promptSchoolChoices,
     activeAiChannelId: appPreferences.activeAiChannelId,
     aiChannels: appPreferences.aiChannels.map(({ apiKey: _apiKey, ...channel }) => channel),
   };
   try {
-    localStorage.setItem('shiyue-preferences', JSON.stringify(storedPreferences));
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(storedPreferences));
   } catch {
     // 浏览器禁用本地存储时，偏好仍在当前页面会话中生效。
   }
@@ -2527,6 +2543,15 @@ function chooseAnswerPreference(preference: AiAnswerPreference) {
 
 function chooseCastingPreference(preference: CastingPreference) {
   appPreferences.castingPreference = preference;
+  persistPreferences();
+}
+
+function chooseJoytouchCompatibility(mode: JoytouchCompatibilityMode) {
+  appPreferences.joytouchCompatibilityMode = mode;
+  clearRememberedAndroidFallback();
+  const enabled = resolveCurrentJoytouchCompatibility(mode, showJoytouchCompatibilitySetting);
+  applyJoytouchCompatibility(enabled);
+  joytouchCompatibilityActive.value = enabled;
   persistPreferences();
 }
 
@@ -5627,6 +5652,18 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">当前界面使用“{{ activeDivinationThemeLabel }}”主题</p>
+              </div>
+            </section>
+
+            <section v-if="showJoytouchCompatibilitySetting" class="preference-section">
+              <UiSectionHeading class="preference-section-heading" title="兼容显示" description="仅用于鸿蒙卓易通中的显示异常" compact />
+              <div>
+                <div class="preference-option-grid is-three" role="group" aria-label="卓易通兼容显示">
+                  <button type="button" class="preference-option" :class="{ active: appPreferences.joytouchCompatibilityMode === 'auto' }" :aria-pressed="appPreferences.joytouchCompatibilityMode === 'auto'" @click="chooseJoytouchCompatibility('auto')"><span><strong>自动</strong><small>异常时自动降级</small></span><Check v-if="appPreferences.joytouchCompatibilityMode === 'auto'" :size="15" /></button>
+                  <button type="button" class="preference-option" :class="{ active: appPreferences.joytouchCompatibilityMode === 'standard' }" :aria-pressed="appPreferences.joytouchCompatibilityMode === 'standard'" @click="chooseJoytouchCompatibility('standard')"><span><strong>标准</strong><small>始终使用完整效果</small></span><Check v-if="appPreferences.joytouchCompatibilityMode === 'standard'" :size="15" /></button>
+                  <button type="button" class="preference-option" :class="{ active: appPreferences.joytouchCompatibilityMode === 'compatibility' }" :aria-pressed="appPreferences.joytouchCompatibilityMode === 'compatibility'" @click="chooseJoytouchCompatibility('compatibility')"><span><strong>兼容</strong><small>始终使用稳定效果</small></span><Check v-if="appPreferences.joytouchCompatibilityMode === 'compatibility'" :size="15" /></button>
+                </div>
+                <p class="preference-active-note">{{ appPreferences.joytouchCompatibilityMode === 'auto' ? joytouchCompatibilityActive ? '已检测到兼容风险，当前自动使用稳定效果。' : '当前使用完整效果；发现异常会自动降级。' : appPreferences.joytouchCompatibilityMode === 'compatibility' ? '当前固定使用稳定效果。' : '当前固定使用完整动画和视觉效果。' }}</p>
               </div>
             </section>
 

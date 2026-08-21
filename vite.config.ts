@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { pagesApiPlugin } from './functions/viteApiPlugin';
-import { legacyCssCompatPlugin } from './build/legacyCssCompat';
 
 function appVersionPlugin(version: string): Plugin {
   return {
@@ -27,11 +26,10 @@ export default defineConfig(({ mode }) => {
     pagesApiPlugin(loadEnv(mode, process.cwd(), '')),
     vue(),
     appVersionPlugin(version),
-    legacyCssCompatPlugin(),
   ],
   build: {
+    // 保留旧版 Android WebView 的 JavaScript 语法兼容；CSS 不做全局降级改写。
     target: 'chrome79',
-    cssTarget: 'chrome79',
     rollupOptions: {
       output: {
         entryFileNames: 'assets/app-[hash].js',
