@@ -90,7 +90,7 @@ const dateLabel = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric', month: 'long', day: 'numeric',
 }).format(today);
 const nextLineName = computed(() => lineNames[session.value.coinThrows.length] || '卦象');
-const latestThrow = computed(() => session.value.coinThrows.at(-1) || null);
+const latestThrow = computed(() => session.value.coinThrows[session.value.coinThrows.length - 1] || null);
 const latestThrowName = computed(() => lineNames[session.value.coinThrows.length - 1] || '');
 const castingTitle = computed(() => {
   if (isShaking.value) return `正在摇${nextLineName.value}`;

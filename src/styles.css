@@ -60,6 +60,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .app-main { display: flex; flex: 1; flex-direction: column; height: 100%; min-height: 0; min-width: 0; overflow: hidden; }
 .topbar { align-items: center; backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); display: grid; flex: 0 0 72px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); padding: 0 44px; position: relative; z-index: 4; }
+.no-backdropFilter .topbar { backdrop-filter: none; background: var(--surface); }
 .history-trigger { align-items: center; background: transparent; border-radius: 8px; color: var(--muted); display: inline-flex; font-size: 10px; gap: 7px; padding: 7px 8px; transition: background .2s, color .2s; }
 .history-trigger:hover { background: var(--lilac); color: var(--accent-strong); }
 .history-trigger b { align-items: center; background: var(--accent); border-radius: 99px; color: var(--ds-accent-contrast); display: inline-flex; font-size: 8px; height: 16px; justify-content: center; min-width: 16px; padding: 0 4px; }
@@ -233,7 +234,7 @@ h1, h2, h3, p { margin-top: 0; }
 .app-toast-leave-active { transition: opacity .18s ease, transform .18s ease; }
 .app-toast-enter-from,
 .app-toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
-.ui-dialog-layer:has(.pwa-update-dialog) { z-index: 140; }
+.ui-dialog-layer.pwa-update-layer { z-index: 140; }
 .pwa-update-dialog { position: relative; }
 .pwa-update-dialog__icon { align-items: center; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 14px; color: var(--accent); display: flex; height: 48px; justify-content: center; margin-bottom: var(--ds-space-4); width: 48px; }
 .pwa-update-dialog .ui-dialog-header { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
@@ -1581,6 +1582,7 @@ body { background: var(--canvas); }
   position: fixed;
   z-index: 40;
 }
+.no-backdropFilter .onboarding-layer { backdrop-filter: none; background: rgba(26, 21, 35, .82); }
 .onboarding-dialog {
   background: var(--surface-raised);
   border: 1px solid var(--line);
@@ -4102,7 +4104,7 @@ body { background: var(--canvas); }
 }
 
 /* 对话终版：统一消息阅读节奏、Markdown 排版与输入区安全距离。 */
-.content:has(> .tools-screen.is-chat) { padding-bottom: 8px; padding-top: 8px; }
+.content.is-chat-view { padding-bottom: 8px; padding-top: 8px; }
 .tools-screen.is-chat { gap: 7px; }
 .tools-screen.is-chat .chat-conversation {
   gap: 16px;
@@ -4285,7 +4287,7 @@ body { background: var(--canvas); }
 }
 
 @media (max-width: 720px) {
-  .content:has(> .tools-screen.is-chat) {
+  .content.is-chat-view {
     padding-bottom: 0;
     padding-top: 0;
   }

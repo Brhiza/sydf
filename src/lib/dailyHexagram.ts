@@ -201,7 +201,7 @@ const movingAdviceByType = {
 } as const;
 
 function explainYaoCi(source: string) {
-  const warningText = source.replaceAll('无咎', '');
+  const warningText = source.split('无咎').join('');
   if (/勿用|不利|凶|灾|眚/.test(warningText)) return '爻辞带有明确警戒，今天应先避开风险，再考虑推进。';
   if (/厉|吝|悔|咎/.test(warningText)) return '爻辞提示过程有压力或代价，行动前要把边界与退路想清楚。';
   if (/见大人|王|公|侯/.test(source)) return '爻辞偏向借助可靠的人、规则或平台，不宜只靠自己硬撑。';
@@ -304,7 +304,7 @@ function buildTraditionalTakingRule(
     case 1:
       return `${movingNames[0]}独动，取其爻辞“${lineSource(original, movingPositions[0])}”判断关键转折`;
     case 2: {
-      const primaryPosition = movingPositions.at(-1) as number;
+      const primaryPosition = movingPositions[movingPositions.length - 1] as number;
       return `${movingNames.join('、')}同动，以较高的${lineNames[primaryPosition - 1]}为主，爻辞“${lineSource(original, primaryPosition)}”；较低一爻补看变化起点`;
     }
     case 3:

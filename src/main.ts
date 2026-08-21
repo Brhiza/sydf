@@ -3,10 +3,12 @@ import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
 import { initializeNativeRuntime, isNativeApp } from './lib/nativeRuntime';
+import { applyWebviewCompatibility } from './lib/webviewCompatibility';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
+applyWebviewCompatibility();
 createApp(App).mount('#app');
 void initializeNativeRuntime();
 
