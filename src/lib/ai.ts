@@ -1,6 +1,7 @@
 import type { PromptSchoolChoices } from './promptSchools';
 import { buildAiSystemPrompt, buildAiUserPrompt, sanitizeAiConversation } from './aiPrompt';
 import { buildInterpretationProviderBody, extractProviderText } from './aiProvider';
+import { apiEndpoint } from './apiEndpoint';
 
 export type AiInterpretationMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 
@@ -324,7 +325,7 @@ export async function requestAiModels(aiConfig: AiCustomConfig, signal?: AbortSi
 }
 
 async function requestAiModelsViaProxy(aiConfig: AiCustomConfig, signal?: AbortSignal): Promise<string[]> {
-  const response = await fetchWithClientTimeout('/api/models', {
+  const response = await fetchWithClientTimeout(apiEndpoint('/api/models'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ aiConfig }),
@@ -385,7 +386,7 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
 }
 
 async function requestAiInterpretationViaProxy(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {
-  const response = await fetchWithClientTimeout('/api/interpret', {
+  const response = await fetchWithClientTimeout(apiEndpoint('/api/interpret'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     // 排盘原始对象可能带有数万字的计算链和审计依据。模型只需要已经筛选过的 prompt；

@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:android": "vite build --mode android && cap sync android",
+    "android:open": "cap open android",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "celestine": "^0.2.1",
     "iztro": "^2.5.8",
     "lucide-vue-next": "^0.468.0",
@@ -19,6 +24,7 @@
     "vue": "^3.5.22"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@types/node": "^22.10.5",
     "@vitejs/plugin-vue": "^5.2.1",
     "typescript": "^5.7.2",

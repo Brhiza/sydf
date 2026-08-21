@@ -75,7 +75,24 @@ pnpm build
 pnpm preview
 ```
 
-生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions 与 PWA。
+生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions、PWA 与 Android APK 工程。
+
+## Android APK
+
+Android 工程使用 Capacitor，将前端资源打包进应用，并通过线上 `https://sydf.cc` 调用 AI 接口。首次准备安卓工程或网页资源更新后执行：
+
+```bash
+pnpm build:android
+```
+
+随后使用仓库自带的 Gradle Wrapper 构建调试安装包：
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+APK 输出到 `android/app/build/outputs/apk/debug/app-debug.apk`。正式发布前需使用独立的发布密钥签名，密钥文件不得提交到仓库。
 
 ## 部署
 

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">时月东方</string>
+    <string name="title_activity_main">时月东方</string>
+    <string name="package_name">cc.sydf.app</string>
+    <string name="custom_url_scheme">cc.sydf.app</string>
+</resources>
