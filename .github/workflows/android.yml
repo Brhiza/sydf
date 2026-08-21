@@ -1,0 +1,196 @@
+name: 安卓安装包
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/android.yml'
+      - 'android/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite.config.ts'
+      - '.env.android'
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - '.github/workflows/android.yml'
+      - 'android/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite.config.ts'
+      - '.env.android'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 编译 APK
+    runs-on: ubuntu-latest
+    outputs:
+      has_signing: ${{ steps.signing-status.outputs.available }}
+    env:
+      HAS_ANDROID_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && 'true' || 'false' }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 设置安装包版本
+        shell: bash
+        run: |
+          echo "ANDROID_VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF_TYPE" == 'tag' ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+              echo "标签必须使用 v1.2.3 形式，当前为：$GITHUB_REF_NAME" >&2
+              exit 1
+            fi
+            echo "ANDROID_VERSION_NAME=$version" >> "$GITHUB_ENV"
+          else
+            echo "ANDROID_VERSION_NAME=0.1.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+
+      - name: 记录签名状态
+        id: signing-status
+        shell: bash
+        run: echo "available=${HAS_ANDROID_SIGNING}" >> "$GITHUB_OUTPUT"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 设置 JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: 设置 Gradle 缓存
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 同步 Capacitor 工程
+        run: pnpm build:android
+
+      - name: 授予 Gradle 包装器执行权限
+        run: chmod +x android/gradlew
+
+      - name: 准备可选发布签名
+        if: env.HAS_ANDROID_SIGNING == 'true'
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+          {
+            echo 'storeFile=release.keystore'
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > signing.properties
+
+      - name: 编译调试 APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: 编译签名发布包
+        if: env.HAS_ANDROID_SIGNING == 'true'
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: 整理构建产物
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/shiyue-dongfang-${ANDROID_VERSION_NAME}-debug.apk"
+          if [[ "$HAS_ANDROID_SIGNING" == 'true' ]]; then
+            cp android/app/build/outputs/apk/release/app-release.apk "artifacts/shiyue-dongfang-${ANDROID_VERSION_NAME}-release.apk"
+            cp android/app/build/outputs/bundle/release/app-release.aab "artifacts/shiyue-dongfang-${ANDROID_VERSION_NAME}-release.aab"
+          fi
+          sha256sum artifacts/* > artifacts/SHA256SUMS.txt
+
+      - name: 上传安卓安装包
+        uses: actions/upload-artifact@v7
+        with:
+          name: shiyue-dongfang-android-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: 发布安卓正式版
+    if: startsWith(github.ref, 'refs/tags/') && needs.build.outputs.has_signing == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 下载签名构建产物
+        uses: actions/download-artifact@v8
+        with:
+          name: shiyue-dongfang-android-${{ github.run_number }}
+          path: release-artifacts
+
+      - name: 同步正式包到更新存储
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.R2_RELEASES_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_RELEASES_ACCOUNT_ID }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          apk="release-artifacts/shiyue-dongfang-${version}-release.apk"
+          aab="release-artifacts/shiyue-dongfang-${version}-release.aab"
+          test -s "$apk"
+          test -s "$aab"
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/shiyue-dongfang-${version}.apk" --file "$apk" --remote --content-type application/vnd.android.package-archive
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/shiyue-dongfang-${version}.aab" --file "$aab" --remote --content-type application/octet-stream
+          cp release-artifacts/SHA256SUMS.txt release-artifacts/r2-SHA256SUMS.txt
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/SHA256SUMS.txt" --file release-artifacts/r2-SHA256SUMS.txt --remote --content-type text/plain
+          jq -n \
+            --arg version "$version" \
+            --arg downloadUrl "https://sydf.cc/api/app-download?version=${version}" \
+            --arg sha256 "$(sha256sum "$apk" | cut -d' ' -f1)" \
+            --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $version, downloadUrl: $downloadUrl, sha256: $sha256, publishedAt: $publishedAt}' \
+            > release-artifacts/latest.json
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/latest.json" --file release-artifacts/latest.json --remote --content-type application/json
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release-artifacts/*-release.apk \
+            release-artifacts/*-release.aab \
+            release-artifacts/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "时月东方 ${GITHUB_REF_NAME#v}"

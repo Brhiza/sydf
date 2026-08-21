@@ -922,6 +922,8 @@ const toastMessage = ref('');
 const pwaUpdateAvailable = ref(false);
 const showPwaUpdateDialog = ref(false);
 const isApplyingPwaUpdate = ref(false);
+const updateError = ref('');
+let availableUpdateKind: 'web' | 'native' = 'web';
 let availableWebVersion = '';
 let prepareWebUpdate: (() => Promise<void>) | null = null;
 let toastTimer: number | undefined;
@@ -1863,12 +1865,14 @@ function restoreHistory() {
   }
 }
 
-function handleWebUpdate(event: Event) {
-  const detail = (event as CustomEvent<{ version?: string; prepareUpdate?: () => Promise<void> }>).detail;
+function handleAppUpdate(event: Event) {
+  const detail = (event as CustomEvent<{ kind?: 'web' | 'native'; version?: string; prepareUpdate?: () => Promise<void> }>).detail;
+  availableUpdateKind = detail?.kind === 'native' ? 'native' : 'web';
   availableWebVersion = detail?.version || '';
   prepareWebUpdate = detail?.prepareUpdate || null;
+  updateError.value = '';
   pwaUpdateAvailable.value = true;
-  showPwaUpdateDialog.value = false;
+  showPwaUpdateDialog.value = true;
 }
 
 function postponePwaUpdate() {
@@ -1878,15 +1882,20 @@ function postponePwaUpdate() {
 async function refreshToPwaUpdate() {
   if (isApplyingPwaUpdate.value) return;
   isApplyingPwaUpdate.value = true;
+  updateError.value = '';
   try {
     if (!prepareWebUpdate) throw new Error('update preparation is unavailable');
     await prepareWebUpdate();
+    if (availableUpdateKind === 'native') {
+      isApplyingPwaUpdate.value = false;
+      return;
+    }
     window.location.replace(buildUpdateReloadUrl(window.location, availableWebVersion));
   } catch {
     isApplyingPwaUpdate.value = false;
     pwaUpdateAvailable.value = true;
     showPwaUpdateDialog.value = true;
-    showToast('更新暂时失败，请检查网络后重试。');
+    updateError.value = '更新暂时无法打开，请检查网络后重试。';
   }
 }
 
@@ -1933,7 +1942,8 @@ watch([activeView, activeSettingsSection, activeCasesSection, showHistory], sync
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeFloatingPanelsFromKeyboard);
-  window.addEventListener('shiyue:web-update', handleWebUpdate);
+  window.addEventListener('shiyue:app-update', handleAppUpdate);
+  window.addEventListener('shiyue:native-back', handleNativeBack);
   window.addEventListener('popstate', handleAppRouteNavigation);
   window.addEventListener('hashchange', handleAppRouteNavigation);
   try {
@@ -1990,7 +2000,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeFloatingPanelsFromKeyboard);
-  window.removeEventListener('shiyue:web-update', handleWebUpdate);
+  window.removeEventListener('shiyue:app-update', handleAppUpdate);
+  window.removeEventListener('shiyue:native-back', handleNativeBack);
   window.removeEventListener('popstate', handleAppRouteNavigation);
   window.removeEventListener('hashchange', handleAppRouteNavigation);
   agentAbortController?.abort();
@@ -2186,6 +2197,29 @@ function closeFloatingPanelsFromKeyboard(event: KeyboardEvent) {
     caseSwitcherSearch.value = '';
   } else if (showBaziColumnSettings.value) showBaziColumnSettings.value = false;
   else if (chatSelectionMode.value) cancelChatSelection();
+}
+
+function handleNativeBack(event: Event) {
+  if (showOnboarding.value) showOnboarding.value = false;
+  else if (showPwaUpdateDialog.value) showPwaUpdateDialog.value = false;
+  else if (showReadingModal.value) showReadingModal.value = false;
+  else if (showTarotModal.value) showTarotModal.value = false;
+  else if (showInspirationModal.value) showInspirationModal.value = false;
+  else if (showQuestionSupplementModal.value) showQuestionSupplementModal.value = false;
+  else if (showBasicAiFallbackModal.value) showBasicAiFallbackModal.value = false;
+  else if (showAlmanacSearchModal.value) showAlmanacSearchModal.value = false;
+  else if (showCaseEditor.value) showCaseEditor.value = false;
+  else if (showHistory.value) showHistory.value = false;
+  else if (showMobileNav.value) showMobileNav.value = false;
+  else if (showToolPicker.value) showToolPicker.value = false;
+  else if (showAiPicker.value) showAiPicker.value = false;
+  else if (showCaseSwitcher.value) {
+    showCaseSwitcher.value = false;
+    caseSwitcherSearch.value = '';
+  } else if (showBaziColumnSettings.value) showBaziColumnSettings.value = false;
+  else if (chatSelectionMode.value) cancelChatSelection();
+  else return;
+  event.preventDefault();
 }
 
 function notifyBackgroundTasksForView(view: AppView) {
@@ -6104,17 +6138,13 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
       <UiDialogShell v-if="pwaUpdateAvailable && showPwaUpdateDialog && !showOnboarding" labelledby="pwa-update-title" size="compact" panel-class="pwa-update-dialog" @close="postponePwaUpdate">
         <div class="pwa-update-dialog__icon" aria-hidden="true"><RefreshCw :size="24" /></div>
-        <UiDialogHeader title="发现新版本" title-id="pwa-update-title" description="更新后即可使用最新功能和修复。页面会重新加载，请先完成当前操作。" close-label="稍后更新" @close="postponePwaUpdate" />
+        <UiDialogHeader title="发现新版本" title-id="pwa-update-title" :description="availableUpdateKind === 'native' ? `时月东方 ${availableWebVersion} 已发布，下载后即可安装更新。` : '更新后即可使用最新功能和修复。页面会重新加载，请先完成当前操作。'" close-label="稍后更新" @close="postponePwaUpdate" />
+        <UiNotice v-if="updateError" tone="error">{{ updateError }}</UiNotice>
         <UiActionBar mobile="stretch">
           <UiButton variant="secondary" :disabled="isApplyingPwaUpdate" @click="postponePwaUpdate">稍后更新</UiButton>
-          <UiButton :loading="isApplyingPwaUpdate" @click="refreshToPwaUpdate">立即更新</UiButton>
+          <UiButton :loading="isApplyingPwaUpdate" @click="refreshToPwaUpdate">{{ availableUpdateKind === 'native' ? '下载更新' : '立即更新' }}</UiButton>
         </UiActionBar>
       </UiDialogShell>
-
-      <div v-if="pwaUpdateAvailable && !showPwaUpdateDialog" class="pwa-update-bar" role="status" aria-live="polite">
-        <span>新版本可用</span>
-        <UiButton size="small" :loading="isApplyingPwaUpdate" @click="refreshToPwaUpdate">立即更新</UiButton>
-      </div>
 
     </div>
   </div>

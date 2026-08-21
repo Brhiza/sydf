@@ -8,6 +8,7 @@ import {
 } from './ai';
 import { requestDirectAgentSelection } from './agentDirect';
 import type { DivinationKind } from './divination';
+import { apiEndpoint } from './apiEndpoint';
 
 export type AgentChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazi-ziwei';
 export type AgentQimenScope = 'hour' | 'day' | 'month' | 'year';
@@ -317,7 +318,7 @@ async function requestAgentToolSelectionViaProxy(payload: AgentSelectionRequest,
     controller.abort();
   }, timeoutMs);
   try {
-    const response = await fetch('/api/agent', {
+    const response = await fetch(apiEndpoint('/api/agent'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

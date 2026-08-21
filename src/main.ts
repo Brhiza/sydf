@@ -2,11 +2,13 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
+import { initializeNativeRuntime, isNativeApp } from './lib/nativeRuntime';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
 createApp(App).mount('#app');
+void initializeNativeRuntime();
 
 type StartupRecoveryBridge = { markReady?: () => void };
 (window as Window & { __SHIYUE_STARTUP_RECOVERY__?: StartupRecoveryBridge })
@@ -32,10 +34,32 @@ async function prepareWebUpdate() {
 }
 
 if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
+  if (isNativeApp()) {
+    void Promise.all([
+      import('@capacitor/app'),
+      import('@capacitor/app-launcher'),
+      import('./lib/nativeAppUpdate'),
+    ]).then(async ([{ App }, { AppLauncher }, { createNativeAppUpdateController }]) => {
+      const info = await App.getInfo();
+      createNativeAppUpdateController({
+        currentVersion: info.version,
+        onUpdateAvailable(update) {
+          window.dispatchEvent(new CustomEvent('shiyue:app-update', {
+            detail: {
+              kind: 'native',
+              version: update.version,
+              prepareUpdate: () => AppLauncher.openUrl({ url: update.downloadUrl }),
+            },
+          }));
+        },
+      });
+    }).catch(() => undefined);
+    return;
+  }
   createAppUpdateController({
     currentVersion: __APP_VERSION__,
     onUpdateAvailable(latestVersion) {
-      window.dispatchEvent(new CustomEvent('shiyue:web-update', { detail: { version: latestVersion, prepareUpdate: prepareWebUpdate } }));
+      window.dispatchEvent(new CustomEvent('shiyue:app-update', { detail: { kind: 'web', version: latestVersion, prepareUpdate: prepareWebUpdate } }));
     },
   });
 }, {

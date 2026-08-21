@@ -1,6 +1,8 @@
 import type { PromptSchoolChoices } from './promptSchools';
 import { buildAiSystemPrompt, buildAiUserPrompt, sanitizeAiConversation } from './aiPrompt';
 import { buildInterpretationProviderBody, extractProviderText } from './aiProvider';
+import { apiEndpoint } from './apiEndpoint';
+import { isNativeApp } from './nativeRuntime';
 
 export type AiInterpretationMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 
@@ -162,6 +164,9 @@ function validateDirectUrl(value: string) {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new Error('接口地址无效，请填写完整的 HTTP 或 HTTPS 地址。');
   }
+  if (isNativeApp() && url.protocol !== 'https:') {
+    throw new Error('APK 版仅允许使用 HTTPS 接口，以免 API Key 通过明文网络泄露。');
+  }
   return url.toString();
 }
 
@@ -231,6 +236,7 @@ function aiProxyFallbackStorageKey(aiConfig: AiCustomConfig) {
 }
 
 export function shouldUseAiProxyFallback(aiConfig: AiCustomConfig) {
+  if (isNativeApp()) return false;
   const cacheId = aiProxyFallbackCacheId(aiConfig);
   if (aiProxyFallbackCache.has(cacheId)) return true;
   try {
@@ -245,6 +251,7 @@ export function shouldUseAiProxyFallback(aiConfig: AiCustomConfig) {
 }
 
 export function rememberAiProxyFallback(aiConfig: AiCustomConfig) {
+  if (isNativeApp()) return;
   aiProxyFallbackCache.add(aiProxyFallbackCacheId(aiConfig));
   try {
     globalThis.sessionStorage?.setItem(aiProxyFallbackStorageKey(aiConfig), '1');
@@ -324,7 +331,7 @@ export async function requestAiModels(aiConfig: AiCustomConfig, signal?: AbortSi
 }
 
 async function requestAiModelsViaProxy(aiConfig: AiCustomConfig, signal?: AbortSignal): Promise<string[]> {
-  const response = await fetchWithClientTimeout('/api/models', {
+  const response = await fetchWithClientTimeout(apiEndpoint('/api/models'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ aiConfig }),
@@ -385,7 +392,7 @@ export async function requestAiInterpretation(payload: AiInterpretationRequest, 
 }
 
 async function requestAiInterpretationViaProxy(payload: AiInterpretationRequest, signal?: AbortSignal): Promise<AiInterpretationResponse> {
-  const response = await fetchWithClientTimeout('/api/interpret', {
+  const response = await fetchWithClientTimeout(apiEndpoint('/api/interpret'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     // 排盘原始对象可能带有数万字的计算链和审计依据。模型只需要已经筛选过的 prompt；

@@ -75,7 +75,28 @@ pnpm build
 pnpm preview
 ```
 
-生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions 与 PWA。
+生产构建输出到 `dist`。项目已配置 Cloudflare Pages Functions、PWA 与 Android APK 工程。
+
+## Android APK
+
+Android 工程使用 Capacitor，将前端资源打包进应用，并通过线上 `https://sydf.cc` 调用 AI 接口。首次准备安卓工程或网页资源更新后执行：
+
+APK 中的内置 AI 仍通过 `sydf.cc` 服务端调用，以保护平台密钥和执行限流；用户自行配置的第三方 AI 使用 Capacitor 原生网络直接连接提供商，不经过本站后端。网页版本在第三方接口不支持浏览器跨域时仍会回退到服务端转发。
+
+```bash
+pnpm build:android
+```
+
+随后使用仓库自带的 Gradle Wrapper 构建调试安装包：
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+APK 输出到 `android/app/build/outputs/apk/debug/app-debug.apk`。正式发布前需使用独立的发布密钥签名，密钥文件不得提交到仓库。
+
+GitHub Actions 会在相关代码或安卓工程变化时自动编译调试 APK，并在运行记录的 Artifacts 中保留 14 天。若仓库配置了 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD` 四项 Actions Secrets，同一流程还会生成签名的 Release APK 与 AAB；未配置签名时不会伪造可发布产物。推送 `v1.2.3` 形式的标签时，APK 内版本会与标签保持一致，正式 APK、AAB、校验文件和版本清单会先同步到 `sydf.cc` 的更新存储，再创建 GitHub Release 作为归档。APK 端只通过 `sydf.cc` 检查和下载更新，不直接连接 GitHub，发现更高版本时使用与网页版一致的更新弹窗。
 
 ## 部署
 
