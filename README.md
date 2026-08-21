@@ -81,6 +81,8 @@ pnpm preview
 
 Android 工程使用 Capacitor，将前端资源打包进应用，并通过线上 `https://sydf.cc` 调用 AI 接口。首次准备安卓工程或网页资源更新后执行：
 
+APK 中的内置 AI 仍通过 `sydf.cc` 服务端调用，以保护平台密钥和执行限流；用户自行配置的第三方 AI 使用 Capacitor 原生网络直接连接提供商，不经过本站后端。网页版本在第三方接口不支持浏览器跨域时仍会回退到服务端转发。
+
 ```bash
 pnpm build:android
 ```

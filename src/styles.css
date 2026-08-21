@@ -5284,3 +5284,12 @@ body { background: var(--canvas); }
   .chat-send-button { height: 44px; min-height: 44px; min-width: 44px; width: 44px; }
   .settings-channel-item { min-height: 48px; }
 }
+html.native-app {
+  overscroll-behavior: none;
+}
+
+html.native-app button,
+html.native-app a,
+html.native-app [role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}

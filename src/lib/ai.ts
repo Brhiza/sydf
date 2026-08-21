@@ -2,6 +2,7 @@ import type { PromptSchoolChoices } from './promptSchools';
 import { buildAiSystemPrompt, buildAiUserPrompt, sanitizeAiConversation } from './aiPrompt';
 import { buildInterpretationProviderBody, extractProviderText } from './aiProvider';
 import { apiEndpoint } from './apiEndpoint';
+import { isNativeApp } from './nativeRuntime';
 
 export type AiInterpretationMode = 'ask' | 'divination' | 'chart' | 'compatibility' | 'fengshui';
 
@@ -232,6 +233,7 @@ function aiProxyFallbackStorageKey(aiConfig: AiCustomConfig) {
 }
 
 export function shouldUseAiProxyFallback(aiConfig: AiCustomConfig) {
+  if (isNativeApp()) return false;
   const cacheId = aiProxyFallbackCacheId(aiConfig);
   if (aiProxyFallbackCache.has(cacheId)) return true;
   try {
@@ -246,6 +248,7 @@ export function shouldUseAiProxyFallback(aiConfig: AiCustomConfig) {
 }
 
 export function rememberAiProxyFallback(aiConfig: AiCustomConfig) {
+  if (isNativeApp()) return;
   aiProxyFallbackCache.add(aiProxyFallbackCacheId(aiConfig));
   try {
     globalThis.sessionStorage?.setItem(aiProxyFallbackStorageKey(aiConfig), '1');

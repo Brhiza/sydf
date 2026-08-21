@@ -2,11 +2,13 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
+import { initializeNativeRuntime, isNativeApp } from './lib/nativeRuntime';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
 createApp(App).mount('#app');
+void initializeNativeRuntime();
 
 type StartupRecoveryBridge = { markReady?: () => void };
 (window as Window & { __SHIYUE_STARTUP_RECOVERY__?: StartupRecoveryBridge })
@@ -31,7 +33,7 @@ async function prepareWebUpdate() {
   ]);
 }
 
-if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
+if (import.meta.env.PROD && !isNativeApp()) scheduleAfterPageLoad(() => {
   createAppUpdateController({
     currentVersion: __APP_VERSION__,
     onUpdateAvailable(latestVersion) {

@@ -1934,6 +1934,7 @@ onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.addEventListener('shiyue:web-update', handleWebUpdate);
+  window.addEventListener('shiyue:native-back', handleNativeBack);
   window.addEventListener('popstate', handleAppRouteNavigation);
   window.addEventListener('hashchange', handleAppRouteNavigation);
   try {
@@ -1991,6 +1992,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.removeEventListener('shiyue:web-update', handleWebUpdate);
+  window.removeEventListener('shiyue:native-back', handleNativeBack);
   window.removeEventListener('popstate', handleAppRouteNavigation);
   window.removeEventListener('hashchange', handleAppRouteNavigation);
   agentAbortController?.abort();
@@ -2186,6 +2188,29 @@ function closeFloatingPanelsFromKeyboard(event: KeyboardEvent) {
     caseSwitcherSearch.value = '';
   } else if (showBaziColumnSettings.value) showBaziColumnSettings.value = false;
   else if (chatSelectionMode.value) cancelChatSelection();
+}
+
+function handleNativeBack(event: Event) {
+  if (showOnboarding.value) showOnboarding.value = false;
+  else if (showPwaUpdateDialog.value) showPwaUpdateDialog.value = false;
+  else if (showReadingModal.value) showReadingModal.value = false;
+  else if (showTarotModal.value) showTarotModal.value = false;
+  else if (showInspirationModal.value) showInspirationModal.value = false;
+  else if (showQuestionSupplementModal.value) showQuestionSupplementModal.value = false;
+  else if (showBasicAiFallbackModal.value) showBasicAiFallbackModal.value = false;
+  else if (showAlmanacSearchModal.value) showAlmanacSearchModal.value = false;
+  else if (showCaseEditor.value) showCaseEditor.value = false;
+  else if (showHistory.value) showHistory.value = false;
+  else if (showMobileNav.value) showMobileNav.value = false;
+  else if (showToolPicker.value) showToolPicker.value = false;
+  else if (showAiPicker.value) showAiPicker.value = false;
+  else if (showCaseSwitcher.value) {
+    showCaseSwitcher.value = false;
+    caseSwitcherSearch.value = '';
+  } else if (showBaziColumnSettings.value) showBaziColumnSettings.value = false;
+  else if (chatSelectionMode.value) cancelChatSelection();
+  else return;
+  event.preventDefault();
 }
 
 function notifyBackgroundTasksForView(view: AppView) {
