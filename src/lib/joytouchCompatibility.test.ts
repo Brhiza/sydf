@@ -15,6 +15,8 @@ describe('卓易通显示兼容', () => {
     expect(shouldEnableJoytouchCompatibility('auto', { ...modern, nativeAndroid: false, userAgent: 'HarmonyOS ArkWeb' })).toBe(false);
     expect(shouldEnableJoytouchCompatibility('auto', { ...modern, userAgent: 'HarmonyOS ArkWeb' })).toBe(true);
     expect(shouldEnableJoytouchCompatibility('auto', { ...modern, cssSupports: () => false })).toBe(true);
+    expect(shouldEnableJoytouchCompatibility('auto', { nativeAndroid: true, userAgent: 'Old Android WebView' })).toBe(true);
+    expect(shouldEnableJoytouchCompatibility('auto', { nativeAndroid: false, userAgent: 'Old Android WebView' })).toBe(false);
     expect(shouldEnableJoytouchCompatibility('standard', { ...modern, userAgent: 'HarmonyOS ArkWeb' })).toBe(false);
   });
 

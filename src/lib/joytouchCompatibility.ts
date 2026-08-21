@@ -20,7 +20,8 @@ export function shouldEnableJoytouchCompatibility(mode: JoytouchCompatibilityMod
   if (mode === 'compatibility') return true;
   if (/HarmonyOS|OpenHarmony|ArkWeb|JoyTouch|Zhuoyi|DroiTong/i.test(environment.userAgent)) return true;
   const supports = environment.cssSupports;
-  return supports ? !supports('color', 'color-mix(in srgb, red 50%, transparent)') || (!supports('backdrop-filter', 'blur(1px)') && !supports('-webkit-backdrop-filter', 'blur(1px)')) : false;
+  // 很旧的 WebView 没有可靠的 CSS.supports，本身就应进入稳定模式。
+  return supports ? !supports('color', 'color-mix(in srgb, red 50%, transparent)') || (!supports('backdrop-filter', 'blur(1px)') && !supports('-webkit-backdrop-filter', 'blur(1px)')) : true;
 }
 
 export function isOpenedSidebarRenderBroken(rect: Pick<DOMRect, 'left' | 'right' | 'width'>) {

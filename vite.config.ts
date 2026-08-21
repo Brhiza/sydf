@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => {
     appVersionPlugin(version),
   ],
   build: {
+    // 保留旧版 Android WebView 的 JavaScript 语法兼容；CSS 不做全局降级改写。
+    target: 'chrome79',
     rollupOptions: {
       output: {
         entryFileNames: 'assets/app-[hash].js',
