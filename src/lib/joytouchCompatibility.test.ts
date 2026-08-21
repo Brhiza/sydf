@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyJoytouchCompatibility, isOpenedSidebarRenderBroken, readStoredJoytouchCompatibilityMode, shouldEnableJoytouchCompatibility } from './joytouchCompatibility';
+import { applyJoytouchCompatibility, isOpenedSidebarRenderBroken, isVisibleOverlayRenderBroken, readStoredJoytouchCompatibilityMode, shouldEnableJoytouchCompatibility } from './joytouchCompatibility';
 
 describe('卓易通显示兼容', () => {
   it('新安装默认自动判断，旧布尔设置可平滑迁移', () => {
@@ -23,6 +23,11 @@ describe('卓易通显示兼容', () => {
   it('能识别打开后仍留在屏幕外的侧栏', () => {
     expect(isOpenedSidebarRenderBroken({ left: 0, right: 260, width: 260 })).toBe(false);
     expect(isOpenedSidebarRenderBroken({ left: -273, right: -13, width: 260 })).toBe(true);
+  });
+
+  it('能识别没有实际显示在视口内的弹窗', () => {
+    expect(isVisibleOverlayRenderBroken({ left: 10, right: 300, top: 20, bottom: 500, width: 290, height: 480 }, { width: 390, height: 800 })).toBe(false);
+    expect(isVisibleOverlayRenderBroken({ left: 410, right: 700, top: 20, bottom: 500, width: 290, height: 480 }, { width: 390, height: 800 })).toBe(true);
   });
 
   it('按结果切换专用样式类', () => {

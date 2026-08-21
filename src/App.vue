@@ -178,7 +178,7 @@ import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
-import { applyJoytouchCompatibility, isOpenedSidebarRenderBroken, PREFERENCES_STORAGE_KEY, resolveCurrentJoytouchCompatibility, type JoytouchCompatibilityMode } from './lib/joytouchCompatibility';
+import { applyJoytouchCompatibility, clearRememberedAndroidFallback, PREFERENCES_STORAGE_KEY, resolveCurrentJoytouchCompatibility, type JoytouchCompatibilityMode } from './lib/joytouchCompatibility';
 import { isNativeAndroidApp } from './lib/nativeRuntime';
 import {
   DIVINATION_CARD_GROUPS,
@@ -1945,12 +1945,18 @@ function handleAppRouteNavigation() {
   void applyAppRouteFromLocation();
 }
 
+function handleCompatibilityChange(event: Event) {
+  const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+  joytouchCompatibilityActive.value = detail?.enabled === true;
+}
+
 watch([activeView, activeSettingsSection, activeCasesSection, showHistory], syncAppRouteToLocation);
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.addEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.addEventListener('shiyue:app-update', handleAppUpdate);
+  window.addEventListener('shiyue:compatibility-change', handleCompatibilityChange);
   window.addEventListener('shiyue:native-back', handleNativeBack);
   window.addEventListener('popstate', handleAppRouteNavigation);
   window.addEventListener('hashchange', handleAppRouteNavigation);
@@ -2009,6 +2015,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeFloatingPanelsOnOutsidePointer);
   document.removeEventListener('keydown', closeFloatingPanelsFromKeyboard);
   window.removeEventListener('shiyue:app-update', handleAppUpdate);
+  window.removeEventListener('shiyue:compatibility-change', handleCompatibilityChange);
   window.removeEventListener('shiyue:native-back', handleNativeBack);
   window.removeEventListener('popstate', handleAppRouteNavigation);
   window.removeEventListener('hashchange', handleAppRouteNavigation);
@@ -2541,22 +2548,12 @@ function chooseCastingPreference(preference: CastingPreference) {
 
 function chooseJoytouchCompatibility(mode: JoytouchCompatibilityMode) {
   appPreferences.joytouchCompatibilityMode = mode;
+  clearRememberedAndroidFallback();
   const enabled = resolveCurrentJoytouchCompatibility(mode, showJoytouchCompatibilitySetting);
   applyJoytouchCompatibility(enabled);
   joytouchCompatibilityActive.value = enabled;
   persistPreferences();
 }
-
-watch(showMobileNav, (opened) => {
-  if (!opened || !showJoytouchCompatibilitySetting || appPreferences.joytouchCompatibilityMode !== 'auto' || joytouchCompatibilityActive.value) return;
-  window.setTimeout(() => {
-    if (!showMobileNav.value || appPreferences.joytouchCompatibilityMode !== 'auto') return;
-    const sidebar = document.getElementById('app-sidebar');
-    if (!sidebar || !isOpenedSidebarRenderBroken(sidebar.getBoundingClientRect())) return;
-    applyJoytouchCompatibility(true);
-    joytouchCompatibilityActive.value = true;
-  }, 320);
-});
 
 function containsAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
