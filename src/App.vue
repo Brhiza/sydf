@@ -178,6 +178,8 @@ import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
+import { applyJoytouchCompatibility, PREFERENCES_STORAGE_KEY } from './lib/joytouchCompatibility';
+import { isNativeAndroidApp } from './lib/nativeRuntime';
 import {
   DIVINATION_CARD_GROUPS,
   DIVINATION_THEMES,
@@ -1055,14 +1057,16 @@ function mergeDefaultAiChannels(channels: Partial<AiChannel>[]) {
   return [builtin, ...presets, ...custom];
 }
 
-const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiChannels: AiChannel[]; castingPreference: CastingPreference }>({
+const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiChannels: AiChannel[]; castingPreference: CastingPreference; joytouchCompatibility: boolean }>({
   activeAiChannelId: 'builtin',
   aiChannels: createDefaultAiChannels(),
   answerPreference: 'fortune-master',
   displayLevel: 'beginner',
   castingPreference: 'auto',
+  joytouchCompatibility: false,
   promptSchoolChoices: {},
 });
+const showJoytouchCompatibilitySetting = isNativeAndroidApp();
 const visibleDivinationKinds = computed(() => appPreferences.displayLevel === 'master' ? masterDivinationKinds : beginnerDivinationKinds);
 
 const settings = reactive<{
@@ -1786,11 +1790,13 @@ function toggleBaziFortuneColumn(key: BaziFortuneColumnKey) {
 
 function restorePreferences() {
   try {
-    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference }>(localStorage, 'shiyue-preferences');
+    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference; joytouchCompatibility?: boolean }>(localStorage, PREFERENCES_STORAGE_KEY);
     if (!parsedPreferences) return;
     appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
     if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
     if (parsedPreferences.castingPreference === 'auto' || parsedPreferences.castingPreference === 'manual') appPreferences.castingPreference = parsedPreferences.castingPreference;
+    appPreferences.joytouchCompatibility = parsedPreferences.joytouchCompatibility === true;
+    applyJoytouchCompatibility(appPreferences.joytouchCompatibility);
     appPreferences.promptSchoolChoices = normalizePromptSchoolChoices(parsedPreferences.promptSchoolChoices);
     if (Array.isArray(parsedPreferences.aiChannels) && parsedPreferences.aiChannels.length) {
       const channels = mergeDefaultAiChannels(parsedPreferences.aiChannels);
@@ -2330,12 +2336,13 @@ function persistPreferences() {
     answerPreference: appPreferences.answerPreference,
     displayLevel: appPreferences.displayLevel,
     castingPreference: appPreferences.castingPreference,
+    joytouchCompatibility: appPreferences.joytouchCompatibility,
     promptSchoolChoices: appPreferences.promptSchoolChoices,
     activeAiChannelId: appPreferences.activeAiChannelId,
     aiChannels: appPreferences.aiChannels.map(({ apiKey: _apiKey, ...channel }) => channel),
   };
   try {
-    localStorage.setItem('shiyue-preferences', JSON.stringify(storedPreferences));
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(storedPreferences));
   } catch {
     // 浏览器禁用本地存储时，偏好仍在当前页面会话中生效。
   }
@@ -2527,6 +2534,12 @@ function chooseAnswerPreference(preference: AiAnswerPreference) {
 
 function chooseCastingPreference(preference: CastingPreference) {
   appPreferences.castingPreference = preference;
+  persistPreferences();
+}
+
+function chooseJoytouchCompatibility(enabled: boolean) {
+  appPreferences.joytouchCompatibility = enabled;
+  applyJoytouchCompatibility(enabled);
   persistPreferences();
 }
 
@@ -5627,6 +5640,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
                 <p class="preference-active-note">当前界面使用“{{ activeDivinationThemeLabel }}”主题</p>
+              </div>
+            </section>
+
+            <section v-if="showJoytouchCompatibilitySetting" class="preference-section">
+              <UiSectionHeading class="preference-section-heading" title="兼容显示" description="仅用于鸿蒙卓易通中的显示异常" compact />
+              <div>
+                <div class="preference-option-grid is-two" role="group" aria-label="卓易通兼容显示">
+                  <button type="button" class="preference-option" :class="{ active: !appPreferences.joytouchCompatibility }" :aria-pressed="!appPreferences.joytouchCompatibility" @click="chooseJoytouchCompatibility(false)"><span><strong>标准显示</strong><small>普通安卓和网页使用</small></span><Check v-if="!appPreferences.joytouchCompatibility" :size="15" /></button>
+                  <button type="button" class="preference-option" :class="{ active: appPreferences.joytouchCompatibility }" :aria-pressed="appPreferences.joytouchCompatibility" @click="chooseJoytouchCompatibility(true)"><span><strong>卓易通兼容</strong><small>遇到黑屏或侧栏错位时开启</small></span><Check v-if="appPreferences.joytouchCompatibility" :size="15" /></button>
+                </div>
+                <p class="preference-active-note">{{ appPreferences.joytouchCompatibility ? '已限制部分遮罩和侧栏动画，只影响当前设备。' : '当前使用完整动画和视觉效果。' }}</p>
               </div>
             </section>
 

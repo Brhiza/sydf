@@ -3,12 +3,12 @@ import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
 import { initializeNativeRuntime, isNativeApp } from './lib/nativeRuntime';
-import { applyWebviewCompatibility } from './lib/webviewCompatibility';
+import { applyStoredJoytouchCompatibility } from './lib/joytouchCompatibility';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
-applyWebviewCompatibility();
+applyStoredJoytouchCompatibility();
 createApp(App).mount('#app');
 void initializeNativeRuntime();
 

@@ -4,6 +4,10 @@ export function isNativeApp() {
   return Capacitor.isNativePlatform();
 }
 
+export function isNativeAndroidApp() {
+  return isNativeApp() && Capacitor.getPlatform() === 'android';
+}
+
 export async function initializeNativeRuntime() {
   if (!isNativeApp()) return;
 
