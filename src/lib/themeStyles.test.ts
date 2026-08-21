@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+const primitives = readFileSync(new URL('../design-system/primitives.css', import.meta.url), 'utf8');
 
 function colorRulesFor(className: string) {
   return [...styles.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
@@ -37,5 +38,13 @@ describe('主题界面样式', () => {
     const rules = colorRulesFor(className);
     expect(rules.length).toBeGreaterThan(0);
     expect(rules.join('\n')).not.toMatch(fixedYuePurple);
+  });
+
+  it('原生安卓遮罩和侧栏不依赖卓易通不稳定的合成效果', () => {
+    expect(styles).toMatch(/html\.native-android \.mobile-nav-scrim\s*\{[^}]*background:\s*rgba\(/s);
+    expect(styles).toMatch(/html\.native-android \.sidebar\.mobile-sidebar-open\s*\{[^}]*box-shadow:\s*none/s);
+    expect(styles).toMatch(/html\.native-android \.sidebar\.mobile-sidebar-open\s*\{[^}]*left:\s*0/s);
+    expect(primitives).toMatch(/html\.native-android \.ui-dialog-layer\s*\{[^}]*background:\s*rgba\(/s);
+    expect(primitives).toMatch(/html\.native-android \.ui-dialog\s*\{[^}]*animation:\s*none/s);
   });
 });
