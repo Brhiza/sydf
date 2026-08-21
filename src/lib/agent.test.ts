@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getImmediateActiveDivinationSelection, getLocalAgentSelection, requestAgentToolSelection } from './agent';
+import { getImmediateActiveDivinationSelection, getLocalAgentSelection, requestAgentToolSelection, shouldContinueExistingDivination } from './agent';
 
 const baseRequest = {
   question: '请继续看岁运',
@@ -31,6 +31,15 @@ describe('Agent 工具结果前端校验', () => {
   };
   it('首次对话已选梅花时直接使用当前工具', () => {
     expect(getImmediateActiveDivinationSelection('你好', 'meihua', false)).toEqual({ mode: 'divination', divinationKind: 'meihua' });
+  });
+
+  it('同一卦象的普通追问沿用原卦，明确重起时才重新起卦', () => {
+    const selection = { mode: 'divination', divinationKind: 'meihua' } as const;
+    expect(shouldContinueExistingDivination('那他现在是什么想法？', 'meihua', selection)).toBe(true);
+    expect(shouldContinueExistingDivination('从梅花易数再解释一下动爻', 'meihua', selection)).toBe(true);
+    expect(shouldContinueExistingDivination('请重新起一卦看看', 'meihua', selection)).toBe(false);
+    expect(shouldContinueExistingDivination('换一个卦再问', 'meihua', selection)).toBe(false);
+    expect(shouldContinueExistingDivination('再看看', 'liuyao', selection)).toBe(false);
   });
 
   it('问题明确点名其他术式时仍交给 Agent 切换', () => {
