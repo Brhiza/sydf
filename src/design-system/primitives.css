@@ -560,6 +560,19 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   width: 390px;
 }
 
+/* 原生安卓兼容容器不依赖 color-mix 的合成结果。部分卓易通 WebView
+ * 虽通过 CSS.supports 检测，仍会把弹窗遮罩绘制成全黑或灰白光带。 */
+html.native-android .ui-dialog-layer {
+  background: rgba(23, 19, 29, .56);
+}
+html.native-android .ui-dialog {
+  animation: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html.native-android .ui-dialog-layer { background: rgba(0, 0, 0, .68); }
+}
+
 .ui-dialog-header {
   align-items: flex-start;
   border-bottom: 1px solid var(--ds-line);
