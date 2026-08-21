@@ -164,6 +164,9 @@ function validateDirectUrl(value: string) {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new Error('接口地址无效，请填写完整的 HTTP 或 HTTPS 地址。');
   }
+  if (isNativeApp() && url.protocol !== 'https:') {
+    throw new Error('APK 版仅允许使用 HTTPS 接口，以免 API Key 通过明文网络泄露。');
+  }
   return url.toString();
 }
 

@@ -1,0 +1,123 @@
+name: 安卓安装包
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/android.yml'
+      - 'android/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite.config.ts'
+      - '.env.android'
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - '.github/workflows/android.yml'
+      - 'android/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite.config.ts'
+      - '.env.android'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 编译 APK
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      ANDROID_VERSION_NAME: 0.1.${{ github.run_number }}
+      HAS_ANDROID_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && 'true' || 'false' }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 设置 JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: 设置 Gradle 缓存
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 同步 Capacitor 工程
+        run: pnpm build:android
+
+      - name: 准备可选发布签名
+        if: env.HAS_ANDROID_SIGNING == 'true'
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+          {
+            echo 'storeFile=release.keystore'
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > signing.properties
+
+      - name: 编译调试 APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: 编译签名发布包
+        if: env.HAS_ANDROID_SIGNING == 'true'
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: 整理构建产物
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/shiyue-dongfang-${ANDROID_VERSION_NAME}-debug.apk"
+          if [[ "$HAS_ANDROID_SIGNING" == 'true' ]]; then
+            cp android/app/build/outputs/apk/release/app-release.apk "artifacts/shiyue-dongfang-${ANDROID_VERSION_NAME}-release.apk"
+            cp android/app/build/outputs/bundle/release/app-release.aab "artifacts/shiyue-dongfang-${ANDROID_VERSION_NAME}-release.aab"
+          fi
+          sha256sum artifacts/* > artifacts/SHA256SUMS.txt
+
+      - name: 上传安卓安装包
+        uses: actions/upload-artifact@v7
+        with:
+          name: shiyue-dongfang-android-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14

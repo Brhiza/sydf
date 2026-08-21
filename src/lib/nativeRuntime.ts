@@ -15,11 +15,18 @@ export async function initializeNativeRuntime() {
     import('@capacitor/status-bar'),
   ]);
 
-  await Promise.allSettled([
-    StatusBar.setStyle({ style: Style.Light }),
+  const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+  const syncSystemBars = () => Promise.allSettled([
+    StatusBar.setStyle({ style: colorScheme.matches ? Style.Dark : Style.Light }),
     StatusBar.setOverlaysWebView({ overlay: false }),
-    StatusBar.setBackgroundColor({ color: '#f3f2f5' }),
+    StatusBar.setBackgroundColor({ color: colorScheme.matches ? '#201e25' : '#f3f2f5' }),
   ]);
+  await syncSystemBars();
+  colorScheme.addEventListener('change', () => void syncSystemBars());
+  await App.addListener('appStateChange', ({ isActive }) => {
+    document.documentElement.classList.toggle('native-app-paused', !isActive);
+    if (isActive) void syncSystemBars();
+  });
 
   document.addEventListener('click', (event) => {
     if (event.defaultPrevented || !(event.target instanceof Element)) return;
