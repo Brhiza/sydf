@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { pagesApiPlugin } from './functions/viteApiPlugin';
+import { legacyCssCompatPlugin } from './build/legacyCssCompat';
 
 function appVersionPlugin(version: string): Plugin {
   return {
@@ -26,8 +27,11 @@ export default defineConfig(({ mode }) => {
     pagesApiPlugin(loadEnv(mode, process.cwd(), '')),
     vue(),
     appVersionPlugin(version),
+    legacyCssCompatPlugin(),
   ],
   build: {
+    target: 'chrome79',
+    cssTarget: 'chrome79',
     rollupOptions: {
       output: {
         entryFileNames: 'assets/app-[hash].js',

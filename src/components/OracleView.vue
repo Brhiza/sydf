@@ -51,7 +51,7 @@ let shakeAnimationTimer: number | undefined;
 let resolveShakeAnimation: (() => void) | undefined;
 
 const displayResult = computed(() => completedResult.value || (phase.value === 'idle' && showStoredResult.value ? props.result || null : null));
-const latestThrow = computed(() => throws.value.at(-1));
+const latestThrow = computed(() => throws.value[throws.value.length - 1]);
 const canThrow = computed(() => phase.value === 'drawn' && !cupAnimating.value);
 
 function finishShakeAnimation() {

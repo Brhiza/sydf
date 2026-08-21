@@ -5212,7 +5212,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <ChevronRight :size="15" />
       </button>
 
-      <main ref="contentRef" class="content">
+      <main ref="contentRef" class="content" :class="{ 'is-chat-view': activeView === 'tools' && homeState === 'chat' }">
         <UiPageShell v-if="activeView === 'tools'" width="reading" class="screen tools-screen" :class="{ 'is-chat': homeState === 'chat' }">
           <template v-if="homeState === 'default'">
             <section class="home-default">
@@ -6136,7 +6136,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <div v-if="toastMessage" class="app-toast" role="status" aria-live="polite">{{ toastMessage }}</div>
       </Transition>
 
-      <UiDialogShell v-if="pwaUpdateAvailable && showPwaUpdateDialog && !showOnboarding" labelledby="pwa-update-title" size="compact" panel-class="pwa-update-dialog" @close="postponePwaUpdate">
+      <UiDialogShell v-if="pwaUpdateAvailable && showPwaUpdateDialog && !showOnboarding" labelledby="pwa-update-title" size="compact" layer-class="pwa-update-layer" panel-class="pwa-update-dialog" @close="postponePwaUpdate">
         <div class="pwa-update-dialog__icon" aria-hidden="true"><RefreshCw :size="24" /></div>
         <UiDialogHeader title="发现新版本" title-id="pwa-update-title" :description="availableUpdateKind === 'native' ? `时月东方 ${availableWebVersion} 已发布，下载后即可安装更新。` : '更新后即可使用最新功能和修复。页面会重新加载，请先完成当前操作。'" close-label="稍后更新" @close="postponePwaUpdate" />
         <UiNotice v-if="updateError" tone="error">{{ updateError }}</UiNotice>

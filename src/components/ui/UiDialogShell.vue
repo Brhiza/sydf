@@ -36,7 +36,8 @@ function focusableElements() {
 }
 
 function handleDialogKeydown(event: KeyboardEvent) {
-  const topmostDialog = Array.from(document.querySelectorAll<HTMLElement>('.ui-dialog-layer > .ui-dialog')).at(-1);
+  const dialogs = Array.from(document.querySelectorAll<HTMLElement>('.ui-dialog-layer > .ui-dialog'));
+  const topmostDialog = dialogs[dialogs.length - 1];
   if (topmostDialog !== panel.value) return;
   if (event.key === 'Escape') {
     event.preventDefault();

@@ -502,7 +502,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UiDialogShell aria-label="三山国王庙上香" size="wide" padding="none" panel-class="temple-dialog" @close="emit('close')">
+  <UiDialogShell aria-label="三山国王庙上香" size="wide" padding="none" layer-class="temple-dialog-layer" panel-class="temple-dialog" @close="emit('close')">
     <div class="temple-shell">
       <header class="temple-header">
         <div>
@@ -643,7 +643,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-:global(.ui-dialog-layer:has(.temple-dialog)) { background: rgba(18, 5, 5, .78); z-index: 80; }
+:global(.ui-dialog-layer.temple-dialog-layer) { background: rgba(18, 5, 5, .78); z-index: 80; }
 :global(.temple-dialog) { background: #1b0808; border-color: rgba(214, 164, 71, .45); overflow: hidden; }
 .temple-shell { background: linear-gradient(180deg, #280b0a, #150707); color: #f8dfaa; }
 .temple-header { align-items: center; background: linear-gradient(90deg, rgba(89, 12, 8, .94), rgba(48, 8, 7, .94)); border-bottom: 1px solid rgba(226, 175, 77, .32); display: flex; justify-content: space-between; padding: 14px 18px; }
@@ -735,7 +735,7 @@ onBeforeUnmount(() => {
 .temple-footer :deep(.ui-button--ghost) { color: rgba(246, 218, 157, .72); }
 .temple-footer :deep(.ui-button--ghost:hover:not(:disabled)) { background: rgba(255, 242, 209, .08); border-color: rgba(229, 184, 96, .2); color: #ffe5ad; }
 @media (max-width: 720px) {
-  :global(.ui-dialog-layer:has(.temple-dialog)) { align-items: center; padding: 0; }
+  :global(.ui-dialog-layer.temple-dialog-layer) { align-items: center; padding: 0; }
   :global(.temple-dialog) { border: 0; border-radius: 0; height: 100dvh; max-height: 100dvh; overflow: hidden; }
   .temple-shell { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
   .temple-header { padding: max(11px, env(safe-area-inset-top)) 13px 10px; }

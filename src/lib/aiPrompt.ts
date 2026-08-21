@@ -202,7 +202,7 @@ export function compactReadingPrompt(value: string) {
     if (skippingDetailGroup) continue;
     if (technicalLine.test(trimmed) || /(?:内部规则表|资料覆盖状态|其余低优先级.*(?:省略|不参与))/.test(trimmed)) continue;
     const compactLine = compactReadingLine(line);
-    if (compactLine.trim() || cleaned.at(-1)?.trim()) cleaned.push(compactLine);
+    if (compactLine.trim() || cleaned[cleaned.length - 1]?.trim()) cleaned.push(compactLine);
   }
   const withoutEmptyHeadings = cleaned.filter((line, index, all) => {
     if (!/^【[^】]+】$/.test(line.trim())) return true;

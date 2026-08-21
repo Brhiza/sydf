@@ -445,7 +445,7 @@ onBeforeUnmount(() => {
       />
 
       <template v-if="phase === 'setup'">
-        <section v-if="!hideQuestionSetup || !hideSpreadSetup" class="tarot-setup" aria-label="塔罗抽牌设置">
+        <section v-if="!hideQuestionSetup || !hideSpreadSetup" class="tarot-setup" :class="{ 'is-spread-only': hideQuestionSetup && !hideSpreadSetup }" aria-label="塔罗抽牌设置">
           <label v-if="!hideQuestionSetup" class="tarot-question-field">
             <span>想问的问题</span>
             <textarea v-model="question" maxlength="5000" rows="3" placeholder="写下你现在最想厘清的问题" @input="flowError = ''"></textarea>
@@ -557,7 +557,7 @@ onBeforeUnmount(() => {
 .tarot-workspace > :first-child { margin-bottom: var(--ds-space-6); }
 .tarot-workspace.is-drawing > .tarot-stage-toolbar { background: transparent; margin: 0 var(--ds-page-gutter); max-width: none; padding: 0; width: calc(100% - var(--ds-page-gutter) - var(--ds-page-gutter)); }
 .tarot-setup { display: grid; gap: var(--ds-space-5); grid-template-columns: minmax(0, 1fr) 280px; margin: 0 auto var(--ds-space-4); max-width: 880px; }
-.tarot-setup:has(.tarot-spread-field:only-child) { grid-template-columns: minmax(0, 560px); justify-content: center; }
+.tarot-setup.is-spread-only { grid-template-columns: minmax(0, 560px); justify-content: center; }
 .tarot-setup label { display: flex; flex-direction: column; gap: 8px; }
 .tarot-setup label > span { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; }
 .tarot-setup textarea, .tarot-setup select, .tarot-setup-numbers input { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font: inherit; outline: none; transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease; width: 100%; }

@@ -102,7 +102,7 @@ function resolveInterpretation(record: Record<string, unknown>, result: Record<s
     .filter((message) => message.role === 'assistant' && message.isError !== true)
     .map((message) => optionalText(message.content))
     .filter(Boolean);
-  return assistantMessages.at(-1);
+  return assistantMessages[assistantMessages.length - 1];
 }
 
 function isSupportedModernResult(kind: DivinationKind, data: Record<string, unknown>): boolean {

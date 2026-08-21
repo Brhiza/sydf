@@ -51,7 +51,7 @@ const currentTimeLabel = computed(() => new Intl.DateTimeFormat('zh-CN', {
 const lineNames = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
 const displayLineIndexes = [5, 4, 3, 2, 1, 0];
 const nextLineName = computed(() => lineNames[coinThrows.value.length] || '卦象');
-const latestThrow = computed(() => coinThrows.value.at(-1) || null);
+const latestThrow = computed(() => coinThrows.value[coinThrows.value.length - 1] || null);
 const latestLineName = computed(() => lineNames[coinThrows.value.length - 1] || '');
 
 const kindLabel = computed(() => ({
@@ -216,7 +216,7 @@ async function completeSpecified() {
 </script>
 
 <template>
-  <UiDialogShell :aria-label="`${kindLabel}起法设置`" :size="kind === 'liuyao' && castingMode === 'manual' ? 'standard' : 'compact'" :panel-class="['manual-dialog', `kind-${kind}`]" @close="emit('close')">
+  <UiDialogShell :aria-label="`${kindLabel}起法设置`" :size="kind === 'liuyao' && castingMode === 'manual' ? 'standard' : 'compact'" :layer-class="{ 'manual-liuyao-layer': kind === 'liuyao' }" :panel-class="['manual-dialog', `kind-${kind}`]" @close="emit('close')">
       <UiDialogHeader :title="kindLabel" eyebrow="起法设置" description="完成起卦后，将直接进入聊天解读。" @close="emit('close')" />
 
       <UiSegmentedControl class="casting-tabs" :model-value="castingMode" :items="castingModeTabs" label="起法" equal @update:model-value="chooseMode($event as CastingMode)" />
@@ -346,7 +346,7 @@ async function completeSpecified() {
 .taiyi-year-pane > small { color: var(--muted); display: block; font-size: 11px; line-height: 1.6; margin-top: 8px; }
 @media (max-width: 720px) {
   .casting-tabs .ui-segmented-control__copy small { display: none; }.specified-yaos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ui-dialog-layer:has(.manual-dialog.kind-liuyao) { align-items: center; padding: 10px; }
+  .ui-dialog-layer.manual-liuyao-layer { align-items: center; padding: 10px; }
   .manual-dialog.kind-liuyao { border: 1px solid var(--line-strong); border-radius: var(--ds-radius-lg); box-shadow: var(--ds-shadow-overlay); height: auto; max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); width: min(560px, calc(100vw - 20px)); }
   .manual-dialog.kind-liuyao .casting-guide { display: none; }
   .manual-liuyao-intro { padding-bottom: 10px; }
