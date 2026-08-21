@@ -3212,6 +3212,9 @@ body { background: var(--canvas); }
 .preference-option small { color: var(--muted); font-size: var(--type-caption); line-height: 1.5; }
 .preference-option > svg { color: var(--accent-strong); flex: 0 0 auto; margin-top: 1px; }
 .preference-active-note { color: var(--muted); display: none; font-size: var(--type-caption); line-height: 1.5; margin: 8px 2px 0; }
+.theme-download-progress { align-items: center; color: var(--muted); display: grid; font-size: var(--type-caption); gap: 8px; grid-template-columns: auto minmax(80px, 1fr) auto; margin-top: 10px; }
+.theme-download-progress progress { accent-color: var(--accent); height: 7px; width: 100%; }
+.theme-download-progress strong { color: var(--accent-strong); font-variant-numeric: tabular-nums; }
 
 @media (max-width: 720px) {
   .preference-section { gap: 10px; grid-template-columns: 1fr; }

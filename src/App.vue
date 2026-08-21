@@ -178,6 +178,7 @@ import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
+import { isNativeApp } from './lib/nativeRuntime';
 import {
   DIVINATION_CARD_GROUPS,
   DIVINATION_THEMES,
@@ -189,10 +190,12 @@ import {
   getDivinationDeckOptions,
   getDivinationThemeLogoUrl,
   setDivinationDeckSelection,
-  setDivinationTheme,
+  setDivinationTheme as applyDivinationTheme,
+  getDivinationDeckAssetPackageId,
   type DivinationCardGroup,
   type DivinationDeckSelection,
 } from './lib/divinationTheme';
+import { ensureThemeAssetPackage, packageIdForTheme, type ThemeAssetProgress } from './lib/themeAssetDownload';
 import type {
   AlmanacCalendarDateMeta,
   AlmanacAuspiceLevel,
@@ -210,8 +213,66 @@ const XiaoliurenView = defineAsyncComponent(() => import('./components/Xiaoliure
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
 const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
 
-function chooseDivinationDeck(group: DivinationCardGroup, value: string | number) {
-  setDivinationDeckSelection(group, value as DivinationDeckSelection);
+const themeAssetDownload = reactive<{ active: boolean; label: string; progress: ThemeAssetProgress | null }>({ active: false, label: '', progress: null });
+const themeAssetDownloadPercent = computed(() => themeAssetDownload.progress?.totalBytes
+  ? Math.round(themeAssetDownload.progress.loadedBytes / themeAssetDownload.progress.totalBytes * 100)
+  : 0);
+
+async function downloadThemePackage(packageId: string | null, label: string) {
+  if (!packageId || !isNativeApp()) return;
+  themeAssetDownload.active = true;
+  themeAssetDownload.label = label;
+  themeAssetDownload.progress = null;
+  try {
+    await ensureThemeAssetPackage(packageId, progress => { themeAssetDownload.progress = progress; });
+  } finally {
+    themeAssetDownload.active = false;
+  }
+}
+
+async function chooseDivinationTheme(themeId: DivinationThemeId) {
+  try {
+    const theme = DIVINATION_THEMES.find(item => item.id === themeId);
+    await downloadThemePackage(packageIdForTheme(themeId), theme?.label || '主题');
+    applyDivinationTheme(themeId);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '主题下载失败，请稍后重试');
+  }
+}
+
+async function chooseDivinationDeck(group: DivinationCardGroup, value: string | number) {
+  const selection = value as DivinationDeckSelection;
+  try {
+    await downloadThemePackage(getDivinationDeckAssetPackageId(group, selection), '牌组');
+    setDivinationDeckSelection(group, selection);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '牌组下载失败，请稍后重试');
+  }
+}
+
+async function prepareStoredThemeAssets() {
+  try {
+    await downloadThemePackage(packageIdForTheme(activeDivinationThemeId.value), activeDivinationThemeLabel.value);
+    applyDivinationTheme(activeDivinationThemeId.value);
+  } catch {
+    applyDivinationTheme('yue');
+    showToast('已恢复默认主题，其他主题可联网后重新下载。');
+  }
+  const prepared = new Set<string>();
+  for (const group of DIVINATION_CARD_GROUPS) {
+    const selection = activeDivinationDeckSelections.value[group.id];
+    if (selection === 'theme') continue;
+    const packageId = getDivinationDeckAssetPackageId(group.id, selection);
+    if (!packageId || prepared.has(packageId)) continue;
+    prepared.add(packageId);
+    try {
+      await downloadThemePackage(packageId, group.label);
+      setDivinationDeckSelection(group.id, selection);
+    } catch {
+      setDivinationDeckSelection(group.id, 'theme');
+      showToast(`${group.label}资源不可用，已暂时改为跟随主题。`);
+    }
+  }
 }
 const TarotSpreadBoard = defineAsyncComponent(() => import('./components/TarotSpreadBoard.vue'));
 const WesternCardBoard = defineAsyncComponent(() => import('./components/WesternCardBoard.vue'));
@@ -1958,6 +2019,7 @@ onMounted(() => {
     // 栏目偏好损坏时使用默认全显，不影响排盘与其他本地数据。
   }
   restorePreferences();
+  void prepareStoredThemeAssets();
   restoreAiKeys();
   void restoreCases();
   restoreHistory();
@@ -5624,8 +5686,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <UiSectionHeading class="preference-section-heading" title="占卜主题" description="更换界面风格；各类牌组可单独设置" compact />
               <div>
                 <div class="preference-option-grid is-three" role="group" aria-label="占卜主题">
-                  <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" @click="setDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
+                  <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" :disabled="themeAssetDownload.active" @click="chooseDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
+                <div v-if="themeAssetDownload.active" class="theme-download-progress" role="status" aria-live="polite"><span>正在下载{{ themeAssetDownload.label }}</span><progress :value="themeAssetDownloadPercent" max="100"></progress><strong>{{ themeAssetDownloadPercent }}%</strong></div>
                 <p class="preference-active-note">当前界面使用“{{ activeDivinationThemeLabel }}”主题</p>
               </div>
             </section>

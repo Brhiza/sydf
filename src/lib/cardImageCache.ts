@@ -7,6 +7,7 @@ import {
   getTarotThemeImageUrl,
   getWesternThemeCardImageUrl,
 } from './divinationTheme';
+import { isNativeApp } from './nativeRuntime';
 
 const CARD_IMAGE_CACHE_NAME = 'shiyue-divination-theme-images-v7';
 const LEGACY_CARD_IMAGE_CACHE_NAMES = ['shiyue-divination-theme-images-v5', 'shiyue-divination-theme-images-v6'];
@@ -134,7 +135,8 @@ function beginWarmup() {
 }
 
 export function startCardImageCacheWarmup() {
-  if (warmupStarted || typeof window === 'undefined') return;
+  // APK 由完整资源包下载器负责，避免同一批牌图进入两套缓存。
+  if (warmupStarted || typeof window === 'undefined' || isNativeApp()) return;
   warmupStarted = true;
   window.addEventListener(THEME_CHANGE_EVENT, beginWarmup);
   window.addEventListener('online', beginWarmup);
