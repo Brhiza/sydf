@@ -194,6 +194,7 @@ import {
   getDivinationDeckAssetPackageId,
   type DivinationCardGroup,
   type DivinationDeckSelection,
+  type DivinationThemeId,
 } from './lib/divinationTheme';
 import { ensureThemeAssetPackage, packageIdForTheme, type ThemeAssetProgress } from './lib/themeAssetDownload';
 import type {
