@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue';
+import { packageIdForDeck, packageIdForTheme, runtimeThemeAssetUrl } from './themeAssetDownload';
 
 export type DivinationThemeGroup =
   | 'brand'
@@ -291,6 +292,12 @@ export function setDivinationDeckSelection(group: DivinationCardGroup, selection
   window.dispatchEvent(new CustomEvent('shiyue:divination-theme-change', { detail: { group, selection } }));
 }
 
+export function getDivinationDeckAssetPackageId(group: DivinationCardGroup, selection: DivinationDeckSelection) {
+  if (selection === 'theme') return packageIdForTheme(activeDivinationThemeId.value);
+  if (isThemeId(selection)) return packageIdForTheme(selection);
+  return group === 'tarot' ? packageIdForDeck(selection) : null;
+}
+
 function syncDocumentTheme(themeId: DivinationThemeId) {
   if (typeof document === 'undefined') return;
   const definition = DIVINATION_THEMES.find(theme => theme.id === themeId) || DIVINATION_THEMES[0]!;
@@ -340,7 +347,12 @@ export function resolveDivinationThemeId(
 export function divinationThemeAssetUrl(group: DivinationThemeGroup, relativePath: string) {
   const themeId = resolveDivinationThemeId(group);
   const path = `${THEME_ROOT}/${themeId}/${relativePath.replace(/^\/+/, '')}`;
-  return `${path}?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+  return versionedRuntimeAssetUrl(path);
+}
+
+function versionedRuntimeAssetUrl(path: string) {
+  const runtimeUrl = runtimeThemeAssetUrl(path);
+  return runtimeUrl.includes('?asset=') ? runtimeUrl : `${runtimeUrl}?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
 }
 
 export function getDivinationBannerUrl() {
@@ -374,7 +386,8 @@ export function getTarotThemeImageUrl(traditionalNumber: number) {
   const selection = activeDivinationDeckSelections.value.tarot;
   const customDeck = CUSTOM_TAROT_DECKS.find(deck => deck.id === selection);
   if (customDeck) {
-    return `${customDeck.root}/${String(normalized).padStart(3, '0')}.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+    const path = `${customDeck.root}/${String(normalized).padStart(3, '0')}.webp`;
+    return versionedRuntimeAssetUrl(path);
   }
   return divinationThemeAssetUrl('tarot', `cards/tarot/${String(normalized).padStart(3, '0')}.webp`);
 }
@@ -382,7 +395,10 @@ export function getTarotThemeImageUrl(traditionalNumber: number) {
 export function getTarotCardBackUrl() {
   const selection = activeDivinationDeckSelections.value.tarot;
   const customDeck = CUSTOM_TAROT_DECKS.find(deck => deck.id === selection);
-  if (customDeck) return `${customDeck.root}/back.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+  if (customDeck) {
+    const path = `${customDeck.root}/back.webp`;
+    return versionedRuntimeAssetUrl(path);
+  }
   return divinationThemeAssetUrl('tarot', 'cards/tarot/back.webp');
 }
 

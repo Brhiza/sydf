@@ -3,6 +3,7 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { pagesApiPlugin } from './functions/viteApiPlugin';
 import { legacyCssCompatPlugin } from './build/legacyCssCompat';
+import { themeAssetPackagesPlugin } from './build/themeAssetPackages';
 
 function appVersionPlugin(version: string): Plugin {
   return {
@@ -28,6 +29,7 @@ export default defineConfig(({ mode }) => {
     vue(),
     appVersionPlugin(version),
     legacyCssCompatPlugin(),
+    themeAssetPackagesPlugin(mode === 'android'),
   ],
   build: {
     target: 'chrome79',
