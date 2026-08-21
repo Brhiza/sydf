@@ -159,6 +159,29 @@ jobs:
           name: shiyue-dongfang-android-${{ github.run_number }}
           path: release-artifacts
 
+      - name: 同步正式包到更新存储
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.R2_RELEASES_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_RELEASES_ACCOUNT_ID }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          apk="release-artifacts/shiyue-dongfang-${version}-release.apk"
+          aab="release-artifacts/shiyue-dongfang-${version}-release.aab"
+          test -s "$apk"
+          test -s "$aab"
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/shiyue-dongfang-${version}.apk" --file "$apk" --remote --content-type application/vnd.android.package-archive
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/shiyue-dongfang-${version}.aab" --file "$aab" --remote --content-type application/octet-stream
+          cp release-artifacts/SHA256SUMS.txt release-artifacts/r2-SHA256SUMS.txt
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/SHA256SUMS.txt" --file release-artifacts/r2-SHA256SUMS.txt --remote --content-type text/plain
+          jq -n \
+            --arg version "$version" \
+            --arg downloadUrl "https://sydf.cc/api/app-download?version=${version}" \
+            --arg sha256 "$(sha256sum "$apk" | cut -d' ' -f1)" \
+            --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $version, downloadUrl: $downloadUrl, sha256: $sha256, publishedAt: $publishedAt}' \
+            > release-artifacts/latest.json
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/latest.json" --file release-artifacts/latest.json --remote --content-type application/json
+
       - name: 创建 GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

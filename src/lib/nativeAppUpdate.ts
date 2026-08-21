@@ -3,12 +3,9 @@ export interface NativeReleaseUpdate {
   downloadUrl: string;
 }
 
-interface GithubReleasePayload {
-  tag_name?: unknown;
-  html_url?: unknown;
-  draft?: unknown;
-  prerelease?: unknown;
-  assets?: Array<{ name?: unknown; browser_download_url?: unknown }>;
+interface AppUpdatePayload {
+  version?: unknown;
+  downloadUrl?: unknown;
 }
 
 export interface NativeAppUpdateControllerOptions {
@@ -19,7 +16,7 @@ export interface NativeAppUpdateControllerOptions {
   onUpdateAvailable: (update: NativeReleaseUpdate) => void;
 }
 
-const RELEASE_API_URL = 'https://api.github.com/repos/Brhiza/sydf/releases/latest';
+const RELEASE_API_URL = 'https://sydf.cc/api/app-update';
 const DEFAULT_CHECK_INTERVAL = 30 * 60 * 1000;
 const DEFAULT_CHECK_THROTTLE = 5 * 60 * 1000;
 
@@ -44,21 +41,15 @@ export function isNewerAppVersion(latestVersion: string, currentVersion: string)
 export async function fetchLatestNativeRelease(): Promise<NativeReleaseUpdate | null> {
   const response = await fetch(RELEASE_API_URL, {
     cache: 'no-store',
-    headers: { Accept: 'application/vnd.github+json' },
+    headers: { Accept: 'application/json' },
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('release request failed');
-  const release = await response.json() as GithubReleasePayload;
-  if (release.draft || release.prerelease || typeof release.tag_name !== 'string') return null;
-  const apk = release.assets?.find((asset) => (
-    typeof asset.name === 'string'
-    && asset.name.toLowerCase().endsWith('.apk')
-    && typeof asset.browser_download_url === 'string'
-  ));
-  const assetDownloadUrl = apk && typeof apk.browser_download_url === 'string' ? apk.browser_download_url : '';
-  const downloadUrl = assetDownloadUrl || (typeof release.html_url === 'string' ? release.html_url : '');
-  if (!downloadUrl) return null;
-  return { version: release.tag_name.replace(/^v/i, ''), downloadUrl };
+  const release = await response.json() as AppUpdatePayload;
+  if (typeof release.version !== 'string' || typeof release.downloadUrl !== 'string') return null;
+  const downloadUrl = new URL(release.downloadUrl, RELEASE_API_URL);
+  if (downloadUrl.protocol !== 'https:' || downloadUrl.hostname !== 'sydf.cc' || downloadUrl.pathname !== '/api/app-download') return null;
+  return { version: release.version.replace(/^v/i, ''), downloadUrl: downloadUrl.toString() };
 }
 
 export function createNativeAppUpdateController(options: NativeAppUpdateControllerOptions) {

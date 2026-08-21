@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createNativeAppUpdateController, isNewerAppVersion } from './nativeAppUpdate';
+import { createNativeAppUpdateController, fetchLatestNativeRelease, isNewerAppVersion } from './nativeAppUpdate';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -23,6 +23,26 @@ function stubBrowserGlobals() {
 }
 
 describe('APK 版本更新', () => {
+  it('只接受 sydf.cc 的下载入口', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      version: '0.2.0',
+      downloadUrl: 'https://sydf.cc/api/app-download?version=0.2.0',
+    })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchLatestNativeRelease()).resolves.toEqual({
+      version: '0.2.0',
+      downloadUrl: 'https://sydf.cc/api/app-download?version=0.2.0',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('https://sydf.cc/api/app-update', expect.any(Object));
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      version: '0.3.0',
+      downloadUrl: 'https://github.com/example/app.apk',
+    })));
+    await expect(fetchLatestNativeRelease()).resolves.toBeNull();
+  });
+
   it('只把更高的正式版本视为更新', () => {
     expect(isNewerAppVersion('0.2.0', '0.1.321')).toBe(true);
     expect(isNewerAppVersion('0.1.2', '0.1.321')).toBe(false);
