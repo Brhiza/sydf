@@ -77,6 +77,9 @@ jobs:
       - name: 同步 Capacitor 工程
         run: pnpm build:android
 
+      - name: 授予 Gradle 包装器执行权限
+        run: chmod +x android/gradlew
+
       - name: 准备可选发布签名
         if: env.HAS_ANDROID_SIGNING == 'true'
         working-directory: android
