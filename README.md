@@ -96,7 +96,7 @@ cd android
 
 APK 输出到 `android/app/build/outputs/apk/debug/app-debug.apk`。正式发布前需使用独立的发布密钥签名，密钥文件不得提交到仓库。
 
-GitHub Actions 会在相关代码或安卓工程变化时自动编译调试 APK，并在运行记录的 Artifacts 中保留 14 天。若仓库配置了 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD` 四项 Actions Secrets，同一流程还会生成签名的 Release APK 与 AAB；未配置签名时不会伪造可发布产物。
+GitHub Actions 会在相关代码或安卓工程变化时自动编译调试 APK，并在运行记录的 Artifacts 中保留 14 天。若仓库配置了 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD` 四项 Actions Secrets，同一流程还会生成签名的 Release APK 与 AAB；未配置签名时不会伪造可发布产物。推送 `v1.2.3` 形式的标签时，APK 内版本会与标签保持一致，并自动创建包含正式 APK、AAB 和校验文件的 GitHub Release。APK 端以该正式 Release 为更新来源，发现更高版本时使用与网页版一致的更新弹窗。
 
 ## 部署
 

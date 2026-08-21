@@ -233,9 +233,6 @@ h1, h2, h3, p { margin-top: 0; }
 .app-toast-leave-active { transition: opacity .18s ease, transform .18s ease; }
 .app-toast-enter-from,
 .app-toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
-.pwa-update-bar { align-items: center; background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--ds-radius-md); bottom: max(18px, env(safe-area-inset-bottom)); box-shadow: var(--shadow-elevated); display: flex; gap: var(--ds-space-3); left: 50%; padding: var(--ds-space-2) var(--ds-space-3); position: fixed; transform: translateX(-50%); z-index: 130; }
-.app-shell.mobile-nav-open .pwa-update-bar { display: none; }
-.pwa-update-bar > span { color: var(--ink); font-size: var(--type-small); white-space: nowrap; }
 .ui-dialog-layer:has(.pwa-update-dialog) { z-index: 140; }
 .pwa-update-dialog { position: relative; }
 .pwa-update-dialog__icon { align-items: center; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 14px; color: var(--accent); display: flex; height: 48px; justify-content: center; margin-bottom: var(--ds-space-4); width: 48px; }

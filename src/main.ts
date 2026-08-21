@@ -33,11 +33,33 @@ async function prepareWebUpdate() {
   ]);
 }
 
-if (import.meta.env.PROD && !isNativeApp()) scheduleAfterPageLoad(() => {
+if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
+  if (isNativeApp()) {
+    void Promise.all([
+      import('@capacitor/app'),
+      import('@capacitor/app-launcher'),
+      import('./lib/nativeAppUpdate'),
+    ]).then(async ([{ App }, { AppLauncher }, { createNativeAppUpdateController }]) => {
+      const info = await App.getInfo();
+      createNativeAppUpdateController({
+        currentVersion: info.version,
+        onUpdateAvailable(update) {
+          window.dispatchEvent(new CustomEvent('shiyue:app-update', {
+            detail: {
+              kind: 'native',
+              version: update.version,
+              prepareUpdate: () => AppLauncher.openUrl({ url: update.downloadUrl }),
+            },
+          }));
+        },
+      });
+    }).catch(() => undefined);
+    return;
+  }
   createAppUpdateController({
     currentVersion: __APP_VERSION__,
     onUpdateAvailable(latestVersion) {
-      window.dispatchEvent(new CustomEvent('shiyue:web-update', { detail: { version: latestVersion, prepareUpdate: prepareWebUpdate } }));
+      window.dispatchEvent(new CustomEvent('shiyue:app-update', { detail: { kind: 'web', version: latestVersion, prepareUpdate: prepareWebUpdate } }));
     },
   });
 }, {
