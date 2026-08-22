@@ -40,6 +40,24 @@ const spreadLayouts: Record<TarotSpreadType, SpreadPose[]> = {
     { x: 82, y: 67 }, { x: 69, y: 79 }, { x: 50, y: 82 }, { x: 31, y: 79 },
     { x: 18, y: 67 }, { x: 13, y: 50 }, { x: 18, y: 33 }, { x: 31, y: 21 },
   ],
+  holyTriangle: [{ x: 50, y: 20 }, { x: 22, y: 72 }, { x: 78, y: 72 }],
+  universal: [{ x: 50, y: 18 }, { x: 20, y: 48 }, { x: 80, y: 48 }, { x: 32, y: 80 }, { x: 68, y: 80 }],
+  fourElements: [{ x: 50, y: 50 }, { x: 50, y: 16 }, { x: 84, y: 50 }, { x: 50, y: 84 }, { x: 16, y: 50 }],
+  hexagram: [
+    { x: 50, y: 14 }, { x: 22, y: 33 }, { x: 22, y: 67 }, { x: 50, y: 86 },
+    { x: 78, y: 67 }, { x: 78, y: 33 }, { x: 50, y: 50 },
+  ],
+  relationship: [
+    { x: 20, y: 22 }, { x: 80, y: 22 }, { x: 20, y: 54 },
+    { x: 80, y: 54 }, { x: 38, y: 82 }, { x: 62, y: 82 },
+  ],
+  wealth: [{ x: 50, y: 18 }, { x: 20, y: 48 }, { x: 80, y: 48 }, { x: 32, y: 80 }, { x: 68, y: 80 }],
+  problemSolving: [{ x: 50, y: 18 }, { x: 20, y: 48 }, { x: 80, y: 48 }, { x: 32, y: 80 }, { x: 68, y: 80 }],
+  twelveHouses: [
+    { x: 50, y: 18 }, { x: 69, y: 21 }, { x: 82, y: 33 }, { x: 87, y: 50 },
+    { x: 82, y: 67 }, { x: 69, y: 79 }, { x: 50, y: 82 }, { x: 31, y: 79 },
+    { x: 18, y: 67 }, { x: 13, y: 50 }, { x: 18, y: 33 }, { x: 31, y: 21 },
+  ],
 };
 
 const denseSpread = computed(() => props.reading.cards.length >= 7);
@@ -110,14 +128,14 @@ function spreadCardStyle(index: number) {
 <style scoped>
 .tarot-spread-frame { --spread-card-width: 104px; --spread-item-width: 144px; min-width: 0; overflow: hidden; padding: 6px 2px 12px; width: 100%; }
 .tarot-spread-board { height: min(620px, 66dvh); margin-inline: auto; overflow: hidden; position: relative; width: 100%; }
-.tarot-spread-board.spread-single, .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { height: min(470px, 54dvh); }
+.tarot-spread-board.spread-single, .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit, .tarot-spread-board.spread-holyTriangle { height: min(470px, 54dvh); }
 .tarot-spread-board.spread-single { width: min(100%, 520px); }
 .tarot-spread-board.spread-three, .tarot-spread-board.spread-mindBodySpirit { width: min(100%, 900px); }
 .tarot-spread-board.spread-love, .tarot-spread-board.spread-career, .tarot-spread-board.spread-decision { height: min(610px, 64dvh); }
 .tarot-spread-board.spread-horseshoe { height: min(540px, 58dvh); }
 .tarot-spread-board.spread-chakra { height: min(700px, 70dvh); width: min(100%, 560px); }
 .tarot-spread-board.spread-celtic { height: min(680px, 70dvh); }
-.tarot-spread-board.spread-year { height: min(720px, 70dvh); }
+.tarot-spread-board.spread-year, .tarot-spread-board.spread-twelveHouses { height: min(720px, 70dvh); }
 .tarot-spread-board.is-small-spread { --spread-card-width: 150px; --spread-item-width: 190px; }
 .tarot-spread-board.is-medium-spread { --spread-card-width: 104px; --spread-item-width: 144px; }
 .tarot-spread-board.is-dense { --spread-card-width: 70px; --spread-item-width: 104px; }
