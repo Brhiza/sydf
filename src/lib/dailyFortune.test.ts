@@ -95,7 +95,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-08-v9');
+      expect(serialized).toContain('2026-08-23-v10');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -213,8 +213,25 @@ describe('今日、月运、年运统一周期算法', () => {
     const date = new Date(2025, 7, 8, 12, 0, 0, 0);
     const general = generateDailyFortune(date, undefined, 'today');
     const personal = generateDailyFortune(date, profile, 'today');
+    expect(general.personalized).toBe(false);
+    expect(personal.personalized).toBe(true);
     expect(personal.categories.map((item) => [item.tone, item.detail, item.basis]))
       .not.toEqual(general.categories.map((item) => [item.tone, item.detail, item.basis]));
+  });
+
+  it('个人排盘不可用时无感降级为通用今日运势', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const invalidProfile = { ...profile, date: '2025-02-29' };
+    const fallback = generateDailyFortune(date, invalidProfile, 'today');
+    const general = generateDailyFortune(date, undefined, 'today');
+    expect(fallback.personalized).toBe(false);
+    expect(fallback).toEqual(general);
+  });
+
+  it('结果文案直接给出结论，不重复免责声明式提醒', () => {
+    const result = generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
+    const text = JSON.stringify(result);
+    expect(text).not.toMatch(/仅供参考|仍以实际|不构成|寻求专业帮助|不必只看时间/);
   });
 
   it('查询出生日前的历史周期时真正降级为通用盘', () => {

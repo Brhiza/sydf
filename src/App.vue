@@ -1152,7 +1152,10 @@ const secondaryNavItems = [
   { key: 'settings' as const, label: '设置', icon: Settings },
 ];
 const navItems = [...primaryNavItems, ...secondaryNavItems];
-const fortuneEntryLabel = computed(() => activeFortuneProfile() ? '个人日运' : '今日运势');
+const fortuneEntryLabel = computed(() => {
+  const result = activeView.value === 'fortune' ? dailyFortune.value : homeFortunePreview.value;
+  return result?.personalized ? '个人日运' : '今日运势';
+});
 const activePageTitle = computed(() => activeView.value === 'fortune'
   ? fortuneEntryLabel.value
   : navItems.find((item) => item.key === activeView.value)?.label || '');

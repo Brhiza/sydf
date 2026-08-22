@@ -86,6 +86,7 @@ export interface DailyFortuneEvidenceInsight {
 export interface DailyFortuneResult {
   period: FortunePeriod;
   periodLabel: string;
+  personalized: boolean;
   dateKey: string;
   dateLabel: string;
   rangeLabel: string;
@@ -238,7 +239,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-08-v9';
+const dailyFortuneCacheVersion = '2026-08-23-v10';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1255,7 +1256,7 @@ function buildEvidenceInsights(
       sourceKey: strongest.category.key,
       label: '优先投入',
       title: `${strongest.category.label}是优先主线`,
-      detail: `${bestWindow ? `优先放在${bestWindow}；` : ''}建议${definition.action}，先完成最关键的一步。`,
+      detail: `${bestWindow ? `优先放在${bestWindow}；` : ''}${definition.action}，先完成最关键的一步。`,
       tone: strongest.category.tone,
     });
   }
@@ -1270,7 +1271,7 @@ function buildEvidenceInsights(
       title: `${weakest.category.label}先过确认关`,
       detail: weakest.cautiousCount
         ? `${worstWindow ? `${worstWindow}不要赶着落定；` : ''}先核对${definition.check}，确认后再推进。`
-        : `涉及${definition.check}时仍需按现实反馈确认，不必只看时间。`,
+        : `涉及${definition.check}时先核对清楚再推进。`,
       tone: weakest.cautiousCount ? 'cautious' : 'balanced',
     });
   }
@@ -1303,7 +1304,7 @@ function buildEvidenceInsights(
 function buildSingleDirections(chart: QimenData) {
   const goodDirections = (chart.directions?.goodDirections || []).slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: '更适合安排外出、沟通或需要主动推进的事情，仍以实际路线和安全为先。',
+    detail: '适合安排外出、沟通或需要主动推进的事情。',
   }));
   const avoidDirections = (chart.directions?.avoidDirections || []).slice(0, 2).map((item) => ({
     direction: item.direction,
@@ -1333,7 +1334,7 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .filter(([, value]) => value.good >= goodThreshold && value.good > value.avoid)
     .sort((left, right) => right[1].good - left[1].good || left[1].avoid - right[1].avoid)
     .slice(0, 2)
-    .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向的支持较稳定，可在外出或沟通时参考，仍以实际路线和安全为先。` }));
+    .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向的支持较稳定，适合安排外出或沟通。` }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
     .sort((left, right) => right[1].avoid - left[1].avoid || left[1].good - right[1].good)
@@ -1419,8 +1420,8 @@ function buildReference(
     numbers,
     direction,
     directionNote: goodDirections.length
-      ? '安排外出、拜访或主动沟通时可优先参考。'
-      : `没有足够稳定的优先方向，按实际路线和安全性选择即可。`,
+      ? '优先用于安排外出、拜访或主动沟通。'
+      : '方位信号不集中，不设优先方向。',
     item: item.name,
     itemSymbol: item.symbol,
     itemNote: '放在手边，提醒自己按计划做事、及时收尾。',
@@ -1563,7 +1564,7 @@ function calculateDailyFortune(
       text: slowSource?.tone === 'cautious'
         ? slowSource.detail
         : slowSource?.key === 'wellbeing'
-          ? `留意${slowDefinition?.check || '当天的精力和身体感受'}，按真实状态调整安排；不适持续时及时寻求专业帮助。`
+          ? `重点照顾${slowDefinition?.check || '当天的精力和身体感受'}，减少透支并保持规律。`
         : slowDefinition ? `涉及${slowDefinition.check}时，多确认一次再落定。` : '给重要安排留出一点时间余量，避免临时赶进度。',
       tone: 'notice',
     },
@@ -1605,6 +1606,7 @@ function calculateDailyFortune(
   return {
     period,
     periodLabel: periodLabels[period],
+    personalized: Boolean(personal),
     dateKey,
     dateLabel,
     rangeLabel: startDateKey === endDateKey ? startDateKey : `${startDateKey} 至 ${endDateKey}`,
@@ -1640,7 +1642,7 @@ function calculateDailyFortune(
     timeWindows,
     goodDirections: directions.goodDirections,
     avoidDirections: directions.avoidDirections,
-    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}没有足够稳定的优先方向，按实际路线和安全性选择即可。`,
+    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}方位信号不集中，不设优先方向。`,
   };
 }
 
