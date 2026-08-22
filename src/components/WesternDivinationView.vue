@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
-import type { TarotSpreadType, WesternDeckType, WesternInterpretationPayload, WesternSpreadType } from '../lib/tarot';
+import { tarotSpreadOptions, type TarotSpreadType, type WesternDeckType, type WesternInterpretationPayload, type WesternSpreadType } from '../lib/tarot';
 import { getWesternSpreadOptions } from '../lib/westernDecks';
 import { getDivinationBannerUrl } from '../lib/divinationTheme';
 import { getPromptSchoolChoiceOptions, type PromptSchoolChoice } from '../lib/promptSchools';
@@ -27,19 +27,6 @@ const deckOptions: Array<{ value: WesternDeckType; label: string; description: s
   { value: 'lenormand', label: '雷诺曼', description: '以三张牌串联事件的起因、现状与走向' },
   { value: 'shiyue-oracle', label: '时月神谕', description: '抽取一张六十甲子神谕，获得当下提示' },
 ];
-const tarotSpreadOptions: Array<{ value: TarotSpreadType; label: string; count: number; description: string }> = [
-  { value: 'single', label: '单牌指引', count: 1, description: '聚焦当下最重要的提醒' },
-  { value: 'three', label: '时间流牌阵', count: 3, description: '过去、现在与未来' },
-  { value: 'mindBodySpirit', label: '身心灵牌阵', count: 3, description: '思想、行动与内在状态' },
-  { value: 'love', label: '爱情牌阵', count: 5, description: '双方内心与关系走向' },
-  { value: 'career', label: '事业牌阵', count: 6, description: '优势、挑战、机会与建议' },
-  { value: 'decision', label: '选择牌阵', count: 6, description: '比较两种选择及其结果' },
-  { value: 'chakra', label: '七脉轮牌阵', count: 7, description: '观察七个层面的平衡' },
-  { value: 'horseshoe', label: '马蹄铁牌阵', count: 7, description: '梳理影响、建议和结果' },
-  { value: 'celtic', label: '凯尔特十字', count: 10, description: '完整分析现状与发展' },
-  { value: 'year', label: '年运牌阵', count: 12, description: '全年节奏与重点领域' },
-];
-
 const phase = ref<'entry' | 'draw'>('entry');
 const deckType = ref<WesternDeckType>('tarot');
 const tarotSpread = ref<TarotSpreadType>('single');
