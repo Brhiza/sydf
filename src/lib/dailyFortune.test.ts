@@ -95,7 +95,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-08-v9');
+      expect(serialized).toContain('2026-08-23-v11');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -199,7 +199,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);
     });
     result.timeWindows.forEach((window) => {
-      expect(window.name).toMatch(/^(?:\d+月\d+—\d+日|\d+月\d+日—\d+月\d+日)$/);
+      expect(window.name).toMatch(/^(?:\d+月\d+日—\d+日|\d+月\d+日—\d+月\d+日)$/);
       expect(window.range).toBe('');
       expect(window.name).not.toContain('2024年');
       expect(window.name).not.toContain('2026年');
@@ -213,8 +213,55 @@ describe('今日、月运、年运统一周期算法', () => {
     const date = new Date(2025, 7, 8, 12, 0, 0, 0);
     const general = generateDailyFortune(date, undefined, 'today');
     const personal = generateDailyFortune(date, profile, 'today');
+    expect(general.personalized).toBe(false);
+    expect(personal.personalized).toBe(true);
     expect(personal.categories.map((item) => [item.tone, item.detail, item.basis]))
       .not.toEqual(general.categories.map((item) => [item.tone, item.detail, item.basis]));
+  });
+
+  it('同一天的不同命盘会形成稳定且可区分的个人结果', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const profiles: DailyFortuneProfile[] = [
+      profile,
+      { ...profile, id: 'profile-b', gender: 'male', date: '1984-01-01', time: '23:30' },
+      { ...profile, id: 'profile-c', date: '1998-11-20', time: '16:45' },
+    ];
+    const results = profiles.map((item) => generateDailyFortune(date, item, 'today'));
+    const signatures = results.map((result) => JSON.stringify({
+      tone: result.tone,
+      grade: result.grade,
+      categories: result.categories.map((item) => [item.key, item.tone, item.detail]),
+      reference: result.reference,
+      goodDirections: result.goodDirections,
+    }));
+    expect(results.every((result) => result.personalized)).toBe(true);
+    expect(new Set(signatures).size).toBe(results.length);
+    expect(new Set(results.map((result) => JSON.stringify(result.reference))).size).toBeGreaterThan(1);
+  });
+
+  it('多项明显风险不会被普通项目平均成整体顺势', () => {
+    const results = Array.from({ length: 12 }, (_, index) => (
+      generateDailyFortune(new Date(2025, 7, index + 1, 12, 0, 0, 0), profile, 'today')
+    ));
+    const riskDays = results.filter((result) => result.categories.filter((item) => item.tone === 'cautious').length >= 2);
+    expect(new Set(results.map((result) => result.grade)).size).toBeGreaterThan(1);
+    expect(riskDays.length).toBeGreaterThan(0);
+    expect(riskDays.every((result) => result.tone !== 'favorable')).toBe(true);
+  }, 15_000);
+
+  it('个人排盘不可用时无感降级为通用今日运势', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const invalidProfile = { ...profile, date: '2025-02-29' };
+    const fallback = generateDailyFortune(date, invalidProfile, 'today');
+    const general = generateDailyFortune(date, undefined, 'today');
+    expect(fallback.personalized).toBe(false);
+    expect(fallback).toEqual(general);
+  });
+
+  it('结果文案直接给出结论，不重复免责声明式提醒', () => {
+    const result = generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
+    const text = JSON.stringify(result);
+    expect(text).not.toMatch(/仅供参考|仍以实际|不构成|寻求专业帮助|不必只看时间/);
   });
 
   it('查询出生日前的历史周期时真正降级为通用盘', () => {

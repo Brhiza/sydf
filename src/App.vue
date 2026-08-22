@@ -1152,7 +1152,13 @@ const secondaryNavItems = [
   { key: 'settings' as const, label: '设置', icon: Settings },
 ];
 const navItems = [...primaryNavItems, ...secondaryNavItems];
-const activePageTitle = computed(() => navItems.find((item) => item.key === activeView.value)?.label || '');
+const fortuneEntryLabel = computed(() => {
+  const result = activeView.value === 'fortune' ? dailyFortune.value : homeFortunePreview.value;
+  return result?.personalized ? '个人日运' : '今日运势';
+});
+const activePageTitle = computed(() => activeView.value === 'fortune'
+  ? fortuneEntryLabel.value
+  : navItems.find((item) => item.key === activeView.value)?.label || '');
 const pillarItems: Array<{ key: keyof BaziChartResult['pillars']; label: string }> = [
   { key: 'year', label: '年柱' },
   { key: 'month', label: '月柱' },
@@ -5268,9 +5274,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         </div>
       </header>
 
-      <button v-if="activeView === 'tools' && homeState === 'default'" class="mobile-home-fortune-strip" type="button" aria-label="查看今日运势" @click="openTodayFortune">
+      <button v-if="activeView === 'tools' && homeState === 'default'" class="mobile-home-fortune-strip" type="button" :aria-label="`查看${fortuneEntryLabel}`" @click="openTodayFortune">
         <span class="mobile-home-fortune-mark"><Sun :size="15" /></span>
-        <span class="mobile-home-fortune-copy"><small>今日运势</small><strong>{{ homeFortunePreview?.previewText || '正在准备今天的本地参考' }}</strong></span>
+        <span class="mobile-home-fortune-copy"><small>{{ fortuneEntryLabel }}</small><strong>{{ homeFortunePreview?.previewText || '正在准备今天的本地参考' }}</strong></span>
         <span v-if="homeFortunePreview" class="mobile-home-fortune-color" :style="{ backgroundColor: homeFortunePreview.reference.colors[0].hex }" :title="homeFortunePreview.reference.colors[0].name"></span>
         <ChevronRight :size="15" />
       </button>

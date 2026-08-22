@@ -53,6 +53,48 @@ const timeRows = computed(() => props.result.timeWindows.map((item) => ({
   tone: 'accent' as const,
 })));
 
+const insightRows = computed(() => props.result.evidenceInsights.map((item) => ({
+  key: item.key,
+  marker: item.label.slice(0, 1),
+  title: item.title,
+  detail: item.detail,
+  tone: readingTone(item.tone),
+})));
+
+const referenceRows = computed(() => [
+  {
+    key: 'colors',
+    marker: '色',
+    title: '助运颜色',
+    detail: props.result.reference.colors.map((item) => item.name).join('、'),
+    tone: 'accent' as const,
+  },
+  {
+    key: 'numbers',
+    marker: '数',
+    title: '助运数字',
+    detail: props.result.reference.numbers.join('、'),
+    tone: 'accent' as const,
+  },
+  {
+    key: 'direction',
+    marker: '向',
+    title: props.result.reference.direction === '不固定' ? '方位不限' : `优先${props.result.reference.direction}`,
+    detail: props.result.reference.directionNote,
+    tone: 'accent' as const,
+  },
+  {
+    key: 'item',
+    marker: props.result.reference.itemSymbol,
+    title: props.result.reference.item,
+    detail: props.result.reference.itemNote,
+    tone: 'accent' as const,
+  },
+]);
+
+const insightTitle = computed(() => props.result.period === 'today' ? '今日重点' : props.result.period === 'month' ? '本月重点解读' : '今年重点解读');
+const referenceTitle = computed(() => props.result.period === 'today' ? '今日助运' : props.result.period === 'month' ? '本月助运' : '今年助运');
+
 const recommendedRows = computed(() => (props.result.modernAlmanac?.recommended || []).map((item) => ({
   key: item.key,
   marker: item.title.slice(0, 1),
@@ -140,6 +182,16 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
       <UiReadingSection v-if="result.period === 'today'" as="aside" class="fortune-time-section" :title="result.windowTitle">
         <UiReadingRows v-if="result.timeWindows.length" :items="timeRows" />
         <p v-else class="fortune-empty-copy">按自己的作息安排即可。</p>
+      </UiReadingSection>
+    </UiReadingGrid>
+
+    <UiReadingGrid ratio="equal">
+      <UiReadingSection :title="insightTitle">
+        <UiReadingRows :items="insightRows" marker-style="soft" />
+      </UiReadingSection>
+
+      <UiReadingSection :title="referenceTitle">
+        <UiReadingRows :items="referenceRows" marker-style="soft" />
       </UiReadingSection>
     </UiReadingGrid>
 
