@@ -269,7 +269,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-25-v16';
+const dailyFortuneCacheVersion = '2026-08-25-v17';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;

@@ -96,7 +96,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-25-v16');
+      expect(serialized).toContain('2026-08-25-v17');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
