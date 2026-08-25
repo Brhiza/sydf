@@ -60,6 +60,26 @@ function periodEvaluation(result: DailyFortuneResult) {
   };
 }
 
+const categoryValueMarkers: Record<string, RegExp> = {
+  career: /负责人|交付标准/,
+  study: /学习目标|笔记|练习|沉淀/,
+  wealth: /金额|付款节点|付款记录/,
+  relationship: /语气|真实意图|对方重点|信息差/,
+  travel: /路线|天气|时间余量|关键物品/,
+  wellbeing: /疲劳|睡眠|食欲|注意力|精力/,
+};
+
+function expectContentRichCategories(result: DailyFortuneResult) {
+  const text = result.categories.map((item) => `${item.detail}${item.basis}`).join('');
+  expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少/);
+  const bases = result.categories.map((item) => item.basis).filter(Boolean);
+  expect(new Set(bases).size).toBe(bases.length);
+  result.categories.forEach((category) => {
+    expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
+    if (category.basis) expect(category.basis.length).toBeGreaterThan(45);
+  });
+}
+
 describe('今日、月运、年运统一周期算法', () => {
   beforeEach(() => clearDailyFortuneCache());
 
@@ -96,7 +116,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v20');
+      expect(serialized).toContain('2026-08-26-v24');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -146,6 +166,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(category.basis).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
       expect(category.basis).not.toMatch(/\d+个(?:时辰|较顺|宜缓)/);
     });
+    expectContentRichCategories(result);
     expect(result.evidenceInsights).toHaveLength(4);
     expect(result.evidenceInsights[0]?.title).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}.*优先/);
     expect(result.evidenceInsights[0]?.title).not.toMatch(/\d+顺|\d+平|\d+缓/);
@@ -217,6 +238,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(category.basis).toMatch(/\d+月\d+日/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
     });
+    expectContentRichCategories(result);
     expect(result.categories.some((category) => category.detail.includes('本月'))).toBe(true);
     expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
     expectToneAndGradeConsistent(result);
@@ -241,6 +263,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);
     });
+    expectContentRichCategories(result);
     expect(result.categories.some((category) => category.detail.includes('全年'))).toBe(true);
     result.timeWindows.forEach((window) => {
       expect(window.name).toMatch(/^(?:\d+月\d+日—\d+日|\d+月\d+日—\d+月\d+日)$/);

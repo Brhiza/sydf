@@ -144,6 +144,9 @@ interface TopicDefinition {
   action: string;
   prepare: string;
   check: string;
+  outcome: string;
+  cautionPattern: string;
+  cautionAction: string;
 }
 
 interface ElementReference {
@@ -248,36 +251,54 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'career', icon: '业', label: '工作事业', shortLabel: '工作', primaryDoor: '开门',
     supportStars: ['天心', '天辅', '天任'], supportGods: ['值符', '九天', '九地'],
     action: '先处理目标清楚、能直接推进的工作', prepare: '整理优先级和待确认事项', check: '截止时间、分工和交付标准',
+    outcome: '一份写明负责人、下一步和完成标准的安排',
+    cautionPattern: '任务边界、负责人或交付标准容易临时变化',
+    cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
   },
   {
     key: 'study', icon: '学', label: '学习成长', shortLabel: '学习', primaryDoor: '景门',
     supportStars: ['天辅', '天心', '天任'], supportGods: ['太阴', '九地', '值符'],
     action: '集中完成一段阅读、写作或复盘', prepare: '整理资料并拆小学习目标', check: '任务量、专注时段和休息间隔',
+    outcome: '可复述的要点、练习结果或一段可用产出',
+    cautionPattern: '任务切换过多，容易读了很多却没有真正沉淀',
+    cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
   },
   {
     key: 'wealth', icon: '财', label: '金钱合作', shortLabel: '钱款', primaryDoor: '生门',
     supportStars: ['天任', '天心', '天辅'], supportGods: ['值符', '六合', '太阴'],
     action: '优先处理金额和条件已经明确的事项', prepare: '对账、比价并梳理必要支出', check: '金额、条款和付款节点',
+    outcome: '可复核的金额、责任和付款节点记录',
+    cautionPattern: '口头约定与实际金额、责任或付款条件容易出现偏差',
+    cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
   },
   {
     key: 'relationship', icon: '缘', label: '沟通关系', shortLabel: '沟通', primaryDoor: '休门',
     supportStars: ['天辅', '天心', '天任'], supportGods: ['六合', '太阴', '值符'],
     action: '安排一次不赶时间的沟通', prepare: '先听完对方的重点，再整理自己的表达', check: '语气、对方感受和信息差',
+    outcome: '双方对事实、分歧和下一步的一致理解',
+    cautionPattern: '表达语气与真实意图容易错位，猜测会放大信息差',
+    cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
   },
   {
     key: 'travel', icon: '行', label: '出行行动', shortLabel: '出行', primaryDoor: '开门',
     supportStars: ['天冲', '天辅', '天心'], supportGods: ['九天', '六合', '九地'],
     action: '把需要外出的事情按路线集中处理', prepare: '提前整理路线、物品和时间余量', check: '路线、天气和临时变动',
+    outcome: '明确的路线、时间余量和备选方案',
+    cautionPattern: '路线、天气或前后事项的衔接时间更容易变化',
+    cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
   },
   {
     key: 'wellbeing', icon: '养', label: '身心状态', shortLabel: '休息', primaryDoor: '休门',
     supportStars: ['天心', '天任'], supportGods: ['太阴', '九地'],
     action: '给休息、饮食和轻度活动留出固定时间', prepare: '减少透支并安排规律休息', check: '睡眠、饮食、精力和身体感受',
+    outcome: '休息后稳定恢复的精力，而不是短时兴奋',
+    cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
+    cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
   },
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v20';
+const dailyFortuneCacheVersion = '2026-08-26-v24';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1193,47 +1214,44 @@ function categoryDetailFromJudgment(
   // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
   const hasActualCaution = tone === 'cautious';
   const scopeLabel = period === 'today' ? '当天' : period === 'month' ? '本月' : '全年';
-  const progressGoal = period === 'today'
-    ? '先形成一个明确成果'
-    : period === 'month' ? '先形成一段可复盘的进展' : '按阶段积累，不追求一次完成';
   const controlledGoal = period === 'today'
     ? '以能确认、能收尾为准'
-    : period === 'month' ? '先在条件较齐的日期推进一段' : '放在支持较集中的阶段逐步经营';
+    : period === 'month' ? '在条件较齐的日期推进一段' : '放在支持较集中的阶段逐步经营';
 
   if (isCaution && tone !== 'favorable') {
     if (!hasActualCaution) {
       return definition.key === 'wellbeing'
         ? `这是${scopeLabel}最需要持续观察的一项，但尚未构成明显阻力。保持规律作息，并根据真实精力调整任务量。`
-        : `这是${scopeLabel}相对需要留意的一项，但尚未构成明显阻力。涉及${definition.check}时保持核对即可。`;
+        : `这是${scopeLabel}相对需要留意的一项，但尚未构成明显阻力，不需要全面回避。把${definition.check}设为开始前的确认门槛，确认后再安排。`;
     }
     if (definition.key === 'wellbeing') {
-      return `这是${scopeLabel}牵动整体节奏的短板。先稳住睡眠、饮食和实际精力，再决定能够承担多少事情。`;
+      return `这是${scopeLabel}牵动整体节奏的短板。${definition.cautionAction}再根据真实恢复情况决定能够承担多少事情。`;
     }
-    return `这是${scopeLabel}最需要把关的一环。先${preparation}，${definition.check}没有确认前不要急着落定。`;
+    return `这是${scopeLabel}最需要把关的一环，不适合边做边补条件。先${preparation}，等${definition.check}明确后再承诺或推进。`;
   }
   if (isPrimary) {
     if (tone === 'favorable' && definition.key === 'wellbeing') return `这是${scopeLabel}最值得优先照顾的一项。${bestLead}先把作息和精力稳住，为其他安排留足余量。`;
-    if (tone === 'favorable') return `这是${scopeLabel}整体判断中的主线。${bestLead}${definition.action}，${progressGoal}。`;
-    if (tone === 'balanced') return `这是${scopeLabel}相对稳定的主线。${bestLead}${definition.action}，${controlledGoal}。`;
+    if (tone === 'favorable') return `这是${scopeLabel}整体判断中的主线。${bestLead}${definition.action}，以${definition.outcome}作为这一阶段的实际成果。`;
+    if (tone === 'balanced') return `这是${scopeLabel}相对稳定的主线。${bestLead}${definition.action}，先形成${definition.outcome}；${controlledGoal}。`;
     return `眼下没有明显顺势项，这一项只是相对可控。先${preparation}，不以扩大进度为目标。`;
   }
   if (isSecondary) {
-    if (tone === 'favorable') return `可作为${scopeLabel}主线之后的第二步。${bestLead}${definition.action}，不必与主线同时铺开。`;
+    if (tone === 'favorable') return `可作为${scopeLabel}主线之后的第二步。${bestLead}${definition.action}，形成${definition.outcome}即可收尾，不必与主线同时铺开。`;
     if (definition.key === 'wellbeing') return `${bestLead}保持规律作息和饮食，让状态能够承接后续安排。`;
     return period === 'today'
-      ? `适合作为配合项，等主线稳定后再处理。涉及${definition.check}时先把条件补齐。`
-      : `这是${scopeLabel}的辅助线，不必与主线同时用力。涉及${definition.check}时，放在条件较齐的阶段处理。`;
+      ? `适合作为配合项，等主线稳定后再处理。先${preparation}，形成${definition.outcome}后便转回主线。`
+      : `这是${scopeLabel}的辅助线，不必与主线同时用力。放在条件较齐的阶段处理，并以${definition.outcome}作为收尾。`;
   }
   if (definition.key === 'wellbeing') {
     return tone === 'favorable'
       ? `${bestLead}状态可以承接日常安排，但仍要给休息、饮食和轻度活动留出固定时间。`
       : `${definition.prepare}，按睡眠、饮食和真实精力调整任务量。`;
   }
-  if (tone === 'favorable') return `${bestLead}${definition.action}，作为${scopeLabel}辅助推进即可，不必抢在主线之前。`;
-  if (tone === 'cautious') return `不宜把这里当成突破口。先${preparation}，确认${definition.check}后再动。`;
+  if (tone === 'favorable') return `${bestLead}${definition.action}，以${definition.outcome}作为收尾；这是${scopeLabel}的辅助推进项，不必抢在主线之前。`;
+  if (tone === 'cautious') return `不宜把这里当成突破口。${definition.cautionPattern}；${definition.cautionAction}`;
   return period === 'today'
-    ? `${bestLead}${definition.action}，条件明确就做，条件不齐就保留弹性。`
-    : `${bestLead}${definition.action}，只在条件明确的阶段推进，其余时间保持弹性。`;
+    ? `${bestLead}${definition.action}，并留下${definition.outcome}；若条件不齐，${definition.prepare}后再继续。`
+    : `${bestLead}${definition.action}，以${definition.outcome}作为阶段成果。`;
 }
 
 function formatAnalysisWindow(analysis: ChartAnalysis, period: FortunePeriod) {
@@ -1252,14 +1270,10 @@ function categoryBasis(
   evaluation: CategoryEvaluation,
   period: FortunePeriod,
   cautiousCount: number,
-  bestAnalysis?: ChartAnalysis,
   worstAnalysis?: ChartAnalysis,
 ) {
-  const caution = worstAnalysis && cautiousCount
-    ? `${formatAnalysisWindow(worstAnalysis, period)}的重要决定多核对一次`
-    : '';
-  const parts = [caution].filter(Boolean);
-  return parts.length ? `${parts.join('；')}。` : '';
+  if (!worstAnalysis || !cautiousCount) return '';
+  return `${formatAnalysisWindow(worstAnalysis, period)}：${evaluation.definition.cautionPattern}。${evaluation.definition.cautionAction}`;
 }
 
 function categoryFromEvaluation(
@@ -1268,7 +1282,7 @@ function categoryFromEvaluation(
   stats: Pick<CategoryAggregate, 'sampleCount' | 'favorableCount' | 'cautiousCount' | 'bestAnalysis' | 'worstAnalysis'>,
 ): DailyFortuneCategory {
   const meta = statusMeta(evaluation.tone);
-  const basis = categoryBasis(evaluation, period, stats.cautiousCount, stats.bestAnalysis, stats.worstAnalysis);
+  const basis = categoryBasis(evaluation, period, stats.cautiousCount, stats.worstAnalysis);
   return {
     key: evaluation.definition.key,
     icon: evaluation.definition.icon,
