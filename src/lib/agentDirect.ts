@@ -78,6 +78,31 @@ const yearParameters = Object.freeze({
   required: ['year'],
   additionalProperties: false,
 });
+const qimenParameters = Object.freeze({
+  type: 'object',
+  properties: {
+    scope: { type: 'string', enum: ['hour', 'day', 'month', 'year'] },
+    layout: { type: 'string', enum: ['zhuanpan', 'feipan'], description: '用户未指定时使用 zhuanpan。' },
+    ju_method: { type: 'string', enum: ['chaibu', 'zhirun'], description: '用户未指定时使用 chaibu。' },
+  },
+  required: ['scope', 'layout', 'ju_method'],
+  additionalProperties: false,
+});
+const taiyiParameters = Object.freeze({
+  type: 'object',
+  properties: { scope: { type: 'string', enum: ['year', 'month', 'day', 'hour'] } },
+  required: ['scope'],
+  additionalProperties: false,
+});
+const huangjiParameters = Object.freeze({
+  type: 'object',
+  properties: {
+    mode: { type: 'string', enum: ['year', 'date'], description: '值年用 year；此刻或年月日时盘用 date。' },
+    year: { type: 'integer', minimum: 1900, maximum: 2199, description: 'mode 为 year 时的目标公历年份。' },
+  },
+  required: ['mode'],
+  additionalProperties: false,
+});
 
 const agentTools: AgentToolDefinition[] = [
   { name: 'continue_reading', description: '沿用上一轮盘面。仅用于没有改变年份、日期、运限或术式的解释和追问。', parameters: emptyParameters },
@@ -89,11 +114,11 @@ const agentTools: AgentToolDefinition[] = [
   { name: 'cast_liuyao', description: '六爻。适合有明确对象和时间范围的单件成败、进展、关系、求职、交易或失物问题。', parameters: emptyParameters },
   { name: 'cast_meihua', description: '梅花易数。适合突发念头、宽泛问事或其他工具都不明显适合的问题。', parameters: emptyParameters },
   { name: 'cast_xiaoliuren', description: '小六壬。适合明确点名小六壬或希望快速判断眼前事项的问题。', parameters: emptyParameters },
-  { name: 'cast_qimen', description: '奇门遁甲。适合行动时机、方位、出行、布局、谈判和决策策略。', parameters: { type: 'object', properties: { scope: { type: 'string', enum: ['hour', 'day', 'month', 'year'] } }, required: ['scope'], additionalProperties: false } },
+  { name: 'cast_qimen', description: '奇门遁甲。适合行动时机、方位、出行、布局、谈判和决策策略；可选时日月年局、转飞盘与拆补置闰。', parameters: qimenParameters },
   { name: 'cast_liuren', description: '大六壬。适合人物关系复杂、过程多变的商业、纠纷、职场或多人事件。', parameters: emptyParameters },
-  { name: 'cast_taiyi', description: '太乙神数。仅用于明确提到太乙或宏观年度、群体与大势问题。', parameters: emptyParameters },
+  { name: 'cast_taiyi', description: '太乙神数年、月、日、时四计。仅用于明确提到太乙或宏观群体与大势问题。', parameters: taiyiParameters },
   { name: 'calculate_wuyun_liuqi', description: '五运六气年度盘。只在明确提到五运六气、司天、在泉或中运时使用。', parameters: yearParameters },
-  { name: 'calculate_huangji_jingshi', description: '皇极经世公元值年卦。只在明确提到皇极经世或值年卦时使用。', parameters: yearParameters },
+  { name: 'calculate_huangji_jingshi', description: '皇极经世值年卦或年月日时盘。只在明确提到皇极经世、值年卦或其月日时卦时使用。', parameters: huangjiParameters },
   { name: 'cast_jinkoujue', description: '金口诀。适合明确点名金口诀或快速判断人事、来意和方位。', parameters: emptyParameters },
   { name: 'select_almanac_date', description: '择日。适合结婚、搬家、开业、签约、出行、手术、装修、入职或上线等日期安排。', parameters: emptyParameters },
   { name: 'draw_ssgw_sign', description: '三山国王灵签。只有明确要求求签、抽签、灵签或三山国王时使用。', parameters: emptyParameters },
@@ -233,14 +258,29 @@ function selectionFromCall(call: { name: AgentToolName; arguments: Record<string
   }
   if (call.name === 'read_qizheng') return { mode: 'chart', chartKind: 'qizheng' };
   if (call.name === 'calculate_wuyun_liuqi') return { mode: 'divination', divinationKind: 'wuyun-liuqi', wuyunYear: validYear(call.arguments.year) ?? currentYear };
-  if (call.name === 'calculate_huangji_jingshi') return { mode: 'divination', divinationKind: 'huangji-jingshi', huangjiYear: validYear(call.arguments.year) ?? currentYear };
+  if (call.name === 'calculate_huangji_jingshi') {
+    const huangjiMode = call.arguments.mode === 'date' ? 'date' : 'year';
+    return { mode: 'divination', divinationKind: 'huangji-jingshi', huangjiMode, ...(huangjiMode === 'year' ? { huangjiYear: validYear(call.arguments.year) ?? currentYear } : {}) };
+  }
   const divinationKind = ({
     cast_liuyao: 'liuyao', cast_meihua: 'meihua', cast_xiaoliuren: 'xiaoliuren', cast_qimen: 'qimen', cast_liuren: 'liuren', cast_taiyi: 'taiyi', cast_jinkoujue: 'jinkoujue', select_almanac_date: 'almanac', draw_ssgw_sign: 'ssgw',
   } as const)[call.name as 'cast_liuyao' | 'cast_meihua' | 'cast_xiaoliuren' | 'cast_qimen' | 'cast_liuren' | 'cast_taiyi' | 'cast_jinkoujue' | 'select_almanac_date' | 'draw_ssgw_sign'];
   const qimenScope = call.name === 'cast_qimen' && ['hour', 'day', 'month', 'year'].includes(String(call.arguments.scope))
     ? String(call.arguments.scope) as 'hour' | 'day' | 'month' | 'year'
     : undefined;
-  return { mode: 'divination', divinationKind, ...(qimenScope ? { qimenScope } : {}) };
+  const qimenLayout = call.name === 'cast_qimen' && call.arguments.layout === 'feipan' ? 'feipan' : call.name === 'cast_qimen' ? 'zhuanpan' : undefined;
+  const qimenJuMethod = call.name === 'cast_qimen' && call.arguments.ju_method === 'zhirun' ? 'zhirun' : call.name === 'cast_qimen' ? 'chaibu' : undefined;
+  const taiyiScope = call.name === 'cast_taiyi' && ['year', 'month', 'day', 'hour'].includes(String(call.arguments.scope))
+    ? String(call.arguments.scope) as 'year' | 'month' | 'day' | 'hour'
+    : undefined;
+  return {
+    mode: 'divination',
+    divinationKind,
+    ...(qimenScope ? { qimenScope } : {}),
+    ...(qimenLayout ? { qimenLayout } : {}),
+    ...(qimenJuMethod ? { qimenJuMethod } : {}),
+    ...(taiyiScope ? { taiyiScope } : {}),
+  };
 }
 
 export async function requestDirectAgentSelection(

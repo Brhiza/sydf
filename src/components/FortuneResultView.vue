@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { DailyFortuneResult } from '../lib/dailyFortune';
+import type { CalendarEvent } from '../lib/calendarEvents';
 import FortuneStatusImage from './FortuneStatusImage.vue';
 import {
   UiReadingGrid,
@@ -17,6 +18,7 @@ const props = defineProps<{
     heroValue: string;
     lunar: string;
     periodRange: string;
+    events: CalendarEvent[];
   };
   currentDate: boolean;
 }>();
@@ -53,6 +55,48 @@ const timeRows = computed(() => props.result.timeWindows.map((item) => ({
   tone: 'accent' as const,
 })));
 
+const insightRows = computed(() => props.result.evidenceInsights.map((item) => ({
+  key: item.key,
+  marker: item.label.slice(0, 1),
+  title: item.title,
+  detail: item.detail,
+  tone: readingTone(item.tone),
+})));
+
+const referenceRows = computed(() => [
+  {
+    key: 'colors',
+    marker: '色',
+    title: '助运颜色',
+    detail: props.result.reference.colors.map((item) => item.name).join('、'),
+    tone: 'accent' as const,
+  },
+  {
+    key: 'numbers',
+    marker: '数',
+    title: '助运数字',
+    detail: props.result.reference.numbers.join('、'),
+    tone: 'accent' as const,
+  },
+  {
+    key: 'direction',
+    marker: '向',
+    title: props.result.reference.direction === '不固定' ? '方位不限' : `优先${props.result.reference.direction}`,
+    detail: props.result.reference.directionNote,
+    tone: 'accent' as const,
+  },
+  {
+    key: 'item',
+    marker: props.result.reference.itemSymbol,
+    title: props.result.reference.item,
+    detail: props.result.reference.itemNote,
+    tone: 'accent' as const,
+  },
+]);
+
+const insightTitle = computed(() => props.result.period === 'today' ? '今日重点' : props.result.period === 'month' ? '本月重点解读' : '今年重点解读');
+const referenceTitle = computed(() => props.result.period === 'today' ? '今日助运' : props.result.period === 'month' ? '本月助运' : '今年助运');
+
 const recommendedRows = computed(() => (props.result.modernAlmanac?.recommended || []).map((item) => ({
   key: item.key,
   marker: item.title.slice(0, 1),
@@ -68,6 +112,32 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
   detail: item.detail,
   tone: 'caution' as const,
 })));
+
+const actionRows = computed(() => props.result.actionTips.map((item) => ({
+  key: `${item.sourceKey}-${item.label}`,
+  marker: item.tone === 'positive' ? '先' : '查',
+  title: item.label,
+  detail: item.text,
+  tone: item.tone === 'positive' ? 'success' as const : 'caution' as const,
+})));
+
+const actionTitle = computed(() => props.result.period === 'today'
+  ? (props.currentDate ? '今天先看这两件事' : '当天先看这两件事')
+  : props.result.period === 'month'
+    ? '本月先看这两件事'
+    : '今年先看这两件事');
+
+const trendTitle = computed(() => props.result.period === 'today'
+  ? '未来7天节奏'
+  : props.result.period === 'month'
+    ? '本月分周节奏'
+    : '全年逐月节奏');
+
+const leadKicker = computed(() => props.result.period === 'today'
+  ? (props.currentDate ? '今日解读' : '当天解读')
+  : props.result.period === 'month'
+    ? (props.currentDate ? '本月解读' : '该月解读')
+    : (props.currentDate ? '今年解读' : '该年解读'));
 </script>
 
 <template>
@@ -91,12 +161,15 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
             <p v-else><small>公历范围</small><b>{{ calendar.periodRange }}</b></p>
           </div>
         </div>
+        <p v-if="calendar.events.length" class="fortune-date-events" aria-label="当天事件">
+          <span v-for="event in calendar.events" :key="event.id">{{ event.label }}</span>
+        </p>
       </div>
     </template>
 
     <template #hero-summary>
       <UiReadingLead
-        :kicker="currentDate ? '今日解读' : '当天解读'"
+        :kicker="leadKicker"
         :title="result.title"
         :summary="result.summary"
       />
@@ -109,6 +182,10 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
         </article>
         <p v-if="!result.timeWindows.length">没有需要特别优先的日期，按正常计划推进即可。</p>
       </div>
+    </UiReadingSection>
+
+    <UiReadingSection v-if="actionRows.length" class="fortune-action-section" :title="actionTitle">
+      <UiReadingRows :items="actionRows" marker-style="soft" />
     </UiReadingSection>
 
     <template v-if="result.modernAlmanac">
@@ -143,6 +220,26 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
       </UiReadingSection>
     </UiReadingGrid>
 
+    <UiReadingSection v-if="result.periodTrend.length" class="fortune-trend-section" :title="trendTitle">
+      <div class="fortune-trend-list" :class="`is-${result.period}`">
+        <article v-for="item in result.periodTrend" :key="item.dateKey" :class="`tone-${item.tone}`">
+          <header><strong>{{ item.label }}</strong><small v-if="item.dateLabel">{{ item.dateLabel }}</small></header>
+          <b>{{ item.status }}</b>
+          <p>{{ item.focus }}</p>
+        </article>
+      </div>
+    </UiReadingSection>
+
+    <UiReadingGrid ratio="equal">
+      <UiReadingSection :title="insightTitle">
+        <UiReadingRows :items="insightRows" marker-style="soft" />
+      </UiReadingSection>
+
+      <UiReadingSection :title="referenceTitle">
+        <UiReadingRows :items="referenceRows" marker-style="soft" />
+      </UiReadingSection>
+    </UiReadingGrid>
+
   </UiReadingWorkspace>
 </template>
 
@@ -151,7 +248,7 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
 .fortune-date-summary > span { color: var(--ds-text-secondary); display: block; font-size: var(--ds-text-xs); font-weight: 600; margin-bottom: var(--ds-space-3); }
 .fortune-date-main { align-items: center; display: grid; gap: var(--ds-space-4); grid-template-columns: auto minmax(0, 1fr); }
 .fortune-date-main > strong {
-  color: var(--ds-accent);
+  color: var(--ds-accent-strong);
   font-family: 'Arial Narrow', 'DIN Alternate', 'Segoe UI', sans-serif;
   font-size: 76px;
   font-variant-numeric: tabular-nums;
@@ -164,6 +261,8 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
 .fortune-date-main p { display: grid; gap: 2px; margin: 0; }
 .fortune-date-main small { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); line-height: 1.4; }
 .fortune-date-main b { color: var(--ds-text-primary); font-size: var(--ds-text-sm); line-height: 1.4; overflow-wrap: anywhere; }
+.fortune-date-events { color: var(--ds-accent-strong); display: flex; flex-wrap: wrap; font-size: var(--ds-text-xs); gap: 3px 7px; line-height: 1.45; margin: var(--ds-space-3) 0 0; }
+.fortune-date-events span + span::before { color: var(--ds-text-tertiary); content: '·'; margin-right: 7px; }
 .fortune-period-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fortune-period-list article { display: grid; gap: 4px; padding: 10px 14px; }
 .fortune-period-list article + article { border-left: 1px solid var(--ds-line); }
@@ -183,5 +282,35 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
   .fortune-period-list article { grid-template-columns: auto auto minmax(0, 1fr); padding: 9px 0; }
   .fortune-period-list article + article { border-left: 0; border-top: 1px solid var(--ds-line); }
   .fortune-period-list small { text-align: right; }
+}
+
+.fortune-trend-list { display: grid; }
+.fortune-trend-list.is-today { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.fortune-trend-list.is-month { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.fortune-trend-list.is-year { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.fortune-trend-list article { display: grid; gap: 5px; min-width: 0; padding: 9px 11px; }
+.fortune-trend-list article + article { border-left: 1px solid var(--ds-line); }
+.fortune-trend-list.is-year article:nth-child(7) { border-left: 0; }
+.fortune-trend-list.is-year article:nth-child(n + 7) { border-top: 1px solid var(--ds-line); }
+.fortune-trend-list header { align-items: baseline; display: flex; gap: 5px; justify-content: space-between; min-width: 0; }
+.fortune-trend-list strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); }
+.fortune-trend-list small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
+.fortune-trend-list b { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); font-weight: 650; }
+.fortune-trend-list .tone-favorable b { color: var(--ds-success); }
+.fortune-trend-list .tone-cautious b { color: color-mix(in srgb, var(--ds-gold) 70%, var(--ds-text-primary)); }
+.fortune-trend-list p { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); line-height: 1.45; margin: 0; }
+
+@media (max-width: 720px) {
+  .fortune-trend-list.is-today { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fortune-trend-list.is-month,
+  .fortune-trend-list.is-year { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fortune-trend-list article { padding: 8px 7px; }
+  .fortune-trend-list.is-today article:nth-child(4n + 1),
+  .fortune-trend-list.is-month article:nth-child(3n + 1),
+  .fortune-trend-list.is-year article:nth-child(3n + 1) { border-left: 0; }
+  .fortune-trend-list.is-today article:nth-child(n + 5),
+  .fortune-trend-list.is-month article:nth-child(n + 4),
+  .fortune-trend-list.is-year article:nth-child(n + 4) { border-top: 1px solid var(--ds-line); }
+  .fortune-trend-list header { align-items: flex-start; flex-direction: column; gap: 2px; }
 }
 </style>

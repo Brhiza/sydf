@@ -53,6 +53,7 @@ function periodEvaluation(result: DailyFortuneResult) {
     categories: result.categories,
     actionTips: result.actionTips,
     evidenceInsights: result.evidenceInsights,
+    periodTrend: result.periodTrend,
     reference: result.reference,
     goodDirections: result.goodDirections,
     avoidDirections: result.avoidDirections,
@@ -95,7 +96,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-08-v9');
+      expect(serialized).toContain('2026-08-25-v14');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -160,7 +161,22 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(Number(window.range.slice(0, 2))).toBeGreaterThanOrEqual(7);
       expect(window.coverage).toMatch(/适合|可安排|整理|复核/);
     });
+    expect(result.periodTrend).toHaveLength(7);
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-08', label: '今天', dateLabel: '8/8' });
+    expect(result.periodTrend[1]?.label).toBe('明天');
+    expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(7);
+    result.periodTrend.forEach((item) => {
+      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
+      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
+    });
     expectToneAndGradeConsistent(result);
+  });
+
+  it('节气名称只在节气当天显示', () => {
+    const beforeChushu = generateDailyFortune(new Date(2026, 7, 22, 12, 0, 0, 0), undefined, 'today');
+    const chushu = generateDailyFortune(new Date(2026, 7, 23, 12, 0, 0, 0), undefined, 'today');
+    expect(beforeChushu.jieqi).toBe('');
+    expect(chushu.jieqi).toBe('处暑');
   });
 
   it('当前时段按真实时辰更新，同一时辰复用缓存，跨时辰重新计算', () => {
@@ -180,6 +196,21 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.calendarRangeLabel).toBe('2025年8月1日 — 2025年8月31日');
     expect(result.weekday).toMatch(/^\d+月\d+日—\d+月\d+日$/);
     expect(result.coverageLabel).toBe('综合本月每天的变化');
+    expect(result.periodTrend).toHaveLength(5);
+    expect(result.periodTrend[0]).toMatchObject({
+      dateKey: '2025-08-w1',
+      label: '第1周',
+      dateLabel: '1—7日',
+    });
+    expect(result.periodTrend[4]).toMatchObject({
+      dateKey: '2025-08-w5',
+      label: '第5周',
+      dateLabel: '29—31日',
+    });
+    result.periodTrend.forEach((item) => {
+      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
+      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
+    });
     result.categories.forEach((category) => {
       expect(category.basis).toMatch(/\d+月\d+日/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
@@ -194,12 +225,20 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.calendarRangeLabel).toBe('2025年1月1日 — 2025年12月31日');
     expect(result.weekday).toMatch(/\d+月\d+日.*\d+月\d+日/);
     expect(result.coverageLabel).toBe('综合全年各阶段变化');
+    expect(result.periodTrend).toHaveLength(12);
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-01', label: '1月', dateLabel: '' });
+    expect(result.periodTrend[11]).toMatchObject({ dateKey: '2025-12', label: '12月', dateLabel: '' });
+    expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(12);
+    result.periodTrend.forEach((item) => {
+      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
+      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
+    });
     result.categories.forEach((category) => {
       expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);
     });
     result.timeWindows.forEach((window) => {
-      expect(window.name).toMatch(/^(?:\d+月\d+—\d+日|\d+月\d+日—\d+月\d+日)$/);
+      expect(window.name).toMatch(/^(?:\d+月\d+日—\d+日|\d+月\d+日—\d+月\d+日)$/);
       expect(window.range).toBe('');
       expect(window.name).not.toContain('2024年');
       expect(window.name).not.toContain('2026年');
@@ -213,8 +252,55 @@ describe('今日、月运、年运统一周期算法', () => {
     const date = new Date(2025, 7, 8, 12, 0, 0, 0);
     const general = generateDailyFortune(date, undefined, 'today');
     const personal = generateDailyFortune(date, profile, 'today');
+    expect(general.personalized).toBe(false);
+    expect(personal.personalized).toBe(true);
     expect(personal.categories.map((item) => [item.tone, item.detail, item.basis]))
       .not.toEqual(general.categories.map((item) => [item.tone, item.detail, item.basis]));
+  });
+
+  it('同一天的不同命盘会形成稳定且可区分的个人结果', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const profiles: DailyFortuneProfile[] = [
+      profile,
+      { ...profile, id: 'profile-b', gender: 'male', date: '1984-01-01', time: '23:30' },
+      { ...profile, id: 'profile-c', date: '1998-11-20', time: '16:45' },
+    ];
+    const results = profiles.map((item) => generateDailyFortune(date, item, 'today'));
+    const signatures = results.map((result) => JSON.stringify({
+      tone: result.tone,
+      grade: result.grade,
+      categories: result.categories.map((item) => [item.key, item.tone, item.detail]),
+      reference: result.reference,
+      goodDirections: result.goodDirections,
+    }));
+    expect(results.every((result) => result.personalized)).toBe(true);
+    expect(new Set(signatures).size).toBe(results.length);
+    expect(new Set(results.map((result) => JSON.stringify(result.reference))).size).toBeGreaterThan(1);
+  });
+
+  it('多项明显风险不会被普通项目平均成整体顺势', () => {
+    const results = Array.from({ length: 12 }, (_, index) => (
+      generateDailyFortune(new Date(2025, 7, index + 1, 12, 0, 0, 0), profile, 'today')
+    ));
+    const riskDays = results.filter((result) => result.categories.filter((item) => item.tone === 'cautious').length >= 2);
+    expect(new Set(results.map((result) => result.grade)).size).toBeGreaterThan(1);
+    expect(riskDays.length).toBeGreaterThan(0);
+    expect(riskDays.every((result) => result.tone !== 'favorable')).toBe(true);
+  }, 15_000);
+
+  it('个人排盘不可用时无感降级为通用今日运势', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const invalidProfile = { ...profile, date: '2025-02-29' };
+    const fallback = generateDailyFortune(date, invalidProfile, 'today');
+    const general = generateDailyFortune(date, undefined, 'today');
+    expect(fallback.personalized).toBe(false);
+    expect(fallback).toEqual(general);
+  });
+
+  it('结果文案直接给出结论，不重复免责声明式提醒', () => {
+    const result = generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
+    const text = JSON.stringify(result);
+    expect(text).not.toMatch(/仅供参考|仍以实际|不构成|寻求专业帮助|不必只看时间/);
   });
 
   it('查询出生日前的历史周期时真正降级为通用盘', () => {

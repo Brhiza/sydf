@@ -60,8 +60,34 @@ describe('占卜主题资源映射', () => {
     expect(assetPath(getDivinationThemeLogoUrl())).toBe('/divination-themes/mo/logo.webp');
   });
 
-  it('三个主题共用同一套传统仪式素材', () => {
-    const paths = (['yue', 'shi', 'mo', 'lan-yu'] as const).map((themeId) => {
+  it('仙主题包含完整独立资源', () => {
+    setDivinationTheme('xian');
+    expect(resolveDivinationThemeId('tarot')).toBe('xian');
+    expect(resolveDivinationThemeId('xiaoliuren')).toBe('xian');
+    expect(resolveDivinationThemeId('fortune-status')).toBe('xian');
+    expect(assetPath(getTarotThemeImageUrl(0))).toBe('/divination-themes/xian/cards/tarot/000.webp');
+    expect(assetPath(getXiaoliurenThemeImageUrl('da-an.webp'))).toBe('/divination-themes/xian/xiaoliuren/da-an.webp');
+    expect(assetPath(getDivinationThemeLogoUrl())).toBe('/divination-themes/xian/logo.webp');
+  });
+
+  it('山海经主题包含完整独立资源', () => {
+    setDivinationTheme('shanhaijing');
+    expect(resolveDivinationThemeId('tarot')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('lenormand')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('oracle')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('hexagrams')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('ssgw')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('brand')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('xiaoliuren')).toBe('shanhaijing');
+    expect(resolveDivinationThemeId('fortune-status')).toBe('shanhaijing');
+    expect(assetPath(getTarotThemeImageUrl(0))).toBe('/divination-themes/shanhaijing/cards/tarot/000.webp');
+    expect(assetPath(getNumberedThemeCardImageUrl('ssgw', 92))).toBe('/divination-themes/shanhaijing/cards/ssgw/92.webp');
+    expect(assetPath(getXiaoliurenThemeImageUrl('da-an.webp'))).toBe('/divination-themes/shanhaijing/xiaoliuren/da-an.webp');
+    expect(assetPath(getDivinationThemeLogoUrl())).toBe('/divination-themes/shanhaijing/logo.webp');
+  });
+
+  it('各主题共用同一套传统仪式素材', () => {
+    const paths = (['yue', 'shi', 'mo', 'xian', 'shanhaijing', 'lan-yu'] as const).map((themeId) => {
       setDivinationTheme(themeId);
       return [
         assetPath(getShengbeiImageUrl('yang')),
@@ -98,8 +124,8 @@ describe('占卜主题资源映射', () => {
     expect(rootVariables['--ds-accent']).toBe(activeDivinationThemeStyle.value['--ds-accent']);
   });
 
-  it('三个浅色主题的辅助文字都保持清晰可读', () => {
-    for (const themeId of ['yue', 'shi', 'mo', 'lan-yu'] as const) {
+  it('各浅色主题的正文和强调色都保持清晰可读', () => {
+    for (const themeId of ['yue', 'shi', 'mo', 'xian', 'shanhaijing', 'lan-yu'] as const) {
       setDivinationTheme(themeId);
       const palette = activeDivinationThemeStyle.value;
       expect(contrastRatio(
@@ -109,6 +135,14 @@ describe('占卜主题资源映射', () => {
       expect(contrastRatio(
         lightThemeColor(palette['--ds-text-tertiary']),
         lightThemeColor(palette['--ds-surface-raised']),
+      )).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(
+        lightThemeColor(palette['--ds-accent-strong']),
+        lightThemeColor(palette['--ds-surface-raised']),
+      )).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(
+        lightThemeColor(palette['--ds-accent-contrast']),
+        lightThemeColor(palette['--ds-accent-strong']),
       )).toBeGreaterThanOrEqual(4.5);
     }
   });
@@ -131,12 +165,19 @@ describe('占卜主题资源映射', () => {
     expect(assetPath(getWesternDeck('lenormand')[0]?.imageUrl || '')).toBe('/divination-themes/shi/cards/lenormand/01.webp');
   });
 
+  it('豆包塔罗可作为独立牌组使用', () => {
+    setDivinationDeckSelection('tarot', 'doubao');
+    expect(assetPath(getTarotThemeImageUrl(0))).toBe('/card-decks/tarot/doubao/000.webp');
+    expect(assetPath(getTarotThemeImageUrl(77))).toBe('/card-decks/tarot/doubao/077.webp');
+    expect(assetPath(getTarotCardBackUrl())).toBe('/card-decks/tarot/doubao/back.webp');
+  });
+
   it('自定义塔罗牌只出现在塔罗牌组中', () => {
     expect(getDivinationDeckOptions('tarot').map(option => option.value)).toEqual([
-      'theme', 'yue', 'shi', 'mo', 'lan-yu', 'pleasant-goat', 'gg-bond', 'sacred-milk-dragon', 'danjie-leopard',
+      'theme', 'yue', 'shi', 'mo', 'xian', 'shanhaijing', 'lan-yu', 'pleasant-goat', 'gg-bond', 'sacred-milk-dragon', 'danjie-leopard', 'doubao',
     ]);
     expect(getDivinationDeckOptions('lenormand').map(option => option.value)).toEqual([
-      'theme', 'yue', 'shi', 'mo', 'lan-yu',
+      'theme', 'yue', 'shi', 'mo', 'xian', 'shanhaijing', 'lan-yu',
     ]);
   });
 });

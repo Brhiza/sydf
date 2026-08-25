@@ -52,10 +52,11 @@ withDefaults(defineProps<{
   flex-wrap: wrap;
   gap: var(--ds-space-1) var(--ds-space-3);
   margin-bottom: 7px;
+  min-width: 0;
 }
 
 .ui-reading-lead__kicker {
-  color: var(--ds-accent);
+  color: var(--ds-accent-strong);
   font-size: var(--ds-text-xs);
   font-weight: 650;
   letter-spacing: .09em;
@@ -64,6 +65,7 @@ withDefaults(defineProps<{
 .ui-reading-lead__meta {
   color: var(--ds-text-tertiary);
   font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
 }
 
 .ui-reading-lead__title {
@@ -87,6 +89,7 @@ withDefaults(defineProps<{
   font-weight: 650;
   line-height: 1.5;
   margin: var(--ds-space-3) 0 0;
+  text-wrap: pretty;
 }
 
 .ui-reading-lead__summary {
@@ -94,6 +97,9 @@ withDefaults(defineProps<{
   font-size: var(--ds-text-md);
   line-height: var(--ds-line-normal);
   margin: var(--ds-space-2) 0 0;
+  max-width: 68ch;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 .ui-reading-lead__content { min-width: 0; }

@@ -213,7 +213,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(fanFrame); resizeObserver?.disconne
 </script>
 
 <template>
-  <UiToolPage width="wide" class="western-draw-page" :class="{ 'is-drawing': phase === 'drawing' }">
+  <UiToolPage class="western-draw-page" :class="{ 'is-drawing': phase === 'drawing' }">
     <UiWorkspaceSurface class="western-draw-surface" :class="{ 'is-drawing': phase === 'drawing' }" padding="standard">
       <header v-if="phase === 'drawing'" class="western-draw-head"><div><strong>{{ deckName }} · {{ spread.label }}</strong><small>{{ initialQuestion }}</small><span>{{ progressText }}</span></div><UiButton variant="ghost" size="small" @click="emit('restart')"><RotateCcw :size="14" />重新开始</UiButton></header>
       <header v-else class="western-section-head"><span>{{ deckName }}</span><h2>{{ phase === 'setup' ? '选择抽牌方式' : phase === 'shuffling' ? '正在洗牌' : '你的牌阵' }}</h2></header>
@@ -261,7 +261,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(fanFrame); resizeObserver?.disconne
 .western-draw-surface { min-height: min(760px, calc(100dvh - 190px)); overflow: hidden; }
 .western-draw-surface.is-drawing { background: transparent; border: 0; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; height: 100%; margin: 0; max-width: none; min-height: 0; overflow: hidden; padding-bottom: 0; width: 100%; }
 .western-section-head { margin-bottom: var(--ds-space-6); text-align: center; }
-.western-section-head span { color: var(--ds-accent); font-size: var(--ds-text-xs); letter-spacing: .12em; }
+.western-section-head span { color: var(--ds-accent-strong); font-size: var(--ds-text-xs); letter-spacing: .12em; }
 .western-section-head h2 { color: var(--ds-text-primary); font-size: var(--ds-heading-sm); margin: 7px 0 0; }
 .western-draw-head { align-items: center; display: flex; gap: 16px; justify-content: space-between; margin: 0 var(--ds-page-gutter); width: calc(100% - var(--ds-page-gutter) - var(--ds-page-gutter)); }
 .western-draw-head > div { display: grid; gap: 4px; min-width: 0; }
@@ -272,7 +272,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(fanFrame); resizeObserver?.disconne
 .western-methods > button:not(.ui-button) { align-items: center; background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); color: var(--ds-text-secondary); cursor: pointer; display: flex; gap: 12px; min-height: 70px; padding: 12px 14px; text-align: left; }
 .western-methods > button.active { background: var(--ds-accent-soft); border-color: color-mix(in srgb,var(--ds-accent) 45%,var(--ds-line)); color: var(--ds-accent-strong); }
 .western-methods button span { display: grid; gap: 2px; }.western-methods button small { color: var(--ds-text-tertiary); }
-.western-methods input { background: var(--ds-surface-raised); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font: inherit; height: 44px; padding: 0 12px; }
+.western-methods input { background: var(--ds-surface-raised); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font: inherit; height: var(--ds-control-md); padding: 0 12px; }
 .western-shuffling { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: min(520px,58dvh); }.western-shuffling > div { height: 230px; position: relative; width: 150px; }.western-shuffling img { animation: western-shuffle 1.7s ease-in-out both; border-radius: var(--ds-radius-md); box-shadow: 0 12px 26px rgba(41,33,52,.2); height: 230px; left: 0; object-fit: cover; position: absolute; width: 150px; }.western-shuffling img:nth-child(even) { animation-name: western-shuffle-right; }.western-shuffling strong { margin-top: 22px; }.western-shuffling small { color: var(--ds-text-tertiary); margin-top: 6px; }
 @keyframes western-shuffle { 35% { transform: translateX(-70px) rotate(-7deg); } 70% { transform: translateX(20px); } } @keyframes western-shuffle-right { 35% { transform: translateX(70px) rotate(7deg); } 70% { transform: translateX(-20px); } }
 .western-draw-workspace { display: grid; flex: 1; grid-template-rows: minmax(0,1fr) auto; margin-top: 8px; min-height: 0; min-width: 0; width: 100%; }

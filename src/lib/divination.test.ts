@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import type { BaziChartResult } from 'mingyu-core/bazi';
-import { buildDivinationReadingPrompt, formatReadingSummary, runDivination, runZiweiChart, type BirthForm } from './divination';
+import { buildDivinationReadingPrompt, formatReadingSummary, runConfiguredJinkoujue, runDivination, runZiweiChart, type BirthForm } from './divination';
 
 const testBirth: BirthForm = {
   name: '测试案例',
@@ -106,6 +106,16 @@ describe('皇极经世前端链路', () => {
     expect(result.forecast?.hexagrams.sixtyYear.hexagram.name).toBeTruthy();
   });
 
+  it('支持按年月日时生成月、日、时卦', async () => {
+    const result = await runDivination('huangji-jingshi', new Date('2026-08-09T12:30:00+08:00'), undefined, { huangjiMode: 'date' }) as HuangjiJingshiResult;
+
+    expect(result.input.mode).toBe('年月日时');
+    expect(result.dateTimeForecast?.hexagrams.monthJing.name).toBeTruthy();
+    expect(result.dateTimeForecast?.hexagrams.daily.name).toBeTruthy();
+    expect(result.dateTimeForecast?.hexagrams.hourJing.name).toBeTruthy();
+    expect(formatReadingSummary('huangji-jingshi', result)).toContain('月经卦');
+  });
+
   it('使用核心库精简提示词并生成普通用户可读摘要', async () => {
     const result = await runDivination('huangji-jingshi', new Date(), undefined, { huangjiYear: 2028 });
     const prompt = await buildDivinationReadingPrompt('huangji-jingshi', result);
@@ -195,6 +205,16 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).not.toContain('月相：');
   });
 
+  it('奇门传递局式、排法与定局法', async () => {
+    const result = await runDivination('qimen', now, undefined, {
+      qimenScope: 'day',
+      qimenLayout: 'feipan',
+      qimenJuMethod: 'zhirun',
+    });
+
+    expect(result).toMatchObject({ scope: 'day', method: 'feipan', juMethod: 'zhirun' });
+  });
+
   it('保留大六壬课传，压缩古籍规则和神煞推导', async () => {
     const prompt = await buildDivinationReadingPrompt('liuren', await runDivination('liuren', now));
 
@@ -215,6 +235,14 @@ describe('占卜解读提示词清理', () => {
     expect(prompt.match(/^阴阳发用：/gm)).toHaveLength(1);
   });
 
+  it('金口诀可直接指定地分', async () => {
+    const result = await runConfiguredJinkoujue('branch', '午', now);
+
+    expect(result.method).toBe('branch');
+    expect(result.positions.diFen.branch).toBe('午');
+    expect(result.calculation.inputBaseSource).toBe('指定地分');
+  });
+
   it('太乙资料不附带内部模型描述', async () => {
     const prompt = await buildDivinationReadingPrompt('taiyi', await runDivination('taiyi', now, undefined, { taiyiYear: 2026 }));
 
@@ -222,6 +250,16 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).toContain('主客定算：');
     expect(prompt).toContain('将参：');
     expect(prompt).not.toContain('模型：');
+  });
+
+  it('太乙开放月、日、时计而不再固定年计', async () => {
+    const month = await runDivination('taiyi', now, undefined, { taiyiScope: 'month' });
+    const day = await runDivination('taiyi', now, undefined, { taiyiScope: 'day' });
+    const hour = await runDivination('taiyi', now, undefined, { taiyiScope: 'hour' });
+
+    expect(month).toMatchObject({ scope: 'month', accumulatedLabel: '积月' });
+    expect(day).toMatchObject({ scope: 'day', accumulatedLabel: '积日' });
+    expect(hour).toMatchObject({ scope: 'hour', accumulatedLabel: '积时' });
   });
 
   it('小六壬保留盘面时间、落宫轨迹和最终歌诀', async () => {
@@ -246,7 +284,7 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).not.toContain('传统依据：');
   });
 
-  it('择日传递事项、日期范围、候选日课和可用时辰，不复制计算链', async () => {
+  it('择日传递事项、日期范围和全部候选日资料，不复制计算链', async () => {
     const prompt = await buildDivinationReadingPrompt('almanac', await runDivination('almanac', now, undefined, {
       almanacTopic: 'study',
       almanacStartDate: '2026-08-09',
@@ -255,10 +293,23 @@ describe('占卜解读提示词清理', () => {
 
     expect(prompt).toContain('择日事项：考试学习');
     expect(prompt).toContain('候选日期：2026-08-09 至 2026-08-15');
-    expect(prompt).toContain('候选日期明细：');
-    expect(prompt).toContain('日课：');
-    expect(prompt).toContain('可用时辰');
+    expect(prompt).toContain('候选日期明细：共7日');
+    expect(prompt.match(/^- 第\d日：/gmu)).toHaveLength(7);
+    expect(prompt).toContain('事项宜');
+    expect(prompt).not.toContain('日课：');
     expect(prompt).not.toContain('证据：');
     expect(prompt).not.toContain('计算链');
+  });
+
+  it('择日传递周末和时段偏好', async () => {
+    const result = await runDivination('almanac', now, undefined, {
+      almanacTopic: 'study',
+      almanacStartDate: '2026-08-09',
+      almanacEndDate: '2026-08-15',
+      almanacWeekendPreference: 'prefer',
+      almanacTimePreferences: ['morning'],
+    });
+
+    expect(result).toMatchObject({ weekendPreference: 'prefer', timePreferences: ['morning'] });
   });
 });

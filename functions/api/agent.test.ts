@@ -133,7 +133,7 @@ describe('0 基础 Agent 工具调用', () => {
 
     const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
 
-    expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'huangji-jingshi', huangjiYear: 2028 } });
+    expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'huangji-jingshi', huangjiMode: 'year', huangjiYear: 2028 } });
   });
 
   it('把七政四余工具选择传回前端', async () => {
@@ -174,7 +174,7 @@ describe('0 基础 Agent 工具调用', () => {
       env: {},
     });
 
-    expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'qimen', qimenScope: 'month' } });
+    expect(await response.json()).toEqual({ selection: { mode: 'divination', divinationKind: 'qimen', qimenScope: 'month', qimenLayout: 'zhuanpan', qimenJuMethod: 'chaibu' } });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

@@ -40,6 +40,15 @@ export interface DailyFortuneTimeWindow {
   coverage: string;
 }
 
+export interface DailyFortuneTrendItem {
+  dateKey: string;
+  label: string;
+  dateLabel: string;
+  status: string;
+  tone: DailyFortuneTone;
+  focus: string;
+}
+
 export interface DailyFortuneDirection {
   direction: string;
   detail: string;
@@ -86,6 +95,7 @@ export interface DailyFortuneEvidenceInsight {
 export interface DailyFortuneResult {
   period: FortunePeriod;
   periodLabel: string;
+  personalized: boolean;
   dateKey: string;
   dateLabel: string;
   rangeLabel: string;
@@ -109,6 +119,7 @@ export interface DailyFortuneResult {
   evidenceInsights: DailyFortuneEvidenceInsight[];
   categories: DailyFortuneCategory[];
   timeWindows: DailyFortuneTimeWindow[];
+  periodTrend: DailyFortuneTrendItem[];
   goodDirections: DailyFortuneDirection[];
   avoidDirections: DailyFortuneDirection[];
   directionFallback: string;
@@ -140,6 +151,7 @@ interface ElementReference {
 interface PersonalContext {
   qimenStem: string;
   dayElement: FiveElement;
+  referenceSeed: string;
   birthTimestamp: number;
   favorableElements: Set<FiveElement>;
   primaryFavorableElement: FiveElement | null;
@@ -152,6 +164,8 @@ interface PersonalContext {
 interface PersonalFlowEvidence {
   alignment: number;
   currentAlignment: number;
+  triggerIntensity: number;
+  formationAlignment: number;
   focusTopics: Set<string>;
   focusLabels: string[];
   triggerLevel: 'quiet' | 'active' | 'strong';
@@ -170,6 +184,7 @@ interface CategoryEvaluation {
   definition: TopicDefinition;
   palace: QimenJiuGongGe;
   tone: DailyFortuneTone;
+  score: number;
   supportCount: number;
   riskCount: number;
   personalRelation: PersonalRelation;
@@ -184,7 +199,9 @@ interface ChartAnalysis {
   chart: QimenData;
   activePalace: QimenJiuGongGe;
   activeTone: DailyFortuneTone;
+  activeScore: number;
   tone: DailyFortuneTone;
+  score: number;
   categories: CategoryEvaluation[];
 }
 
@@ -238,7 +255,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-08-v9';
+const dailyFortuneCacheVersion = '2026-08-25-v14';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -378,6 +395,13 @@ function solarTermsAround(date: Date) {
     .sort((left, right) => left.utcTimestamp - right.utcTimestamp);
 }
 
+function solarTermOnDate(date: Date) {
+  const dateKey = formatDateKey(date);
+  return solarTermsAround(date).find((term) => (
+    new Date(term.utcTimestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10) === dateKey
+  ))?.name || '';
+}
+
 function getCalendarPeriodRange(now: Date, period: 'month' | 'year'): FortunePeriodRange {
   const start = period === 'month'
     ? new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0)
@@ -414,7 +438,8 @@ function isCachedDailyFortuneResult(value: unknown): value is DailyFortuneResult
     && typeof result.summary === 'string'
     && Array.isArray(result.categories)
     && Array.isArray(result.evidenceInsights)
-    && Array.isArray(result.timeWindows);
+    && Array.isArray(result.timeWindows)
+    && Array.isArray(result.periodTrend);
 }
 
 function trimDailyFortuneMemoryCache() {
@@ -627,7 +652,7 @@ function formatDateSpan(start: Date, end: Date) {
 
 function formatPeriodStageSpan(start: Date, end: Date) {
   if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
-    return `${start.getMonth() + 1}月${start.getDate()}—${end.getDate()}日`;
+    return `${start.getMonth() + 1}月${start.getDate()}日—${end.getDate()}日`;
   }
   return formatDateSpan(start, end);
 }
@@ -703,6 +728,7 @@ function createPersonalContext(profile: DailyFortuneProfile | undefined): Person
     const context: PersonalContext = {
       qimenStem,
       dayElement: isFiveElement(chart.dayMaster.element) ? chart.dayMaster.element : '土',
+      referenceSeed: [chart.pillars.year, chart.pillars.month, chart.pillars.day, chart.pillars.hour].map((pillar) => pillar.ganZhi).join('|'),
       birthTimestamp: new Date(
         chart.solarDate.year,
         chart.solarDate.month - 1,
@@ -742,11 +768,38 @@ function neutralPersonalFlow(): PersonalFlowEvidence {
   return {
     alignment: 0,
     currentAlignment: 0,
+    triggerIntensity: 0,
+    formationAlignment: 0,
     focusTopics: new Set<string>(),
     focusLabels: [],
     triggerLevel: 'quiet',
     triggerLabels: [],
   };
+}
+
+function clampSignal(value: number, minimum = -1, maximum = 1) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function triggerRelationIntensity(type: string) {
+  // 干支关系只表示触发强弱；吉凶方向仍由本命喜忌与当层五行决定。
+  if (type === 'tianke-dichong' || type === 'suiyun-binglin') return 1;
+  if (type === 'pillar-fuyin') return .9;
+  if (type === 'branch-clash' || type === 'branch-punishment') return .78;
+  if (type === 'stem-clash' || type === 'branch-harm') return .68;
+  if (type === 'branch-break') return .56;
+  if (type === 'stem-combine' || type === 'branch-combine') return .5;
+  return .38;
+}
+
+function formationElementAlignment(personal: PersonalContext, groups: string[]) {
+  const alignments = groups
+    .map((group) => [...group].find(isFiveElement))
+    .filter((element): element is FiveElement => Boolean(element))
+    .map((element) => elementAlignment(personal, element));
+  return alignments.length
+    ? alignments.reduce<number>((total, value) => total + value, 0) / alignments.length
+    : 0;
 }
 
 function normalizeGanZhi(value: string | undefined) {
@@ -829,6 +882,12 @@ function buildPersonalFlowEvidence(
     const currentRelations = triggers.relations.filter((item) => item.source.type === currentLayer?.type);
     const currentPrimary = triggers.primaryRelations.filter((item) => item.source.type === currentLayer?.type);
     const currentFormations = triggers.formations.filter((item) => item.triggerLayerKeys.includes(resolvedCurrentLayer?.key || ''));
+    const triggerIntensity = Math.max(
+      0,
+      ...currentRelations.map((item) => triggerRelationIntensity(item.type)),
+      ...currentFormations.map(() => .72),
+    );
+    const formationAlignment = formationElementAlignment(personal, currentFormations.map((item) => item.group));
     const triggerLabels = [...currentPrimary, ...currentRelations]
       .map((item) => item.label)
       .concat(currentFormations.map((item) => item.label))
@@ -837,6 +896,8 @@ function buildPersonalFlowEvidence(
     const evidence: PersonalFlowEvidence = {
       alignment,
       currentAlignment,
+      triggerIntensity,
+      formationAlignment,
       focusTopics,
       focusLabels,
       triggerLevel: currentPrimary.length || currentFormations.length ? 'strong' : currentRelations.length ? 'active' : 'quiet',
@@ -952,49 +1013,48 @@ function evaluatePalaceSignals(
   };
 }
 
-function toneFromSignals(signals: PalaceSignals): DailyFortuneTone {
-  if (signals.hardRiskCount >= 2) return 'cautious';
-  if (signals.hardRiskCount === 1 && signals.supportCount <= 1) return 'cautious';
-  if (signals.softRiskCount >= 3 && signals.supportCount <= 1) return 'cautious';
-  if (signals.hardRiskCount === 0 && signals.softRiskCount <= 1 && signals.supportCount >= 3) return 'favorable';
+function toneFromScore(score: number, threshold = .5): DailyFortuneTone {
+  if (score >= threshold) return 'favorable';
+  if (score <= -threshold) return 'cautious';
   return 'balanced';
 }
 
-function activeDoorTone(chart: QimenData, palace: QimenJiuGongGe, signals: PalaceSignals): DailyFortuneTone {
-  const base: DailyFortuneTone = favorableDoors.has(chart.zhiShi) ? 'favorable' : cautiousDoors.has(chart.zhiShi) ? 'cautious' : 'balanced';
-  if (base === 'cautious') {
-    if (signals.hardRiskCount === 0 && signals.softRiskCount <= 1 && signals.supportCount >= 4) return 'balanced';
-    return 'cautious';
-  }
-  if (base === 'favorable') {
-    if (signals.hardRiskCount >= 2) return 'cautious';
-    if (signals.hardRiskCount >= 1 || signals.softRiskCount >= 2) return 'balanced';
-    return signals.supportCount >= 2 ? 'favorable' : 'balanced';
-  }
-  if (signals.hardRiskCount >= 1 && signals.supportCount < 2) return 'cautious';
-  if (signals.hardRiskCount === 0 && signals.softRiskCount === 0 && signals.supportCount >= 3) return 'favorable';
-  return 'balanced';
+function structuralSignal(signals: PalaceSignals) {
+  // 单个辅助信号只轻量参与；明确风险叠加时非线性增强，避免被普通吉项平均掉。
+  const supportTable = [0, .12, .34, .68, .9, 1.05];
+  const softRiskTable = [0, .12, .38, .72, 1.05];
+  const support = supportTable[Math.min(signals.supportCount, supportTable.length - 1)];
+  const softRisk = softRiskTable[Math.min(signals.softRiskCount, softRiskTable.length - 1)];
+  const hardRisk = signals.hardRiskCount * .72;
+  return clampSignal(support - softRisk - hardRisk, -1.35, 1.15);
+}
+
+function activeDoorScore(chart: QimenData, signals: PalaceSignals) {
+  const doorSignal = favorableDoors.has(chart.zhiShi) ? .55 : cautiousDoors.has(chart.zhiShi) ? -.55 : 0;
+  let score = doorSignal + structuralSignal(signals) * .58;
+  if (signals.hardRiskCount >= 2) score = Math.min(score, -.78);
+  else if (signals.hardRiskCount === 1) score = Math.min(score, .12);
+  return clampSignal(score, -1.3, 1.15);
 }
 
 function categoryToneWithPersonalFlow(
-  qimenTone: DailyFortuneTone,
+  qimenScore: number,
   signals: PalaceSignals,
   definition: TopicDefinition,
   flow: PersonalFlowEvidence,
 ) {
   const topicActive = flow.focusTopics.has(definition.key);
   const baseAlignment = flow.alignment * .62 + flow.currentAlignment * .38;
-  const triggerFactor = flow.triggerLevel === 'strong' ? 1.15 : flow.triggerLevel === 'active' ? 1.05 : 1;
-  const personalAlignment = Math.max(-1, Math.min(1, baseAlignment * (topicActive ? triggerFactor : .3)));
-  if (qimenTone === 'favorable' && personalAlignment <= -.42) return { tone: 'balanced' as const, personalAlignment };
-  if (qimenTone === 'cautious' && signals.hardRiskCount === 0 && personalAlignment >= .58) return { tone: 'balanced' as const, personalAlignment };
-  if (qimenTone === 'balanced' && signals.hardRiskCount === 0 && signals.softRiskCount <= 1 && personalAlignment >= .48) {
-    return { tone: 'favorable' as const, personalAlignment };
-  }
-  if (qimenTone === 'balanced' && (signals.softRiskCount >= 1 || signals.hardRiskCount >= 1) && personalAlignment <= -.48) {
-    return { tone: 'cautious' as const, personalAlignment };
-  }
-  return { tone: qimenTone, personalAlignment };
+  const triggerFactor = 1 + flow.triggerIntensity * (topicActive ? .32 : .1);
+  const focusFactor = topicActive ? 1 : .32;
+  const personalAlignment = clampSignal(
+    (baseAlignment * triggerFactor + flow.formationAlignment * .28) * focusFactor,
+  );
+  let score = qimenScore + personalAlignment * .48;
+  if (signals.hardRiskCount >= 2) score = Math.min(score, -.62);
+  else if (signals.hardRiskCount === 1) score = Math.min(score, .18);
+  score = clampSignal(score, -1.35, 1.25);
+  return { tone: toneFromScore(score), score, personalAlignment };
 }
 
 function analyzeChart(date: Date, scope: QimenScope, personal: PersonalContext | null): ChartAnalysis {
@@ -1003,15 +1063,17 @@ function analyzeChart(date: Date, scope: QimenScope, personal: PersonalContext |
   const personalFlow = buildPersonalFlowEvidence(personal, date, scope, chart);
   const activePalace = findDoorPalace(chart, chart.zhiShi) || chart.jiuGongGe.find((item) => item.gong !== 5)!;
   const activeSignals = evaluatePalaceSignals(chart, activePalace, null, personal, personalFlow);
-  const activeTone = activeDoorTone(chart, activePalace, activeSignals);
+  const activeScore = activeDoorScore(chart, activeSignals);
+  const activeTone = toneFromScore(activeScore);
   const categories = topicDefinitions.map((definition) => {
     const palace = findDoorPalace(chart, definition.primaryDoor) || activePalace;
     const signals = evaluatePalaceSignals(chart, palace, definition, personal, personalFlow);
-    const personalResult = categoryToneWithPersonalFlow(toneFromSignals(signals), signals, definition, personalFlow);
+    const personalResult = categoryToneWithPersonalFlow(structuralSignal(signals), signals, definition, personalFlow);
     return {
       definition,
       palace,
       tone: personalResult.tone,
+      score: personalResult.score,
       supportCount: signals.supportCount,
       riskCount: signals.hardRiskCount * 2 + signals.softRiskCount,
       personalRelation: signals.personalRelation,
@@ -1022,13 +1084,15 @@ function analyzeChart(date: Date, scope: QimenScope, personal: PersonalContext |
   });
   const favorableCount = categories.filter((item) => item.tone === 'favorable').length;
   const cautiousCount = categories.filter((item) => item.tone === 'cautious').length;
-  const tone: DailyFortuneTone = cautiousCount >= 3
-    || (activeTone === 'cautious' && (cautiousCount >= 2 || favorableCount === 0))
-    ? 'cautious'
-    : activeTone === 'favorable' && favorableCount >= 2 && cautiousCount <= 1
-      ? 'favorable'
-      : 'balanced';
-  return { date, dateKey, chart, activePalace, activeTone, tone, categories };
+  const categoryAverage = categories.reduce((total, item) => total + item.score, 0) / categories.length;
+  const strongestRisk = Math.min(...categories.map((item) => item.score));
+  let score = categoryAverage * .68 + activeScore * .32;
+  if (strongestRisk <= -.9) score = Math.min(score, -.3);
+  if (cautiousCount >= 3 || (activeTone === 'cautious' && cautiousCount >= 2)) score = Math.min(score, -.5);
+  if (favorableCount >= 3 && cautiousCount === 0 && activeTone === 'favorable') score = Math.max(score, .5);
+  score = clampSignal(score, -1.25, 1.15);
+  const tone = toneFromScore(score);
+  return { date, dateKey, chart, activePalace, activeTone, activeScore, tone, score, categories };
 }
 
 function toneRank(tone: DailyFortuneTone) {
@@ -1042,7 +1106,8 @@ function compareAnalyses(left: ChartAnalysis, right: ChartAnalysis) {
   const rightCautious = right.categories.filter((item) => item.tone === 'cautious').length;
   const leftSupport = left.categories.reduce((total, item) => total + item.supportCount - item.riskCount, 0);
   const rightSupport = right.categories.reduce((total, item) => total + item.supportCount - item.riskCount, 0);
-  return toneRank(right.tone) - toneRank(left.tone)
+  return right.score - left.score
+    || toneRank(right.tone) - toneRank(left.tone)
     || rightFavorable - leftFavorable
     || leftCautious - rightCautious
     || rightSupport - leftSupport
@@ -1122,10 +1187,7 @@ function categoryFromEvaluation(
 }
 
 function categorySignalScore(evaluation: CategoryEvaluation) {
-  const toneScore = evaluation.tone === 'favorable' ? 1.6 : evaluation.tone === 'cautious' ? -1.6 : 0;
-  const structureScore = Math.max(-1, Math.min(1, (evaluation.supportCount - evaluation.riskCount) / 3));
-  const palaceScore = evaluation.personalRelation === 'support' ? .3 : evaluation.personalRelation === 'review' ? -.3 : 0;
-  return toneScore + structureScore * .5 + palaceScore + evaluation.personalAlignment * .65;
+  return evaluation.score;
 }
 
 function aggregatePersonalRelation(evaluations: CategoryEvaluation[]): PersonalRelation {
@@ -1194,6 +1256,7 @@ function aggregatePeriodCategories(
     const combined: CategoryEvaluation = {
       ...deepestContext,
       tone,
+      score: weightedScore,
       supportCount: Math.round(allEvaluations.reduce((total, item) => total + item.supportCount, 0) / allEvaluations.length),
       riskCount: Math.round(allEvaluations.reduce((total, item) => total + item.riskCount, 0) / allEvaluations.length),
       personalRelation: aggregatePersonalRelation(allEvaluations),
@@ -1255,7 +1318,7 @@ function buildEvidenceInsights(
       sourceKey: strongest.category.key,
       label: '优先投入',
       title: `${strongest.category.label}是优先主线`,
-      detail: `${bestWindow ? `优先放在${bestWindow}；` : ''}建议${definition.action}，先完成最关键的一步。`,
+      detail: `${bestWindow ? `优先放在${bestWindow}；` : ''}${definition.action}，先完成最关键的一步。`,
       tone: strongest.category.tone,
     });
   }
@@ -1270,7 +1333,7 @@ function buildEvidenceInsights(
       title: `${weakest.category.label}先过确认关`,
       detail: weakest.cautiousCount
         ? `${worstWindow ? `${worstWindow}不要赶着落定；` : ''}先核对${definition.check}，确认后再推进。`
-        : `涉及${definition.check}时仍需按现实反馈确认，不必只看时间。`,
+        : `涉及${definition.check}时先核对清楚再推进。`,
       tone: weakest.cautiousCount ? 'cautious' : 'balanced',
     });
   }
@@ -1300,29 +1363,46 @@ function buildEvidenceInsights(
   return insights;
 }
 
-function buildSingleDirections(chart: QimenData) {
-  const goodDirections = (chart.directions?.goodDirections || []).slice(0, 2).map((item) => ({
+function personalDirectionScore(chart: QimenData, gong: number, personal: PersonalContext | null) {
+  if (!personal) return 0;
+  const palace = chart.jiuGongGe.find((item) => item.gong === gong);
+  if (!palace) return 0;
+  const relation = personalRelationForPalace(chart, palace, personal);
+  const relationScore = relation === 'support' ? 1 : relation === 'review' ? -1 : 0;
+  const usefulScore = isFiveElement(palace.element) ? elementAlignment(personal, palace.element) : 0;
+  return relationScore + usefulScore * .45;
+}
+
+function buildSingleDirections(chart: QimenData, personal: PersonalContext | null) {
+  // 不改写核心库的吉方与避方资格，只在已经成立的候选内部做个人化排序。
+  const goodDirections = [...(chart.directions?.goodDirections || [])]
+    .sort((left, right) => personalDirectionScore(chart, right.gong, personal) - personalDirectionScore(chart, left.gong, personal))
+    .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: '更适合安排外出、沟通或需要主动推进的事情，仍以实际路线和安全为先。',
+    detail: '适合安排外出、沟通或需要主动推进的事情。',
   }));
-  const avoidDirections = (chart.directions?.avoidDirections || []).slice(0, 2).map((item) => ({
+  const avoidDirections = [...(chart.directions?.avoidDirections || [])]
+    .sort((left, right) => personalDirectionScore(chart, left.gong, personal) - personalDirectionScore(chart, right.gong, personal))
+    .slice(0, 2).map((item) => ({
     direction: item.direction,
     detail: '这边的安排更容易反复，必须前往时请提前确认路线并多留时间。',
   }));
   return { goodDirections, avoidDirections };
 }
 
-function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'year') {
-  const counts = new Map<string, { good: number; avoid: number }>();
+function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'year', personal: PersonalContext | null) {
+  const counts = new Map<string, { good: number; avoid: number; personal: number }>();
   analyses.forEach(({ chart }) => {
     chart.directions?.goodDirections.forEach((item) => {
-      const value = counts.get(item.direction) || { good: 0, avoid: 0 };
+      const value = counts.get(item.direction) || { good: 0, avoid: 0, personal: 0 };
       value.good += 1;
+      value.personal += personalDirectionScore(chart, item.gong, personal);
       counts.set(item.direction, value);
     });
     chart.directions?.avoidDirections.forEach((item) => {
-      const value = counts.get(item.direction) || { good: 0, avoid: 0 };
+      const value = counts.get(item.direction) || { good: 0, avoid: 0, personal: 0 };
       value.avoid += 1;
+      value.personal += personalDirectionScore(chart, item.gong, personal);
       counts.set(item.direction, value);
     });
   });
@@ -1331,12 +1411,12 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
   const periodLabel = period === 'year' ? '今年' : '本月';
   const goodDirections = [...counts.entries()]
     .filter(([, value]) => value.good >= goodThreshold && value.good > value.avoid)
-    .sort((left, right) => right[1].good - left[1].good || left[1].avoid - right[1].avoid)
+    .sort((left, right) => right[1].good - left[1].good || right[1].personal - left[1].personal || left[1].avoid - right[1].avoid)
     .slice(0, 2)
-    .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向的支持较稳定，可在外出或沟通时参考，仍以实际路线和安全为先。` }));
+    .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向的支持较稳定，适合安排外出或沟通。` }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
-    .sort((left, right) => right[1].avoid - left[1].avoid || left[1].good - right[1].good)
+    .sort((left, right) => right[1].avoid - left[1].avoid || left[1].personal - right[1].personal || left[1].good - right[1].good)
     .slice(0, 2)
     .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向更容易遇到反复，必须前往时请提前规划并留出余量。` }));
   return { goodDirections, avoidDirections };
@@ -1381,6 +1461,92 @@ function buildTimeWindows(now: Date, period: FortunePeriod, analyses: ChartAnaly
   });
 }
 
+function trendSummary(analyses: ChartAnalysis[]) {
+  const averageScore = analyses.reduce((total, item) => total + item.score, 0) / Math.max(1, analyses.length);
+  const favorableCount = analyses.filter((item) => item.tone === 'favorable').length;
+  const cautiousCount = analyses.filter((item) => item.tone === 'cautious').length;
+  const tone: DailyFortuneTone = cautiousCount >= Math.ceil(analyses.length * .45) || averageScore <= -.28
+    ? 'cautious'
+    : favorableCount >= Math.ceil(analyses.length * .35) && averageScore >= .2
+      ? 'favorable'
+      : 'balanced';
+  const rankedTopics = topicDefinitions.map((definition, index) => ({
+    definition,
+    score: analyses.reduce((total, item) => total + (item.categories[index]?.score || 0), 0) / Math.max(1, analyses.length),
+  })).sort((left, right) => right.score - left.score);
+  const focusLabels = rankedTopics.slice(0, 2).map((item) => item.definition.shortLabel);
+  return {
+    tone,
+    status: tone === 'favorable' ? '适合推进' : tone === 'cautious' ? '宜放慢' : '稳步安排',
+    focus: focusLabels.length
+      ? tone === 'cautious' ? `${focusLabels.join('、')}先确认` : `${focusLabels.join('、')}可优先`
+      : '按日常节奏安排',
+  };
+}
+
+function buildSevenDayTrend(now: Date, personal: PersonalContext | null): DailyFortuneTrendItem[] {
+  const start = createReferenceDate(now);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(start, index);
+    const analysis = analyzeChart(date, 'day', personal);
+    const trend = trendSummary([analysis]);
+    const label = index === 0
+      ? '今天'
+      : index === 1
+        ? '明天'
+        : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date);
+    return {
+      dateKey: analysis.dateKey,
+      label,
+      dateLabel: `${date.getMonth() + 1}/${date.getDate()}`,
+      ...trend,
+    };
+  });
+}
+
+function buildMonthTrend(now: Date, analyses: ChartAnalysis[]): DailyFortuneTrendItem[] {
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const groups = new Map<number, ChartAnalysis[]>();
+  analyses.forEach((analysis) => {
+    const week = Math.floor((analysis.date.getDate() - 1) / 7);
+    groups.set(week, [...(groups.get(week) || []), analysis]);
+  });
+  return [...groups.entries()].sort(([left], [right]) => left - right).map(([week, items]) => {
+    const startDay = week * 7 + 1;
+    const endDay = Math.min(monthEnd, startDay + 6);
+    return {
+      dateKey: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-w${week + 1}`,
+      label: `第${week + 1}周`,
+      dateLabel: `${startDay}—${endDay}日`,
+      ...trendSummary(items),
+    };
+  });
+}
+
+function buildYearTrend(now: Date, personal: PersonalContext | null): DailyFortuneTrendItem[] {
+  return Array.from({ length: 12 }, (_, month) => {
+    const date = new Date(now.getFullYear(), month, 15, 12, 0, 0, 0);
+    const trend = trendSummary([analyzeChart(date, 'month', personal)]);
+    return {
+      dateKey: `${now.getFullYear()}-${String(month + 1).padStart(2, '0')}`,
+      label: `${month + 1}月`,
+      dateLabel: '',
+      ...trend,
+    };
+  });
+}
+
+function buildPeriodTrend(
+  period: FortunePeriod,
+  now: Date,
+  sampleAnalyses: ChartAnalysis[],
+  personal: PersonalContext | null,
+) {
+  if (period === 'today') return buildSevenDayTrend(now, personal);
+  if (period === 'month') return buildMonthTrend(now, sampleAnalyses);
+  return buildYearTrend(now, personal);
+}
+
 function stableSeed(value: string) {
   return [...value].reduce((total, character) => (total * 31 + character.charCodeAt(0)) >>> 0, 2166136261);
 }
@@ -1394,7 +1560,8 @@ function chooseReferencePalace(analysis: ChartAnalysis, goodDirections: DailyFor
     ? analysis.chart.jiuGongGe.find((palace) => palace.direction === goodDirections[0].direction)
     : null;
   if (directionPalace) return directionPalace;
-  const bestCategory = [...analysis.categories].sort((left, right) => toneRank(right.tone) - toneRank(left.tone)
+  const bestCategory = [...analysis.categories].sort((left, right) => right.score - left.score
+    || toneRank(right.tone) - toneRank(left.tone)
     || right.supportCount - left.supportCount
     || left.riskCount - right.riskCount)[0];
   return bestCategory?.palace || analysis.activePalace;
@@ -1407,11 +1574,16 @@ function buildReference(
   personal: PersonalContext | null,
 ): DailyFortuneReference {
   const palace = chooseReferencePalace(analysis, goodDirections);
-  const element = isFiveElement(palace.element) ? palace.element : '土';
+  const palaceElement = isFiveElement(palace.element) ? palace.element : '土';
+  const palaceAlignment = personal ? elementAlignment(personal, palaceElement) : 0;
+  const element = personal?.primaryFavorableElement && palaceAlignment <= 0
+    ? personal.primaryFavorableElement
+    : palaceElement;
   const elementReference = elementReferences[element];
-  const seed = stableSeed(`${period}|${analysis.chart.zhiShi}|${analysis.chart.zhiFu}|${analysis.chart.juShu}|${palace.gong}|${personal?.qimenStem || ''}`);
+  const seed = stableSeed(`${period}|${analysis.chart.zhiShi}|${analysis.chart.zhiFu}|${analysis.chart.juShu}|${palace.gong}|${personal?.referenceSeed || ''}`);
   const colors = seed % 2 ? [...elementReference.colors].reverse() : [...elementReference.colors];
-  const numbers = uniqueNumbers([palace.gong, ...elementReference.numbers, analysis.chart.juShu]);
+  const referenceNumbers = personal && seed % 2 ? [...elementReference.numbers].reverse() : elementReference.numbers;
+  const numbers = uniqueNumbers([palace.gong, ...referenceNumbers, analysis.chart.juShu]);
   const item = elementReference.items[seed % elementReference.items.length];
   const direction = goodDirections[0]?.direction || '不固定';
   return {
@@ -1419,16 +1591,12 @@ function buildReference(
     numbers,
     direction,
     directionNote: goodDirections.length
-      ? '安排外出、拜访或主动沟通时可优先参考。'
-      : `没有足够稳定的优先方向，按实际路线和安全性选择即可。`,
+      ? '优先用于安排外出、拜访或主动沟通。'
+      : '方位信号不集中，不设优先方向。',
     item: item.name,
     itemSymbol: item.symbol,
     itemNote: '放在手边，提醒自己按计划做事、及时收尾。',
   };
-}
-
-function toneValue(tone: DailyFortuneTone) {
-  return tone === 'favorable' ? 1 : tone === 'cautious' ? -1 : 0;
 }
 
 function titleForTone(tone: DailyFortuneTone, period: FortunePeriod, isCurrentPeriod: boolean, focusLabel = '重要事项') {
@@ -1492,12 +1660,18 @@ function calculateDailyFortune(
   const baseAnalysis = contextAnalyses[contextAnalyses.length - 1];
   const aggregates = aggregatePeriodCategories(contextAnalyses, sampleAnalyses, period);
   const categories = aggregates.map((item) => item.category);
-  const categoryAverage = categories.reduce((total, item) => total + toneValue(item.tone), 0) / categories.length;
+  const categoryAverage = aggregates.reduce((total, item) => total + item.evaluation.score, 0) / aggregates.length;
   const sampleAverage = sampleAnalyses.length
-    ? sampleAnalyses.reduce((total, item) => total + toneValue(item.tone), 0) / sampleAnalyses.length
-    : toneValue(baseAnalysis.tone);
-  const parentAverage = contextAnalyses.reduce((total, item) => total + toneValue(item.tone), 0) / contextAnalyses.length;
-  const overallSignal = categoryAverage * .62 + sampleAverage * .23 + parentAverage * .15;
+    ? sampleAnalyses.reduce((total, item) => total + item.score, 0) / sampleAnalyses.length
+    : baseAnalysis.score;
+  const parentAverage = contextAnalyses.reduce((total, item) => total + item.score, 0) / contextAnalyses.length;
+  let overallSignal = categoryAverage * .62 + sampleAverage * .23 + parentAverage * .15;
+  const sortedCategoryScores = aggregates.map((item) => item.evaluation.score).sort((left, right) => left - right);
+  const strongestRisk = sortedCategoryScores[0] || 0;
+  const pairedRisk = ((sortedCategoryScores[0] || 0) + (sortedCategoryScores[1] || 0)) / 2;
+  if (strongestRisk <= -.9) overallSignal = Math.min(overallSignal, -.3);
+  if (pairedRisk <= -.58) overallSignal = Math.min(overallSignal, -.42);
+  overallSignal = clampSignal(overallSignal, -1.15, 1.1);
   const tone: DailyFortuneTone = overallSignal >= .28 ? 'favorable' : overallSignal <= -.28 ? 'cautious' : 'balanced';
 
   let windowAnalyses = sampleAnalyses;
@@ -1513,8 +1687,9 @@ function calculateDailyFortune(
   }
 
   const directions = period === 'today'
-    ? buildSingleDirections(baseAnalysis.chart)
-    : buildPeriodDirections(sampleAnalyses, period);
+    ? buildSingleDirections(baseAnalysis.chart, personal)
+    : buildPeriodDirections(sampleAnalyses, period, personal);
+  const periodTrend = buildPeriodTrend(period, now, sampleAnalyses, personal);
   const reference = buildReference(period, baseAnalysis, directions.goodDirections, personal);
   const timeWindows = buildTimeWindows(isCurrentDay ? runtimeNow : now, period, period === 'today' ? sampleAnalyses : windowAnalyses, isCurrentDay);
   const preferredCount = categories.filter((item) => item.tone === 'favorable').length;
@@ -1563,7 +1738,7 @@ function calculateDailyFortune(
       text: slowSource?.tone === 'cautious'
         ? slowSource.detail
         : slowSource?.key === 'wellbeing'
-          ? `留意${slowDefinition?.check || '当天的精力和身体感受'}，按真实状态调整安排；不适持续时及时寻求专业帮助。`
+          ? `重点照顾${slowDefinition?.check || '当天的精力和身体感受'}，减少透支并保持规律。`
         : slowDefinition ? `涉及${slowDefinition.check}时，多确认一次再落定。` : '给重要安排留出一点时间余量，避免临时赶进度。',
       tone: 'notice',
     },
@@ -1605,6 +1780,7 @@ function calculateDailyFortune(
   return {
     period,
     periodLabel: periodLabels[period],
+    personalized: Boolean(personal),
     dateKey,
     dateLabel,
     rangeLabel: startDateKey === endDateKey ? startDateKey : `${startDateKey} 至 ${endDateKey}`,
@@ -1623,9 +1799,7 @@ function calculateDailyFortune(
     weekday,
     lunarDate: calendar.lunarDate,
     ganzhi,
-    jieqi: period === 'today'
-      ? baseAnalysis.chart.seasonality?.currentJieQi || calendar.jieQi.prev
-      : baseAnalysis.chart.seasonality?.currentJieQi || calendar.jieQi.prev,
+    jieqi: period === 'today' ? solarTermOnDate(now) : '',
     title,
     tone,
     grade,
@@ -1638,9 +1812,10 @@ function calculateDailyFortune(
     evidenceInsights,
     categories,
     timeWindows,
+    periodTrend,
     goodDirections: directions.goodDirections,
     avoidDirections: directions.avoidDirections,
-    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}没有足够稳定的优先方向，按实际路线和安全性选择即可。`,
+    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}方位信号不集中，不设优先方向。`,
   };
 }
 
