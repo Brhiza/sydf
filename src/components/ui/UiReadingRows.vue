@@ -76,8 +76,8 @@ withDefaults(defineProps<{
 }
 
 .ui-reading-row.is-accent .ui-reading-row__marker { color: var(--ds-accent-strong); }
-.ui-reading-row.is-success .ui-reading-row__marker { color: var(--ds-success); }
-.ui-reading-row.is-caution .ui-reading-row__marker { color: var(--ds-gold); }
+.ui-reading-row.is-success .ui-reading-row__marker { color: color-mix(in srgb, var(--ds-success) 55%, var(--ds-text-primary)); }
+.ui-reading-row.is-caution .ui-reading-row__marker { color: color-mix(in srgb, var(--ds-gold) 55%, var(--ds-text-primary)); }
 .ui-reading-rows--soft .ui-reading-row.is-success .ui-reading-row__marker { background: var(--ds-success-soft); }
 .ui-reading-rows--soft .ui-reading-row.is-caution .ui-reading-row__marker { background: color-mix(in srgb, var(--ds-gold) 14%, var(--ds-surface-raised)); }
 
@@ -109,6 +109,8 @@ withDefaults(defineProps<{
   font-size: var(--ds-text-sm);
   line-height: var(--ds-line-normal);
   margin: 0;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 .ui-reading-row__content small {

@@ -43,9 +43,9 @@ withDefaults(defineProps<{
   min-width: 0;
 }
 
-.ui-reading-section__heading > div:first-child { min-width: 0; }
+.ui-reading-section__heading > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .ui-reading-section__kicker {
-  color: var(--ds-accent);
+  color: var(--ds-accent-strong);
   display: block;
   font-size: var(--ds-text-xs);
   font-weight: 650;
@@ -66,6 +66,8 @@ withDefaults(defineProps<{
   font-size: var(--ds-text-sm);
   line-height: var(--ds-line-normal);
   margin: 5px 0 0;
+  max-width: 68ch;
+  text-wrap: pretty;
 }
 
 .ui-reading-section__meta {

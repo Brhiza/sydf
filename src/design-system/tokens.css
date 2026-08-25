@@ -26,15 +26,15 @@
   --ds-space-9: 48px;
 
   /* Layout */
-  --ds-page-reading: 820px;
-  --ds-page-standard: 980px;
-  --ds-page-wide: 1180px;
-  --ds-page-immersive: 1380px;
+  --ds-page-content: 1180px;
   --ds-page-gutter: clamp(18px, 3.4vw, 52px);
   --ds-topbar-height: 64px;
+  --ds-feature-banner-width: 820px;
 
   /* Shared reading-result anatomy */
   --ds-reading-media: 168px;
+  --ds-reading-card-width: 136px;
+  --ds-reading-card-ratio: 2 / 3;
   --ds-reading-section-x: 24px;
   --ds-reading-section-y: 22px;
   --ds-reading-hero-min: 232px;
@@ -45,12 +45,26 @@
   --ds-radius-lg: 16px;
   --ds-radius-xl: 20px;
   --ds-radius-round: 999px;
-  --ds-control-sm: 32px;
-  --ds-control-md: 40px;
-  --ds-control-lg: 48px;
+  --ds-control-sm: 34px;
+  --ds-control-md: 38px;
+  --ds-control-lg: 44px;
+
+  /* Motion: short feedback, standard state changes and larger entrances. */
+  --ds-motion-instant: 120ms;
+  --ds-motion-fast: 160ms;
+  --ds-motion-base: 220ms;
+  --ds-motion-slow: 280ms;
+  --ds-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ds-ease-enter: cubic-bezier(.16, 1, .3, 1);
+  --ds-ease-exit: cubic-bezier(.4, 0, 1, 1);
 
   /* Surfaces and text */
   --ds-canvas: #f3f2f5;
+  --ds-layout-canvas: #f5f4f6;
+  --ds-layout-sidebar: #f0eff2;
+  --ds-layout-topbar: rgba(248, 247, 249, .94);
+  --ds-layout-muted: #eeedf0;
+  --ds-control-surface: #f2f1f3;
   --ds-surface: #fbfafc;
   --ds-surface-raised: #ffffff;
   --ds-surface-muted: #f0eff3;
@@ -114,6 +128,11 @@
   :root {
     color-scheme: dark;
     --ds-canvas: #1c1a20;
+    --ds-layout-canvas: #1b1a1d;
+    --ds-layout-sidebar: #211f23;
+    --ds-layout-topbar: rgba(28, 27, 30, .95);
+    --ds-layout-muted: #27262a;
+    --ds-control-surface: #2d2b30;
     --ds-surface: #242128;
     --ds-surface-raised: #2a272f;
     --ds-surface-muted: #302d35;
@@ -170,7 +189,9 @@
   :root {
     --ds-page-gutter: 14px;
     --ds-topbar-height: 56px;
+    --ds-control-md: 40px;
     --ds-reading-media: 124px;
+    --ds-reading-card-width: 108px;
     --ds-reading-section-x: 14px;
     --ds-reading-section-y: 16px;
     --ds-reading-hero-min: 0px;

@@ -31,6 +31,7 @@ import {
   FileText,
   ScrollText,
   Sparkles,
+  Star,
   Sun,
   Trash2,
   UserRound,
@@ -51,7 +52,7 @@ import type {
   TaiyiResult,
   XiaoliurenData,
 } from 'mingyu-core/types';
-import type { BaziChartResult, FortuneSelectionContext } from 'mingyu-core/bazi';
+import type { BaziChartResult, FortuneSelectionContext, FortuneTriggerLayer } from 'mingyu-core/bazi';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
@@ -60,6 +61,7 @@ import type {
   BirthPlaceCityOption,
   BirthPlaceDistrictOption,
   BirthPlaceProvinceOption,
+  ResolvedBirthPlace,
 } from 'mingyu-core/location';
 import type { AstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
 import {
@@ -104,8 +106,15 @@ import {
 } from './lib/agent';
 import type { BaziFortuneRequest, ChartReadingPromptOptions } from './lib/chartPrompt';
 import {
+  filterCommonBaziShensha,
+  formatBaziTimingBasis,
+  resolveSelectedBaziFortuneGanZhi,
+  summarizeBaziFortuneTriggers,
+} from './lib/baziPresentation';
+import {
   getPromptSchoolChoiceOptions,
   getPromptSchoolMethod,
+  isPromptSchoolChoiceEnabled,
   normalizePromptSchoolChoices,
   resolvePromptSchoolIds,
   type PromptSchoolChoice,
@@ -173,9 +182,29 @@ import {
 } from './lib/historyImport';
 import type { DailyFortuneResult, FortunePeriod } from './lib/dailyFortune';
 import type { ModernAlmanacResult } from './lib/modernAlmanac';
+import {
+  buildInstantAiPrompt,
+  buildInstantObserver,
+  formatInstantWallClock,
+  instantChartNeedsObserver,
+  instantChartOptions,
+  instantChartSummary,
+  instantTimeBasisLabel,
+  runInstantChart,
+  type InstantChartResponse,
+  type InstantChartType,
+  type InstantTimeStandard,
+} from './lib/instantChart';
+import { getCalendarEvents } from './lib/calendarEvents';
 import type { SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
+import {
+  AI_KEY_STORAGE_KEY,
+  applyStoredAiKeys,
+  buildStoredAiKeys,
+  normalizeStoredAiKeys,
+} from './lib/aiChannelStorage';
 import { buildExternalAiPrompt } from './lib/aiPrompt';
 import { writeClipboardText } from './lib/clipboard';
 import { isNativeApp } from './lib/nativeRuntime';
@@ -213,6 +242,7 @@ const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChar
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
 const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
+const InstantChartDetail = defineAsyncComponent(() => import('./components/InstantChartDetail.vue'));
 
 const themeAssetDownload = reactive<{ active: boolean; label: string; progress: ThemeAssetProgress | null }>({ active: false, label: '', progress: null });
 const themeAssetDownloadPercent = computed(() => themeAssetDownload.progress?.totalBytes
@@ -420,12 +450,12 @@ function isAlmanacProfileComplete(profile?: BirthForm | null) {
   });
 }
 
-function buildCurrentBaziFortuneSelection(...args: Parameters<BaziRuntime['buildCurrentBaziFortuneSelection']>) {
-  return requireBaziRuntime().buildCurrentBaziFortuneSelection(...args);
-}
-
 function buildFortuneSelectionContext(...args: Parameters<BaziRuntime['buildFortuneSelectionContext']>) {
   return requireBaziRuntime().buildFortuneSelectionContext(...args);
+}
+
+function analyzeFortuneTriggers(...args: Parameters<BaziRuntime['analyzeFortuneTriggers']>) {
+  return requireBaziRuntime().analyzeFortuneTriggers(...args);
 }
 
 function getLifeStage(...args: Parameters<BaziRuntime['getLifeStage']>) {
@@ -464,6 +494,10 @@ function findBirthPlaceByDisplayName(...args: Parameters<LocationRuntime['findBi
   return requireLocationRuntime().findBirthPlaceByDisplayName(...args);
 }
 
+function searchBirthPlaces(...args: Parameters<LocationRuntime['searchBirthPlaces']>) {
+  return requireLocationRuntime().searchBirthPlaces(...args);
+}
+
 function resolveBirthPlaceApproximateLatitude(...args: Parameters<LocationRuntime['resolveBirthPlaceApproximateLatitude']>) {
   return requireLocationRuntime().resolveBirthPlaceApproximateLatitude(...args);
 }
@@ -473,7 +507,11 @@ type SettingsSection = AppRouteSettingsSection;
 type CasesSection = AppRouteCasesSection;
 type ChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng';
 type HomeChartKind = ChartKind | 'bazi-ziwei';
-type HomeMode = 'divination' | 'chart';
+type HomeMode = 'divination' | 'chart' | 'instant';
+type DefaultHomeTool =
+  | { mode: 'divination'; kind: DivinationKind }
+  | { mode: 'chart'; kind: HomeChartKind }
+  | { mode: 'instant'; kind: InstantChartType };
 type ChatRole = 'user' | 'assistant';
 type AlmanacMonthFilter = 'all' | AlmanacPurpose;
 
@@ -517,10 +555,13 @@ const casesSectionTabs: Array<{ value: CasesSection; label: string }> = [
 ];
 const settingsSectionTabs: Array<{ value: SettingsSection; label: string }> = [
   { value: 'preferences', label: '偏好设置' },
+  { value: 'theme', label: '主题与牌组' },
   { value: 'ai', label: 'AI 与模型' },
 ];
 
 type AlmanacRangeMonths = 1 | 3 | 6 | 12;
+type AlmanacWeekendPreference = 'any' | 'prefer' | 'avoid';
+type AlmanacTimePreference = 'any' | 'work-hours' | 'morning' | 'afternoon';
 
 interface AlmanacSearchItem {
   day: AlmanacDayCandidate;
@@ -570,7 +611,14 @@ interface ChatTarotMessage {
   reading: WesternReadingResult;
 }
 
-type ChatMessage = ChatTextMessage | ChatReadingMessage | ChatTarotMessage;
+interface ChatInstantMessage {
+  kind: 'instant';
+  role: 'assistant';
+  content: '';
+  response: InstantChartResponse;
+}
+
+type ChatMessage = ChatTextMessage | ChatReadingMessage | ChatTarotMessage | ChatInstantMessage;
 
 interface ReadingDetailRow {
   label: string;
@@ -588,7 +636,7 @@ interface CaseProfile extends BirthForm {
 }
 
 type BirthPickerKind = 'gender' | 'calendar' | 'date' | 'time' | 'region';
-type BirthPickerTarget = 'create' | 'editor';
+type BirthPickerTarget = 'create' | 'editor' | 'instant';
 
 interface PickerOption {
   value: string;
@@ -600,6 +648,13 @@ interface PickerColumn {
   label: string;
   options: ReadonlyArray<PickerOption>;
   flex?: number;
+}
+
+interface BirthPlaceSearchResult {
+  key: string;
+  label: string;
+  detail: string;
+  values: string[];
 }
 
 interface CachedChart {
@@ -673,6 +728,22 @@ const astroMajorBodyAliases: Record<string, string[]> = {
 
 const beginnerDivinationKinds: DivinationKind[] = ['qimen', 'liuren', 'taiyi', 'liuyao', 'meihua'];
 const masterDivinationKinds: DivinationKind[] = ['qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi', 'liuyao', 'meihua', 'jinkoujue'];
+const defaultHomeToolFallback = { mode: 'divination', kind: 'meihua' } as const satisfies DefaultHomeTool;
+
+function normalizeDefaultHomeTool(value: unknown): DefaultHomeTool {
+  if (!value || typeof value !== 'object') return { ...defaultHomeToolFallback };
+  const candidate = value as { mode?: unknown; kind?: unknown };
+  if (candidate.mode === 'chart' && homeChartOptions.some((item) => item.kind === candidate.kind)) {
+    return { mode: 'chart', kind: candidate.kind as HomeChartKind };
+  }
+  if (candidate.mode === 'instant' && instantChartOptions.some((item) => item.kind === candidate.kind)) {
+    return { mode: 'instant', kind: candidate.kind as InstantChartType };
+  }
+  if (candidate.mode === 'divination' && masterDivinationKinds.includes(candidate.kind as DivinationKind)) {
+    return { mode: 'divination', kind: candidate.kind as DivinationKind };
+  }
+  return { ...defaultHomeToolFallback };
+}
 const aiApiTypeOptions: Array<{ value: AiApiType; label: string }> = [
   { value: 'chat', label: 'Chat Completions' },
   { value: 'responses', label: 'Responses' },
@@ -789,6 +860,16 @@ const homeState = ref<'default' | 'chat'>('default');
 const homeMode = ref<HomeMode>('divination');
 const selectedKind = ref<DivinationKind>('meihua');
 const homeChartKind = ref<HomeChartKind>('bazi');
+const instantChartKind = ref<InstantChartType>('bazi');
+const instantTimeStandard = ref<InstantTimeStandard>('beijing');
+const instantObserverDraft = ref<CaseProfile>({
+  ...createCase('instant-observer', '观测地点', false),
+  date: '',
+  time: '',
+  locationName: '',
+  latitude: '',
+  longitude: '',
+});
 const chartKind = ref<ChartKind>('bazi');
 const selectedCaseId = ref('draft-case');
 const question = ref('');
@@ -831,6 +912,7 @@ const agentBaziFortune = ref<BaziFortuneRequest | null>(null);
 const agentZiweiFortune = ref<AgentZiweiFortune | null>(null);
 const agentAstrolabeFortune = ref<AgentAstrolabeFortune | null>(null);
 const selectedWuyunYear = ref(new Date().getFullYear());
+const selectedTaiyiYear = ref(new Date().getFullYear());
 const selectedHuangjiYear = ref(new Date().getFullYear());
 let chatSessionId = 1;
 let agentAbortController: AbortController | null = null;
@@ -869,7 +951,8 @@ const fortuneDatePickerTitle = computed(() => (
       : '选择日期'
 ));
 const fortuneCalendarParts = computed(() => {
-  const [year = '—', rawMonth = '—', rawDay = '—'] = (dailyFortune.value?.dateKey || '').split('-');
+  const dateKey = dailyFortune.value?.dateKey || '';
+  const [year = '—', rawMonth = '—', rawDay = '—'] = dateKey.split('-');
   const monthNumber = Number(rawMonth);
   const dayNumber = Number(rawDay);
   const month = Number.isFinite(monthNumber) && monthNumber > 0 ? String(monthNumber) : rawMonth;
@@ -883,6 +966,9 @@ const fortuneCalendarParts = computed(() => {
     periodRange: dailyFortune.value?.calendarRangeLabel.replace(/\s\d{2}:\d{2}/g, '') || '—',
     heroValue: period === 'today' ? day : period === 'month' ? month : year,
     heroLabel: period === 'today' ? `${year}年${month}月` : period === 'month' ? `${year}年` : '公历',
+    events: period === 'today' && dateKey
+      ? getCalendarEvents(dateKey, cases.value).filter((event) => event.label !== dailyFortune.value?.jieqi)
+      : [],
   };
 });
 const homeFortunePreview = ref<DailyFortuneResult | null>(null);
@@ -895,6 +981,8 @@ const almanacResult = ref<AlmanacData | null>(null);
 const selectedAlmanacDate = ref('');
 const almanacError = ref('');
 const almanacRangeMonths = ref<AlmanacRangeMonths>(1);
+const almanacWeekendPreference = ref<AlmanacWeekendPreference>('any');
+const almanacTimePreference = ref<AlmanacTimePreference>('any');
 const almanacSearchItems = ref<AlmanacSearchItem[]>([]);
 const almanacSearchLoading = ref(false);
 const almanacSearchError = ref('');
@@ -909,6 +997,14 @@ const fengShuiCaseIds = ref<string[]>([]);
 const newCaseDraft = ref<CaseProfile>(createNewCaseDraft());
 const newCaseGenderConfirmed = ref(false);
 const newCaseRegionConfirmed = ref(false);
+const caseGenderOptions = [
+  { value: 'male', label: '男' },
+  { value: 'female', label: '女' },
+];
+const caseCalendarOptions = [
+  { value: 'solar', label: '公历' },
+  { value: 'lunar', label: '农历' },
+];
 const caseEditorDraft = ref<CaseProfile | null>(null);
 const showHistory = ref(false);
 const showCaseEditor = ref(false);
@@ -952,6 +1048,8 @@ const selectedReadingMessage = ref<ChatReadingMessage | null>(null);
 const showReadingModal = ref(false);
 const selectedTarotMessage = ref<ChatTarotMessage | null>(null);
 const showTarotModal = ref(false);
+const selectedInstantMessage = ref<ChatInstantMessage | null>(null);
+const showInstantModal = ref(false);
 type ManualDivinationKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 'liuren' | 'taiyi';
 const pendingManualKind = ref<ManualDivinationKind | null>(null);
 const pendingCastingQuestion = ref('');
@@ -1002,6 +1100,7 @@ const notifiedBackgroundTaskIds = new Set<string>();
 let backgroundAiTaskSequence = 0;
 const isTestingAi = ref(false);
 const isLoadingAiModels = ref(false);
+const showAiChannelCatalog = ref(false);
 const aiTestMessage = ref('');
 const aiTestState = ref<'idle' | 'success' | 'error'>('idle');
 const aiModelMessage = ref('');
@@ -1022,6 +1121,7 @@ const birthPicker = reactive<{
   target: 'editor',
   values: [],
 });
+const birthPlaceSearchQuery = ref('');
 const fortuneDatePicker = reactive<{
   open: boolean;
   values: string[];
@@ -1057,7 +1157,7 @@ function createPresetAiChannel(preset: typeof aiChannelPresets[number]): AiChann
 }
 
 function createDefaultAiChannels() {
-  return [createBuiltinAiChannel(), ...aiChannelPresets.map(createPresetAiChannel)];
+  return [createBuiltinAiChannel()];
 }
 
 function createCustomAiChannel(index: number): AiChannel {
@@ -1087,8 +1187,10 @@ function normalizeAiChannel(channel: Partial<AiChannel>, index: number): AiChann
   const id = typeof channel.id === 'string' && channel.id.trim() ? channel.id : `channel-${index}`;
   const preset = aiChannelPresets.find((item) => item.id === id || item.preset === channel.preset);
   if (preset) {
-    const models = typeof channel.modelsFetchedAt === 'number' ? normalizeAiModels(channel.models, []) : [];
-    const model = typeof channel.model === 'string' && models.includes(channel.model) ? channel.model : models[0] || '';
+    const models = normalizeAiModels(channel.models, []);
+    const storedModel = typeof channel.model === 'string' ? channel.model.trim() : '';
+    const model = storedModel || models[0] || '';
+    if (model && !models.includes(model)) models.unshift(model);
     return { ...createPresetAiChannel(preset), apiType: normalizeAiApiType(channel.apiType, preset.apiType), model, models, modelsFetchedAt: channel.modelsFetchedAt };
   }
   const provider: AiChannelProvider = channel.provider === 'builtin' ? 'builtin' : 'openai-compatible';
@@ -1112,26 +1214,35 @@ function normalizeAiChannel(channel: Partial<AiChannel>, index: number): AiChann
 function mergeDefaultAiChannels(channels: Partial<AiChannel>[]) {
   const normalized = channels.map((channel, index) => normalizeAiChannel(channel, index));
   const builtin = normalized.find((channel) => channel.provider === 'builtin') || createBuiltinAiChannel();
-  const presets = aiChannelPresets.map((preset) => normalized.find((channel) => channel.preset === preset.preset) || createPresetAiChannel(preset));
+  const presets = normalized.filter((channel) => channel.preset);
   const custom = normalized.filter((channel) => channel.provider !== 'builtin' && !channel.preset);
   return [builtin, ...presets, ...custom];
 }
 
-const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiChannels: AiChannel[]; castingPreference: CastingPreference }>({
+const appPreferences = reactive<AiPreferences & { activeAiChannelId: string; aiChannels: AiChannel[]; castingPreference: CastingPreference; defaultHomeTool: DefaultHomeTool }>({
   activeAiChannelId: 'builtin',
   aiChannels: createDefaultAiChannels(),
   answerPreference: 'fortune-master',
   displayLevel: 'beginner',
   castingPreference: 'auto',
+  defaultHomeTool: { ...defaultHomeToolFallback },
   promptSchoolChoices: {},
 });
 const visibleDivinationKinds = computed(() => appPreferences.displayLevel === 'master' ? masterDivinationKinds : beginnerDivinationKinds);
 
 const settings = reactive<{
   qimenScope: 'hour' | 'day' | 'month' | 'year';
+  qimenLayout: 'zhuanpan' | 'feipan';
+  qimenJuMethod: 'chaibu' | 'zhirun';
+  taiyiScope: 'year' | 'month' | 'day' | 'hour';
+  huangjiMode: 'year' | 'date';
   almanacTopic: AlmanacPurpose | '';
 }>({
   qimenScope: 'hour',
+  qimenLayout: 'zhuanpan',
+  qimenJuMethod: 'chaibu',
+  taiyiScope: 'year',
+  huangjiMode: 'year',
   almanacTopic: '',
 });
 
@@ -1184,7 +1295,7 @@ const baziWuxingElements: Record<string, string> = {
 };
 const baziHeavenlyStems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 const baziEarthlyBranches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-// 底层保留全部神煞，再由当前页面的常用名单统一决定展示范围，避免重复筛选。
+// 底层保留完整计算结果，排盘和岁运统一按常用名单筛选；展示时保留神煞全称。
 let baziShenShaCalculator: InstanceType<BaziRuntime['ShenShaCalculator']> | null = null;
 
 function getBaziShenShaCalculator() {
@@ -1197,13 +1308,6 @@ const commonBaziShensha = [
   '驿马', '桃花', '咸池', '红艳', '华盖', '将星', '禄神', '羊刃', '红鸾', '天喜',
   '孤辰', '寡宿', '孤虚', '劫煞', '亡神', '灾煞', '血刃', '血光', '飞刃', '元辰', '勾绞', '童子',
 ];
-const baziShenshaAliases: Record<string, string> = {
-  天乙贵人: '天乙', 天德贵人: '天德', 月德贵人: '月德', 太极贵人: '太极',
-  文昌贵人: '文昌', 国印贵人: '国印', 福星贵人: '福星', 天官贵人: '天官',
-  天印贵人: '天印', 天福贵人: '天福', 天厨贵人: '天厨', 文星贵: '文星',
-  德秀贵人: '德秀', 官贵学馆: '学馆', 天喜神: '天喜', 红艳煞: '红艳',
-  童子煞: '童子', 血光杀: '血光',
-};
 const selectedMeta = computed(() => kindMeta[selectedKind.value]);
 const currentCase = computed(() => cases.value.find((item) => item.id === selectedCaseId.value) || cases.value[0] || draftCase.value);
 const editableCase = computed(() => caseEditorDraft.value || currentCase.value);
@@ -1241,6 +1345,13 @@ function isAiChannelReady(channel: AiChannel) {
   return Boolean(channel.baseUrl.trim() && channel.apiKey.trim() && channel.model.trim());
 }
 const configuredAiChannels = computed(() => appPreferences.aiChannels.filter(isAiChannelReady));
+const managedAiChannels = computed(() => [...appPreferences.aiChannels].sort((left, right) => (
+  Number(right.id === appPreferences.activeAiChannelId) - Number(left.id === appPreferences.activeAiChannelId)
+  || Number(left.provider !== 'builtin') - Number(right.provider !== 'builtin')
+)));
+const availableAiChannelPresets = computed(() => aiChannelPresets.filter((preset) => (
+  !appPreferences.aiChannels.some((channel) => channel.preset === preset.preset)
+)));
 const selectedAiModel = computed({
   get: () => activeAiChannel.value.model,
   set: (model: string) => {
@@ -1451,43 +1562,6 @@ const selectedBaziYears = computed(() => {
   return availableYears.size ? years.filter((item) => availableYears.has(item.year)) : years;
 });
 const selectedBaziYearInfo = computed(() => selectedBaziYears.value.find((item) => item.year === selectedBaziYear.value) || selectedBaziYears.value[0] || null);
-const currentBaziCycle = computed(() => {
-  const result = displayResult.value;
-  return result && isBazi(result) ? getLuckCycleForDate(result.luckInfo.cycles, new Date()) : null;
-});
-const currentBaziYearInfo = computed(() => {
-  const result = displayResult.value;
-  if (!result || !isBazi(result)) return null;
-  const cycle = currentBaziCycle.value;
-  const cycleYears = cycle?.resolvedYears?.length ? cycle.resolvedYears : cycle?.years || [];
-  return cycleYears.find((item) => item.year === currentFortuneYear)
-    || (result.liunian || []).find((item) => item.year === currentFortuneYear)
-    || null;
-});
-const currentBaziCycleGanZhi = computed(() => {
-  const cycle = currentBaziCycle.value;
-  if (!cycle) return '';
-  return cycle.isXiaoyun ? currentBaziYearInfo.value?.xiaoyun?.ganZhi || cycle.ganZhi : cycle.ganZhi;
-});
-const currentBaziFortuneContext = computed<FortuneSelectionContext | null>(() => {
-  const result = displayResult.value;
-  if (!result || !isBazi(result)) return null;
-  try {
-    const selection = buildCurrentBaziFortuneSelection(result, new Date());
-    const cycleIndex = result.luckInfo.cycles.findIndex((cycle) => cycle === currentBaziCycle.value);
-    return selection && cycleIndex >= 0
-      ? buildFortuneSelectionContext(result, { ...selection, cycleIndex })
-      : null;
-  } catch {
-    return null;
-  }
-});
-const currentBaziHourInfo = computed(() => {
-  const hours = currentBaziFortuneContext.value?.hourBreakdown || [];
-  const hour = new Date().getHours();
-  const index = hour === 23 ? 0 : hour === 0 ? 1 : Math.min(12, Math.floor((hour + 1) / 2) + 1);
-  return hours[index] || hours[0] || null;
-});
 interface BaziTraditionalColumn {
   key: string;
   label: string;
@@ -1523,9 +1597,7 @@ function calculateBaziFortuneShensha(result: BaziChartResult, gan: string, zhi: 
       [result.pillars.day.gan, result.pillars.day.zhi],
       [gan, zhi],
     ], result.gender).hour || [];
-    return Array.from(new Set(shensha.filter((name) => (
-      commonBaziShensha.some((common) => name.includes(common))
-    )))).map(baziShenshaLabel);
+    return filterCommonBaziShensha(shensha, commonBaziShensha);
   } catch {
     return [];
   }
@@ -1588,14 +1660,19 @@ const baziTraditionalColumns = computed<BaziTraditionalColumn[]>(() => {
     lifeStage: result.pillarLifeStages[item.key],
     ziZuo: result.ziZuo[item.key],
     kongWang: result.kongWang[item.key],
-    shensha: visibleBaziShensha(result, item.key).map(baziShenshaLabel),
+    shensha: visibleBaziShensha(result, item.key),
   }));
-  const fortuneContext = currentBaziFortuneContext.value;
+  const selectedFortuneGanZhi = resolveSelectedBaziFortuneGanZhi({
+    cycle: selectedBaziCycle.value,
+    year: selectedBaziYearInfo.value,
+    month: selectedBaziMonthInfo.value,
+    hour: selectedBaziHourInfo.value,
+  });
   const fortuneInputs = [
-    { key: 'dayun', label: '大运', ganZhi: currentBaziCycleGanZhi.value },
-    { key: 'liunian', label: '流年', ganZhi: currentBaziYearInfo.value?.ganZhi || '' },
-    { key: 'liuyue', label: '流月', ganZhi: fortuneContext?.monthGanZhi || '' },
-    { key: 'liushi', label: '流时', ganZhi: currentBaziHourInfo.value?.ganZhi || '' },
+    { key: 'dayun', label: '大运', ganZhi: selectedFortuneGanZhi.dayun },
+    { key: 'liunian', label: '流年', ganZhi: selectedFortuneGanZhi.liunian },
+    { key: 'liuyue', label: '流月', ganZhi: selectedFortuneGanZhi.liuyue },
+    { key: 'liushi', label: '流时', ganZhi: selectedFortuneGanZhi.liushi },
   ];
   const fortuneColumns = fortuneInputs.map(({ key, label, ganZhi }) => {
     const gan = ganZhi[0] || '';
@@ -1673,6 +1750,50 @@ const selectedBaziDayInfo = computed(() => selectedBaziDays.value.find((day) => 
 const selectedBaziDayContext = computed(() => getBaziFortuneContext('day'));
 const selectedBaziHours = computed(() => selectedBaziDayContext.value?.hourBreakdown || []);
 const selectedBaziHourInfo = computed(() => selectedBaziHours.value[selectedBaziHourIndex.value] || selectedBaziHours.value[0] || null);
+const selectedBaziFortuneTriggerSummary = computed(() => {
+  const result = displayResult.value;
+  if (!result || !isBazi(result)) return [];
+  const layers: FortuneTriggerLayer[] = [];
+  const appendLayer = (layer: FortuneTriggerLayer | null) => {
+    if (layer?.ganZhi.length === 2) layers.push(layer);
+  };
+  appendLayer(selectedBaziCycle.value ? {
+    id: `dayun-${selectedBaziCycleIndex.value}`,
+    type: 'dayun',
+    label: selectedBaziCycle.value.isXiaoyun ? '小运' : '大运',
+    ganZhi: selectedBaziCycle.value.ganZhi,
+  } : null);
+  appendLayer(selectedBaziYearInfo.value ? {
+    id: `year-${selectedBaziYearInfo.value.year}`,
+    type: 'year',
+    label: '流年',
+    ganZhi: selectedBaziYearInfo.value.ganZhi,
+  } : null);
+  appendLayer(selectedBaziMonthInfo.value ? {
+    id: `month-${selectedBaziYear.value}-${selectedBaziMonthInfo.value.month}`,
+    type: 'month',
+    label: '流月',
+    ganZhi: selectedBaziMonthInfo.value.ganZhi,
+  } : null);
+  appendLayer(selectedBaziDayInfo.value ? {
+    id: `day-${selectedBaziDayInfo.value.date}`,
+    type: 'day',
+    label: '流日',
+    ganZhi: selectedBaziDayInfo.value.ganZhi,
+  } : null);
+  appendLayer(selectedBaziHourInfo.value ? {
+    id: `hour-${selectedBaziDayInfo.value?.date || 'unknown'}-${selectedBaziHourIndex.value}`,
+    type: 'hour',
+    label: '流时',
+    ganZhi: selectedBaziHourInfo.value.ganZhi,
+  } : null);
+  if (!layers.length) return [];
+  try {
+    return summarizeBaziFortuneTriggers(analyzeFortuneTriggers(result, layers));
+  } catch {
+    return [];
+  }
+});
 
 function formatBaziHourLabel(label: string) {
   return label.replace('早子时', '子时').replace('早子', '子');
@@ -1753,10 +1874,28 @@ const almanacCalendarCells = computed<AlmanacCalendarCell[]>(() => {
   });
 });
 const activeAlmanacRangeLabel = computed(() => almanacRangeOptions.find((item) => item.value === almanacRangeMonths.value)?.label || '一个月');
+function matchesAlmanacTimePreference(day: AlmanacDayCandidate) {
+  if (almanacTimePreference.value === 'any') return true;
+  const preferredRange = almanacTimePreference.value === 'morning' ? [0, 12]
+    : almanacTimePreference.value === 'afternoon' ? [12, 18]
+      : [9, 18];
+  return getModernAlmanacHours(day).some((hour) => {
+    const times = [...hour.range.matchAll(/(\d{1,2}):\d{2}/g)].map((match) => Number(match[1]));
+    if (times.length < 2) return false;
+    return times[0] < preferredRange[1] && times[1] + 1 > preferredRange[0];
+  });
+}
 const filteredAlmanacSearchItems = computed(() => {
   const levelPriority: Record<AlmanacAuspiceLevel, number> = { 大吉: 0, 吉: 1, 小吉: 2, 平: 3, 慎用: 4, 不宜: 5 };
-  const filtered = almanacSearchItems.value.filter((item) => item.evaluation.usable);
-  return [...filtered].sort((a, b) => levelPriority[a.evaluation.level] - levelPriority[b.evaluation.level]
+  const filtered = almanacSearchItems.value.filter((item) => item.evaluation.usable && matchesAlmanacTimePreference(item.day));
+  const weekendRank = (item: AlmanacSearchItem) => {
+    const weekend = item.day.weekday === '星期六' || item.day.weekday === '星期日';
+    if (almanacWeekendPreference.value === 'prefer') return weekend ? 0 : 1;
+    if (almanacWeekendPreference.value === 'avoid' || almanacTimePreference.value === 'work-hours') return weekend ? 1 : 0;
+    return 0;
+  };
+  return [...filtered].sort((a, b) => weekendRank(a) - weekendRank(b)
+    || levelPriority[a.evaluation.level] - levelPriority[b.evaluation.level]
     || b.evaluation.matchedRecommends.length - a.evaluation.matchedRecommends.length
     || a.day.date.localeCompare(b.day.date));
 });
@@ -1817,15 +1956,22 @@ const newCaseCalendar = computed(() => {
   }
 });
 const homeChartMeta = computed(() => homeChartOptions.find((item) => item.kind === homeChartKind.value) || homeChartOptions[0]!);
+const instantChartMeta = computed(() => instantChartOptions.find((item) => item.kind === instantChartKind.value) || instantChartOptions[0]!);
+const instantNeedsObserver = computed(() => instantChartNeedsObserver(instantChartKind.value, instantTimeStandard.value));
+const instantObserver = computed(() => buildInstantObserver(instantObserverDraft.value));
 const homeModeLabel = computed(() => {
   if (homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'tarot')) return '西方占卜';
-  return homeMode.value === 'chart' ? homeChartMeta.value.label : kindMeta[selectedKind.value].label;
+  if (homeMode.value === 'chart') return homeChartMeta.value.label;
+  if (homeMode.value === 'instant') return instantChartMeta.value.fullLabel;
+  return kindMeta[selectedKind.value].label;
 });
 const activePromptSchoolMethod = computed(() => {
   if (appPreferences.displayLevel !== 'master') return null;
+  if (homeMode.value === 'instant') return null;
   if (homeMode.value === 'chart' && homeChartKind.value === 'bazi-ziwei') return null;
   const kind: DivinationKind = homeMode.value === 'chart' ? homeChartKind.value as ChartKind : selectedKind.value;
-  return getPromptSchoolMethod(kind);
+  const method = getPromptSchoolMethod(kind);
+  return isPromptSchoolChoiceEnabled(method) ? method : null;
 });
 const activePromptSchoolOptions = computed(() => activePromptSchoolMethod.value
   ? getPromptSchoolChoiceOptions(activePromptSchoolMethod.value)
@@ -1848,17 +1994,37 @@ function closeFloatingPanelsOnOutsidePointer(event: PointerEvent) {
   if (showToolPicker.value && !toolPickerRef.value?.contains(target)) showToolPicker.value = false;
 }
 
+function updateToolPickerAvailableHeight() {
+  if (!showToolPicker.value || !toolPickerRef.value) return;
+  const viewportTop = window.visualViewport?.offsetTop ?? 0;
+  const topbarBottom = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().bottom ?? viewportTop;
+  const safeTop = Math.max(viewportTop + 8, topbarBottom + 8);
+  const pickerTop = toolPickerRef.value.getBoundingClientRect().top;
+  const availableHeight = Math.max(120, Math.floor(pickerTop - safeTop - 9));
+  toolPickerRef.value.style.setProperty('--tool-picker-available-height', `${availableHeight}px`);
+}
+
+function handleToolPickerViewportChange() {
+  window.requestAnimationFrame(updateToolPickerAvailableHeight);
+}
+
+watch(showToolPicker, (isOpen) => {
+  if (!isOpen) return;
+  void nextTick(handleToolPickerViewportChange);
+});
+
 function toggleBaziFortuneColumn(key: BaziFortuneColumnKey) {
   baziFortuneColumnVisibility[key] = !baziFortuneColumnVisibility[key];
 }
 
 function restorePreferences() {
   try {
-    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference }>(localStorage, 'shiyue-preferences');
+    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference; defaultHomeTool?: unknown }>(localStorage, 'shiyue-preferences');
     if (!parsedPreferences) return;
     appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
     if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
     if (parsedPreferences.castingPreference === 'auto' || parsedPreferences.castingPreference === 'manual') appPreferences.castingPreference = parsedPreferences.castingPreference;
+    appPreferences.defaultHomeTool = normalizeDefaultHomeTool(parsedPreferences.defaultHomeTool);
     appPreferences.promptSchoolChoices = normalizePromptSchoolChoices(parsedPreferences.promptSchoolChoices);
     if (Array.isArray(parsedPreferences.aiChannels) && parsedPreferences.aiChannels.length) {
       const channels = mergeDefaultAiChannels(parsedPreferences.aiChannels);
@@ -1884,16 +2050,32 @@ function restorePreferences() {
 }
 
 function restoreAiKeys() {
+  let persistentKeys: Record<string, string> = {};
+  let sessionKeys: Record<string, string> = {};
   try {
-    appPreferences.aiChannels.forEach((channel) => {
-      channel.apiKey = sessionStorage.getItem(`shiyue-ai-key-${channel.id}`) || '';
-    });
+    persistentKeys = normalizeStoredAiKeys(parseLocalStorageJson<unknown>(localStorage, AI_KEY_STORAGE_KEY));
+  } catch {
+    // 本地存储不可用时继续尝试迁移旧的会话密钥。
+  }
+  try {
+    sessionKeys = Object.fromEntries(appPreferences.aiChannels.map((channel) => (
+      [channel.id, sessionStorage.getItem(`shiyue-ai-key-${channel.id}`) || '']
+    )));
+  } catch {
+    // 会话存储不可用不影响已经持久化的密钥。
+  }
+  let migratedSessionKey = applyStoredAiKeys(appPreferences.aiChannels, persistentKeys, sessionKeys);
+  try {
     const legacyApiKey = sessionStorage.getItem('shiyue-ai-api-key');
     const activeChannel = appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId);
-    if (legacyApiKey && activeChannel?.provider === 'openai-compatible' && !activeChannel.apiKey) activeChannel.apiKey = legacyApiKey;
+    if (legacyApiKey && activeChannel?.provider === 'openai-compatible' && !activeChannel.apiKey) {
+      activeChannel.apiKey = legacyApiKey;
+      migratedSessionKey = true;
+    }
   } catch {
-    // 会话存储不可用时不恢复密钥，其他设置仍然有效。
+    // 旧版会话存储不可用时跳过迁移。
   }
+  if (migratedSessionKey) persistAiKeys();
   const activeChannel = appPreferences.aiChannels.find((channel) => channel.id === appPreferences.activeAiChannelId);
   if (!activeChannel || !isAiChannelReady(activeChannel)) appPreferences.activeAiChannelId = 'builtin';
   configuringAiChannelId.value = appPreferences.activeAiChannelId;
@@ -2013,6 +2195,9 @@ onMounted(() => {
   window.addEventListener('shiyue:app-update', handleAppUpdate);
   window.addEventListener('shiyue:native-back', handleNativeBack);
   window.addEventListener('popstate', handleAppRouteNavigation);
+  window.addEventListener('resize', handleToolPickerViewportChange);
+  window.visualViewport?.addEventListener('resize', handleToolPickerViewportChange);
+  window.visualViewport?.addEventListener('scroll', handleToolPickerViewportChange);
   window.addEventListener('hashchange', handleAppRouteNavigation);
   try {
     const storedBaziColumns = localStorage.getItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY);
@@ -2072,6 +2257,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('shiyue:app-update', handleAppUpdate);
   window.removeEventListener('shiyue:native-back', handleNativeBack);
   window.removeEventListener('popstate', handleAppRouteNavigation);
+  window.removeEventListener('resize', handleToolPickerViewportChange);
+  window.visualViewport?.removeEventListener('resize', handleToolPickerViewportChange);
+  window.visualViewport?.removeEventListener('scroll', handleToolPickerViewportChange);
   window.removeEventListener('hashchange', handleAppRouteNavigation);
   agentAbortController?.abort();
   backgroundAiControllers.forEach((controller) => controller.abort());
@@ -2149,6 +2337,13 @@ function showToast(message: string) {
 }
 
 function chatMessageExportItem(message: ChatMessage): ChatExportItem {
+  if (message.kind === 'instant') {
+    return {
+      role: 'reading',
+      label: message.response.label,
+      content: `${instantTimeBasisLabel(message.response)}\n${instantChartSummary(message.response)}`,
+    };
+  }
   if (message.kind === 'reading') {
     return {
       role: 'reading',
@@ -2271,6 +2466,7 @@ function closeFloatingPanelsFromKeyboard(event: KeyboardEvent) {
 function handleNativeBack(event: Event) {
   if (showOnboarding.value) showOnboarding.value = false;
   else if (showPwaUpdateDialog.value) showPwaUpdateDialog.value = false;
+  else if (showInstantModal.value) showInstantModal.value = false;
   else if (showReadingModal.value) showReadingModal.value = false;
   else if (showTarotModal.value) showTarotModal.value = false;
   else if (showInspirationModal.value) showInspirationModal.value = false;
@@ -2399,6 +2595,7 @@ function persistPreferences() {
     answerPreference: appPreferences.answerPreference,
     displayLevel: appPreferences.displayLevel,
     castingPreference: appPreferences.castingPreference,
+    defaultHomeTool: appPreferences.defaultHomeTool,
     promptSchoolChoices: appPreferences.promptSchoolChoices,
     activeAiChannelId: appPreferences.activeAiChannelId,
     aiChannels: appPreferences.aiChannels.map(({ apiKey: _apiKey, ...channel }) => channel),
@@ -2408,14 +2605,14 @@ function persistPreferences() {
   } catch {
     // 浏览器禁用本地存储时，偏好仍在当前页面会话中生效。
   }
+  persistAiKeys();
+}
+
+function persistAiKeys() {
   try {
-    appPreferences.aiChannels.forEach((channel) => {
-      const key = `shiyue-ai-key-${channel.id}`;
-      if (channel.apiKey) sessionStorage.setItem(key, channel.apiKey);
-      else sessionStorage.removeItem(key);
-    });
+    localStorage.setItem(AI_KEY_STORAGE_KEY, JSON.stringify(buildStoredAiKeys(appPreferences.aiChannels)));
   } catch {
-    // 会话存储不可用时不持久化密钥。
+    // 浏览器禁用本地存储时，密钥仍仅在当前页面内生效。
   }
 }
 
@@ -2503,6 +2700,7 @@ function resetAiTest() {
 function selectConfiguringAiChannel(id: string) {
   if (!appPreferences.aiChannels.some((channel) => channel.id === id)) return;
   configuringAiChannelId.value = id;
+  showAiChannelCatalog.value = false;
   aiModelMessage.value = '';
   aiModelState.value = 'idle';
   resetAiTest();
@@ -2570,17 +2768,26 @@ async function loadAiModels(channel: AiChannel) {
 }
 
 function addAiChannel() {
-  const channel = createCustomAiChannel(appPreferences.aiChannels.length);
+  const customChannelCount = appPreferences.aiChannels.filter((channel) => channel.provider !== 'builtin' && !channel.preset).length;
+  const channel = createCustomAiChannel(customChannelCount + 1);
   appPreferences.aiChannels.push(channel);
   configuringAiChannelId.value = channel.id;
+  showAiChannelCatalog.value = false;
   aiModelMessage.value = '';
   aiModelState.value = 'idle';
   resetAiTest();
 }
 
+function addPresetAiChannel(preset: typeof aiChannelPresets[number]) {
+  const existing = appPreferences.aiChannels.find((channel) => channel.preset === preset.preset);
+  const channel = existing || createPresetAiChannel(preset);
+  if (!existing) appPreferences.aiChannels.push(channel);
+  selectConfiguringAiChannel(channel.id);
+}
+
 function removeAiChannel() {
   const channel = configuringAiChannel.value;
-  if (channel.provider === 'builtin' || channel.preset) return;
+  if (channel.provider === 'builtin') return;
   appPreferences.aiChannels = appPreferences.aiChannels.filter((item) => item.id !== channel.id);
   if (appPreferences.activeAiChannelId === channel.id) appPreferences.activeAiChannelId = 'builtin';
   configuringAiChannelId.value = appPreferences.activeAiChannelId;
@@ -2655,6 +2862,13 @@ function inferAlmanacTopic(text: string): AlmanacPurpose | '' {
 function applyAgentSelection(selection: AgentToolSelection, questionText: string) {
   if (selection.mode === 'continue') return;
   homeMode.value = selection.mode;
+  if (selection.mode === 'instant') {
+    instantChartKind.value = selection.instantChartKind;
+    agentBaziFortune.value = null;
+    agentZiweiFortune.value = null;
+    agentAstrolabeFortune.value = null;
+    return;
+  }
   if (selection.mode === 'chart') {
     homeChartKind.value = selection.chartKind;
     agentBaziFortune.value = selection.baziFortune || null;
@@ -2666,15 +2880,26 @@ function applyAgentSelection(selection: AgentToolSelection, questionText: string
   agentZiweiFortune.value = null;
   agentAstrolabeFortune.value = null;
   selectedKind.value = selection.divinationKind;
-  if (selection.divinationKind === 'qimen' && selection.qimenScope) settings.qimenScope = selection.qimenScope;
+  if (selection.divinationKind === 'qimen') {
+    if (selection.qimenScope) settings.qimenScope = selection.qimenScope;
+    if (selection.qimenLayout) settings.qimenLayout = selection.qimenLayout;
+    if (selection.qimenJuMethod) settings.qimenJuMethod = selection.qimenJuMethod;
+  }
+  if (selection.divinationKind === 'taiyi' && selection.taiyiScope) settings.taiyiScope = selection.taiyiScope;
   if (selection.divinationKind === 'wuyun-liuqi') selectedWuyunYear.value = selection.wuyunYear || new Date().getFullYear();
-  if (selection.divinationKind === 'huangji-jingshi') selectedHuangjiYear.value = selection.huangjiYear || new Date().getFullYear();
+  if (selection.divinationKind === 'huangji-jingshi') {
+    if (selection.huangjiMode) settings.huangjiMode = selection.huangjiMode;
+    if (selection.huangjiYear) selectedHuangjiYear.value = selection.huangjiYear;
+  }
   if (selectedKind.value === 'almanac') settings.almanacTopic = inferAlmanacTopic(questionText);
 }
 
 async function resolveAgentSelection(questionText: string) {
+  if (appPreferences.displayLevel !== 'basic' && homeMode.value === 'instant') {
+    return { mode: 'instant', instantChartKind: instantChartKind.value } as const;
+  }
   const previousTool = homeState.value === 'chat' && chatMessages.value.length
-    ? homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value
+    ? homeMode.value === 'chart' ? homeChartKind.value : homeMode.value === 'instant' ? instantChartKind.value : selectedKind.value
     : undefined;
   const sessionId = chatSessionId;
   agentAbortController?.abort();
@@ -2687,7 +2912,7 @@ async function resolveAgentSelection(questionText: string) {
       .map((message) => ({ role: message.role, content: message.content }));
     const activeTool = appPreferences.displayLevel === 'basic'
       ? undefined
-      : homeMode.value === 'chart' ? homeChartKind.value : selectedKind.value;
+      : homeMode.value === 'chart' ? homeChartKind.value : homeMode.value === 'instant' ? instantChartKind.value : selectedKind.value;
     const selectionPayload = {
       question: questionText,
       hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
@@ -2759,6 +2984,8 @@ function resetAlmanacPageState() {
   selectedAlmanacDate.value = '';
   almanacError.value = '';
   almanacRangeMonths.value = 1;
+  almanacWeekendPreference.value = 'any';
+  almanacTimePreference.value = 'any';
   settings.almanacTopic = '';
   almanacSearchItems.value = [];
   almanacSearchError.value = '';
@@ -2933,6 +3160,8 @@ function updateAlmanacRange() {
 
 function openAlmanacSearch() {
   settings.almanacTopic = '';
+  almanacWeekendPreference.value = 'any';
+  almanacTimePreference.value = 'any';
   almanacSearchItems.value = [];
   almanacSearchError.value = '';
   almanacSearchLoading.value = false;
@@ -3062,6 +3291,46 @@ function almanacPersonalNotes(day: AlmanacDayCandidate) {
   return getModernAlmanacPersonalNotes(day);
 }
 
+function isDefaultDivinationTool(kind: DivinationKind) {
+  return appPreferences.defaultHomeTool.mode === 'divination' && appPreferences.defaultHomeTool.kind === kind;
+}
+
+function isDefaultChartTool(kind: HomeChartKind) {
+  return appPreferences.defaultHomeTool.mode === 'chart' && appPreferences.defaultHomeTool.kind === kind;
+}
+
+function isDefaultInstantTool(kind: InstantChartType) {
+  return appPreferences.defaultHomeTool.mode === 'instant' && appPreferences.defaultHomeTool.kind === kind;
+}
+
+function setDefaultHomeTool(tool: DefaultHomeTool) {
+  appPreferences.defaultHomeTool = tool;
+  persistPreferences();
+  const label = tool.mode === 'chart'
+    ? homeChartOptions.find((item) => item.kind === tool.kind)?.label
+    : tool.mode === 'instant'
+      ? instantChartOptions.find((item) => item.kind === tool.kind)?.fullLabel
+      : kindMeta[tool.kind].label;
+  showToast(`已将${label || '该工具'}设为新会话默认工具`);
+}
+
+function applyDefaultHomeTool() {
+  const preferred = appPreferences.defaultHomeTool;
+  if (preferred.mode === 'chart') {
+    homeMode.value = 'chart';
+    homeChartKind.value = preferred.kind;
+    return;
+  }
+  if (preferred.mode === 'instant') {
+    homeMode.value = 'instant';
+    instantChartKind.value = preferred.kind;
+    return;
+  }
+  const availableKinds = appPreferences.displayLevel === 'master' ? masterDivinationKinds : beginnerDivinationKinds;
+  homeMode.value = 'divination';
+  selectedKind.value = availableKinds.includes(preferred.kind) ? preferred.kind : defaultHomeToolFallback.kind;
+}
+
 function chooseTool(kind: DivinationKind) {
   if (selectedKind.value !== kind) {
     currentResult.value = null;
@@ -3181,6 +3450,11 @@ function openTarotModal(message: ChatTarotMessage) {
   showTarotModal.value = true;
 }
 
+function openInstantModal(message: ChatInstantMessage) {
+  selectedInstantMessage.value = message;
+  showInstantModal.value = true;
+}
+
 function wuyunReading(message: ChatReadingMessage) {
   return message.method === 'wuyun-liuqi' ? message.reading as WuyunLiuqiResult : null;
 }
@@ -3201,7 +3475,7 @@ function readingDisplayTitle(message: ChatReadingMessage) {
   const reading = wuyunReading(message);
   if (reading) return `${wuyunReadingYear(reading)} 年度气运`;
   const huangji = huangjiReading(message);
-  if (huangji) return `${huangjiReadingYear(huangji)} 年值年卦`;
+  if (huangji) return huangji.dateTimeForecast?.civilTime.dateTime || `${huangjiReadingYear(huangji)} 年值年卦`;
   return message.context?.label || '当下起卦';
 }
 
@@ -3224,6 +3498,11 @@ function closeTarotModal() {
   selectedTarotMessage.value = null;
 }
 
+function closeInstantModal() {
+  showInstantModal.value = false;
+  selectedInstantMessage.value = null;
+}
+
 async function submitHomePrompt() {
   await beginReading();
 }
@@ -3234,7 +3513,7 @@ function leaveChat() {
   agentAbortController?.abort();
   agentAbortController = null;
   homeState.value = 'default';
-  homeMode.value = 'divination';
+  applyDefaultHomeTool();
   agentBaziFortune.value = null;
   agentZiweiFortune.value = null;
   agentAstrolabeFortune.value = null;
@@ -3250,6 +3529,7 @@ function leaveChat() {
   closeManualReading();
   closeReadingModal();
   closeTarotModal();
+  closeInstantModal();
 }
 
 function chooseHomeChart(kind: HomeChartKind) {
@@ -3270,10 +3550,64 @@ function chooseHomeChart(kind: HomeChartKind) {
   }
 }
 
+function chooseInstantChart(kind: InstantChartType) {
+  homeMode.value = 'instant';
+  instantChartKind.value = kind;
+  agentBaziFortune.value = null;
+  agentZiweiFortune.value = null;
+  agentAstrolabeFortune.value = null;
+  showToolPicker.value = false;
+  closeManualReading();
+  aiError.value = '';
+  formError.value = '';
+}
+
+function chooseInstantTimeStandard(standard: string) {
+  instantTimeStandard.value = standard === 'true-solar' ? 'true-solar' : 'beijing';
+  formError.value = '';
+}
+
 function chooseQimenScope(scope: typeof settings.qimenScope) {
   if (settings.qimenScope === scope) return;
   settings.qimenScope = scope;
   closeManualReading();
+  formError.value = '';
+}
+
+function chooseQimenLayout(layout: typeof settings.qimenLayout) {
+  if (settings.qimenLayout === layout) return;
+  settings.qimenLayout = layout;
+  closeManualReading();
+  formError.value = '';
+}
+
+function chooseQimenJuMethod(method: typeof settings.qimenJuMethod) {
+  if (settings.qimenJuMethod === method) return;
+  settings.qimenJuMethod = method;
+  closeManualReading();
+  formError.value = '';
+}
+
+function chooseTaiyiScope(scope: typeof settings.taiyiScope) {
+  if (settings.taiyiScope === scope) return;
+  settings.taiyiScope = scope;
+  closeManualReading();
+  formError.value = '';
+}
+
+function chooseHuangjiMode(mode: typeof settings.huangjiMode) {
+  if (settings.huangjiMode === mode) return;
+  settings.huangjiMode = mode;
+  formError.value = '';
+}
+
+function updateTaiyiYear(event: Event) {
+  const year = Number((event.target as HTMLInputElement).value);
+  if (!Number.isInteger(year) || year < 1 || year > 9999) {
+    formError.value = '请选择 1 至 9999 年之间的公历年份。';
+    return;
+  }
+  selectedTaiyiYear.value = year;
   formError.value = '';
 }
 
@@ -3569,10 +3903,12 @@ function normalizeRegionPickerValues(values: string[], profile: CaseProfile) {
 
 function profileForBirthPicker(target = birthPicker.target) {
   if (target === 'create') return newCaseDraft.value;
+  if (target === 'instant') return instantObserverDraft.value;
   return editableCase.value;
 }
 
 const birthPickerTitle = computed(() => {
+  if (birthPicker.target === 'instant') return '选择观测地点';
   if (birthPicker.kind === 'date') return `选择${profileForBirthPicker().dateType === 'lunar' ? '农历' : '公历'}出生日期`;
   return ({
     gender: '选择性别',
@@ -3637,12 +3973,56 @@ const birthPickerColumns = computed<PickerColumn[]>(() => {
   ];
 });
 
+function resolvedBirthPlaceValues(result: ResolvedBirthPlace) {
+  return [
+    result.path.province.id,
+    result.path.city?.id || result.path.province.id,
+    result.path.district?.id || result.path.city?.id || result.path.province.id,
+  ];
+}
+
+const birthPlaceSearchResults = computed<BirthPlaceSearchResult[]>(() => {
+  if (!birthPicker.open || birthPicker.kind !== 'region') return [];
+  const query = birthPlaceSearchQuery.value.trim();
+  if (!query || !locationRuntime) return [];
+  const normalizedQuery = query.toLocaleLowerCase().replace(/[\s·-]+/g, '');
+  const externalMatches = externalRegions
+    .filter((region) => `${region.label}${region.locationName}${region.id}`.toLocaleLowerCase().replace(/[\s·-]+/g, '').includes(normalizedQuery))
+    .map((region) => ({
+      key: `overseas-${region.id}`,
+      label: region.label,
+      detail: '海外观测地点',
+      values: ['overseas', region.id, region.id],
+    }));
+  const domesticMatches = searchBirthPlaces(query, { limit: 16, levels: ['district'] }).map((result) => ({
+    key: `china-${result.regionId}`,
+    label: result.label,
+    detail: result.displayName,
+    values: resolvedBirthPlaceValues(result),
+  }));
+  return [...externalMatches, ...domesticMatches].slice(0, 16);
+});
+
 function birthPickerFieldValue(kind: BirthPickerKind, profile: CaseProfile) {
   if (kind === 'gender') return profile.gender === 'male' ? '男' : '女';
   if (kind === 'calendar') return profile.dateType === 'lunar' ? '农历' : '公历';
   if (kind === 'date') return profile.date ? formatCaseDate(profile) : '请选择';
   if (kind === 'time') return profile.time || '请选择';
   return profile.locationName || '请选择';
+}
+
+function chooseCaseGender(profile: CaseProfile, value: string, target: BirthPickerTarget) {
+  profile.gender = value === 'male' ? 'male' : 'female';
+  if (target === 'create') newCaseGenderConfirmed.value = true;
+  caseError.value = '';
+}
+
+function chooseCaseCalendar(profile: CaseProfile, value: string) {
+  const dateType = value === 'lunar' ? 'lunar' : 'solar';
+  if (profile.dateType !== dateType) profile.date = '';
+  profile.dateType = dateType;
+  profile.isLeapMonth = false;
+  caseError.value = '';
 }
 
 async function openBirthPicker(kind: BirthPickerKind, target: BirthPickerTarget) {
@@ -3655,6 +4035,7 @@ async function openBirthPicker(kind: BirthPickerKind, target: BirthPickerTarget)
     }
   }
   const profile = profileForBirthPicker(target);
+  birthPlaceSearchQuery.value = '';
   birthPicker.kind = kind;
   birthPicker.target = target;
   if (kind === 'gender') birthPicker.values = [profile.gender || 'female'];
@@ -3677,6 +4058,11 @@ function updateBirthPickerValues(values: string[]) {
 function closeBirthPicker() {
   birthPicker.open = false;
   birthPicker.values = [];
+  birthPlaceSearchQuery.value = '';
+}
+
+function selectBirthPlaceSearchResult(result: BirthPlaceSearchResult) {
+  confirmBirthPicker(result.values);
 }
 
 function confirmBirthPicker(values: string[]) {
@@ -3708,7 +4094,8 @@ function confirmBirthPicker(values: string[]) {
     }
     if (birthPicker.target === 'create') newCaseRegionConfirmed.value = true;
   }
-  caseError.value = '';
+  if (birthPicker.target === 'instant') formError.value = '';
+  else caseError.value = '';
   closeBirthPicker();
 }
 
@@ -3814,7 +4201,7 @@ function resetNewCaseDraft() {
 }
 
 function caseValidationMessage(profile: CaseProfile) {
-  if (!profile.label.trim() && !profile.name.trim()) return '请填写案例名称。';
+  if (!profile.label.trim() && !profile.name.trim()) return '请填写备注或姓名。';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return '请选择出生日期和时间。';
   const [year, month, day] = profile.date.split('-').map(Number);
   const [hour, minute] = profile.time.split(':').map(Number);
@@ -3842,7 +4229,7 @@ function setNewCaseError(message: string, controlId: string) {
 function saveNewCase() {
   const profile = { ...newCaseDraft.value };
   if (!profile.label.trim() && !profile.name.trim()) {
-    setNewCaseError('请填写案例名称。', 'new-case-label');
+    setNewCaseError('请填写备注或姓名。', 'new-case-label');
     return;
   }
   if (!newCaseGenderConfirmed.value) {
@@ -4097,7 +4484,16 @@ async function completeDivination(
   };
   selectedKind.value = kind;
   if (kind === 'wuyun-liuqi') selectedWuyunYear.value = wuyunReadingYear(result as WuyunLiuqiResult);
-  if (kind === 'huangji-jingshi') selectedHuangjiYear.value = huangjiReadingYear(result as HuangjiJingshiResult);
+  if (kind === 'taiyi') {
+    const taiyi = result as TaiyiResult;
+    settings.taiyiScope = taiyi.scope;
+    selectedTaiyiYear.value = Number(taiyi.dateTime.slice(0, 4)) || new Date().getFullYear();
+  }
+  if (kind === 'huangji-jingshi') {
+    const huangji = result as HuangjiJingshiResult;
+    settings.huangjiMode = huangji.dateTimeForecast ? 'date' : 'year';
+    selectedHuangjiYear.value = huangjiReadingYear(huangji);
+  }
   currentResult.value = result;
   currentRecord.value = record;
   if (appendToChat) {
@@ -4160,7 +4556,13 @@ async function finishAutomaticReading(kind: ManualDivinationKind, userQuestion: 
   isReading.value = true;
   formError.value = '';
   try {
-    const result = await runAutomaticCasting(kind, new Date(), { qimenScope: settings.qimenScope });
+    const result = await runAutomaticCasting(kind, new Date(), {
+      qimenScope: settings.qimenScope,
+      qimenLayout: settings.qimenLayout,
+      qimenJuMethod: settings.qimenJuMethod,
+      taiyiScope: settings.taiyiScope,
+      taiyiYear: selectedTaiyiYear.value,
+    });
     await completeDivination(kind, result, userQuestion, true, sessionId);
     if (sessionId === chatSessionId) selectedInspirationPrompt.value = '';
   } catch (error) {
@@ -4236,6 +4638,12 @@ async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
 
 async function beginReading() {
   if (isReading.value || isInterpreting.value || chartLoading.value) return;
+  if (homeMode.value === 'chart' && !cases.value.length) {
+    forcedBasicAgentSelection.value = null;
+    formError.value = '';
+    showToolPicker.value = false;
+    return;
+  }
   formError.value = '';
   aiError.value = '';
   const requestedQuestion = question.value.trim();
@@ -4244,7 +4652,7 @@ async function beginReading() {
     return;
   }
   const sessionId = chatSessionId;
-  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading' || message.kind === 'tarot');
+  const hasCurrentReading = homeState.value === 'chat' && chatMessages.value.some((message) => message.kind === 'reading' || message.kind === 'tarot' || message.kind === 'instant');
   const usingBasicFallbackSelection = Boolean(forcedBasicAgentSelection.value);
   isReading.value = true;
   try {
@@ -4263,6 +4671,53 @@ async function beginReading() {
     return;
   } finally {
     if (sessionId === chatSessionId) isReading.value = false;
+  }
+  if (homeMode.value === 'instant') {
+    const observer = instantObserver.value;
+    if (instantNeedsObserver.value && !observer) {
+      formError.value = `${instantChartMeta.value.fullLabel}需要先选择观测地点。`;
+      await openBirthPicker('region', 'instant');
+      return;
+    }
+    if (usingBasicFallbackSelection) forcedBasicAgentSelection.value = null;
+    const instantQuestion = requestedQuestion;
+    const instantAiQuestion = selectedInspirationPrompt.value || instantQuestion;
+    homeState.value = 'chat';
+    showToolPicker.value = false;
+    chatMessages.value = [...chatMessages.value, { kind: 'text', role: 'user', content: instantQuestion }];
+    question.value = '';
+    chartLoading.value = true;
+    try {
+      const response = await runInstantChart({
+        type: instantChartKind.value,
+        timeStandard: instantTimeStandard.value,
+        ...(observer ? { observer } : {}),
+      });
+      if (sessionId !== chatSessionId) return;
+      chatMessages.value = [...chatMessages.value, { kind: 'instant', role: 'assistant', content: '', response }];
+      const request: AiInterpretationRequest = {
+        mode: 'chart',
+        question: instantAiQuestion,
+        method: response.label,
+        reading: {
+          summary: instantChartSummary(response),
+          data: { type: response.type, timeStandard: response.timeStandard, generatedAt: response.generatedAt },
+          prompt: buildInstantAiPrompt(response, instantAiQuestion),
+        },
+        preferences: {
+          answerPreference: appPreferences.answerPreference,
+          displayLevel: appPreferences.displayLevel,
+        },
+        aiConfig: channelToAiConfig(activeAiChannel.value),
+      };
+      await requestInterpretation(request, true, sessionId, null);
+      selectedInspirationPrompt.value = '';
+    } catch (error) {
+      formError.value = error instanceof Error ? error.message : '即时排盘没有完成，请稍后重试。';
+    } finally {
+      if (sessionId === chatSessionId) chartLoading.value = false;
+    }
+    return;
   }
   if (homeMode.value === 'chart') {
     if (!cases.value.length || !currentCase.value?.date || !currentCase.value?.time) {
@@ -4424,7 +4879,12 @@ async function beginReading() {
   try {
     const result = await runDivination(selectedKind.value, new Date(), currentCase.value, {
       qimenScope: settings.qimenScope,
+      qimenLayout: settings.qimenLayout,
+      qimenJuMethod: settings.qimenJuMethod,
+      taiyiScope: settings.taiyiScope,
+      taiyiYear: selectedTaiyiYear.value,
       wuyunYear: selectedWuyunYear.value,
+      huangjiMode: settings.huangjiMode,
       huangjiYear: selectedHuangjiYear.value,
     });
     await completeDivination(selectedKind.value, result, userQuestion, true, sessionId);
@@ -4585,6 +5045,31 @@ function chooseBaziMonth(month: number) {
 function chooseBaziDay(index: number) {
   selectedBaziDayIndex.value = index;
   selectedBaziHourIndex.value = 0;
+}
+
+function returnBaziFortuneToToday() {
+  const result = displayResult.value;
+  if (!result || !isBazi(result)) return;
+  const now = new Date();
+  const activeCycle = getLuckCycleForDate(result.luckInfo.cycles, now);
+  const activeIndex = result.luckInfo.cycles.findIndex((cycle) => cycle === activeCycle);
+  selectedBaziCycleIndex.value = activeIndex >= 0 ? activeIndex : 0;
+  const years = selectedBaziYears.value;
+  selectedBaziYear.value = years.some((item) => item.year === now.getFullYear())
+    ? now.getFullYear()
+    : years[0]?.year || null;
+  resetBaziFortuneDetailSelection();
+  void nextTick(() => {
+    document.querySelectorAll<HTMLElement>('.bazi-fortune-board .luck-list, .bazi-fortune-board .liunian-list, .bazi-fortune-board .bazi-fortune-strip')
+      .forEach((strip) => {
+        const activeOption = strip.querySelector<HTMLElement>('button.active');
+        if (!activeOption) return;
+        strip.scrollTo({
+          behavior: 'smooth',
+          left: Math.max(0, activeOption.offsetLeft - (strip.clientWidth - activeOption.offsetWidth) / 2),
+        });
+      });
+  });
 }
 
 function handleBaziFortuneWheel(event: WheelEvent) {
@@ -4991,7 +5476,16 @@ async function openRecord(record: HistoryRecordEntry) {
   goView('tools');
   selectedKind.value = record.kind;
   if (record.kind === 'wuyun-liuqi') selectedWuyunYear.value = wuyunReadingYear(record.result as WuyunLiuqiResult);
-  if (record.kind === 'huangji-jingshi') selectedHuangjiYear.value = huangjiReadingYear(record.result as HuangjiJingshiResult);
+  if (record.kind === 'taiyi') {
+    const taiyi = record.result as TaiyiResult;
+    settings.taiyiScope = taiyi.scope;
+    selectedTaiyiYear.value = Number(taiyi.dateTime.slice(0, 4)) || new Date().getFullYear();
+  }
+  if (record.kind === 'huangji-jingshi') {
+    const huangji = record.result as HuangjiJingshiResult;
+    settings.huangjiMode = huangji.dateTimeForecast ? 'date' : 'year';
+    selectedHuangjiYear.value = huangjiReadingYear(huangji);
+  }
   currentResult.value = record.result;
   currentRecord.value = record;
   homeState.value = 'chat';
@@ -5019,6 +5513,7 @@ function isJinkoujue(result: ReadingResult): result is JinkoujueData { return 'p
 function isQimen(result: ReadingResult): result is QimenData { return 'jiuGongGe' in result; }
 function isLiuren(result: ReadingResult): result is LiurenData { return 'threeTransmissions' in result; }
 function isTaiyi(result: ReadingResult): result is TaiyiResult { return 'taiyiPalace' in result && 'sixteenGods' in result; }
+function taiyiReadingScopeLabel(result: TaiyiResult) { return ({ year: '年计', month: '月计', day: '日计', hour: '时计' })[result.scope]; }
 function isChartReading(kind: DivinationKind): kind is ChartKind { return kind === 'bazi' || kind === 'ziwei' || kind === 'astrolabe' || kind === 'qizheng'; }
 function isAlmanac(result: ReadingResult): result is AlmanacData { return 'days' in result && 'topicLabel' in result; }
 function isBazi(result: ReadingResult): result is BaziChartResult { return 'pillars' in result && 'dayMaster' in result; }
@@ -5046,13 +5541,7 @@ function baziElementClass(value: string) {
 }
 
 function visibleBaziShensha(result: BaziChartResult, key: keyof BaziChartResult['pillars']) {
-  return Array.from(new Set((result.shensha[key] || []).filter((name) => (
-    commonBaziShensha.some((common) => name.includes(common))
-  ))));
-}
-
-function baziShenshaLabel(name: string) {
-  return baziShenshaAliases[name] || name;
+  return filterCommonBaziShensha(result.shensha[key], commonBaziShensha);
 }
 
 function astroAscendant(result: AstrolabeData) {
@@ -5276,13 +5765,13 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
       <button v-if="activeView === 'tools' && homeState === 'default'" class="mobile-home-fortune-strip" type="button" :aria-label="`查看${fortuneEntryLabel}`" @click="openTodayFortune">
         <span class="mobile-home-fortune-mark"><Sun :size="15" /></span>
-        <span class="mobile-home-fortune-copy"><small>{{ fortuneEntryLabel }}</small><strong>{{ homeFortunePreview?.previewText || '正在准备今天的本地参考' }}</strong></span>
+        <span class="mobile-home-fortune-copy"><small>{{ fortuneEntryLabel }}</small><strong>{{ homeFortunePreview?.previewText || '正在加载' }}</strong></span>
         <span v-if="homeFortunePreview" class="mobile-home-fortune-color" :style="{ backgroundColor: homeFortunePreview.reference.colors[0].hex }" :title="homeFortunePreview.reference.colors[0].name"></span>
         <ChevronRight :size="15" />
       </button>
 
       <main ref="contentRef" class="content" :class="{ 'is-chat-view': activeView === 'tools' && homeState === 'chat' }">
-        <UiPageShell v-if="activeView === 'tools'" width="reading" class="screen tools-screen" :class="{ 'is-chat': homeState === 'chat' }">
+        <UiPageShell v-if="activeView === 'tools'" class="screen tools-screen" :class="{ 'is-chat': homeState === 'chat' }">
           <template v-if="homeState === 'default'">
             <section class="home-default">
               <div class="default-hero"><img class="default-mark" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="时月东方" /><h1><span>探索未来</span><span class="hero-multicolor">解读术数</span></h1><a class="merit-box-button" href="https://lk.sydf.cc/" target="_blank" rel="noopener noreferrer"><Heart :size="14" />功德箱</a></div>
@@ -5291,7 +5780,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
           <template v-else>
             <div ref="chatConversationRef" class="chat-conversation" aria-live="polite">
-              <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
+              <div v-if="!chatMessages.length" class="chat-empty"><img class="chat-empty-icon" :src="getDivinationThemeLogoUrl()" :style="{ objectPosition: activeDivinationThemeLogoPosition }" alt="" aria-hidden="true" /><strong>{{ appPreferences.displayLevel === 'basic' ? '写下你想问的事' : homeMode === 'divination' ? `把问题交给${selectedMeta.label}` : homeMode === 'instant' ? `以此刻生成${instantChartMeta.fullLabel}` : `载入${homeChartMeta.label}` }}</strong><small>{{ appPreferences.displayLevel === 'basic' ? '系统会根据问题自动选择合适的方式。' : homeMode === 'divination' ? '选择参数或完成起卦，再点击发送。' : homeMode === 'instant' ? '即时盘不读取案例，只记录点击发送时的事件时刻。' : '确认案例资料后，点击发送生成排盘。' }}</small><UiButton variant="ghost" size="small" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</UiButton></div>
               <div
                 v-for="(message, index) in chatMessages"
                 :key="`${message.kind}-${message.role}-${index}`"
@@ -5332,6 +5821,20 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                     <button type="button" class="reading-bubble tarot-reading-bubble" @click="openTarotModal(message)"><span class="reading-bubble-icon">牌</span><span class="reading-bubble-copy"><strong>{{ westernReadingDeckName(message.reading) }}</strong><small>{{ message.reading.spreadName }} · 点击查看牌阵</small></span><ChevronRight :size="14" /></button>
                   </AiReadingActions>
                 </div>
+                <div v-else-if="message.kind === 'instant'" class="chat-reading-message is-user">
+                  <AiReadingActions
+                    class="reading-action-host"
+                    :content="chatMessageExportItem(message).content"
+                    :show-inline="false"
+                    selection-enabled
+                    :selection-mode="chatSelectionMode"
+                    deletable
+                    @request-select="startChatSelection(index)"
+                    @request-delete="deleteChatMessage(index)"
+                  >
+                    <button type="button" class="reading-bubble instant-reading-bubble" @click="openInstantModal(message)"><span class="reading-bubble-icon">{{ instantChartOptions.find((item) => item.kind === message.response.type)?.icon || '时' }}</span><span class="reading-bubble-copy"><strong>{{ message.response.label }}</strong><small>{{ formatInstantWallClock(message.response) }} · 点击查看盘面</small></span><ChevronRight :size="14" /></button>
+                  </AiReadingActions>
+                </div>
                 <div v-else class="chat-message" :class="`is-${message.role}`">
                   <AiReadingActions
                     :content="message.content"
@@ -5360,19 +5863,45 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </template>
 
           <div v-if="!chatSelectionMode" class="chat-composer chat-composer-docked" :class="{ 'home-default-composer': homeState === 'default' }">
-            <div v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
+            <div v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row"><span>局式</span><button v-for="item in [{ value: 'hour', label: '时家' }, { value: 'day', label: '日家' }, { value: 'month', label: '月家' }, { value: 'year', label: '年家' }]" :key="item.value" type="button" :class="{ active: settings.qimenScope === item.value }" @click="chooseQimenScope(item.value as typeof settings.qimenScope)">{{ item.label }}</button></div>
+            <div v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'qimen'" class="setting-row qimen-method-row"><span>排法</span><button type="button" :class="{ active: settings.qimenLayout === 'zhuanpan' }" @click="chooseQimenLayout('zhuanpan')">转盘</button><button type="button" :class="{ active: settings.qimenLayout === 'feipan' }" @click="chooseQimenLayout('feipan')">飞盘</button><span class="setting-inline-label">定局</span><button type="button" :class="{ active: settings.qimenJuMethod === 'chaibu' }" @click="chooseQimenJuMethod('chaibu')">拆补</button><button type="button" :class="{ active: settings.qimenJuMethod === 'zhirun' }" @click="chooseQimenJuMethod('zhirun')">置闰</button></div>
+            <div v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'taiyi'" class="setting-row"><span>计式</span><button v-for="item in [{ value: 'year', label: '年计' }, { value: 'month', label: '月计' }, { value: 'day', label: '日计' }, { value: 'hour', label: '时计' }]" :key="item.value" type="button" :class="{ active: settings.taiyiScope === item.value }" @click="chooseTaiyiScope(item.value as typeof settings.taiyiScope)">{{ item.label }}</button><input v-if="settings.taiyiScope === 'year'" class="wuyun-year-input" type="number" min="1" max="9999" step="1" :value="selectedTaiyiYear" aria-label="太乙年计公历年份" @input="updateTaiyiYear" /></div>
             <label v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'wuyun-liuqi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedWuyunYear" aria-label="五运六气公历年份" @input="updateWuyunYear" /></label>
-            <label v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row wuyun-year-row"><span>公历年份</span><input class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></label>
-            <div v-if="homeState === 'default' && activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读流派</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读流派" @update:model-value="chooseActivePromptSchool" /></div>
-            <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
+            <div v-if="homeState === 'default' && appPreferences.displayLevel !== 'basic' && homeMode === 'divination' && selectedKind === 'huangji-jingshi'" class="setting-row"><span>起盘</span><button type="button" :class="{ active: settings.huangjiMode === 'date' }" @click="chooseHuangjiMode('date')">年月日时</button><button type="button" :class="{ active: settings.huangjiMode === 'year' }" @click="chooseHuangjiMode('year')">值年</button><input v-if="settings.huangjiMode === 'year'" class="wuyun-year-input" type="number" min="1900" max="2199" step="1" :value="selectedHuangjiYear" aria-label="皇极经世公历年份" @input="updateHuangjiYear" /></div>
+            <div v-if="homeState === 'default' && homeMode === 'instant'" class="setting-row instant-setting-row"><span>时间口径</span><button type="button" :class="{ active: instantTimeStandard === 'beijing' }" @click="chooseInstantTimeStandard('beijing')">北京时间</button><button type="button" :class="{ active: instantTimeStandard === 'true-solar' }" @click="chooseInstantTimeStandard('true-solar')">真太阳时</button><button v-if="instantNeedsObserver" type="button" class="instant-location-button" @click="openBirthPicker('region', 'instant')"><MapPin :size="13" />{{ instantObserver?.locationName || '选择观测地点' }}</button></div>
+            <div v-if="homeState === 'default' && activePromptSchoolMethod" class="setting-row prompt-school-row"><span>解读体系</span><UiSelect :model-value="activePromptSchoolChoice" :options="activePromptSchoolOptions" aria-label="选择解读体系" @update:model-value="chooseActivePromptSchool" /></div>
+            <textarea v-auto-resize class="composer-textarea" v-model="question" maxlength="10000" :aria-label="homeState === 'chat' ? '继续对话' : undefined" :placeholder="homeState === 'chat' ? '继续追问这次结果' : appPreferences.displayLevel === 'basic' ? '写下问题，或从问题灵感开始' : homeMode === 'chart' ? '写下想重点了解的方向' : homeMode === 'instant' ? '写下所问，以点击发送的时刻起盘' : `写下问题，交给${selectedMeta.label}`" @input="clearInspirationPrompt" @keydown.enter.exact.prevent="beginReading"></textarea>
             <small class="composer-shortcut-hint">Enter 发送 · Shift + Enter 换行</small>
-            <div class="composer-toolbar"><div class="composer-tools"><div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker"><button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button><div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具"><div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div><section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>占卜</strong><small>{{ homeState === 'chat' ? '选定后配置' : '按想了解的事情选择' }}</small></div><div class="tool-panel-grid"><button v-for="kind in visibleDivinationKinds" :key="kind" type="button" class="tool-panel-item" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].description }}</small></span></button></div></section><section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section"><div class="tool-panel-section-head"><strong>排盘</strong><small>会读取当前案例</small></div><div class="tool-panel-grid chart-tools"><button v-for="item in homeChartOptions" :key="item.kind" type="button" class="tool-panel-item" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button></div></section></div></div><button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button><button type="button" class="ask-library-button" @click="openQuestionSupplementModal"><FileText :size="14" />补充信息</button></div><button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button></div>
+            <div class="composer-toolbar">
+              <div class="composer-tools">
+                <div v-if="appPreferences.displayLevel !== 'basic' || basicAiFallbackPickerMode" ref="toolPickerRef" class="tool-picker">
+                  <button type="button" class="tool-picker-button" :aria-expanded="showToolPicker" aria-label="选择工具" @click="showToolPicker = !showToolPicker"><Plus :size="14" /><span>{{ basicAiFallbackPickerMode === 'chart' ? '选择排盘' : basicAiFallbackPickerMode === 'divination' ? '选择占卜' : homeModeLabel }}</span><ChevronDown :size="13" /></button>
+                  <div v-if="showToolPicker" class="tool-picker-panel" role="dialog" aria-label="选择工具">
+                    <div class="tool-panel-title"><strong>{{ basicAiFallbackPickerMode === 'chart' ? '选择一种排盘' : basicAiFallbackPickerMode === 'divination' ? '选择一种占卜' : '选择工具' }}</strong><button type="button" aria-label="关闭工具面板" @click="closeBasicAiFallbackPicker"><X :size="15" /></button></div>
+                    <section v-if="basicAiFallbackPickerMode !== 'chart'" class="tool-panel-section">
+                      <div class="tool-panel-section-head"><strong>占卜</strong><small>{{ basicAiFallbackPickerMode ? '选定后继续' : '点击选择，星标设为默认' }}</small></div>
+                      <div class="tool-panel-grid"><div v-for="kind in visibleDivinationKinds" :key="kind" class="tool-panel-entry"><button type="button" class="tool-panel-item" :class="{ 'is-selected': homeMode === 'divination' && selectedKind === kind }" @click="chooseTool(kind)"><span class="tool-panel-icon">{{ kindMeta[kind].icon }}</span><span><strong>{{ kindMeta[kind].label }}</strong><small>{{ kindMeta[kind].description }}</small></span></button><button v-if="!basicAiFallbackPickerMode" type="button" class="tool-panel-default-button" :class="{ active: isDefaultDivinationTool(kind) }" :aria-label="isDefaultDivinationTool(kind) ? `${kindMeta[kind].label}已是默认工具` : `将${kindMeta[kind].label}设为默认工具`" :aria-pressed="isDefaultDivinationTool(kind)" @click.stop="setDefaultHomeTool({ mode: 'divination', kind })"><Star :size="13" :fill="isDefaultDivinationTool(kind) ? 'currentColor' : 'none'" /></button></div></div>
+                    </section>
+                    <section v-if="!basicAiFallbackPickerMode" class="tool-panel-section instant-tool-panel-section">
+                      <div class="tool-panel-section-head"><strong>即时盘</strong><small>不读取案例，以发送时刻起盘</small></div>
+                      <div class="tool-panel-grid instant-tools"><div v-for="item in instantChartOptions" :key="item.kind" class="tool-panel-entry"><button type="button" class="tool-panel-item" :class="{ 'is-selected': homeMode === 'instant' && instantChartKind === item.kind }" @click="chooseInstantChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button><button type="button" class="tool-panel-default-button" :class="{ active: isDefaultInstantTool(item.kind) }" :aria-label="isDefaultInstantTool(item.kind) ? `${item.fullLabel}已是默认工具` : `将${item.fullLabel}设为默认工具`" :aria-pressed="isDefaultInstantTool(item.kind)" @click.stop="setDefaultHomeTool({ mode: 'instant', kind: item.kind })"><Star :size="13" :fill="isDefaultInstantTool(item.kind) ? 'currentColor' : 'none'" /></button></div></div>
+                    </section>
+                    <section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section chart-tool-panel-section">
+                      <div class="tool-panel-section-head"><strong>本命盘</strong><small>{{ basicAiFallbackPickerMode ? '会读取当前案例' : '读取案例，星标设为默认' }}</small></div>
+                      <div class="chart-tool-grid-wrap"><div class="tool-panel-grid chart-tools"><div v-for="item in homeChartOptions" :key="item.kind" class="tool-panel-entry"><button type="button" class="tool-panel-item" :class="{ 'is-selected': homeMode === 'chart' && homeChartKind === item.kind }" :disabled="!cases.length" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button><button v-if="!basicAiFallbackPickerMode && cases.length" type="button" class="tool-panel-default-button" :class="{ active: isDefaultChartTool(item.kind) }" :aria-label="isDefaultChartTool(item.kind) ? `${item.label}已是默认工具` : `将${item.label}设为默认工具`" :aria-pressed="isDefaultChartTool(item.kind)" @click.stop="setDefaultHomeTool({ mode: 'chart', kind: item.kind })"><Star :size="13" :fill="isDefaultChartTool(item.kind) ? 'currentColor' : 'none'" /></button></div></div><div v-if="!cases.length" class="tool-panel-case-overlay"><button type="button" @click="openCases"><Plus :size="16" />添加案例</button></div></div>
+                    </section>
+                  </div>
+                </div>
+                <button type="button" class="ask-library-button" @click="openInspirationModal"><MessageCircle :size="14" />问题灵感</button><button type="button" class="ask-library-button" @click="openQuestionSupplementModal"><FileText :size="14" />补充信息</button>
+              </div>
+              <button class="chat-send-button" type="button" :disabled="isReading || isInterpreting || chartLoading" aria-label="发送" @click="beginReading"><LoaderCircle v-if="isReading || isInterpreting || chartLoading" class="spin" :size="17" /><ArrowUp v-else :size="18" :stroke-width="2.4" /></button>
+            </div>
             <p v-if="formError" class="form-error">{{ formError }}</p>
           </div>
           <p class="home-ai-disclaimer" :class="{ 'is-chat': homeState === 'chat' }">生成内容完全基于 AI 模型的胡言乱语，不构成任何形式建议</p>
         </UiPageShell>
 
-        <UiToolPage v-else-if="activeView === 'almanac'" width="standard" class="screen almanac-screen" toolbar-label="黄历日期与类型" toolbar-class="almanac-immersive-header">
+        <UiToolPage v-else-if="activeView === 'almanac'" class="screen almanac-screen" toolbar-label="黄历日期与类型" toolbar-class="almanac-immersive-header">
             <template #toolbar-primary>
               <UiDateNavigator
                 class="almanac-month-navigator"
@@ -5519,7 +6048,6 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
         <OracleView
           v-else-if="activeView === 'oracle'"
-          class="ui-page ui-page--reading"
           :result="oracleResult"
           :initial-question="oracleInitialQuestion"
           :ai-answer="aiAnswer"
@@ -5535,7 +6063,6 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel, promptSchoolChoices: appPreferences.promptSchoolChoices }"
           :ai-config="activeAiRequestConfig"
           :casting-preference="appPreferences.castingPreference"
-          @update:prompt-school-choice="choosePromptSchool"
           @interpret="startTarotInterpretation"
         />
 
@@ -5551,7 +6078,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           @retry-interpretation="retryLastInterpretation"
         />
 
-        <UiToolPage v-else-if="activeView === 'fortune'" width="standard" class="screen fortune-screen" toolbar-label="运势日期与周期" toolbar-class="fortune-toolbar">
+        <UiToolPage v-else-if="activeView === 'fortune'" class="screen fortune-screen" toolbar-label="运势日期与周期" toolbar-class="fortune-toolbar">
             <template #toolbar-primary>
               <UiDateNavigator
                 :label="selectedFortuneDateLabel"
@@ -5581,7 +6108,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         </UiToolPage>
 
         <template v-else-if="activeView === 'charts'">
-          <UiPageShell v-if="!cases.length" width="standard" class="screen charts-screen">
+          <UiPageShell v-if="!cases.length" class="screen charts-screen">
             <UiWorkspaceSurface padding="standard">
               <UiEmptyState title="需要一份案例" description="请先在案例中保存出生资料。" compact>
                 <template #icon><UserRound :size="24" /></template>
@@ -5590,7 +6117,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             </UiWorkspaceSurface>
           </UiPageShell>
 
-          <UiToolPage v-else width="wide" class="screen charts-screen" toolbar-label="排盘类型" toolbar-class="chart-toolbar">
+          <UiToolPage v-else class="screen charts-screen" toolbar-label="排盘类型" toolbar-class="chart-toolbar">
             <template #toolbar-primary>
               <UiSegmentedControl class="chart-mode-tabs ui-tool-tabs" :model-value="chartKind" :items="chartKindTabs" label="排盘类型" compact @update:model-value="chooseChart($event as ChartKind)" />
             </template>
@@ -5622,16 +6149,18 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           @view-case="openCompatibilityCaseChart"
         />
 
-        <UiPageShell v-else-if="activeView === 'cases'" width="standard" class="screen cases-screen">
+        <UiPageShell v-else-if="activeView === 'cases'" class="screen cases-screen">
           <UiSegmentedControl as="nav" class="ui-subpage-tabs" :model-value="activeCasesSection" :items="casesSectionTabs" label="案例分类" variant="underline" @update:model-value="openCasesSection($event as CasesSection)" />
 
           <section v-if="activeCasesSection === 'input'" class="case-input-page">
             <UiWorkspaceSurface as="div" class="case-input-form" padding="standard">
               <div class="form-grid">
-                <UiTextField id="new-case-label" v-model="newCaseDraft.label" label="案例名称" autocomplete="off" placeholder="例如：自己、家人" :aria-invalid="caseError.includes('案例名称') || undefined" :aria-describedby="caseError.includes('案例名称') ? 'new-case-error' : undefined" @update:model-value="caseError = ''" />
+                <UiTextField id="new-case-label" v-model="newCaseDraft.label" label="备注" autocomplete="off" placeholder="例如：自己、家人" :aria-invalid="caseError.includes('备注') || undefined" :aria-describedby="caseError.includes('备注') ? 'new-case-error' : undefined" @update:model-value="caseError = ''" />
                 <UiTextField id="new-case-name" v-model="newCaseDraft.name" label="姓名" autocomplete="off" placeholder="可选" @update:model-value="caseError = ''" />
-                <div class="birth-picker-control"><span>性别</span><button id="new-case-gender" type="button" class="birth-picker-trigger" aria-label="选择性别" :aria-invalid="caseError.includes('性别') || undefined" :aria-describedby="caseError.includes('性别') ? 'new-case-error' : undefined" @click="openBirthPicker('gender', 'create')"><UserRound :size="16" /><strong>{{ newCaseGenderConfirmed ? birthPickerFieldValue('gender', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
-                <div class="birth-picker-control"><span>出生历法</span><button type="button" class="birth-picker-trigger" aria-label="选择出生历法" @click="openBirthPicker('calendar', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('calendar', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="case-binary-fields">
+                  <div class="case-binary-control"><span>性别</span><UiSegmentedControl id="new-case-gender" tabindex="-1" :aria-invalid="caseError.includes('性别') || undefined" :aria-describedby="caseError.includes('性别') ? 'new-case-error' : undefined" :model-value="newCaseGenderConfirmed ? newCaseDraft.gender : ''" :items="caseGenderOptions" label="选择性别" compact equal @update:model-value="chooseCaseGender(newCaseDraft, $event, 'create')" /></div>
+                  <div class="case-binary-control"><span>出生历法</span><UiSegmentedControl :model-value="newCaseDraft.dateType" :items="caseCalendarOptions" label="选择出生历法" compact equal @update:model-value="chooseCaseCalendar(newCaseDraft, $event)" /></div>
+                </div>
                 <div class="birth-picker-control"><span>出生日期</span><button id="new-case-date" type="button" class="birth-picker-trigger" aria-label="选择出生日期" :aria-invalid="caseError.includes('日期') || caseError.includes('时间') || undefined" :aria-describedby="caseError.includes('日期') || caseError.includes('时间') ? 'new-case-error' : undefined" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'create')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button id="new-case-region" type="button" class="birth-picker-trigger" aria-label="选择出生地区" :aria-invalid="caseError.includes('地区') || undefined" :aria-describedby="caseError.includes('地区') ? 'new-case-error' : undefined" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
@@ -5644,7 +6173,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </section>
 
           <section v-else class="case-records-page">
-            <label v-if="cases.length" class="case-records-search"><Search :size="16" /><input v-model="caseSearch" type="search" autocomplete="off" placeholder="搜索名称、日期或地区" aria-label="搜索案例记录" /></label>
+            <label v-if="cases.length" class="case-records-search"><Search :size="16" /><input v-model="caseSearch" type="search" autocomplete="off" placeholder="搜索备注、姓名、日期或地区" aria-label="搜索案例记录" /></label>
             <div v-if="filteredCases.length" class="case-records-list">
               <button v-for="profile in filteredCases" :key="profile.id" class="case-record-row" type="button" :aria-label="`编辑${profile.label}`" @click="editCase(profile.id)">
                 <span class="case-avatar">{{ profile.label.slice(0, 1) }}</span>
@@ -5660,16 +6189,18 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </section>
         </UiPageShell>
 
-        <UiPageShell v-else-if="activeView === 'settings'" width="standard" class="screen settings-screen">
+        <UiPageShell v-else-if="activeView === 'settings'" class="screen settings-screen">
           <UiSegmentedControl as="nav" class="ui-subpage-tabs" :model-value="activeSettingsSection" :items="settingsSectionTabs" label="设置分类" variant="underline" @update:model-value="openSettingsSection($event as SettingsSection)" />
 
           <UiWorkspaceSurface v-if="activeSettingsSection === 'ai'" as="div" class="settings-workspace" padding="standard">
             <aside class="settings-channel-rail">
-              <div class="settings-rail-heading"><div><h2>AI 渠道</h2></div><UiButton variant="secondary" size="small" icon-only aria-label="添加 AI 渠道" @click="addAiChannel"><Plus :size="15" /></UiButton></div>
+              <div class="settings-rail-heading"><div><h2>当前与备用</h2><small>通常保留一个主渠道，再加一个备用即可</small></div></div>
               <div class="settings-channel-list" role="group" aria-label="AI 渠道">
-                <button v-for="channel in appPreferences.aiChannels" :key="channel.id" type="button" class="settings-channel-item" :class="{ active: configuringAiChannel.id === channel.id, current: activeAiChannel.id === channel.id }" :aria-pressed="configuringAiChannel.id === channel.id" @click="selectConfiguringAiChannel(channel.id)"><span class="settings-channel-icon"><Sparkles v-if="channel.provider === 'builtin'" :size="15" /><Settings v-else :size="15" /></span><span><strong>{{ channel.name }}</strong><small v-if="channel.provider === 'builtin'">无需配置</small><small v-else-if="isAiChannelReady(channel)">{{ channel.model }}</small><small v-else>待配置</small></span><Check v-if="activeAiChannel.id === channel.id" :size="15" /></button>
+                <button v-for="channel in managedAiChannels" :key="channel.id" type="button" class="settings-channel-item" :class="{ active: configuringAiChannel.id === channel.id, current: activeAiChannel.id === channel.id }" :aria-pressed="configuringAiChannel.id === channel.id" @click="selectConfiguringAiChannel(channel.id)"><span class="settings-channel-icon"><Sparkles v-if="channel.provider === 'builtin'" :size="15" /><Settings v-else :size="15" /></span><span><strong>{{ channel.name }}</strong><small v-if="activeAiChannel.id === channel.id">当前使用</small><small v-else-if="isAiChannelReady(channel)">备用 · {{ channel.provider === 'builtin' ? '无需配置' : channel.model }}</small><small v-else>待完成配置</small></span><Check v-if="activeAiChannel.id === channel.id" :size="15" /></button>
               </div>
-              <div class="settings-rail-footer"><span>API Key 仅保存在当前浏览器会话。</span><UiButton variant="ghost" size="small" @click="addAiChannel"><Plus :size="13" />添加渠道</UiButton></div>
+              <UiButton class="settings-add-backup" variant="secondary" size="small" :aria-expanded="showAiChannelCatalog" @click="showAiChannelCatalog = !showAiChannelCatalog"><X v-if="showAiChannelCatalog" :size="14" /><Plus v-else :size="14" />{{ showAiChannelCatalog ? '收起' : '添加备用' }}</UiButton>
+              <div v-if="showAiChannelCatalog" class="settings-channel-catalog"><button v-for="preset in availableAiChannelPresets" :key="preset.id" type="button" @click="addPresetAiChannel(preset)"><span class="settings-channel-icon"><Sparkles :size="14" /></span><span><strong>{{ preset.name }}</strong><small>使用预设接口</small></span><ChevronRight :size="14" /></button><button type="button" @click="addAiChannel"><span class="settings-channel-icon"><Plus :size="14" /></span><span><strong>自定义接口</strong><small>填写兼容接口地址</small></span><ChevronRight :size="14" /></button></div>
+              <div class="settings-rail-footer"><span>API Key 仅保存在当前设备的浏览器中。</span></div>
             </aside>
 
             <div class="settings-main-column">
@@ -5679,20 +6210,20 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-channel-fields">
                   <UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiChannel.baseUrl" class="settings-field-wide" label="接口地址" type="url" autocomplete="url" placeholder="https://api.example.com/v1" @input="invalidateAiModels(configuringAiChannel)" />
                   <UiSelect v-model="configuringAiChannel.apiType" class="settings-field" label="接口协议" @change="resetAiTest"><option v-for="option in aiApiTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option></UiSelect>
-                  <UiTextField v-model="configuringAiChannel.apiKey" label="API Key" type="password" autocomplete="off" placeholder="仅保存在当前会话" @input="resetAiTest" />
+                  <UiTextField v-model="configuringAiChannel.apiKey" label="API Key" type="password" autocomplete="off" placeholder="仅保存在当前设备" @input="resetAiTest" />
                 </div>
                 <div v-if="configuringAiChannel.provider !== 'builtin'" class="settings-model-section"><div class="settings-model-heading"><span class="settings-field-label">模型</span><UiButton class="settings-fetch-models" variant="secondary" size="small" :loading="isLoadingAiModels" :disabled="!configuringAiChannel.baseUrl.trim() || !configuringAiChannel.apiKey.trim()" @click="loadAiModels(configuringAiChannel)"><RefreshCw v-if="!isLoadingAiModels" :size="14" />{{ isLoadingAiModels ? '获取中…' : '获取模型' }}</UiButton></div><UiSelect v-if="configuringAiModelOptions.length" v-model="selectedConfiguringAiModel" class="settings-model-select" aria-label="当前模型"><option v-for="model in configuringAiModelOptions" :key="model" :value="model">{{ model }}</option></UiSelect><span v-else class="settings-model-empty">请先获取模型</span><UiTextField v-if="!configuringAiChannel.preset" v-model="configuringAiModelsText" label="手动填写模型" multiline :rows="3" placeholder="无法获取列表时，可每行填写一个模型名称" /><small v-if="aiModelMessage" class="settings-note" :class="{ success: aiModelState === 'success', error: aiModelState === 'error' }">{{ aiModelMessage }}</small></div>
-                <div class="settings-test-row"><UiButton v-if="activeAiChannel.id !== configuringAiChannel.id" :disabled="!isAiChannelReady(configuringAiChannel)" @click="setActiveAiChannel(configuringAiChannel.id)"><Check :size="14" />设为当前</UiButton><UiButton variant="secondary" :loading="isTestingAi" :disabled="!isAiChannelReady(configuringAiChannel)" @click="testAiConnection"><Check v-if="!isTestingAi && aiTestState === 'success'" :size="14" /><Sparkles v-else-if="!isTestingAi" :size="14" />{{ isTestingAi ? '连接中…' : '测试连接' }}</UiButton><UiButton v-if="configuringAiChannel.provider !== 'builtin' && !configuringAiChannel.preset" class="settings-delete-channel" variant="danger" @click="removeAiChannel"><Trash2 :size="14" />删除渠道</UiButton><span v-if="aiTestMessage" :class="{ success: aiTestState === 'success', error: aiTestState === 'error' }">{{ aiTestMessage }}</span></div>
+                <div class="settings-test-row"><UiButton v-if="activeAiChannel.id !== configuringAiChannel.id" :disabled="!isAiChannelReady(configuringAiChannel)" @click="setActiveAiChannel(configuringAiChannel.id)"><Check :size="14" />设为当前</UiButton><UiButton variant="secondary" :loading="isTestingAi" :disabled="!isAiChannelReady(configuringAiChannel)" @click="testAiConnection"><Check v-if="!isTestingAi && aiTestState === 'success'" :size="14" /><Sparkles v-else-if="!isTestingAi" :size="14" />{{ isTestingAi ? '连接中…' : '测试连接' }}</UiButton><UiButton v-if="configuringAiChannel.provider !== 'builtin'" class="settings-delete-channel" variant="danger" @click="removeAiChannel"><Trash2 :size="14" />移除渠道</UiButton><span v-if="aiTestMessage" :class="{ success: aiTestState === 'success', error: aiTestState === 'error' }">{{ aiTestMessage }}</span></div>
               </section>
 
             </div>
           </UiWorkspaceSurface>
 
-          <div v-else class="preferences-page">
+          <div v-else-if="activeSettingsSection === 'theme'" class="preferences-page theme-settings-page">
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="占卜主题" description="更换界面风格；各类牌组可单独设置" compact />
               <div>
-                <div class="preference-option-grid is-three" role="group" aria-label="占卜主题">
+                <div class="preference-option-grid is-four theme-option-grid" role="group" aria-label="占卜主题">
                   <button v-for="item in DIVINATION_THEMES" :key="item.id" type="button" class="preference-option" :class="{ active: activeDivinationThemeId === item.id }" :aria-pressed="activeDivinationThemeId === item.id" :disabled="themeAssetDownload.active" @click="chooseDivinationTheme(item.id)"><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span><Check v-if="activeDivinationThemeId === item.id" :size="15" /></button>
                 </div>
                 <div v-if="themeAssetDownload.active" class="theme-download-progress" role="status" aria-live="polite"><span>正在下载{{ themeAssetDownload.label }}</span><progress :value="themeAssetDownloadPercent" max="100"></progress><strong>{{ themeAssetDownloadPercent }}%</strong></div>
@@ -5713,6 +6244,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 />
               </div>
             </section>
+
+          </div>
+
+          <div v-else class="preferences-page">
 
             <section class="preference-section">
               <UiSectionHeading class="preference-section-heading" title="解答偏好" description="选择 AI 的表达风格和解读框架" compact />
@@ -5746,7 +6281,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </div>
         </UiPageShell>
 
-        <section v-if="activeView === 'charts' && displayResult" class="result-area ui-page ui-page--wide" :class="{ 'display-basic': appPreferences.displayLevel === 'basic', 'display-beginner': appPreferences.displayLevel === 'beginner', 'is-bazi-result': isBazi(displayResult), 'is-ziwei-result': isZiwei(displayResult), 'is-qizheng-result': isQizheng(displayResult), 'ui-page--mobile-immersive': isBazi(displayResult) || isZiwei(displayResult) || isQizheng(displayResult) }">
+        <section v-if="activeView === 'charts' && displayResult" class="result-area ui-page" :class="{ 'display-basic': appPreferences.displayLevel === 'basic', 'display-beginner': appPreferences.displayLevel === 'beginner', 'is-bazi-result': isBazi(displayResult), 'is-ziwei-result': isZiwei(displayResult), 'is-qizheng-result': isQizheng(displayResult), 'ui-page--mobile-immersive': isBazi(displayResult) || isZiwei(displayResult) || isQizheng(displayResult) }">
           <div class="result-card traditional-result-card" :class="{ 'display-beginner': appPreferences.displayLevel === 'beginner' }">
             <div v-if="isMeihua(displayResult)" class="result-feature"><div class="result-emblem">{{ displayResult.mainHexagram.symbol }}<small>主卦</small></div><div class="result-copy"><span>{{ displayResult.mainHexagram.upper }} · {{ displayResult.mainHexagram.lower }}</span><h3>{{ displayResult.mainHexagram.name }}<b v-if="displayResult.changedHexagram"> → {{ displayResult.changedHexagram.name }}</b></h3><p>{{ displayResult.mainHexagram.description }}</p></div></div>
             <div v-else-if="isLiuyao(displayResult)" class="result-feature"><div class="result-copy"><span>{{ displayResult.palace.name }} · {{ displayResult.palaceStage }}</span><h3>{{ displayResult.originalName }}<b v-if="displayResult.changedName"> → {{ displayResult.changedName }}</b></h3><p>{{ displayResult.specialAdvice || '世应与动爻信息已纳入本次排盘。' }}</p></div><div class="yao-lines"><i v-for="yao in displayResult.yaosDetail" :key="yao.position" :class="{ broken: yao.yaoType === '阴', changing: yao.isChanging }"></i></div></div>
@@ -5755,7 +6290,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <div v-else-if="isJinkoujue(displayResult)" class="result-feature column-feature"><div class="result-copy"><span>{{ displayResult.methodLabel }} · {{ displayResult.dayNight }}</span><h3>{{ displayResult.mainLine }}</h3><p>{{ displayResult.summary }}</p></div><div class="position-grid"><div v-for="position in [displayResult.positions.diFen, displayResult.positions.jiangShen, displayResult.positions.guiShen, displayResult.positions.renYuan]" :key="position.name"><small>{{ position.name }}</small><strong>{{ position.god || position.stem || position.branch }}</strong><span>{{ position.element }}</span></div></div></div>
             <div v-else-if="isQimen(displayResult)" class="qimen-result"><div class="qimen-meta"><strong>{{ displayResult.isYangDun ? '阳遁' : '阴遁' }}{{ displayResult.juShu }}局</strong><span>值符 {{ displayResult.zhiFu }} · 值使 {{ displayResult.zhiShi }}</span></div><div class="qimen-grid"><div v-for="palace in displayResult.jiuGongGe" :key="palace.gong" class="qimen-palace"><small>{{ palace.name }} · {{ palace.direction }}</small><strong>{{ palace.renPan.door }}</strong><span>{{ palace.tianPan.star }} · {{ palace.shenPan.god }}</span></div></div><div class="tag-list"><span v-for="tag in (displayResult.patternTags || []).slice(0, 6)" :key="tag">{{ tag }}</span></div></div>
             <div v-else-if="isLiuren(displayResult)" class="liuren-result"><div class="transmission-row"><div v-for="item in displayResult.threeTransmissions" :key="item.stage"><small>{{ item.stage }}</small><strong>{{ item.branch }}</strong><span>{{ item.god }}</span></div></div><p>{{ displayResult.transmissionSummary || displayResult.lessonSummary }}</p></div>
-            <div v-else-if="isTaiyi(displayResult)" class="taiyi-result"><div class="taiyi-result-head"><strong>{{ displayResult.ganZhi }}年 · {{ displayResult.yinYang }}{{ displayResult.bureau }}局</strong><span>太乙 {{ displayResult.taiyiPosition }} · 文昌 {{ displayResult.wenChangPosition }} · 始击 {{ displayResult.shiJiPosition }}</span></div><div class="transmission-row"><div><small>主算</small><strong>{{ displayResult.lordCount }}</strong><span>将 {{ displayResult.lordGeneral }}/{{ displayResult.lordAssistant }}宫</span></div><div><small>客算</small><strong>{{ displayResult.guestCount }}</strong><span>将 {{ displayResult.guestGeneral }}/{{ displayResult.guestAssistant }}宫</span></div><div><small>定算</small><strong>{{ displayResult.setCount }}</strong><span>将 {{ displayResult.setGeneral }}/{{ displayResult.setAssistant }}宫</span></div></div></div>
+            <div v-else-if="isTaiyi(displayResult)" class="taiyi-result"><div class="taiyi-result-head"><strong>{{ displayResult.ganZhi }}{{ taiyiReadingScopeLabel(displayResult) }} · {{ displayResult.yinYang }}{{ displayResult.bureau }}局</strong><span>太乙 {{ displayResult.taiyiPosition }} · 文昌 {{ displayResult.wenChangPosition }} · 始击 {{ displayResult.shiJiPosition }}</span></div><div class="transmission-row"><div><small>主算</small><strong>{{ displayResult.lordCount }}</strong><span>将 {{ displayResult.lordGeneral }}/{{ displayResult.lordAssistant }}宫</span></div><div><small>客算</small><strong>{{ displayResult.guestCount }}</strong><span>将 {{ displayResult.guestGeneral }}/{{ displayResult.guestAssistant }}宫</span></div><div><small>定算</small><strong>{{ displayResult.setCount }}</strong><span>将 {{ displayResult.setGeneral }}/{{ displayResult.setAssistant }}宫</span></div></div></div>
             <div v-else-if="isAlmanac(displayResult)" class="almanac-result"><div v-for="day in displayResult.days.slice(0, 4)" :key="day.date" class="day-card"><small>{{ day.weekday }} · {{ day.lunarDate }}</small><strong>{{ day.date.slice(5) }}</strong><span>{{ day.dayOfficer }} · {{ day.twelveStar }}</span><em>{{ day.highlights[0] || day.recommends[0] || '宜结合当天安排判断' }}</em></div></div>
             <div v-else-if="isBazi(displayResult)" class="bazi-result">
               <section class="bazi-overview" aria-label="命局概览">
@@ -5778,15 +6313,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <section class="bazi-overview-content bazi-analysis-section" aria-label="命局分析">
                   <dl class="bazi-extra-list">
                     <div><dt>原局关系</dt><dd>{{ formatBaziRelations(displayResult) }}</dd></div>
-                    <div><dt>五行旺相</dt><dd>{{ formatBaziSeasonStatus(displayResult) }}</dd></div>
+                    <div><dt>五行旺相</dt><dd>{{ formatBaziSeasonStatus(displayResult) }} · 司令{{ displayResult.monthCommander || '—' }}</dd></div>
                     <div><dt>命卦</dt><dd>{{ displayResult.mingGua.gua }} · {{ displayResult.mingGua.star }} · {{ displayResult.mingGua.element }} · {{ displayResult.mingGua.eastWest }}</dd></div>
                     <div><dt>节令交接</dt><dd>当前{{ displayResult.seasonInfo.currentJieqi }}<template v-if="displayResult.seasonInfo.daysSincePrev !== undefined">后 {{ displayResult.seasonInfo.daysSincePrev }} 日</template> · 距{{ displayResult.seasonInfo.nextJieqi }}<template v-if="displayResult.seasonInfo.daysToNext !== undefined"> {{ displayResult.seasonInfo.daysToNext }} 日</template></dd></div>
+                    <div :class="{ 'is-attention': displayResult.timing?.evidence.status === '存在时间记录边界' }"><dt>定盘时间</dt><dd>{{ formatBaziTimingBasis(displayResult) }}</dd></div>
+                    <div><dt>岁运触发</dt><dd :title="selectedBaziFortuneTriggerSummary.join('；')">{{ selectedBaziFortuneTriggerSummary.join('；') || '未见当前规则列入的主要关系' }}</dd></div>
                   </dl>
                   <div class="bazi-positions"><span>命宫 <b>{{ displayResult.mingGong }}</b></span><span>身宫 <b>{{ displayResult.shenGong }}</b></span><span>胎元 <b>{{ displayResult.taiYuan }}</b></span><span>胎息 <b>{{ displayResult.taiXi }}</b></span></div>
               </section>
               <div class="bazi-fortune-board" @wheel.capture="handleBaziFortuneWheel">
                 <div class="luck-section">
-                <div class="subsection-title"><span>大运</span><small>{{ formatBaziStartInfo(displayResult.luckInfo.startInfo) }}</small></div>
+                <div class="subsection-title"><span>大运</span><small>{{ formatBaziStartInfo(displayResult.luckInfo.startInfo) }}</small><button class="bazi-fortune-today" type="button" title="回到今日岁运" aria-label="回到今日岁运" @click="returnBaziFortuneToToday">今</button></div>
                 <div class="luck-list"><button v-for="(cycle, index) in displayResult.luckInfo.cycles" :key="`${cycle.age}-${cycle.ganZhi}`" type="button" :class="{ active: selectedBaziCycleIndex === index }" @click="chooseBaziCycle(index)"><small>{{ cycle.age }}岁</small><span class="bazi-fortune-year">{{ cycle.startSolarTime ? cycle.startSolarTime.year : cycle.year }}</span><strong v-if="cycle.isXiaoyun">小运</strong><strong v-else class="bazi-fortune-ganzhi"><span><b class="bazi-wuxing" :class="baziElementClass(cycle.ganZhi.slice(0, 1))">{{ cycle.ganZhi.slice(0, 1) }}</b><em>{{ baziGanTenGodShort(cycle.ganZhi, displayResult.dayMaster.gan) }}</em></span><span><b class="bazi-wuxing" :class="baziElementClass(cycle.ganZhi.slice(1, 2))">{{ cycle.ganZhi.slice(1, 2) }}</b><em>{{ baziZhiTenGodShort(cycle.ganZhi, displayResult.dayMaster.gan) }}</em></span></strong></button></div>
                 </div>
                 <div v-if="selectedBaziYears.length" class="liunian-section">
@@ -5934,6 +6471,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         v-if="pendingManualKind"
         :kind="pendingManualKind"
         :qimen-scope="settings.qimenScope"
+        :qimen-layout="settings.qimenLayout"
+        :qimen-ju-method="settings.qimenJuMethod"
+        :taiyi-scope="settings.taiyiScope"
         :initial-mode="appPreferences.castingPreference"
         @close="closeManualReading"
         @complete="finishManualReading"
@@ -6019,23 +6559,31 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <WesternCardBoard v-else :reading="selectedTarotMessage.reading" compact />
       </UiDialogShell>
 
-      <UiDialogShell v-if="showInspirationModal" aria-label="问题灵感" panel-class="inspiration-modal" @close="closeInspirationModal">
+      <UiDialogShell v-if="showInstantModal && selectedInstantMessage" :aria-label="`查看${selectedInstantMessage.response.label}`" size="wide" :panel-class="{ 'reading-modal': true, 'instant-reading-modal': true }" @close="closeInstantModal">
           <UiDialogHeader
-            :title="inspirationMode === 'matter' ? '问事' : '命书'"
-            eyebrow="问题灵感"
-            :description="inspirationMode === 'matter' ? '从人生大事到日常琐碎，都可以找到具体问法' : '选择一个主题，系统会在解读时自动展开完整专业框架'"
+            :title="selectedInstantMessage.response.label"
+            eyebrow="当前事件时刻"
+            :description="instantTimeBasisLabel(selectedInstantMessage.response)"
+            close-label="关闭即时盘"
+            @close="closeInstantModal"
+          />
+          <InstantChartDetail :response="selectedInstantMessage.response" />
+      </UiDialogShell>
+
+      <UiDialogShell v-if="showInspirationModal" aria-label="问题灵感" layer-class="inspiration-modal-layer" panel-class="inspiration-modal" @close="closeInspirationModal">
+          <UiDialogHeader
+            title="问题灵感"
             close-label="关闭问题灵感"
             @close="closeInspirationModal"
           />
           <UiSegmentedControl
             class="inspiration-mode-tabs"
             :model-value="inspirationMode"
-            :items="[{ value: 'matter', label: '问事', description: '具体事情与当下选择' }, { value: 'natal', label: '命书', description: '命盘结构与运势周期' }]"
+            :items="[{ value: 'matter', label: '问事' }, { value: 'natal', label: '命书' }]"
             label="灵感类型"
             equal
             @update:model-value="chooseInspirationMode($event as InspirationMode)"
           />
-          <p class="inspiration-mode-guide">{{ inspirationMode === 'matter' ? '可问趋势、关系、选择、时机、行动与风险。选择一个相近的问题后，还可以在输入框里补充你的实际情况。' : '选择一个完整专题。界面只显示简洁主题，发送时会自动加入一整套高密度分析框架。' }}</p>
           <label class="inspiration-search"><Search :size="15" /><input v-model="inspirationSearch" type="search" :aria-label="`搜索${inspirationMode === 'matter' ? '问事' : '命书'}灵感`" :placeholder="inspirationMode === 'matter' ? '搜索想问的事情' : '搜索命盘主题或专业术语'" /></label>
           <div v-if="inspirationMode === 'natal' && filteredInspirationGroups.length" class="inspiration-natal-list">
             <button v-for="group in filteredInspirationGroups" :key="group.key" type="button" class="inspiration-natal-item" :class="{ selected: question === group.questions[0]?.text }" @click="chooseNatalInspiration(group)"><span class="inspiration-group-icon">{{ group.icon }}</span><span class="inspiration-group-copy"><strong>{{ group.label }}</strong><small>{{ group.description }}</small></span><ChevronRight :size="15" /></button>
@@ -6079,6 +6627,8 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <div class="almanac-query-form">
             <UiSelect v-model="settings.almanacTopic" label="事项" placeholder="请选择事项" @change="updateAlmanacTopic"><optgroup v-for="group in almanacTopicGroups" :key="group.label" :label="group.label"><option v-for="item in group.options" :key="item.value" :value="item.value">{{ item.label }}</option></optgroup></UiSelect>
             <UiSelect v-model="almanacRangeMonths" label="范围" @change="updateAlmanacRange"><option v-for="item in almanacRangeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></UiSelect>
+            <UiSelect v-model="almanacWeekendPreference" label="周末"><option value="any">不限</option><option value="prefer">优先周末</option><option value="avoid">优先工作日</option></UiSelect>
+            <UiSelect v-model="almanacTimePreference" label="时段"><option value="any">不限</option><option value="work-hours">工作时间</option><option value="morning">上午</option><option value="afternoon">下午</option></UiSelect>
           </div>
           <div class="almanac-search-modal-body">
             <p v-if="!settings.almanacTopic" class="almanac-search-message">请选择要安排的事项</p>
@@ -6111,20 +6661,53 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         :title="birthPickerTitle"
         :columns="birthPickerColumns"
         :model-value="birthPicker.values"
+        :hide-wheel="birthPicker.kind === 'region' && Boolean(birthPlaceSearchQuery.trim())"
         @update:model-value="updateBirthPickerValues"
         @cancel="closeBirthPicker"
         @confirm="confirmBirthPicker"
-      />
+      >
+        <template v-if="birthPicker.kind === 'region'" #before-wheel>
+          <div class="location-picker-search">
+            <label class="location-picker-search-field">
+              <Search :size="16" aria-hidden="true" />
+              <input
+                v-model="birthPlaceSearchQuery"
+                type="search"
+                autocomplete="off"
+                :placeholder="birthPicker.target === 'instant' ? '搜索观测城市或区县' : '搜索出生城市或区县'"
+                aria-label="搜索城市或区县"
+              />
+            </label>
+            <div v-if="birthPlaceSearchQuery.trim()" class="location-picker-search-results" role="listbox" aria-label="地点搜索结果">
+              <button
+                v-for="result in birthPlaceSearchResults"
+                :key="result.key"
+                type="button"
+                class="location-picker-search-result"
+                role="option"
+                @click="selectBirthPlaceSearchResult(result)"
+              >
+                <MapPin :size="15" aria-hidden="true" />
+                <span><strong>{{ result.label }}</strong><small>{{ result.detail }}</small></span>
+                <ChevronRight :size="15" aria-hidden="true" />
+              </button>
+              <p v-if="!birthPlaceSearchResults.length" class="location-picker-search-empty">没有找到匹配地点，请换个名称；也可清空搜索后按省市区选择。</p>
+            </div>
+          </div>
+        </template>
+      </UIPickerView>
 
       <UiDialogShell v-if="showCaseEditor" aria-label="编辑案例" panel-class="case-form-card case-editor case-editor-dialog" @close="closeCaseEditor">
           <UiDialogHeader :title="editableCase.label" eyebrow="案例资料" description="出生资料" close-label="关闭编辑" @close="closeCaseEditor">
             <template v-if="!editableCase.isDefault" #action><UiButton variant="danger" size="small" icon-only aria-label="删除案例" @click="deleteCase"><Trash2 :size="16" /></UiButton></template>
           </UiDialogHeader>
           <div class="form-grid">
-            <UiTextField v-model="editableCase.label" label="案例名称" placeholder="例如：家人案例" />
+            <UiTextField v-model="editableCase.label" label="备注" placeholder="例如：自己、家人" />
             <UiTextField v-model="editableCase.name" label="姓名" placeholder="可选" />
-            <div class="birth-picker-control"><span>性别</span><button type="button" class="birth-picker-trigger" aria-label="选择性别" @click="openBirthPicker('gender', 'editor')"><UserRound :size="16" /><strong>{{ birthPickerFieldValue('gender', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
-            <div class="birth-picker-control"><span>出生历法</span><button type="button" class="birth-picker-trigger" aria-label="选择出生历法" @click="openBirthPicker('calendar', 'editor')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('calendar', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
+            <div class="case-binary-fields">
+              <div class="case-binary-control"><span>性别</span><UiSegmentedControl :model-value="editableCase.gender" :items="caseGenderOptions" label="选择性别" compact equal @update:model-value="chooseCaseGender(editableCase, $event, 'editor')" /></div>
+              <div class="case-binary-control"><span>出生历法</span><UiSegmentedControl :model-value="editableCase.dateType" :items="caseCalendarOptions" label="选择出生历法" compact equal @update:model-value="chooseCaseCalendar(editableCase, $event)" /></div>
+            </div>
             <div class="birth-picker-control"><span>出生日期</span><button type="button" class="birth-picker-trigger" aria-label="选择出生日期" @click="openBirthPicker('date', 'editor')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
             <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'editor')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
             <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button type="button" class="birth-picker-trigger" aria-label="选择出生地区" @click="openBirthPicker('region', 'editor')"><MapPin :size="16" /><strong>{{ birthPickerFieldValue('region', editableCase) }}</strong><ChevronRight :size="15" /></button></div>

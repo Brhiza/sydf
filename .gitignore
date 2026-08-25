@@ -15,6 +15,7 @@ __pycache__/
 # 本地素材原稿与未采用候选；页面使用仓库内已转换、已筛选的成品。
 /source-assets/temple-originals/
 /source-assets/divination-themes/
+/source-assets/card-decks/
 /source-assets/local-tools/
 
 # 大型主题制作原稿和本地处理工具仅保存在本机；网站使用 public/divination-themes 下的成品。
@@ -40,6 +41,5 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Keep only the mingyu-core package used by package.json
+# Local mingyu-core packages are temporary and are not committed
 vendor/*.tgz
-!vendor/mingyu-core-0.1.30.tgz

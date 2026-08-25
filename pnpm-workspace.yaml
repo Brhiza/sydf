@@ -4,4 +4,4 @@ allowBuilds:
   esbuild: true
   sharp: true
 minimumReleaseAgeExclude:
-  - mingyu-core@0.1.25
+  - mingyu-core@0.1.32

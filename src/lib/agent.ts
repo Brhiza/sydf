@@ -8,10 +8,14 @@ import {
 } from './ai';
 import { requestDirectAgentSelection } from './agentDirect';
 import type { DivinationKind } from './divination';
+import type { InstantChartType } from './instantChart';
 import { apiEndpoint } from './apiEndpoint';
 
 export type AgentChartKind = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazi-ziwei';
 export type AgentQimenScope = 'hour' | 'day' | 'month' | 'year';
+export type AgentQimenLayout = 'zhuanpan' | 'feipan';
+export type AgentQimenJuMethod = 'chaibu' | 'zhirun';
+export type AgentTaiyiScope = 'year' | 'month' | 'day' | 'hour';
 export type AgentBaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year';
 export type AgentZiweiFortuneScope = 'origin' | 'full' | 'decadal' | 'yearly';
 export type AgentAstrolabeFortuneScope = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
@@ -41,7 +45,8 @@ export type AgentToolSelection =
     ziweiFortune?: AgentZiweiFortune;
     astrolabeFortune?: AgentAstrolabeFortune;
   }
-  | { mode: 'divination'; divinationKind: DivinationKind; qimenScope?: AgentQimenScope; wuyunYear?: number; huangjiYear?: number };
+  | { mode: 'instant'; instantChartKind: InstantChartType }
+  | { mode: 'divination'; divinationKind: DivinationKind; qimenScope?: AgentQimenScope; qimenLayout?: AgentQimenLayout; qimenJuMethod?: AgentQimenJuMethod; taiyiScope?: AgentTaiyiScope; wuyunYear?: number; huangjiMode?: 'year' | 'date'; huangjiYear?: number };
 
 export interface AgentSelectionRequest {
   question: string;
@@ -58,6 +63,9 @@ const chartKinds = new Set<AgentChartKind>(['bazi', 'ziwei', 'astrolabe', 'qizhe
 const divinationKinds = new Set<DivinationKind>(['meihua', 'liuyao', 'ssgw', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi', 'wuyun-liuqi', 'huangji-jingshi', 'almanac']);
 const directlyCastableKinds = new Set<DivinationKind>(['meihua', 'liuyao', 'xiaoliuren', 'jinkoujue', 'qimen', 'liuren', 'taiyi']);
 const qimenScopes = new Set<AgentQimenScope>(['hour', 'day', 'month', 'year']);
+const qimenLayouts = new Set<AgentQimenLayout>(['zhuanpan', 'feipan']);
+const qimenJuMethods = new Set<AgentQimenJuMethod>(['chaibu', 'zhirun']);
+const taiyiScopes = new Set<AgentTaiyiScope>(['year', 'month', 'day', 'hour']);
 const baziFortuneScopes = new Set<AgentBaziFortuneScope>(['natal', 'full', 'dayun', 'year']);
 const ziweiFortuneScopes = new Set<AgentZiweiFortuneScope>(['origin', 'full', 'decadal', 'yearly']);
 const astrolabeFortuneScopes = new Set<AgentAstrolabeFortuneScope>(['natal', 'full', 'yearly', 'monthly', 'daily']);
@@ -121,6 +129,11 @@ function inferAstrolabeScope(question: string): AgentAstrolabeFortune {
 function namedToolSelection(question: string): AgentToolSelection | null {
   const namedTools = [...new Set(explicitlyNamedTools.filter(({ pattern }) => pattern.test(question)).map(({ tool }) => tool))];
   if (!namedTools.length) return null;
+  if (/即时盘|即时排盘|当下盘|此刻起盘|现在起盘|紫占/.test(question)) {
+    if (namedTools.length === 2 && namedTools.includes('bazi') && namedTools.includes('ziwei')) return { mode: 'instant', instantChartKind: 'bazi-ziwei' };
+    if (namedTools.length === 1 && chartKinds.has(namedTools[0] as AgentChartKind)) return { mode: 'instant', instantChartKind: namedTools[0] as InstantChartType };
+    if (/紫占/.test(question)) return { mode: 'instant', instantChartKind: 'ziwei' };
+  }
   if (namedTools.length === 2 && namedTools.includes('bazi') && namedTools.includes('ziwei')) {
     return { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: inferBaziScope(question), ziweiFortune: inferZiweiScope(question) };
   }
@@ -132,15 +145,30 @@ function namedToolSelection(question: string): AgentToolSelection | null {
   if (tool === 'qizheng') return { mode: 'chart', chartKind: 'qizheng' };
   const year = inferredYear(question);
   if (tool === 'qimen') {
-    const qimenScope: AgentQimenScope = /年度|全年|今年|明年|年局/.test(question)
+    const qimenScope: AgentQimenScope = /年度|全年|今年|明年|年局|年家/.test(question)
       ? 'year'
-      : /月度|本月|这个月|月局/.test(question)
+      : /月度|本月|这个月|月局|月家/.test(question)
         ? 'month'
-        : /某天|当日|日局/.test(question) ? 'day' : 'hour';
-    return { mode: 'divination', divinationKind: 'qimen', qimenScope };
+        : /某天|当日|日局|日家/.test(question) ? 'day' : 'hour';
+    return {
+      mode: 'divination',
+      divinationKind: 'qimen',
+      qimenScope,
+      qimenLayout: /飞盘/.test(question) ? 'feipan' : 'zhuanpan',
+      qimenJuMethod: /置闰/.test(question) ? 'zhirun' : 'chaibu',
+    };
+  }
+  if (tool === 'taiyi') {
+    const taiyiScope: AgentTaiyiScope = /月计/.test(question) ? 'month' : /日计/.test(question) ? 'day' : /时计/.test(question) ? 'hour' : 'year';
+    return { mode: 'divination', divinationKind: tool, taiyiScope };
   }
   if (tool === 'wuyun-liuqi') return { mode: 'divination', divinationKind: tool, wuyunYear: year };
-  if (tool === 'huangji-jingshi') return { mode: 'divination', divinationKind: tool, huangjiYear: year };
+  if (tool === 'huangji-jingshi') return {
+    mode: 'divination',
+    divinationKind: tool,
+    huangjiMode: /年月日时|此刻|当下|时点|时卦|日卦|月经卦/.test(question) ? 'date' : 'year',
+    huangjiYear: year,
+  };
   return { mode: 'divination', divinationKind: tool as DivinationKind };
 }
 
@@ -260,6 +288,15 @@ function parseSelection(value: unknown): AgentToolSelection {
     const qimenScope = selection.divinationKind === 'qimen' && qimenScopes.has(selection.qimenScope as AgentQimenScope)
       ? selection.qimenScope as AgentQimenScope
       : undefined;
+    const qimenLayout = selection.divinationKind === 'qimen' && qimenLayouts.has(selection.qimenLayout as AgentQimenLayout)
+      ? selection.qimenLayout as AgentQimenLayout
+      : undefined;
+    const qimenJuMethod = selection.divinationKind === 'qimen' && qimenJuMethods.has(selection.qimenJuMethod as AgentQimenJuMethod)
+      ? selection.qimenJuMethod as AgentQimenJuMethod
+      : undefined;
+    const taiyiScope = selection.divinationKind === 'taiyi' && taiyiScopes.has(selection.taiyiScope as AgentTaiyiScope)
+      ? selection.taiyiScope as AgentTaiyiScope
+      : undefined;
     const wuyunYear = selection.divinationKind === 'wuyun-liuqi'
       && typeof selection.wuyunYear === 'number'
       && Number.isInteger(selection.wuyunYear)
@@ -278,7 +315,11 @@ function parseSelection(value: unknown): AgentToolSelection {
       mode: 'divination',
       divinationKind: selection.divinationKind as DivinationKind,
       ...(qimenScope ? { qimenScope } : {}),
+      ...(qimenLayout ? { qimenLayout } : {}),
+      ...(qimenJuMethod ? { qimenJuMethod } : {}),
+      ...(taiyiScope ? { taiyiScope } : {}),
       ...(wuyunYear ? { wuyunYear } : {}),
+      ...(selection.divinationKind === 'huangji-jingshi' && selection.huangjiMode === 'date' ? { huangjiMode: 'date' as const } : {}),
       ...(huangjiYear ? { huangjiYear } : {}),
     };
   }

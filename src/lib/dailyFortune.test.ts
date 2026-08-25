@@ -53,6 +53,7 @@ function periodEvaluation(result: DailyFortuneResult) {
     categories: result.categories,
     actionTips: result.actionTips,
     evidenceInsights: result.evidenceInsights,
+    periodTrend: result.periodTrend,
     reference: result.reference,
     goodDirections: result.goodDirections,
     avoidDirections: result.avoidDirections,
@@ -95,7 +96,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-23-v11');
+      expect(serialized).toContain('2026-08-25-v14');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -160,7 +161,22 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(Number(window.range.slice(0, 2))).toBeGreaterThanOrEqual(7);
       expect(window.coverage).toMatch(/适合|可安排|整理|复核/);
     });
+    expect(result.periodTrend).toHaveLength(7);
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-08', label: '今天', dateLabel: '8/8' });
+    expect(result.periodTrend[1]?.label).toBe('明天');
+    expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(7);
+    result.periodTrend.forEach((item) => {
+      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
+      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
+    });
     expectToneAndGradeConsistent(result);
+  });
+
+  it('节气名称只在节气当天显示', () => {
+    const beforeChushu = generateDailyFortune(new Date(2026, 7, 22, 12, 0, 0, 0), undefined, 'today');
+    const chushu = generateDailyFortune(new Date(2026, 7, 23, 12, 0, 0, 0), undefined, 'today');
+    expect(beforeChushu.jieqi).toBe('');
+    expect(chushu.jieqi).toBe('处暑');
   });
 
   it('当前时段按真实时辰更新，同一时辰复用缓存，跨时辰重新计算', () => {
@@ -180,6 +196,21 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.calendarRangeLabel).toBe('2025年8月1日 — 2025年8月31日');
     expect(result.weekday).toMatch(/^\d+月\d+日—\d+月\d+日$/);
     expect(result.coverageLabel).toBe('综合本月每天的变化');
+    expect(result.periodTrend).toHaveLength(5);
+    expect(result.periodTrend[0]).toMatchObject({
+      dateKey: '2025-08-w1',
+      label: '第1周',
+      dateLabel: '1—7日',
+    });
+    expect(result.periodTrend[4]).toMatchObject({
+      dateKey: '2025-08-w5',
+      label: '第5周',
+      dateLabel: '29—31日',
+    });
+    result.periodTrend.forEach((item) => {
+      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
+      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
+    });
     result.categories.forEach((category) => {
       expect(category.basis).toMatch(/\d+月\d+日/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
@@ -194,6 +225,14 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.calendarRangeLabel).toBe('2025年1月1日 — 2025年12月31日');
     expect(result.weekday).toMatch(/\d+月\d+日.*\d+月\d+日/);
     expect(result.coverageLabel).toBe('综合全年各阶段变化');
+    expect(result.periodTrend).toHaveLength(12);
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-01', label: '1月', dateLabel: '' });
+    expect(result.periodTrend[11]).toMatchObject({ dateKey: '2025-12', label: '12月', dateLabel: '' });
+    expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(12);
+    result.periodTrend.forEach((item) => {
+      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
+      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
+    });
     result.categories.forEach((category) => {
       expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);

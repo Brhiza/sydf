@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UiPageShell width="reading" class="screen oracle-screen" :class="{ 'is-result': Boolean(displayResult) }">
+  <UiPageShell class="screen oracle-screen" :class="{ 'is-result': Boolean(displayResult) }">
     <UiWorkspaceSurface v-if="phase === 'idle' && !displayResult" class="oracle-workspace oracle-entry" padding="standard">
       <header class="oracle-intro">
         <div class="oracle-portrait"><img src="/ssgw.webp" alt="三山国王神像" /></div>
@@ -261,13 +261,14 @@ onBeforeUnmount(() => {
 .oracle-screen { min-height: calc(100dvh - 188px); }
 .oracle-workspace { min-width: 0; }
 .oracle-intro { align-items: center; display: flex; flex-direction: column; text-align: center; }
-.oracle-portrait { background: #171216; border-radius: 18px; box-shadow: 0 16px 38px rgba(46, 31, 57, .14); overflow: hidden; width: min(100%, 560px); }
+.oracle-portrait { background: #171216; border-radius: 18px; box-shadow: 0 16px 38px rgba(46, 31, 57, .14); overflow: hidden; width: min(100%, var(--ds-feature-banner-width)); }
 .oracle-portrait img { display: block; height: auto; width: 100%; }
-.oracle-intro > span, .oracle-drawn-head > span { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: .18em; margin-top: 22px; }
+.oracle-intro > span, .oracle-drawn-head > span { color: var(--accent-strong); font-size: 11px; font-weight: 600; letter-spacing: .18em; margin-top: 22px; }
 .oracle-intro .oracle-description { color: var(--muted); font-size: 13px; line-height: 1.8; margin: 8px 0 0; max-width: 620px; text-wrap: pretty; }
 .oracle-question { margin: 30px auto 0; max-width: 560px; text-align: center; }
 .oracle-question :deep(.ui-text-field__control) { min-height: 94px; resize: none; }
-.oracle-ritual { margin-inline: auto; max-width: 600px; text-align: center; }
+.oracle-ritual { text-align: center; }
+.oracle-ritual > * { margin-inline: auto; max-width: 600px; }
 .sign-casting-stage { align-items: center; display: flex; flex-direction: column; min-height: 450px; justify-content: center; }
 .sign-casting-stage > strong { color: var(--ink); font-family: 'STKaiti', 'KaiTi', serif; font-size: 18px; font-weight: 600; letter-spacing: .1em; margin-top: 8px; }
 .sign-casting-stage > small { color: var(--muted); font-size: 11px; letter-spacing: .06em; margin-top: 5px; }
@@ -325,7 +326,7 @@ onBeforeUnmount(() => {
 .oracle-result-head { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; min-height: 34px; }
 .oracle-result-head span { color: var(--muted); font-size: 11px; letter-spacing: .12em; }
 .oracle-ai { border-top: 1px solid var(--line); margin-top: 26px; padding-top: 18px; }
-.oracle-ai > span { align-items: center; color: var(--accent); display: flex; font-size: 12px; gap: 6px; letter-spacing: .08em; }
+.oracle-ai > span { align-items: center; color: var(--accent-strong); display: flex; font-size: 12px; gap: 6px; letter-spacing: .08em; }
 .oracle-ai p { color: var(--muted); font-size: 14px; line-height: 1.85; margin: 12px 0 0; white-space: pre-wrap; }
 .oracle-ai-markdown { color: var(--muted); font-size: 14px; line-height: 1.85; margin-top: 12px; }
 .oracle-ai-markdown :deep(> :first-child) { margin-top: 0; }

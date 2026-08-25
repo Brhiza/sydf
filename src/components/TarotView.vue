@@ -425,7 +425,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UiToolPage width="wide" class="screen tarot-screen" :class="{ 'is-drawing': phase === 'drawing' }">
+  <UiToolPage class="screen tarot-screen" :class="{ 'is-drawing': phase === 'drawing' }">
     <UiWorkspaceSurface as="article" class="tarot-workspace" :class="{ 'is-drawing': phase === 'drawing' }" padding="standard">
       <UiSectionHeading
         v-if="phase !== 'drawing'"
@@ -551,7 +551,7 @@ onBeforeUnmount(() => {
 .tarot-setup label > span { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; }
 .tarot-setup textarea, .tarot-setup select, .tarot-setup-numbers input { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font: inherit; outline: none; transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease; width: 100%; }
 .tarot-setup textarea { min-height: 84px; padding: 12px 13px; resize: vertical; }
-.tarot-setup select, .tarot-setup-numbers input { height: 44px; padding: 0 12px; }
+.tarot-setup select, .tarot-setup-numbers input { height: var(--ds-control-md); padding: 0 12px; }
 .tarot-setup textarea:focus, .tarot-setup select:focus, .tarot-setup-numbers input:focus { background: var(--ds-surface-raised); border-color: var(--ds-accent); box-shadow: var(--ds-focus-ring); }
 .tarot-setup textarea:disabled, .tarot-setup select:disabled { opacity: .66; }
 .tarot-setup small, .tarot-setup-numbers small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }

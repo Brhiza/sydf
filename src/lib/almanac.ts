@@ -1,5 +1,4 @@
 import {
-  calculateSolarTermsForYear,
   getBirthDateValidationMessage,
   LunarUtil,
   resolveTrueSolarBirthTime,
@@ -16,6 +15,7 @@ import type {
   AlmanacTopic,
 } from 'mingyu-core/types';
 import type { BirthForm } from './divination';
+import { getCalendarEvents } from './calendarEvents';
 
 export type AlmanacMode = 'general' | 'personal';
 
@@ -107,32 +107,6 @@ export interface AlmanacPurposeEvaluation {
   badGodCount: number;
 }
 
-const solarFestivalLabels: Record<string, string> = {
-  '01-01': '元旦',
-  '03-08': '妇女节',
-  '03-12': '植树节',
-  '05-01': '劳动节',
-  '05-04': '青年节',
-  '06-01': '儿童节',
-  '07-01': '建党节',
-  '08-01': '建军节',
-  '09-10': '教师节',
-  '10-01': '国庆节',
-};
-
-const lunarFestivalLabels: Record<string, string> = {
-  '1-1': '春节',
-  '1-15': '元宵节',
-  '5-5': '端午节',
-  '7-7': '七夕',
-  '7-15': '中元节',
-  '8-15': '中秋节',
-  '9-9': '重阳节',
-  '12-8': '腊八节',
-  '12-23': '小年',
-};
-
-const solarTermDateCache = new Map<number, Map<string, string>>();
 const calendarDateMetaCache = new Map<string, AlmanacCalendarDateMeta>();
 
 export const almanacTopicGroups: Array<{ label: string; options: AlmanacPurposeOption[] }> = [
@@ -233,20 +207,6 @@ function formatDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function getSolarTermDates(year: number) {
-  const cached = solarTermDateCache.get(year);
-  if (cached) return cached;
-  const result = new Map<string, string>();
-  if (year >= 1900 && year <= 2199) {
-    for (const term of calculateSolarTermsForYear(year)) {
-      const chinaDate = new Date(term.utcTimestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      result.set(chinaDate, term.name);
-    }
-  }
-  solarTermDateCache.set(year, result);
-  return result;
-}
-
 export function getAlmanacCalendarDateMeta(dateKey: string): AlmanacCalendarDateMeta {
   const cached = calendarDateMetaCache.get(dateKey);
   if (cached) return cached;
@@ -255,15 +215,13 @@ export function getAlmanacCalendarDateMeta(dateKey: string): AlmanacCalendarDate
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0);
   if (formatDateKey(date) !== dateKey) throw new Error('日期不存在。');
 
+  const events = getCalendarEvents(dateKey);
+  const event = events[0];
   const lunar = LunarUtil.getLunar(date);
-  const term = getSolarTermDates(date.getFullYear()).get(dateKey) || '';
-  const lunarFestival = lunarFestivalLabels[`${lunar.monthNumber}-${lunar.dayNumber}`] || '';
-  const solarFestival = solarFestivalLabels[dateKey.slice(5)] || '';
-  const eventLabel = term || lunarFestival || solarFestival;
   const meta: AlmanacCalendarDateMeta = {
     lunarLabel: `${lunar.monthInChinese}${lunar.dayInChinese}`,
-    eventLabel,
-    eventType: term ? 'term' : eventLabel ? 'festival' : null,
+    eventLabel: event?.label || '',
+    eventType: event?.type === 'term' ? 'term' : event ? 'festival' : null,
   };
   calendarDateMetaCache.set(dateKey, meta);
   return meta;

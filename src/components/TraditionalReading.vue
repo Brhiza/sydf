@@ -31,6 +31,8 @@ const taiyi = computed(() => props.result as TaiyiResult);
 const wuyunLiuqi = computed(() => props.result as WuyunLiuqiResult);
 const huangji = computed(() => props.result as HuangjiJingshiResult);
 const huangjiForecast = computed(() => huangji.value.forecast);
+const huangjiDateTime = computed(() => huangji.value.dateTimeForecast);
+const taiyiScopeLabel = computed(() => ({ year: '年计', month: '月计', day: '日计', hour: '时计' })[taiyi.value.scope]);
 const meihuaYaoRows = computed(() => [...meihua.value.yaosDetail].reverse());
 const meihuaHexagrams = computed(() => [
   { label: '主卦', value: meihua.value.mainHexagram },
@@ -196,13 +198,13 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   </div>
 
   <div v-else-if="method === 'taiyi'" class="traditional-reading taiyi-board">
-    <header><span>太乙年计</span><h3>{{ taiyi.ganZhi }}年 · {{ taiyi.yinYang }}第 {{ taiyi.bureau }} 局</h3><small>{{ taiyi.dateTime.slice(0, 4) }} 年计七十二局</small></header>
-    <div class="taiyi-value-strip"><span>积年 <strong>{{ taiyi.accumulatedValue }}</strong></span><span>太乙 <strong>{{ taiyi.taiyiPosition }} · {{ taiyi.taiyiDir }}</strong></span><span>文昌 <strong>{{ taiyi.wenChangPosition }}</strong></span><span>始击 <strong>{{ taiyi.shiJiPosition }}</strong></span></div>
+    <header><span>太乙{{ taiyiScopeLabel }}</span><h3>{{ taiyi.ganZhi }} · {{ taiyi.yinYang }}第 {{ taiyi.bureau }} 局</h3><small>{{ taiyi.dateTime }} · 四计七十二局</small></header>
+    <div class="taiyi-value-strip"><span>{{ taiyi.accumulatedLabel }} <strong>{{ taiyi.accumulatedValue }}</strong></span><span>太乙 <strong>{{ taiyi.taiyiPosition }} · {{ taiyi.taiyiDir }}</strong></span><span>文昌 <strong>{{ taiyi.wenChangPosition }}</strong></span><span>始击 <strong>{{ taiyi.shiJiPosition }}</strong></span></div>
     <div class="taiyi-nine-grid">
       <section v-for="palace in taiyiPalaces" :key="palace.palace" :class="{ center: palace.palace === 5, occupied: palace.markers.length }">
         <div class="taiyi-palace-head"><span>{{ palace.palace }} · {{ palace.gua }}</span><small>{{ palace.dir }}</small></div>
         <template v-if="palace.palace === 5">
-          <div class="taiyi-center"><span>{{ taiyi.ganZhi }}年</span><strong>{{ taiyi.yinYang }} {{ taiyi.bureau }}局</strong><small>主 {{ taiyi.lordCount }} · 客 {{ taiyi.guestCount }} · 定 {{ taiyi.setCount }}</small></div>
+          <div class="taiyi-center"><span>{{ taiyi.ganZhi }} · {{ taiyiScopeLabel }}</span><strong>{{ taiyi.yinYang }} {{ taiyi.bureau }}局</strong><small>主 {{ taiyi.lordCount }} · 客 {{ taiyi.guestCount }} · 定 {{ taiyi.setCount }}</small></div>
         </template>
         <template v-else>
           <div class="taiyi-markers"><span v-for="marker in palace.markers" :key="marker.label" :class="`tone-${marker.tone}`">{{ marker.label }}</span></div>
@@ -238,9 +240,15 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
 
   <div v-else-if="method === 'huangji-jingshi'" class="traditional-reading huangji-board">
     <template v-if="huangjiForecast">
-      <header><span>公历 {{ huangji.input.year }} 年 · {{ huangjiForecast.hexagrams.annual.ganzhi }}年</span><h3>{{ huangjiForecast.hexagrams.annual.symbol }} {{ huangjiForecast.hexagrams.annual.name }}</h3><small>值年卦 · {{ huangjiForecast.hexagrams.annual.upper }}上{{ huangjiForecast.hexagrams.annual.lower }}下</small></header>
+      <header><span>{{ huangjiDateTime ? huangjiDateTime.civilTime.dateTime : `公历 ${huangji.input.year} 年` }} · {{ huangjiForecast.hexagrams.annual.ganzhi }}年</span><h3>{{ huangjiForecast.hexagrams.annual.symbol }} {{ huangjiForecast.hexagrams.annual.name }}</h3><small>{{ huangjiDateTime ? `${huangjiDateTime.calendar.activeSolarTerm}后第${huangjiDateTime.calendar.actualDayInSolarTerm}日 · ${huangjiDateTime.calendar.hourRange}` : '值年卦' }} · {{ huangjiForecast.hexagrams.annual.upper }}上{{ huangjiForecast.hexagrams.annual.lower }}下</small></header>
+      <div v-if="huangjiDateTime" class="huangji-datetime-cycles">
+        <section><span>月经卦</span><strong>{{ huangjiDateTime.hexagrams.monthJing.symbol }} {{ huangjiDateTime.hexagrams.monthJing.name }}</strong><small>{{ huangjiDateTime.calendar.monthBranch }}月</small></section>
+        <section><span>旬纬卦</span><strong>{{ huangjiDateTime.hexagrams.xunWei.symbol }} {{ huangjiDateTime.hexagrams.xunWei.name }}</strong><small>当旬变化</small></section>
+        <section><span>日卦</span><strong>{{ huangjiDateTime.hexagrams.daily.symbol }} {{ huangjiDateTime.hexagrams.daily.name }}</strong><small>当日取象</small></section>
+        <section><span>时经卦</span><strong>{{ huangjiDateTime.hexagrams.hourJing.symbol }} {{ huangjiDateTime.hexagrams.hourJing.name }}</strong><small>{{ huangjiDateTime.calendar.hourRange }}</small></section>
+      </div>
       <section class="huangji-annual">
-        <span>这一年的主卦</span>
+        <span>{{ huangjiDateTime ? '值年主卦' : '这一年的主卦' }}</span>
         <p>{{ huangjiForecast.hexagrams.annual.judgment }}</p>
         <small>{{ huangjiForecast.reading.cycleContext }}</small>
       </section>
@@ -358,6 +366,11 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
 .huangji-cycles section:last-child { border-right: 0; }
 .huangji-cycles span, .huangji-cycles small { color: var(--muted); display: block; font-size: 10px; line-height: 1.45; }
 .huangji-cycles strong { color: var(--ink); display: block; font-size: 13px; margin: 6px 0 4px; }
+.huangji-datetime-cycles { border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.huangji-datetime-cycles section { border-right: 1px solid var(--line); min-width: 0; padding: 13px 8px; text-align: center; }
+.huangji-datetime-cycles section:last-child { border-right: 0; }
+.huangji-datetime-cycles span, .huangji-datetime-cycles small { color: var(--muted); display: block; font-size: 10px; line-height: 1.45; }
+.huangji-datetime-cycles strong { color: var(--accent-strong); display: block; font-size: 13px; margin: 5px 0 4px; }
 .huangji-related { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 14px; }
 .huangji-related div { border-right: 1px solid var(--line); min-width: 0; padding: 8px 10px; text-align: center; }
 .huangji-related div:last-child { border-right: 0; }
@@ -379,10 +392,30 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
 .sign-paper > small { color: #9b756b; display: block; font-size: 10px; letter-spacing: .16em; margin-top: 12px; }
 .sign-reading-body { min-width: 0; padding-top: 1px; }
 .sign-story { padding: 0 0 15px; }
-.sign-story span, .sign-interpretations span { color: var(--accent); font-size: 11px; font-weight: 650; letter-spacing: .1em; }
+.sign-story span, .sign-interpretations span { color: var(--accent-strong); font-size: 11px; font-weight: 650; letter-spacing: .1em; }
 .sign-story p, .sign-interpretations p { color: var(--muted); font-size: 13px; line-height: 1.75; margin: 6px 0 0; }
 .sign-interpretations { align-content: start; border-top: 1px solid var(--line); display: grid; gap: 0 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sign-interpretations section { border-bottom: 1px solid var(--line); min-width: 0; padding: 11px 0 10px; }
+
+/* Continuous charts keep square inner cells for alignment, while their outer
+ * contour and standalone highlighted cells follow the shared shape system. */
+.qimen-nine-grid,
+.taiyi-nine-grid,
+.liuren-heaven-plate,
+.liuren-transmissions,
+.wuyun-steps {
+  border-radius: var(--ds-radius-md);
+  overflow: hidden;
+}
+.xiaoliuren-plate > section,
+.meihua-yaos > div.changing,
+.liuyao-row.changing,
+.jinkou-four section.used {
+  border-radius: var(--ds-radius-sm);
+}
+.qimen-patterns span,
+.taiyi-markers span { border-radius: var(--ds-radius-sm); }
+
 @media (max-width: 720px) {
   .meihua-triad b { font-size: 34px; }
   .meihua-triad section { padding-left: 4px; padding-right: 4px; }
@@ -397,7 +430,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   .liuren-heaven-plate { grid-template-rows: repeat(4, 65px); }.liuren-heaven-plate > section { grid-template-columns: 1fr; padding: 4px 2px; }.liuren-heaven-plate > section strong { font-size: 16px; }.liuren-heaven-plate > section small, .liuren-heaven-plate > section span { font-size: 8px; }.liuren-plate-center { padding: 6px; }.liuren-plate-center strong { font-size: 13px; margin: 4px 0; }.liuren-lessons section { padding-left: 3px; padding-right: 3px; }.liuren-lessons div { gap: 3px; }.liuren-lessons i { width: 10px; }.liuren-transmissions section { padding: 10px 5px; }
   .taiyi-value-strip { grid-template-columns: repeat(2, 1fr); }.taiyi-value-strip span:nth-child(n + 3) { border-top: 1px solid var(--line); }.taiyi-nine-grid > section { min-height: 116px; padding: 6px; }.taiyi-palace-head { align-items: flex-start; flex-direction: column; gap: 2px; }.taiyi-markers { align-content: flex-start; gap: 3px; min-height: 58px; padding: 7px 0 4px; }.taiyi-markers span { font-size: 8px; padding: 3px 4px; }.taiyi-gods { gap: 2px 6px; padding-top: 5px; }.taiyi-gods small { font-size: 8px; }.taiyi-center { min-height: 83px; }.taiyi-center strong { font-size: 13px; }.taiyi-forces section { padding: 10px 4px; }.taiyi-forces strong { font-size: 19px; }.taiyi-forces small { font-size: 9px; line-height: 1.45; }
   .wuyun-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }.wuyun-overview section { padding: 10px 6px; }.wuyun-overview section:nth-child(2) { border-right: 0; }.wuyun-overview section:nth-child(n + 3) { border-top: 1px solid var(--line); }.wuyun-steps.is-five, .wuyun-steps.is-six { grid-template-columns: repeat(2, minmax(0, 1fr)); }.wuyun-steps article { padding: 9px 6px; }.wuyun-steps strong { font-size: 12px; }
-  .huangji-cycles { grid-template-columns: repeat(2, minmax(0, 1fr)); }.huangji-cycles section { padding: 11px 5px; }.huangji-cycles section:nth-child(2) { border-right: 0; }.huangji-cycles section:nth-child(n + 3) { border-top: 1px solid var(--line); }.huangji-related div { padding: 7px 5px; }.huangji-related small { font-size: 9px; }
+  .huangji-cycles, .huangji-datetime-cycles { grid-template-columns: repeat(2, minmax(0, 1fr)); }.huangji-cycles section, .huangji-datetime-cycles section { padding: 11px 5px; }.huangji-cycles section:nth-child(2), .huangji-datetime-cycles section:nth-child(2) { border-right: 0; }.huangji-cycles section:nth-child(n + 3), .huangji-datetime-cycles section:nth-child(n + 3) { border-top: 1px solid var(--line); }.huangji-related div { padding: 7px 5px; }.huangji-related small { font-size: 9px; }
   .sign-board { gap: 18px; grid-template-columns: 1fr; }
   .sign-paper { margin: 0 auto; max-width: 460px; padding: 20px 18px 17px; width: 100%; }
   .sign-paper-main { gap: 12px; grid-template-columns: 108px 1fr; margin-top: 12px; padding: 12px 0; }

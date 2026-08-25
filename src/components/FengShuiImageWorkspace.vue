@@ -737,7 +737,7 @@ function deleteStoredImage() {
 .fs-control-heading > div { align-items: center; color: var(--accent-strong); display: flex; gap: 6px; }
 .fs-control-heading strong { color: var(--ink); font-size: var(--type-small); }
 .fs-compass-controls label, .fs-details-grid label { color: var(--muted); display: grid; font-size: var(--type-caption); gap: 6px; min-width: 0; }
-.fs-compass-controls select, .fs-details-grid input, .fs-details-grid textarea { background: var(--fs-panel); border: 1px solid var(--fs-line); border-radius: 8px; color: var(--ink); font-size: var(--type-small); min-height: 38px; padding: 7px 9px; width: 100%; }
+.fs-compass-controls select, .fs-details-grid input, .fs-details-grid textarea { background: var(--fs-panel); border: 1px solid var(--fs-line); border-radius: var(--ds-radius-sm); color: var(--ink); font-size: var(--type-small); min-height: var(--ds-control-md); padding: 7px 9px; width: 100%; }
 .fs-range-control span { align-items: center; display: flex; justify-content: space-between; }
 .fs-range-control b { color: var(--accent-strong); font-size: var(--type-micro); font-weight: 600; }
 .fs-range-control input { accent-color: var(--accent); cursor: pointer; min-width: 0; width: 100%; }
@@ -783,8 +783,7 @@ function deleteStoredImage() {
   .fs-compass-controls, .fs-details-grid { grid-template-columns: 1fr; }
   .fs-control-heading, .fs-direction-warning, .fs-position-readout, .fs-details-grid label.is-wide { grid-column: auto; }
   .fs-output-section { align-items: stretch; grid-template-columns: 1fr; }
-  .fs-output-actions { display: grid; grid-template-columns: 1fr; }
-  .fs-output-actions button { width: 100%; }
+  .fs-output-actions { justify-content: flex-start; }
   .fs-prompt-preview { grid-column: auto; }
   .fs-prompt-preview textarea { min-height: 260px; }
 }

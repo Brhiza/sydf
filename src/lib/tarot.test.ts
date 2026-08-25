@@ -4,7 +4,7 @@ import { buildDivinationPrompt } from 'mingyu-core/prompt/divination';
 import { tarotSpreadOptions } from './tarot';
 
 describe('塔罗牌阵适配', () => {
-  it('同步 mingyu-core 0.1.31 的全部 18 种牌阵', () => {
+  it('同步 mingyu-core 的全部 18 种牌阵', () => {
     expect(tarotSpreadOptions).toHaveLength(18);
     expect(tarotSpreadOptions.map(item => item.value)).toEqual(expect.arrayContaining([
       'holyTriangle',

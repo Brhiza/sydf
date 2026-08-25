@@ -21,9 +21,11 @@ const props = withDefaults(defineProps<{
   modelValue: string[];
   cancelText?: string;
   confirmText?: string;
+  hideWheel?: boolean;
 }>(), {
   cancelText: '取消',
   confirmText: '完成',
+  hideWheel: false,
 });
 
 const emit = defineEmits<{
@@ -164,7 +166,8 @@ onBeforeUnmount(() => {
           <h2>{{ title }}</h2>
           <UiButton class="ui-picker-action confirm" variant="ghost" size="small" @click="confirmSelection">{{ confirmText }}</UiButton>
         </header>
-        <div class="ui-picker-wheel">
+        <slot name="before-wheel" />
+        <div v-show="!hideWheel" class="ui-picker-wheel">
           <div class="ui-picker-selection" aria-hidden="true" />
           <div
             v-for="(column, columnIndex) in columns"

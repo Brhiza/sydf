@@ -8,7 +8,7 @@ import {
   runAutomaticCasting,
   runManualLiuyao,
   runSpecifiedLiuyao,
-  runTaiyiYear,
+  runTaiyi,
   runTimeCasting,
   type CastingMode,
   type CastingPreference,
@@ -23,6 +23,9 @@ type CastingKind = 'meihua' | 'liuyao' | 'xiaoliuren' | 'jinkoujue' | 'qimen' | 
 const props = defineProps<{
   kind: CastingKind;
   qimenScope: 'hour' | 'day' | 'month' | 'year';
+  qimenLayout: 'zhuanpan' | 'feipan';
+  qimenJuMethod: 'chaibu' | 'zhirun';
+  taiyiScope: 'year' | 'month' | 'day' | 'hour';
   initialMode: CastingPreference;
 }>();
 
@@ -38,6 +41,7 @@ const openedAt = ref(new Date());
 const specifiedDateTime = ref('');
 const specifiedYear = ref(currentYear);
 const manualNumber = ref('');
+const specifiedBranch = ref('子');
 const coinThrows = ref<LiuyaoCoinThrow[]>([]);
 const pendingCoinThrow = ref<LiuyaoCoinThrow | null>(null);
 const isShakingYao = ref(false);
@@ -49,6 +53,8 @@ const currentTimeLabel = computed(() => new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
 }).format(openedAt.value));
 const lineNames = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
+const earthlyBranches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const taiyiScopeLabel = computed(() => ({ year: '年计', month: '月计', day: '日计', hour: '时计' })[props.taiyiScope]);
 const displayLineIndexes = [5, 4, 3, 2, 1, 0];
 const nextLineName = computed(() => lineNames[coinThrows.value.length] || '卦象');
 const latestThrow = computed(() => coinThrows.value[coinThrows.value.length - 1] || null);
@@ -70,16 +76,16 @@ const manualHint = computed(() => ({
   xiaoliuren: '确认后，以你点击时的月、日、时起课。',
   qimen: '确认后，以你点击时的时空信息排布九宫。',
   liuren: '确认后，以你点击时的月将加时排四课三传。',
-  taiyi: '确认当前公历年份，以年计七十二局起局。',
+  taiyi: `确认当前时点，以太乙${taiyiScopeLabel.value}起局。`,
 })[props.kind]);
 const specifiedHint = computed(() => ({
   meihua: '指定一个日期时刻，以该时刻起时间卦。',
   liuyao: '录入已有的六个爻值，并指定实际起卦时刻。',
-  jinkoujue: '指定一个日期时刻，以该时刻起课。',
+  jinkoujue: '指定地分与实际起课时刻。',
   xiaoliuren: '指定日期时刻，按月、日、时顺宫起课。',
   qimen: '指定日期时刻，按当前所选局式排盘。',
   liuren: '指定日期时刻，按月将加时排课。',
-  taiyi: '输入公历年份，以该年起年计七十二局。',
+  taiyi: props.taiyiScope === 'year' ? '输入公历年份，以该年起年计七十二局。' : `指定日期时刻，以太乙${taiyiScopeLabel.value}起局。`,
 })[props.kind]);
 
 function toLocalDateTimeInput(date: Date) {
@@ -98,6 +104,7 @@ function resetFlow() {
   specifiedDateTime.value = toLocalDateTimeInput(new Date());
   specifiedYear.value = currentYear;
   manualNumber.value = '';
+  specifiedBranch.value = '子';
   coinThrows.value = [];
   pendingCoinThrow.value = null;
   isShakingYao.value = false;
@@ -105,7 +112,7 @@ function resetFlow() {
   specifiedYaos.value = [7, 7, 7, 7, 7, 7];
 }
 
-watch(() => [props.kind, props.qimenScope, props.initialMode], resetFlow, { immediate: true });
+watch(() => [props.kind, props.qimenScope, props.qimenLayout, props.qimenJuMethod, props.taiyiScope, props.initialMode], resetFlow, { immediate: true });
 
 function chooseMode(mode: CastingMode) {
   if (props.kind === 'liuyao' && castingMode.value === 'manual' && mode !== 'manual') resetLiuyao();
@@ -119,7 +126,12 @@ function finish(result: ReadingResult) {
 
 async function completeAuto() {
   try {
-    finish(await runAutomaticCasting(props.kind, new Date(), { qimenScope: props.qimenScope }));
+    finish(await runAutomaticCasting(props.kind, new Date(), {
+      qimenScope: props.qimenScope,
+      qimenLayout: props.qimenLayout,
+      qimenJuMethod: props.qimenJuMethod,
+      taiyiScope: props.taiyiScope,
+    }));
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '起课没有完成。';
   }
@@ -181,8 +193,12 @@ async function completeManual() {
       finish(await runManualLiuyao(coinThrows.value));
       return;
     }
-    if (props.kind === 'taiyi') finish(await runTaiyiYear(currentYear));
-    if (isTimeOnlyKind.value) finish(await runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', new Date(), { qimenScope: props.qimenScope }));
+    if (props.kind === 'taiyi') finish(await runTaiyi(props.taiyiScope, new Date(), currentYear));
+    if (isTimeOnlyKind.value) finish(await runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', new Date(), {
+      qimenScope: props.qimenScope,
+      qimenLayout: props.qimenLayout,
+      qimenJuMethod: props.qimenJuMethod,
+    }));
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '起课没有完成。';
   }
@@ -197,17 +213,22 @@ function specifiedDate() {
 async function completeSpecified() {
   formError.value = '';
   try {
-    if (props.kind === 'taiyi') {
+    if (props.kind === 'taiyi' && props.taiyiScope === 'year') {
       const year = Number(specifiedYear.value);
       if (!Number.isSafeInteger(year) || year < 1 || year > 9999) throw new Error('请输入 1 至 9999 之间的公历年份。');
-      finish(await runTaiyiYear(year));
+      finish(await runTaiyi('year', new Date(year, 6, 1, 12), year));
       return;
     }
     const date = specifiedDate();
     if (props.kind === 'meihua') finish(await runConfiguredMeihua('time', undefined, date));
     else if (props.kind === 'liuyao') finish(await runSpecifiedLiuyao(specifiedYaos.value, date));
-    else if (props.kind === 'jinkoujue') finish(await runConfiguredJinkoujue('time', undefined, date));
-    else finish(await runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', date, { qimenScope: props.qimenScope }));
+    else if (props.kind === 'jinkoujue') finish(await runConfiguredJinkoujue('branch', specifiedBranch.value, date));
+    else if (props.kind === 'taiyi') finish(await runTaiyi(props.taiyiScope, date));
+    else finish(await runTimeCasting(props.kind as 'xiaoliuren' | 'qimen' | 'liuren', date, {
+      qimenScope: props.qimenScope,
+      qimenLayout: props.qimenLayout,
+      qimenJuMethod: props.qimenJuMethod,
+    }));
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '指定起课没有完成。';
   }
@@ -222,7 +243,7 @@ async function completeSpecified() {
       <UiSegmentedControl class="casting-tabs" :model-value="castingMode" :items="castingModeTabs" label="起法" equal @update:model-value="chooseMode($event as CastingMode)" />
 
       <section v-if="castingMode === 'auto'" class="simple-casting-pane">
-        <Clock3 :size="22" /><strong>自动起课</strong><p>{{ kind === 'taiyi' ? `按当前公历 ${currentYear} 年起年计七十二局。` : '由系统按当前时刻完成起课，不需要额外填写。' }}</p>
+        <Clock3 :size="22" /><strong>自动起课</strong><p>{{ kind === 'taiyi' ? `按当前时点起太乙${taiyiScopeLabel}。` : '由系统按当前时刻完成起课，不需要额外填写。' }}</p>
         <UiActionBar align="center"><UiButton @click="completeAuto"><Check :size="16" />确认自动起课</UiButton></UiActionBar>
       </section>
 
@@ -271,17 +292,19 @@ async function completeSpecified() {
           </div>
         </template>
 
-        <div v-else class="simple-casting-pane is-inline"><Clock3 :size="22" /><strong>{{ kind === 'taiyi' ? `${currentYear} 年` : currentTimeLabel }}</strong><p>{{ kind === 'taiyi' ? '太乙当前开放年计，以公历年份起局。' : '以确认按钮实际点击时刻起课。' }}</p><UiActionBar align="center"><UiButton @click="completeManual"><Check :size="16" />{{ kind === 'taiyi' ? '以本年起局' : '以此刻起课' }}</UiButton></UiActionBar></div>
+        <div v-else class="simple-casting-pane is-inline"><Clock3 :size="22" /><strong>{{ kind === 'taiyi' && taiyiScope === 'year' ? `${currentYear} 年` : currentTimeLabel }}</strong><p>{{ kind === 'taiyi' ? `以确认按钮实际点击时点起太乙${taiyiScopeLabel}。` : '以确认按钮实际点击时刻起课。' }}</p><UiActionBar align="center"><UiButton @click="completeManual"><Check :size="16" />{{ kind === 'taiyi' && taiyiScope === 'year' ? '以本年起局' : '以此刻起课' }}</UiButton></UiActionBar></div>
       </section>
 
       <section v-else class="casting-pane">
         <p class="casting-guide">{{ specifiedHint }}</p>
-        <div v-if="kind === 'taiyi'" class="specified-time-pane taiyi-year-pane">
+        <div v-if="kind === 'taiyi' && taiyiScope === 'year'" class="specified-time-pane taiyi-year-pane">
           <label for="specified-year">公历年份</label><input id="specified-year" v-model.number="specifiedYear" type="number" min="1" max="9999" step="1" inputmode="numeric" />
-          <small>当前仅开放已经完成校勘的年计七十二局。</small>
+          <small>按所选公历年份起太乙年计。</small>
         </div>
         <div v-else class="specified-time-pane">
           <label for="specified-date-time">起课时刻</label><input id="specified-date-time" v-model="specifiedDateTime" type="datetime-local" />
+          <label v-if="kind === 'jinkoujue'" for="specified-branch" class="specified-branch-label">地分</label>
+          <UiSelect v-if="kind === 'jinkoujue'" id="specified-branch" v-model="specifiedBranch" aria-label="选择金口诀地分"><option v-for="branch in earthlyBranches" :key="branch" :value="branch">{{ branch }}</option></UiSelect>
           <div v-if="kind === 'liuyao'" class="specified-yaos"><div v-for="(_, index) in specifiedYaos" :key="index"><span>{{ ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][index] }}</span><UiSelect v-model.number="specifiedYaos[index]"><option :value="6">6 · 老阴</option><option :value="7">7 · 少阳</option><option :value="8">8 · 少阴</option><option :value="9">9 · 老阳</option></UiSelect></div></div>
         </div>
         <UiActionBar align="center"><UiButton @click="completeSpecified"><Check :size="16" />确认指定结果</UiButton></UiActionBar>
@@ -343,6 +366,8 @@ async function completeSpecified() {
 @keyframes manual-shell-shake { 0%, 100% { transform: rotate(-3deg) translateX(-2px); } 35% { transform: rotate(4deg) translateX(3px); } 70% { transform: rotate(-2deg) translateX(1px); } }
 .manual-shake-visual-enter-active, .manual-shake-visual-leave-active { transition: opacity .18s ease, transform .18s ease; }.manual-shake-visual-enter-from { opacity: 0; transform: translateY(-5px) scale(.96); }.manual-shake-visual-leave-to { opacity: 0; transform: translateY(5px) scale(.96); }
 .specified-time-pane { border-top: 1px solid var(--line); padding-top: 15px; }.specified-time-pane > label { color: var(--muted); display: block; font-size: 12px; margin-bottom: 7px; }.specified-time-pane > input { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 14px; min-height: 44px; padding: 9px 11px; width: 100%; }.specified-yaos { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }.specified-yaos > div { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 8px; justify-content: space-between; padding: 7px 1px; }.specified-yaos span { color: var(--muted); font-size: 12px; }.specified-yaos .ui-select { min-width: 112px; }
+.specified-time-pane > .specified-branch-label { margin-top: 13px; }
+.specified-time-pane > .ui-select { width: 100%; }
 .taiyi-year-pane > small { color: var(--muted); display: block; font-size: 11px; line-height: 1.6; margin-top: 8px; }
 @media (max-width: 720px) {
   .casting-tabs .ui-segmented-control__copy small { display: none; }.specified-yaos { grid-template-columns: repeat(2, minmax(0, 1fr)); }

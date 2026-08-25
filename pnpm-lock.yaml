@@ -39,8 +39,8 @@ importers:
         specifier: ^16.4.2
         version: 16.4.2
       mingyu-core:
-        specifier: file:vendor/mingyu-core-0.1.31.tgz
-        version: file:vendor/mingyu-core-0.1.31.tgz(iztro@2.5.8)
+        specifier: 0.1.32
+        version: 0.1.32(iztro@2.5.8)
       vue:
         specifier: ^3.5.22
         version: 3.5.40(typescript@5.7.2)
@@ -850,9 +850,8 @@ packages:
     engines: {node: '>= 20'}
     hasBin: true
 
-  mingyu-core@file:vendor/mingyu-core-0.1.31.tgz:
-    resolution: {integrity: sha512-/ofBqZ71fjZn7cxQzZuWkMDo4BviZnj4dV8mK/Ai8zQY0itRe3o2+b9c9NWlJS/QSF1TcxJNSDepyXuA7UEpZw==, tarball: file:vendor/mingyu-core-0.1.31.tgz}
-    version: 0.1.31
+  mingyu-core@0.1.32:
+    resolution: {integrity: sha512-51nNYGkWcUlTQhPkPhRobRansx1G9tmPz7DrZebImm0VjjUr6PMHM0LQgIoOwglOaoJkhi+3iDY8go+Cl/KKAg==}
     engines: {node: '>=18'}
     peerDependencies:
       iztro: ^2.5.8
@@ -1944,7 +1943,7 @@ snapshots:
 
   marked@16.4.2: {}
 
-  mingyu-core@file:vendor/mingyu-core-0.1.31.tgz(iztro@2.5.8):
+  mingyu-core@0.1.32(iztro@2.5.8):
     dependencies:
       '@soul-atelier/xuankong': 0.2.1
       astronomy-engine: 2.1.19

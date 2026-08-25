@@ -63,6 +63,18 @@ describe('Agent 工具结果前端校验', () => {
     expect(getLocalAgentSelection({ question: '为什么会这样', hasProfile: true, previousTool: 'bazi', conversation: [{ role: 'user', content: '今年财运' }] })).toBeNull();
   });
 
+  it('识别奇门排法、太乙四计与皇极年月日时入口', () => {
+    expect(getLocalAgentSelection({ question: '用日家奇门飞盘置闰看看', hasProfile: false })).toEqual({
+      mode: 'divination', divinationKind: 'qimen', qimenScope: 'day', qimenLayout: 'feipan', qimenJuMethod: 'zhirun',
+    });
+    expect(getLocalAgentSelection({ question: '起一个太乙时计', hasProfile: false })).toEqual({
+      mode: 'divination', divinationKind: 'taiyi', taiyiScope: 'hour',
+    });
+    expect(getLocalAgentSelection({ question: '用皇极经世看此刻的年月日时卦', hasProfile: false })).toEqual({
+      mode: 'divination', divinationKind: 'huangji-jingshi', huangjiMode: 'date', huangjiYear: undefined,
+    });
+  });
+
   it('识别小六壬工具调用结果', async () => {
     mockSelection({ mode: 'divination', divinationKind: 'xiaoliuren' });
     await expect(requestAgentToolSelection(baseRequest)).resolves.toEqual({ mode: 'divination', divinationKind: 'xiaoliuren' });
@@ -115,6 +127,8 @@ describe('Agent 工具结果前端校验', () => {
       mode: 'divination',
       divinationKind: 'qimen',
       qimenScope: 'day',
+      qimenLayout: 'zhuanpan',
+      qimenJuMethod: 'chaibu',
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

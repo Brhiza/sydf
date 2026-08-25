@@ -40,6 +40,15 @@ export interface DailyFortuneTimeWindow {
   coverage: string;
 }
 
+export interface DailyFortuneTrendItem {
+  dateKey: string;
+  label: string;
+  dateLabel: string;
+  status: string;
+  tone: DailyFortuneTone;
+  focus: string;
+}
+
 export interface DailyFortuneDirection {
   direction: string;
   detail: string;
@@ -110,6 +119,7 @@ export interface DailyFortuneResult {
   evidenceInsights: DailyFortuneEvidenceInsight[];
   categories: DailyFortuneCategory[];
   timeWindows: DailyFortuneTimeWindow[];
+  periodTrend: DailyFortuneTrendItem[];
   goodDirections: DailyFortuneDirection[];
   avoidDirections: DailyFortuneDirection[];
   directionFallback: string;
@@ -245,7 +255,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-23-v11';
+const dailyFortuneCacheVersion = '2026-08-25-v14';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -385,6 +395,13 @@ function solarTermsAround(date: Date) {
     .sort((left, right) => left.utcTimestamp - right.utcTimestamp);
 }
 
+function solarTermOnDate(date: Date) {
+  const dateKey = formatDateKey(date);
+  return solarTermsAround(date).find((term) => (
+    new Date(term.utcTimestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10) === dateKey
+  ))?.name || '';
+}
+
 function getCalendarPeriodRange(now: Date, period: 'month' | 'year'): FortunePeriodRange {
   const start = period === 'month'
     ? new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0)
@@ -421,7 +438,8 @@ function isCachedDailyFortuneResult(value: unknown): value is DailyFortuneResult
     && typeof result.summary === 'string'
     && Array.isArray(result.categories)
     && Array.isArray(result.evidenceInsights)
-    && Array.isArray(result.timeWindows);
+    && Array.isArray(result.timeWindows)
+    && Array.isArray(result.periodTrend);
 }
 
 function trimDailyFortuneMemoryCache() {
@@ -1443,6 +1461,92 @@ function buildTimeWindows(now: Date, period: FortunePeriod, analyses: ChartAnaly
   });
 }
 
+function trendSummary(analyses: ChartAnalysis[]) {
+  const averageScore = analyses.reduce((total, item) => total + item.score, 0) / Math.max(1, analyses.length);
+  const favorableCount = analyses.filter((item) => item.tone === 'favorable').length;
+  const cautiousCount = analyses.filter((item) => item.tone === 'cautious').length;
+  const tone: DailyFortuneTone = cautiousCount >= Math.ceil(analyses.length * .45) || averageScore <= -.28
+    ? 'cautious'
+    : favorableCount >= Math.ceil(analyses.length * .35) && averageScore >= .2
+      ? 'favorable'
+      : 'balanced';
+  const rankedTopics = topicDefinitions.map((definition, index) => ({
+    definition,
+    score: analyses.reduce((total, item) => total + (item.categories[index]?.score || 0), 0) / Math.max(1, analyses.length),
+  })).sort((left, right) => right.score - left.score);
+  const focusLabels = rankedTopics.slice(0, 2).map((item) => item.definition.shortLabel);
+  return {
+    tone,
+    status: tone === 'favorable' ? '适合推进' : tone === 'cautious' ? '宜放慢' : '稳步安排',
+    focus: focusLabels.length
+      ? tone === 'cautious' ? `${focusLabels.join('、')}先确认` : `${focusLabels.join('、')}可优先`
+      : '按日常节奏安排',
+  };
+}
+
+function buildSevenDayTrend(now: Date, personal: PersonalContext | null): DailyFortuneTrendItem[] {
+  const start = createReferenceDate(now);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(start, index);
+    const analysis = analyzeChart(date, 'day', personal);
+    const trend = trendSummary([analysis]);
+    const label = index === 0
+      ? '今天'
+      : index === 1
+        ? '明天'
+        : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date);
+    return {
+      dateKey: analysis.dateKey,
+      label,
+      dateLabel: `${date.getMonth() + 1}/${date.getDate()}`,
+      ...trend,
+    };
+  });
+}
+
+function buildMonthTrend(now: Date, analyses: ChartAnalysis[]): DailyFortuneTrendItem[] {
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const groups = new Map<number, ChartAnalysis[]>();
+  analyses.forEach((analysis) => {
+    const week = Math.floor((analysis.date.getDate() - 1) / 7);
+    groups.set(week, [...(groups.get(week) || []), analysis]);
+  });
+  return [...groups.entries()].sort(([left], [right]) => left - right).map(([week, items]) => {
+    const startDay = week * 7 + 1;
+    const endDay = Math.min(monthEnd, startDay + 6);
+    return {
+      dateKey: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-w${week + 1}`,
+      label: `第${week + 1}周`,
+      dateLabel: `${startDay}—${endDay}日`,
+      ...trendSummary(items),
+    };
+  });
+}
+
+function buildYearTrend(now: Date, personal: PersonalContext | null): DailyFortuneTrendItem[] {
+  return Array.from({ length: 12 }, (_, month) => {
+    const date = new Date(now.getFullYear(), month, 15, 12, 0, 0, 0);
+    const trend = trendSummary([analyzeChart(date, 'month', personal)]);
+    return {
+      dateKey: `${now.getFullYear()}-${String(month + 1).padStart(2, '0')}`,
+      label: `${month + 1}月`,
+      dateLabel: '',
+      ...trend,
+    };
+  });
+}
+
+function buildPeriodTrend(
+  period: FortunePeriod,
+  now: Date,
+  sampleAnalyses: ChartAnalysis[],
+  personal: PersonalContext | null,
+) {
+  if (period === 'today') return buildSevenDayTrend(now, personal);
+  if (period === 'month') return buildMonthTrend(now, sampleAnalyses);
+  return buildYearTrend(now, personal);
+}
+
 function stableSeed(value: string) {
   return [...value].reduce((total, character) => (total * 31 + character.charCodeAt(0)) >>> 0, 2166136261);
 }
@@ -1585,6 +1689,7 @@ function calculateDailyFortune(
   const directions = period === 'today'
     ? buildSingleDirections(baseAnalysis.chart, personal)
     : buildPeriodDirections(sampleAnalyses, period, personal);
+  const periodTrend = buildPeriodTrend(period, now, sampleAnalyses, personal);
   const reference = buildReference(period, baseAnalysis, directions.goodDirections, personal);
   const timeWindows = buildTimeWindows(isCurrentDay ? runtimeNow : now, period, period === 'today' ? sampleAnalyses : windowAnalyses, isCurrentDay);
   const preferredCount = categories.filter((item) => item.tone === 'favorable').length;
@@ -1694,9 +1799,7 @@ function calculateDailyFortune(
     weekday,
     lunarDate: calendar.lunarDate,
     ganzhi,
-    jieqi: period === 'today'
-      ? baseAnalysis.chart.seasonality?.currentJieQi || calendar.jieQi.prev
-      : baseAnalysis.chart.seasonality?.currentJieQi || calendar.jieQi.prev,
+    jieqi: period === 'today' ? solarTermOnDate(now) : '',
     title,
     tone,
     grade,
@@ -1709,6 +1812,7 @@ function calculateDailyFortune(
     evidenceInsights,
     categories,
     timeWindows,
+    periodTrend,
     goodDirections: directions.goodDirections,
     avoidDirections: directions.avoidDirections,
     directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}方位信号不集中，不设优先方向。`,
