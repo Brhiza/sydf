@@ -96,7 +96,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-25-v14');
+      expect(serialized).toContain('2026-08-25-v16');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -302,6 +302,23 @@ describe('今日、月运、年运统一周期算法', () => {
     const text = JSON.stringify(result);
     expect(text).not.toMatch(/仅供参考|仍以实际|不构成|寻求专业帮助|不必只看时间/);
   });
+
+  it('先形成整体判断，再用主线与牵制组织本地解读', () => {
+    const results = Array.from({ length: 12 }, (_, index) => (
+      generateDailyFortune(new Date(2025, 7, index + 1, 12, 0, 0, 0), profile, 'today')
+    ));
+    results.forEach((result) => {
+      expect(JSON.stringify(result)).not.toContain('先先');
+      expect(result.overview.label).toMatch(/主线|集中发力|次序|状态|基本盘/);
+      expect(result.summary).toMatch(/整体|局面/);
+      expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|扩张|失误/);
+      expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
+      expect(result.categories.some((item) => item.detail.includes('整体判断中的主攻方向')
+        || item.detail.includes('当前相对稳的落点')
+        || item.detail.includes('眼下没有明显顺势项'))).toBe(true);
+    });
+    expect(new Set(results.map((result) => result.overview.label)).size).toBeGreaterThan(1);
+  }, 15_000);
 
   it('查询出生日前的历史周期时真正降级为通用盘', () => {
     const date = new Date(1980, 6, 1, 12, 0, 0, 0);
