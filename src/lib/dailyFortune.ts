@@ -225,6 +225,14 @@ interface FortuneMasterJudgment {
   primary: CategoryAggregate;
   secondary: CategoryAggregate;
   caution: CategoryAggregate;
+  bestAnalysis?: ChartAnalysis;
+  cautionAnalysis?: ChartAnalysis;
+  personalInsight?: {
+    title: string;
+    detail: string;
+    clause: string;
+    tone: DailyFortuneTone;
+  };
   mixed: boolean;
   copy: FortuneReadingCopy;
 }
@@ -269,7 +277,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-25-v17';
+const dailyFortuneCacheVersion = '2026-08-26-v20';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -307,6 +315,18 @@ const tenGodFocusLabels: Record<string, string> = {
   正官: '责任与规则', 七杀: '压力与突破', 正印: '支持与吸收', 偏印: '研究与调整',
   食神: '产出与分享', 伤官: '表达与变化', 正财: '稳定资源', 偏财: '流动资源',
   比肩: '自主与协作', 劫财: '竞争与分配',
+};
+const personalFocusNarratives: Record<string, string> = {
+  '责任与规则': '责任、流程和长期安排',
+  '压力与突破': '压力应对和关键突破',
+  '支持与吸收': '学习吸收和外部支持',
+  '研究与调整': '研究判断和策略调整',
+  '产出与分享': '稳定产出和经验分享',
+  '表达与变化': '表达方式和临场变化',
+  '稳定资源': '稳定收入和长期资源',
+  '流动资源': '外部机会和流动资源',
+  '自主与协作': '自主决定和协作边界',
+  '竞争与分配': '竞争压力和资源分配',
 };
 const flowLayerWeights: Record<QimenScope, Partial<Record<FortuneTriggerLayer['type'], number>>> = {
   year: { dayun: .35, year: .65 },
@@ -1169,32 +1189,51 @@ function categoryDetailFromJudgment(
   const isSecondary = definition.key === judgment.secondary.evaluation.definition.key;
   const isCaution = definition.key === judgment.caution.evaluation.definition.key;
   const preparation = definition.prepare.replace(/^先/, '');
+  // 月内或年内偶有谨慎样本，只用于安排复核日期；只有综合评价本身偏谨慎，
+  // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
+  const hasActualCaution = tone === 'cautious';
+  const scopeLabel = period === 'today' ? '当天' : period === 'month' ? '本月' : '全年';
+  const progressGoal = period === 'today'
+    ? '先形成一个明确成果'
+    : period === 'month' ? '先形成一段可复盘的进展' : '按阶段积累，不追求一次完成';
+  const controlledGoal = period === 'today'
+    ? '以能确认、能收尾为准'
+    : period === 'month' ? '先在条件较齐的日期推进一段' : '放在支持较集中的阶段逐步经营';
 
   if (isCaution && tone !== 'favorable') {
-    if (definition.key === 'wellbeing') {
-      return `这是牵动整体节奏的短板。先稳住睡眠、饮食和实际精力，再决定当天能承担多少事情。`;
+    if (!hasActualCaution) {
+      return definition.key === 'wellbeing'
+        ? `这是${scopeLabel}最需要持续观察的一项，但尚未构成明显阻力。保持规律作息，并根据真实精力调整任务量。`
+        : `这是${scopeLabel}相对需要留意的一项，但尚未构成明显阻力。涉及${definition.check}时保持核对即可。`;
     }
-    return `这是当前最需要把关的一环。先${preparation}，${definition.check}没有确认前不要急着落定。`;
+    if (definition.key === 'wellbeing') {
+      return `这是${scopeLabel}牵动整体节奏的短板。先稳住睡眠、饮食和实际精力，再决定能够承担多少事情。`;
+    }
+    return `这是${scopeLabel}最需要把关的一环。先${preparation}，${definition.check}没有确认前不要急着落定。`;
   }
   if (isPrimary) {
-    if (tone === 'favorable' && definition.key === 'wellbeing') return `这是整体判断中的主攻方向。${bestLead}先把作息和精力稳住，为其他安排留足余量。`;
-    if (tone === 'favorable') return `这是整体判断中的主攻方向。${bestLead}${definition.action}，先形成一个明确成果。`;
-    if (tone === 'balanced') return `这是当前相对稳的落点。${bestLead}${definition.action}，以能确认、能收尾为准。`;
+    if (tone === 'favorable' && definition.key === 'wellbeing') return `这是${scopeLabel}最值得优先照顾的一项。${bestLead}先把作息和精力稳住，为其他安排留足余量。`;
+    if (tone === 'favorable') return `这是${scopeLabel}整体判断中的主线。${bestLead}${definition.action}，${progressGoal}。`;
+    if (tone === 'balanced') return `这是${scopeLabel}相对稳定的主线。${bestLead}${definition.action}，${controlledGoal}。`;
     return `眼下没有明显顺势项，这一项只是相对可控。先${preparation}，不以扩大进度为目标。`;
   }
   if (isSecondary) {
-    if (tone === 'favorable') return `可作为主线之后的第二步。${bestLead}${definition.action}，不必与主线同时铺开。`;
+    if (tone === 'favorable') return `可作为${scopeLabel}主线之后的第二步。${bestLead}${definition.action}，不必与主线同时铺开。`;
     if (definition.key === 'wellbeing') return `${bestLead}保持规律作息和饮食，让状态能够承接后续安排。`;
-    return `适合作为配合项，等主线稳定后再处理。涉及${definition.check}时先把条件补齐。`;
+    return period === 'today'
+      ? `适合作为配合项，等主线稳定后再处理。涉及${definition.check}时先把条件补齐。`
+      : `这是${scopeLabel}的辅助线，不必与主线同时用力。涉及${definition.check}时，放在条件较齐的阶段处理。`;
   }
   if (definition.key === 'wellbeing') {
     return tone === 'favorable'
       ? `${bestLead}状态可以承接日常安排，但仍要给休息、饮食和轻度活动留出固定时间。`
       : `${definition.prepare}，按睡眠、饮食和真实精力调整任务量。`;
   }
-  if (tone === 'favorable') return `${bestLead}${definition.action}，作为辅助推进即可，不必抢在主线之前。`;
+  if (tone === 'favorable') return `${bestLead}${definition.action}，作为${scopeLabel}辅助推进即可，不必抢在主线之前。`;
   if (tone === 'cautious') return `不宜把这里当成突破口。先${preparation}，确认${definition.check}后再动。`;
-  return `${bestLead}${definition.action}，条件明确就做，条件不齐就保留弹性。`;
+  return period === 'today'
+    ? `${bestLead}${definition.action}，条件明确就做，条件不齐就保留弹性。`
+    : `${bestLead}${definition.action}，只在条件明确的阶段推进，其余时间保持弹性。`;
 }
 
 function formatAnalysisWindow(analysis: ChartAnalysis, period: FortunePeriod) {
@@ -1342,13 +1381,102 @@ function fortunePeriodLead(period: FortunePeriod, isCurrentPeriod: boolean) {
   return isCurrentPeriod ? '今年' : '这一年';
 }
 
+function analysisTopicScore(analysis: ChartAnalysis, topicKey: string) {
+  return analysis.categories.find((item) => item.definition.key === topicKey)?.score || 0;
+}
+
+function isUsablePriorityAnalysis(analysis: ChartAnalysis) {
+  return analysis.tone !== 'cautious'
+    || analysis.categories.filter((item) => item.tone === 'favorable').length >= 2;
+}
+
+function chooseJudgmentAnalyses(
+  analyses: ChartAnalysis[],
+  primary: CategoryAggregate,
+  caution: CategoryAggregate,
+) {
+  const primaryKey = primary.evaluation.definition.key;
+  const cautionKey = caution.evaluation.definition.key;
+  const usableAnalyses = analyses.filter(isUsablePriorityAnalysis);
+  const primaryCandidates = usableAnalyses.filter((analysis) => {
+    const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
+    const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
+    const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
+    const focusCategories = (favorableCategories.length ? favorableCategories : balancedCategories).slice(0, 3);
+    return focusCategories.some((item) => item.definition.key === primaryKey);
+  });
+  const bestAnalysis = [...(primaryCandidates.length ? primaryCandidates : usableAnalyses)].sort((left, right) => (
+    (right.score * .58 + analysisTopicScore(right, primaryKey) * .42)
+    - (left.score * .58 + analysisTopicScore(left, primaryKey) * .42)
+    || compareAnalyses(left, right)
+  ))[0];
+  const cautionAnalysis = [...analyses]
+    .filter((analysis) => analysis.date.getTime() !== bestAnalysis?.date.getTime())
+    .sort((left, right) => (
+      (left.score * .45 + analysisTopicScore(left, cautionKey) * .55)
+      - (right.score * .45 + analysisTopicScore(right, cautionKey) * .55)
+      || left.date.getTime() - right.date.getTime()
+    ))[0];
+  return { bestAnalysis, cautionAnalysis };
+}
+
+function buildPersonalJudgmentInsight(
+  aggregates: CategoryAggregate[],
+  primary: CategoryAggregate,
+  caution: CategoryAggregate,
+  personal: PersonalContext | null,
+) {
+  if (!personal) return undefined;
+  const personalAlignment = aggregates.reduce((total, item) => total + item.evaluation.personalAlignment, 0) / Math.max(1, aggregates.length);
+  const tone: DailyFortuneTone = personalAlignment >= .18
+    ? 'favorable'
+    : personalAlignment <= -.18 ? 'cautious' : 'balanced';
+  const focusNarratives = [...new Set(aggregates.flatMap((item) => item.evaluation.personalFocus))]
+    .map((label) => personalFocusNarratives[label] || label)
+    .slice(0, 2);
+  const supportedLabels = aggregates
+    .filter((item) => item.evaluation.personalRelation === 'support')
+    .map((item) => item.category.label)
+    .slice(0, 2);
+  const reviewLabels = aggregates
+    .filter((item) => item.evaluation.personalRelation === 'review')
+    .map((item) => item.category.label)
+    .slice(0, 2);
+  const focusSentence = focusNarratives.length
+    ? `近期更容易被${focusNarratives.join('、')}牵动。`
+    : '当前个人节奏没有单一主题占据主导。';
+  if (tone === 'favorable') {
+    return {
+      tone,
+      title: '个人承接与主线较合',
+      clause: `结合个人承接，${primary.category.label}更容易形成连续进展。`,
+      detail: `${focusSentence}${supportedLabels.length ? `${supportedLabels.join('、')}更容易借力；` : ''}${reviewLabels.length ? `${reviewLabels.join('、')}仍要先确认条件。` : '主线可以适当主动，但不必同时扩大所有事项。'}`,
+    };
+  }
+  if (tone === 'cautious') {
+    return {
+      tone,
+      title: '个人承接需要留出余量',
+      clause: '个人承接与当前节奏有落差，任务量应比表面机会更保守。',
+      detail: `${focusSentence}${reviewLabels.length ? `${reviewLabels.join('、')}更容易消耗精力；` : ''}先控制投入，再观察${caution.category.label}是否仍有反复。`,
+    };
+  }
+  return {
+    tone,
+    title: '个人节奏以真实反馈为准',
+    clause: '当前案例没有明显加减，推进后要根据真实反馈及时调整。',
+    detail: `${focusSentence}${supportedLabels.length ? `${supportedLabels.join('、')}可适量主动；` : ''}${reviewLabels.length ? `${reviewLabels.join('、')}保留调整空间。` : '先按整体主线推进，再根据实际感受增减强度。'}`,
+  };
+}
+
 function buildFortuneMasterJudgment(
   aggregates: CategoryAggregate[],
+  analyses: ChartAnalysis[],
   overallSignal: number,
   tone: DailyFortuneTone,
   period: FortunePeriod,
   isCurrentPeriod: boolean,
-  personalized: boolean,
+  personal: PersonalContext | null,
   seed: string,
 ): FortuneMasterJudgment {
   const ranked = [...aggregates].sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation));
@@ -1367,10 +1495,14 @@ function buildFortuneMasterJudgment(
   else if (wellbeing?.evaluation.tone === 'cautious' && (cautiousCount >= 2 || overallSignal <= .05)) posture = 'restore';
   else if (tone === 'favorable' && cautiousCount === 0 && overallSignal >= .42) posture = 'advance';
   else if (tone === 'favorable' || (favorableCount > 0 && mixed)) posture = 'focus';
+  else if (cautiousCount === 1 && favorableCount === 0) posture = 'resolve';
+  else if (cautiousCount === 0 && favorableCount === 0) posture = 'cultivate';
   else posture = 'stabilize';
 
-  const bestWindow = primary.bestAnalysis ? formatAnalysisWindow(primary.bestAnalysis, period) : '';
-  const cautionWindow = caution.worstAnalysis ? formatAnalysisWindow(caution.worstAnalysis, period) : '';
+  const { bestAnalysis, cautionAnalysis } = chooseJudgmentAnalyses(analyses, primary, caution);
+  const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
+  const cautionWindow = cautionAnalysis ? formatAnalysisWindow(cautionAnalysis, period) : '';
+  const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal);
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
@@ -1380,46 +1512,36 @@ function buildFortuneMasterJudgment(
     cautionWindow,
     primaryAction: primary.evaluation.definition.action,
     cautionCheck: caution.evaluation.definition.check,
-    personalized,
+    personalClause: personalInsight?.clause || '',
     mixed,
   }, seed);
-  return { posture, primary, secondary, caution, mixed, copy };
+  return { posture, primary, secondary, caution, bestAnalysis, cautionAnalysis, personalInsight, mixed, copy };
 }
 
 function buildEvidenceInsights(
   period: FortunePeriod,
-  sampleAnalyses: ChartAnalysis[],
-  aggregates: CategoryAggregate[],
   judgment: FortuneMasterJudgment,
-  personal: PersonalContext | null,
 ): DailyFortuneEvidenceInsight[] {
-  const rankedAnalyses = [...sampleAnalyses].sort(compareAnalyses);
-  const bestAnalysis = rankedAnalyses[0];
-  const cautiousAnalysis = [...rankedAnalyses].reverse().find((item) => item.tone === 'cautious');
-  const bestTopics = bestAnalysis
-    ? [...bestAnalysis.categories]
-      .sort((left, right) => categorySignalScore(right) - categorySignalScore(left))
-      .slice(0, 2)
-      .map((item) => item.definition.shortLabel)
-    : [];
-  const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
-  const cautiousWindow = cautiousAnalysis ? formatAnalysisWindow(cautiousAnalysis, period) : '';
+  const bestWindow = judgment.bestAnalysis ? formatAnalysisWindow(judgment.bestAnalysis, period) : '';
+  const cautiousWindow = judgment.cautionAnalysis ? formatAnalysisWindow(judgment.cautionAnalysis, period) : '';
+  const primaryShortLabel = judgment.primary.evaluation.definition.shortLabel;
+  const secondaryShortLabel = judgment.secondary.evaluation.definition.shortLabel;
   const insights: DailyFortuneEvidenceInsight[] = [{
     key: 'distribution',
-    label: '安排建议',
-    title: bestWindow ? `${bestWindow}优先处理${bestTopics.join('、') || '重要事项'}` : '先完成最确定的一件事',
+    label: '节奏安排',
+    title: bestWindow ? `${bestWindow}优先推进${primaryShortLabel}` : `先沿${primaryShortLabel}主线小步推进`,
     detail: cautiousWindow
-      ? `${cautiousWindow}更适合复核、整理和保留调整空间，不在信息不足时做最终决定。`
-      : '没有需要单独避开的时间，重要事项仍应预留核对和调整空间。',
-    tone: bestAnalysis?.tone || 'balanced',
+      ? `${secondaryShortLabel}可作配合；${cautiousWindow}更适合复核${judgment.caution.evaluation.definition.check}，不在信息不足时做最终决定。`
+      : `${secondaryShortLabel}可作配合，其余事项仍应预留核对和调整空间。`,
+    tone: judgment.bestAnalysis?.tone || judgment.primary.category.tone,
   }];
 
   insights.push({
     key: 'opportunity',
     sourceKey: judgment.primary.category.key,
     label: '判断主线',
-    title: `${judgment.primary.category.label}是主要着力点`,
-    detail: judgment.copy.opportunity,
+    title: `${judgment.primary.category.label}为何是主线`,
+    detail: judgment.copy.opportunityReason,
     tone: judgment.primary.category.tone,
   });
 
@@ -1427,32 +1549,20 @@ function buildEvidenceInsights(
     insights.push({
       key: 'caution',
       sourceKey: judgment.caution.category.key,
-      label: judgment.caution.cautiousCount ? '牵制所在' : '必要检查',
-      title: `${judgment.caution.category.label}会影响整体节奏`,
-      detail: judgment.copy.caution,
-      tone: judgment.caution.cautiousCount ? 'cautious' : 'balanced',
+      label: judgment.caution.evaluation.tone === 'cautious' ? '牵制所在' : '必要检查',
+      title: `${judgment.caution.category.label}为何需要留意`,
+      detail: judgment.copy.cautionReason,
+      tone: judgment.caution.evaluation.tone === 'cautious' ? 'cautious' : 'balanced',
     });
   }
 
-  if (personal) {
-    const focusLabels = [...new Set(aggregates.flatMap((item) => item.evaluation.personalFocus))].slice(0, 2);
-    const supportedLabels = aggregates.filter((item) => item.evaluation.personalRelation === 'support').map((item) => item.category.label).slice(0, 2);
-    const reviewLabels = aggregates.filter((item) => item.evaluation.personalRelation === 'review').map((item) => item.category.label).slice(0, 2);
-    const personalAlignment = aggregates.reduce((total, item) => total + item.evaluation.personalAlignment, 0) / Math.max(1, aggregates.length);
-    const personalTone: DailyFortuneTone = personalAlignment >= .25
-      ? 'favorable'
-      : personalAlignment <= -.25 ? 'cautious' : 'balanced';
-    const personalParts = [
-      focusLabels.length ? `这一阶段更容易把精力放在${focusLabels.join('、')}` : '已将当前案例的长期节奏纳入判断',
-      supportedLabels.length ? `${supportedLabels.join('、')}可适当主动` : '',
-      reviewLabels.length ? `${reviewLabels.join('、')}先确认条件` : '',
-    ].filter(Boolean);
+  if (judgment.personalInsight) {
     insights.push({
       key: 'personal',
       label: '结合案例',
-      title: focusLabels.length ? `近期重点：${focusLabels.join('、')}` : '已结合当前案例',
-      detail: `${personalParts.join('；')}。`,
-      tone: personalTone,
+      title: judgment.personalInsight.title,
+      detail: judgment.personalInsight.detail,
+      tone: judgment.personalInsight.tone,
     });
   }
 
@@ -1518,7 +1628,13 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
   return { goodDirections, avoidDirections };
 }
 
-function buildTimeWindows(now: Date, period: FortunePeriod, analyses: ChartAnalysis[], restrictTodayHours = true) {
+function buildTimeWindows(
+  now: Date,
+  period: FortunePeriod,
+  analyses: ChartAnalysis[],
+  restrictTodayHours = true,
+  preferredAnalysis?: ChartAnalysis,
+) {
   const practicalAnalyses = period === 'today' ? analyses.filter(isPracticalHourAnalysis) : analyses;
   const candidates = period === 'today'
     ? restrictTodayHours
@@ -1527,8 +1643,14 @@ function buildTimeWindows(now: Date, period: FortunePeriod, analyses: ChartAnaly
     : analyses;
   if (period === 'today' && restrictTodayHours && !candidates.length) return [];
   const ranked = [...(candidates.length ? candidates : practicalAnalyses)].sort(compareAnalyses);
-  const usable = ranked.filter((analysis) => analysis.tone !== 'cautious' || analysis.categories.filter((item) => item.tone === 'favorable').length >= 2);
-  return usable.slice(0, 3).map((analysis) => {
+  const usable = ranked.filter(isUsablePriorityAnalysis);
+  const preferred = preferredAnalysis
+    ? usable.find((analysis) => analysis.date.getTime() === preferredAnalysis.date.getTime())
+    : undefined;
+  const selected = preferred
+    ? [preferred, ...usable.filter((analysis) => analysis.date.getTime() !== preferred.date.getTime())].slice(0, 3)
+    : usable.slice(0, 3);
+  return selected.map((analysis) => {
     const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
     const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
     const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
@@ -1775,20 +1897,35 @@ function calculateDailyFortune(
     : buildPeriodDirections(sampleAnalyses, period, personal);
   const periodTrend = buildPeriodTrend(period, now, sampleAnalyses, personal);
   const reference = buildReference(period, baseAnalysis, directions.goodDirections, personal);
-  const timeWindows = buildTimeWindows(isCurrentDay ? runtimeNow : now, period, period === 'today' ? sampleAnalyses : windowAnalyses, isCurrentDay);
   const preferredCount = aggregates.filter((item) => item.evaluation.tone === 'favorable').length;
   const cautionCount = aggregates.filter((item) => item.evaluation.tone === 'cautious').length;
   const reviewCount = aggregates.length - preferredCount - cautionCount;
   const gradeScore = Math.round(overallSignal * 6);
   const grade = fortuneStatusFromScore(gradeScore);
+  const displaySampleAnalyses = period === 'today'
+    ? sampleAnalyses.filter(isPracticalHourAnalysis)
+    : sampleAnalyses;
+  const judgmentAnalyses = period === 'today'
+    ? isCurrentDay
+      ? displaySampleAnalyses.filter((analysis) => analysis.date.getHours() >= currentShichenCenterHour(runtimeNow.getHours()))
+      : displaySampleAnalyses
+    : windowAnalyses;
   const judgment = buildFortuneMasterJudgment(
     aggregates,
+    judgmentAnalyses,
     overallSignal,
     tone,
     period,
     isCurrentPeriod,
-    Boolean(personal),
+    personal,
     `${formatDateKey(now)}|${period}|${personal?.referenceSeed || 'general'}`,
+  );
+  const timeWindows = buildTimeWindows(
+    isCurrentDay ? runtimeNow : now,
+    period,
+    period === 'today' ? sampleAnalyses : windowAnalyses,
+    isCurrentDay,
+    judgment.bestAnalysis,
   );
   aggregates.forEach((aggregate) => {
     aggregate.category = {
@@ -1798,10 +1935,7 @@ function calculateDailyFortune(
   });
   const categories = aggregates.map((item) => item.category);
   const title = judgment.copy.title;
-  const displaySampleAnalyses = period === 'today'
-    ? sampleAnalyses.filter(isPracticalHourAnalysis)
-    : sampleAnalyses;
-  const evidenceInsights = buildEvidenceInsights(period, displaySampleAnalyses, aggregates, judgment, personal);
+  const evidenceInsights = buildEvidenceInsights(period, judgment);
   const summary = judgment.copy.summary;
   const readyAggregate = judgment.primary;
   const slowAggregate = judgment.caution;

@@ -1,4 +1,4 @@
-export type FortuneReadingPosture = 'advance' | 'focus' | 'stabilize' | 'restore' | 'protect';
+export type FortuneReadingPosture = 'advance' | 'focus' | 'cultivate' | 'resolve' | 'stabilize' | 'restore' | 'protect';
 
 export interface FortuneReadingPhraseContext {
   lead: string;
@@ -9,7 +9,7 @@ export interface FortuneReadingPhraseContext {
   cautionWindow: string;
   primaryAction: string;
   cautionCheck: string;
-  personalized: boolean;
+  personalClause: string;
   mixed: boolean;
 }
 
@@ -19,6 +19,8 @@ export interface FortuneReadingCopy {
   overviewLabel: string;
   opportunity: string;
   caution: string;
+  opportunityReason: string;
+  cautionReason: string;
 }
 
 type PhraseTemplate = (context: FortuneReadingPhraseContext) => string;
@@ -92,6 +94,46 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}涉及${cautionCheck}时先补齐信息，再决定是否继续。`,
     ],
   },
+  cultivate: {
+    titles: [
+      ({ lead, primaryLabel }) => `${lead}宜先蓄力，把${primaryLabel}做扎实`,
+      ({ lead, primaryLabel }) => `${lead}重在积累，以${primaryLabel}带动后续`,
+      ({ lead }) => `${lead}没有明显阻力，适合稳步积累`,
+    ],
+    summaries: [
+      ({ primaryLabel, secondaryLabel, bestWindow }) => `整体没有明显冲突，但助力尚未集中到适合大幅推进的程度。先把${primaryLabel}做扎实，${secondaryLabel}保持连续性；${windowLead(bestWindow)}以积累成果、校正方向为主。`,
+      ({ primaryLabel, secondaryLabel, bestWindow }) => `局面平顺而不张扬，最适合把已有基础往前推一层。${primaryLabel}作为长期着力点，${secondaryLabel}维持稳定投入；${windowLead(bestWindow)}不求一步到位，重在形成连续进展。`,
+      ({ primaryLabel, secondaryLabel, bestWindow }) => `当前更像培土蓄势，而不是抢快争先。先围绕${primaryLabel}完善基础，再让${secondaryLabel}逐步接上；${windowLead(bestWindow)}把可重复的做法固定下来。`,
+    ],
+    overviewLabel: '阻力不强，适合稳步积累',
+    opportunities: [
+      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，把这一步做成可以持续复用的基础。`,
+      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先求稳定完成，再逐步提高强度。`,
+    ],
+    cautions: [
+      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}涉及${cautionCheck}时照常核实，避免因局面平稳而松掉细节。`,
+    ],
+  },
+  resolve: {
+    titles: [
+      ({ lead, cautionLabel }) => `${lead}先解开${cautionLabel || '眼前牵制'}，再谈推进`,
+      ({ lead, primaryLabel }) => `${lead}先处理卡点，以${primaryLabel}维持节奏`,
+      ({ lead }) => `${lead}先清理一处阻力，局面自然会顺一些`,
+    ],
+    summaries: [
+      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `整体并非全面受阻，真正影响节奏的是${cautionLabel || '一处尚未确认的环节'}。先用${primaryLabel}维持日常推进，${secondaryLabel}暂作配合；${windowLead(bestWindow)}只做确定部分。${cautionLead(cautionWindow)}把卡点处理清楚后，再决定是否加速。`,
+      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `当前不需要全面收缩，但必须先解决${cautionLabel || '最容易反复的一环'}。${primaryLabel}负责稳住进度，${secondaryLabel}保持弹性；${windowLead(bestWindow)}先完成可控事项，${cautionLead(cautionWindow)}不让局部问题扩散到其他安排。`,
+      ({ primaryLabel, cautionLabel, bestWindow, cautionWindow }) => `局面的关键在于先拆掉一处牵制。${primaryLabel}仍可维持，${cautionLabel || '待确认事项'}不宜绕过去；${windowLead(bestWindow)}小步落地，${cautionLead(cautionWindow)}先厘清条件再继续。`,
+    ],
+    overviewLabel: '局部受阻，先解决关键卡点',
+    opportunities: [
+      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只维持必要进度，不额外增加变量。`,
+      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先守住确定成果，再处理卡点。`,
+    ],
+    cautions: [
+      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}优先厘清${cautionCheck}，这处确认后再恢复正常节奏。`,
+    ],
+  },
   restore: {
     titles: [
       ({ lead }) => `${lead}先养住状态，再安排重要事项`,
@@ -128,6 +170,40 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
   },
 };
 
+const fortuneReasonCorpus: Record<FortuneReadingPosture, {
+  opportunities: PhraseTemplate[];
+  cautions: PhraseTemplate[];
+}> = {
+  advance: {
+    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}与整体节奏同向，也能带动${secondaryLabel}，因此适合作为打开局面的第一步。`],
+    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '其他事项'}不是主要阻力，但涉及${cautionCheck}时仍要守住基本流程。`],
+  },
+  focus: {
+    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}是少数信号较清楚的方向，相比${secondaryLabel}更适合集中资源。`],
+    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '牵制项'}容易让局部反复拖慢全局，关键在先确认${cautionCheck}。`],
+  },
+  cultivate: {
+    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}的稳定性略高于其他方向，适合用来积累基础，再逐步带动${secondaryLabel}。`],
+    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '细节环节'}暂未形成明显阻力，仍需持续留意${cautionCheck}，避免小问题累积。`],
+  },
+  resolve: {
+    opportunities: [({ primaryLabel }) => `${primaryLabel}并非强势突破口，但可控性较高，适合在处理卡点期间维持必要进度。`],
+    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '当前卡点'}是最容易向其他事项传导的环节，先厘清${cautionCheck}比盲目加速更重要。`],
+  },
+  stabilize: {
+    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}不一定最强，却是当前承接最稳定的落点，适合先用它建立秩序，再衔接${secondaryLabel}。`],
+    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '不稳定环节'}会放大节奏波动，先把${cautionCheck}核实清楚，整体才不容易失衡。`],
+  },
+  restore: {
+    opportunities: [({ primaryLabel }) => `${primaryLabel}是恢复承接能力后仍可保留的轻量主线，重点不在做多，而在不透支。`],
+    cautions: [({ cautionLabel }) => `${cautionLabel || '身心状态'}已经开始牵动其他事项，先恢复睡眠、饮食和精力，比继续加任务更有效。`],
+  },
+  protect: {
+    opportunities: [({ primaryLabel }) => `${primaryLabel}只是相对可控，并非适合扩张；用它守住基本盘，比另开新局更稳妥。`],
+    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '主要风险'}的牵制已高于普通波动，必须先守住${cautionCheck}，避免问题继续扩大。`],
+  },
+};
+
 function stableIndex(seed: string, length: number) {
   const value = [...seed].reduce((total, character) => (total * 33 + character.charCodeAt(0)) >>> 0, 5381);
   return value % length;
@@ -143,11 +219,15 @@ export function renderFortuneReading(
   seed: string,
 ): FortuneReadingCopy {
   const corpus = fortuneReadingCorpus[posture];
+  const reasons = fortuneReasonCorpus[posture];
+  const summary = pick(corpus.summaries, context, `${seed}|summary`);
   return {
     title: pick(corpus.titles, context, `${seed}|title`),
-    summary: pick(corpus.summaries, context, `${seed}|summary`),
+    summary: `${summary}${context.personalClause ? ` ${context.personalClause}` : ''}`,
     overviewLabel: corpus.overviewLabel,
     opportunity: pick(corpus.opportunities, context, `${seed}|opportunity`),
     caution: pick(corpus.cautions, context, `${seed}|caution`),
+    opportunityReason: pick(reasons.opportunities, context, `${seed}|opportunity-reason`),
+    cautionReason: pick(reasons.cautions, context, `${seed}|caution-reason`),
   };
 }

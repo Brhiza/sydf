@@ -96,7 +96,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-25-v17');
+      expect(serialized).toContain('2026-08-26-v20');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -187,6 +187,8 @@ describe('今日、月运、年运统一周期算法', () => {
     const nextShichen = generateDailyFortune(date, profile, 'today', new Date(2026, 7, 8, 23, 5, 0, 0));
     expect(nextShichen).not.toBe(first);
     expect(nextShichen.timeWindows).toHaveLength(0);
+    expect(`${nextShichen.summary}${nextShichen.actionTips.map((item) => item.text).join('')}`)
+      .not.toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
   });
 
   it('月运完整计算周期内每天，并直接显示公历日期', () => {
@@ -215,6 +217,8 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(category.basis).toMatch(/\d+月\d+日/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
     });
+    expect(result.categories.some((category) => category.detail.includes('本月'))).toBe(true);
+    expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
     expectToneAndGradeConsistent(result);
   });
 
@@ -237,6 +241,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);
     });
+    expect(result.categories.some((category) => category.detail.includes('全年'))).toBe(true);
     result.timeWindows.forEach((window) => {
       expect(window.name).toMatch(/^(?:\d+月\d+日—\d+日|\d+月\d+日—\d+月\d+日)$/);
       expect(window.range).toBe('');
@@ -309,15 +314,52 @@ describe('今日、月运、年运统一周期算法', () => {
     ));
     results.forEach((result) => {
       expect(JSON.stringify(result)).not.toContain('先先');
-      expect(result.overview.label).toMatch(/主线|集中发力|次序|状态|基本盘/);
-      expect(result.summary).toMatch(/整体|局面/);
-      expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|扩张|失误/);
+      expect(result.overview.label).toMatch(/主线|集中发力|次序|状态|基本盘|积累|卡点/);
+      expect(result.summary).toMatch(/整体|局面|当前/);
+      expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|扩张|失误|积累|蓄势|基础|卡点|牵制|解决/);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
-      expect(result.categories.some((item) => item.detail.includes('整体判断中的主攻方向')
-        || item.detail.includes('当前相对稳的落点')
+      expect(result.actionTips[0]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'opportunity')?.detail);
+      expect(result.actionTips[1]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'caution')?.detail);
+      expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
+      const summaryWindow = result.summary.match(/(?:早晨|上午|中午|下午|傍晚|晚上) \d{2}:\d{2}—\d{2}:\d{2}/)?.[0];
+      if (summaryWindow) {
+        expect(result.evidenceInsights[0]?.title).toContain(summaryWindow);
+        expect(result.actionTips[0]?.text).toContain(summaryWindow);
+        expect(`${result.timeWindows[0]?.name} ${result.timeWindows[0]?.range}`).toContain(summaryWindow);
+      }
+      expect(result.categories.some((item) => item.detail.includes('整体判断中的主线')
+        || item.detail.includes('最值得优先照顾的一项')
+        || item.detail.includes('相对稳定的主线')
         || item.detail.includes('眼下没有明显顺势项'))).toBe(true);
     });
     expect(new Set(results.map((result) => result.overview.label)).size).toBeGreaterThan(1);
+  }, 15_000);
+
+  it('月运主线、优先日期与牵制结论保持一致', () => {
+    const result = generateDailyFortune(
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+      profile,
+      'month',
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+    );
+    const shortLabels: Record<string, string> = {
+      career: '工作',
+      study: '学习',
+      wealth: '钱款',
+      relationship: '沟通',
+      travel: '出行',
+      wellbeing: '休息',
+    };
+    const mainLine = result.evidenceInsights.find((item) => item.key === 'opportunity');
+    expect(mainLine?.sourceKey).toBeTruthy();
+    expect(result.timeWindows[0]?.coverage).toContain(shortLabels[mainLine?.sourceKey || '']);
+
+    const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
+    if (necessaryCheck?.sourceKey) {
+      const category = result.categories.find((item) => item.key === necessaryCheck.sourceKey);
+      expect(category?.detail).toContain('尚未构成明显阻力');
+      expect(category?.detail).not.toContain('短板');
+    }
   }, 15_000);
 
   it('查询出生日前的历史周期时真正降级为通用盘', () => {
