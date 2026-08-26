@@ -196,11 +196,29 @@ interface PersonalFlowEvidence {
   triggerLabels: string[];
 }
 
+type PersonalRelationReason =
+  | 'attention-aligned'
+  | 'attention-blocked'
+  | 'approach-aligned'
+  | 'approach-friction'
+  | 'rhythm-aligned'
+  | 'rhythm-friction'
+  | 'strength-aligned'
+  | 'effort-friction'
+  | 'period-aligned'
+  | 'period-friction';
+
+interface PersonalRelationEvidence {
+  relation: PersonalRelation;
+  reason?: PersonalRelationReason;
+}
+
 interface PalaceSignals {
   supportCount: number;
   softRiskCount: number;
   hardRiskCount: number;
   personalRelation: PersonalRelation;
+  personalReason?: PersonalRelationReason;
   personalChange: boolean;
 }
 
@@ -212,6 +230,7 @@ interface CategoryEvaluation {
   supportCount: number;
   riskCount: number;
   personalRelation: PersonalRelation;
+  personalReason?: PersonalRelationReason;
   personalChange: boolean;
   personalAlignment: number;
   personalFocus: string[];
@@ -368,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v53';
+const dailyFortuneCacheVersion = '2026-08-26-v54';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1091,30 +1110,52 @@ function structuralRiskKind(name: string) {
   return '';
 }
 
-function personalRelationForPalace(chart: QimenData, palace: QimenJiuGongGe, personal: PersonalContext | null): PersonalRelation {
-  if (!personal) return 'neutral';
+function personalRelationEvidenceForPalace(
+  chart: QimenData,
+  palace: QimenJiuGongGe,
+  personal: PersonalContext | null,
+): PersonalRelationEvidence {
+  if (!personal) return { relation: 'neutral' };
   const personalPalace = findStemPalace(chart, personal.qimenStem);
   let supportVotes = 0;
   let reviewVotes = 0;
+  const supportReasons: Array<{ reason: PersonalRelationReason; weight: number }> = [];
+  const reviewReasons: Array<{ reason: PersonalRelationReason; weight: number }> = [];
+  const addSupport = (reason: PersonalRelationReason, weight: number) => {
+    supportVotes += weight;
+    supportReasons.push({ reason, weight });
+  };
+  const addReview = (reason: PersonalRelationReason, weight: number) => {
+    reviewVotes += weight;
+    reviewReasons.push({ reason, weight });
+  };
   if (personalPalace && isFiveElement(personalPalace.element) && isFiveElement(palace.element)) {
     if (personalPalace.gong === palace.gong) {
       const isVoid = chart.voidPalaces?.some((item) => item.palace === palace.gong);
       const hasRisk = chart.palaceInsights?.some((item) => item.gong === palace.gong && item.level === '风险');
-      if (isVoid || hasRisk) reviewVotes += 2;
-      else supportVotes += 2;
-    } else if (elementsSupport(personalPalace.element, palace.element)) supportVotes += 1;
-    else if (elementsConflict(personalPalace.element, palace.element)) reviewVotes += 1;
+      if (isVoid || hasRisk) addReview('attention-blocked', 2);
+      else addSupport('attention-aligned', 2);
+    } else if (elementsSupport(personalPalace.element, palace.element)) addSupport('approach-aligned', 1);
+    else if (elementsConflict(personalPalace.element, palace.element)) addReview('approach-friction', 1);
   }
   if (isFiveElement(palace.element)) {
-    if (elementsSupport(personal.dayElement, palace.element)) supportVotes += 1;
-    else if (elementsConflict(personal.dayElement, palace.element)) reviewVotes += 1;
+    if (elementsSupport(personal.dayElement, palace.element)) addSupport('rhythm-aligned', 1);
+    else if (elementsConflict(personal.dayElement, palace.element)) addReview('rhythm-friction', 1);
     const usefulAlignment = elementAlignment(personal, palace.element);
-    if (usefulAlignment >= .65) supportVotes += usefulAlignment >= 1 ? 2 : 1;
-    else if (usefulAlignment <= -.65) reviewVotes += usefulAlignment <= -1 ? 2 : 1;
+    if (usefulAlignment >= .65) addSupport('strength-aligned', usefulAlignment >= 1 ? 2 : 1);
+    else if (usefulAlignment <= -.65) addReview('effort-friction', usefulAlignment <= -1 ? 2 : 1);
   }
-  if (supportVotes > reviewVotes) return 'support';
-  if (reviewVotes > supportVotes) return 'review';
-  return 'neutral';
+  if (supportVotes > reviewVotes) {
+    return { relation: 'support', reason: [...supportReasons].sort((left, right) => right.weight - left.weight)[0]?.reason };
+  }
+  if (reviewVotes > supportVotes) {
+    return { relation: 'review', reason: [...reviewReasons].sort((left, right) => right.weight - left.weight)[0]?.reason };
+  }
+  return { relation: 'neutral' };
+}
+
+function personalRelationForPalace(chart: QimenData, palace: QimenJiuGongGe, personal: PersonalContext | null): PersonalRelation {
+  return personalRelationEvidenceForPalace(chart, palace, personal).relation;
 }
 
 function evaluatePalaceSignals(
@@ -1153,7 +1194,8 @@ function evaluatePalaceSignals(
     else if (controlling[seasonElement] === doorElement) softRiskCount += 1;
   }
 
-  const personalRelation = personalRelationForPalace(chart, palace, personal);
+  const personalEvidence = personalRelationEvidenceForPalace(chart, palace, personal);
+  const personalRelation = personalEvidence.relation;
   if (personalRelation === 'support') supportCount += 1;
   else if (personalRelation === 'review') softRiskCount += 1;
 
@@ -1162,6 +1204,7 @@ function evaluatePalaceSignals(
     softRiskCount,
     hardRiskCount,
     personalRelation,
+    personalReason: personalEvidence.reason,
     personalChange: personalFlow.triggerLevel !== 'quiet',
   };
 }
@@ -1230,6 +1273,10 @@ function analyzeChart(date: Date, scope: QimenScope, personal: PersonalContext |
       supportCount: signals.supportCount,
       riskCount: signals.hardRiskCount * 2 + signals.softRiskCount,
       personalRelation: signals.personalRelation,
+      personalReason: signals.personalReason
+        || (personalResult.personalAlignment >= .18
+          ? 'period-aligned'
+          : personalResult.personalAlignment <= -.18 ? 'period-friction' : undefined),
       personalChange: signals.personalChange,
       personalAlignment: personalResult.personalAlignment,
       personalFocus: personalFlow.focusTopics.has(definition.key) ? personalFlow.focusLabels : [],
@@ -1420,6 +1467,36 @@ function aggregatePersonalRelation(evaluations: CategoryEvaluation[]): PersonalR
   return 'neutral';
 }
 
+const personalReasonDirection: Record<PersonalRelationReason, Exclude<PersonalRelation, 'neutral'>> = {
+  'attention-aligned': 'support',
+  'attention-blocked': 'review',
+  'approach-aligned': 'support',
+  'approach-friction': 'review',
+  'rhythm-aligned': 'support',
+  'rhythm-friction': 'review',
+  'strength-aligned': 'support',
+  'effort-friction': 'review',
+  'period-aligned': 'support',
+  'period-friction': 'review',
+};
+
+function aggregatePersonalReason(
+  evaluations: CategoryEvaluation[],
+  relation: PersonalRelation,
+  alignment: number,
+) {
+  const direction = relation === 'neutral'
+    ? alignment >= .18 ? 'support' : alignment <= -.18 ? 'review' : null
+    : relation;
+  if (!direction) return undefined;
+  const counts = new Map<PersonalRelationReason, number>();
+  evaluations.forEach((item) => {
+    if (!item.personalReason || personalReasonDirection[item.personalReason] !== direction) return;
+    counts.set(item.personalReason, (counts.get(item.personalReason) || 0) + 1);
+  });
+  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0];
+}
+
 function aggregatePeriodCategories(
   contextAnalyses: ChartAnalysis[],
   sampleAnalyses: ChartAnalysis[],
@@ -1476,15 +1553,18 @@ function aggregatePeriodCategories(
     const allEvaluations = [...contexts.map((item) => item.evaluation), ...samples.map((item) => item.evaluation)];
     const focusCounts = new Map<string, number>();
     allEvaluations.flatMap((item) => item.personalFocus).forEach((label) => focusCounts.set(label, (focusCounts.get(label) || 0) + 1));
+    const personalRelation = aggregatePersonalRelation(allEvaluations);
+    const personalAlignment = allEvaluations.reduce((total, item) => total + item.personalAlignment, 0) / allEvaluations.length;
     const combined: CategoryEvaluation = {
       ...deepestContext,
       tone,
       score: weightedScore,
       supportCount: Math.round(allEvaluations.reduce((total, item) => total + item.supportCount, 0) / allEvaluations.length),
       riskCount: Math.round(allEvaluations.reduce((total, item) => total + item.riskCount, 0) / allEvaluations.length),
-      personalRelation: aggregatePersonalRelation(allEvaluations),
+      personalRelation,
+      personalReason: aggregatePersonalReason(allEvaluations, personalRelation, personalAlignment),
       personalChange: allEvaluations.some((item) => item.personalChange),
-      personalAlignment: allEvaluations.reduce((total, item) => total + item.personalAlignment, 0) / allEvaluations.length,
+      personalAlignment,
       personalFocus: [...focusCounts.entries()].sort((left, right) => right[1] - left[1]).slice(0, 2).map(([label]) => label),
     };
     const favorableCount = samples.filter((item) => item.evaluation.tone === 'favorable').length;
@@ -1602,16 +1682,28 @@ function buildPersonalJudgmentInsight(
   const reviewItem = primaryRelation === 'review' || (primaryRelation === 'neutral' && primaryAlignment <= -.18)
     ? primary
     : reviewItems[0];
+  const reasonClauses: Record<PersonalRelationReason, string> = {
+    'attention-aligned': '个人盘当前的注意力正好集中在同一类事务上，较容易持续推进',
+    'attention-blocked': '这类事务虽然会集中占用注意力，但同时带有阻滞信号，投入越多越容易被牵制',
+    'approach-aligned': '这类事务需要的推进方式与个人更顺手的发力方式一致，较容易保持连续性',
+    'approach-friction': '这类事务需要的推进方式与个人惯常节奏不完全一致，过程中更容易反复调整',
+    'rhythm-aligned': '个人基础节奏能配合这类事务的推进，持续投入的成本相对较低',
+    'rhythm-friction': '这类事务会打乱个人较稳定的节奏，推进时需要额外分配注意力',
+    'strength-aligned': '这类事务调用的是个人盘里较能发挥的能力，做取舍和收尾会更顺手',
+    'effort-friction': '这类事务更容易触发个人盘里相对吃力的部分，处理同样的事情会消耗更多精力',
+    'period-aligned': '本期外部节奏与个人较能发挥的方向一致，行动更容易接续起来',
+    'period-friction': '本期外部节奏更多落在个人相对吃力的方向，同样的投入更容易产生疲惫感',
+  };
   const focusSentence = focusNarratives.length
-    ? `本期个人命盘会放大${focusNarratives.join('、')}，相关事项会比平时更占注意力。`
-    : '个人命盘没有额外放大单一议题。';
+    ? `本期个人命盘会放大${focusNarratives.join('、')}，这些议题更容易牵动后续安排。`
+    : '';
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
-      ? `个人命盘对${supportItem.category.label}的支持较明确；${supportItem.evaluation.definition.personalSupportAction}。`
-      : `${supportItem.category.label}是个人命盘里较稳的一项；本期确有相关事项时，${supportItem.evaluation.definition.personalSupportAction}。没有相关事项就略过，不为“助力”额外增加任务；整体仍以${primary.category.label}为主。`
+      ? `${supportItem.category.label}之所以更适合投入，是因为${reasonClauses[supportItem.evaluation.personalReason || 'period-aligned']}；${supportItem.evaluation.definition.personalSupportAction}。`
+      : `${supportItem.category.label}是个人命盘里较稳的一项，因为${reasonClauses[supportItem.evaluation.personalReason || 'period-aligned']}；本期确有相关事项时，${supportItem.evaluation.definition.personalSupportAction}。没有相关事项就略过，整体仍以${primary.category.label}为主。`
     : '';
   const reviewAdvice = reviewItem
-    ? `${reviewItem.category.label}更容易消耗精力；${reviewItem.evaluation.definition.personalReviewBoundary}。`
+    ? `${reviewItem.category.label}之所以更耗精力，是因为${reasonClauses[reviewItem.evaluation.personalReason || 'period-friction']}；${reviewItem.evaluation.definition.personalReviewBoundary}。`
     : '';
   if (tone === 'favorable') {
     const primarySupported = primaryRelation === 'support' || (primaryRelation === 'neutral' && primaryAlignment >= .18);
