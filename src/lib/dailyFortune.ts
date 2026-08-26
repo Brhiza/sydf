@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v117';
+const dailyFortuneCacheVersion = '2026-08-27-v118';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2511,6 +2511,15 @@ const topicEvidenceChecks: Record<string, string> = {
   wellbeing: '休息后注意力与食欲是否持续回升，而不是短时兴奋',
 };
 
+const primaryCorrectionReasons: Record<string, string> = {
+  career: '工作仍排在主线，是因为责任与验收缺口已经显现，修正这一处能直接减少后续返工。',
+  study: '学习仍排在主线，是因为注意力与输出检验的断点已经显现，修正后才能判断继续投入是否有效。',
+  wealth: '钱款仍排在主线，是因为金额、责任或付款节点的缺口已经显现，闭合记录可先阻止后续争议。',
+  relationship: '沟通仍排在主线，是因为双方事实基础的分歧已经显现，对齐这一处可避免后续承诺建立在不同前提上。',
+  travel: '出行仍排在主线，是因为路线、转场或返程余量的缺口已经显现，先修时间链可避免后续安排连锁延误。',
+  wellbeing: '休息仍排在主线，是因为睡眠、进食或专注恢复的缺口已经显现，先恢复承受量才能判断其他安排是否真实可行。',
+};
+
 const secondaryInteractionEffects: Record<string, string> = {
   career: '工作交接若失效，主线形成的结果会停在无人接收或无法验收的环节',
   study: '学习若不能沉淀成方法，同类问题下一次仍要重新判断，主线经验无法累积',
@@ -2534,7 +2543,8 @@ function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: Fort
       ? `${primary.evaluation.definition.shortLabel}只在部分${windowType}占优，其他安排保持原定负荷。`
       : difference === 0
         ? `${primary.evaluation.definition.shortLabel}的顺势与收紧互相抵消，先按实际结果验证，不随单个窗口加量。`
-        : `${primary.evaluation.definition.shortLabel}更适合先纠偏；本期价值在于问题边界已经显现，可先完成一次可验证的修正。`;
+        : primaryCorrectionReasons[primary.category.key]
+          || `${primary.evaluation.definition.shortLabel}仍排在主线，是因为关键缺口已经显现，修正后才能判断后续投入是否有效。`;
   const interaction = secondaryInteractionEffects[secondary.category.key]
     || `${secondary.category.label}一旦失守，${primary.category.label}形成的结果也会失去后续承接`;
   const comparison = scoreGap >= .38
@@ -2560,13 +2570,13 @@ function cautionDistributionMeaning(aggregate: CategoryAggregate, period: Fortun
   const riskNode = topicRiskNodes[aggregate.category.key] || '关键执行条件';
   const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
   if (difference > 0) {
-    return `${shortLabel}虽有可用窗口，风险仍集中在${riskNode}；这一环节若落在前后衔接处，会直接中断已有进展。`;
+    return `${shortLabel}虽有可用窗口，风险仍集中在${riskNode}。`;
   }
   if (difference === 0) {
     const check = topicEvidenceChecks[aggregate.category.key] || `${aggregate.category.label}是否形成明确结果`;
     return `${shortLabel}的顺势与收紧相抵，需用${check}逐次判断，不沿用上一次结论。`;
   }
-  return `${riskNode}在多个${windowType}反复失守，是本期最容易形成连锁影响的节点。`;
+  return `${riskNode}在多个${windowType}反复失守。`;
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
