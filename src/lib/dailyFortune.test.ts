@@ -6,6 +6,7 @@ import {
   isDailyFortuneProfileComplete,
   type DailyFortuneProfile,
   type DailyFortuneResult,
+  type DailyFortuneTimeWindow,
   type FortunePeriod,
 } from './dailyFortune';
 
@@ -63,7 +64,7 @@ function periodEvaluation(result: DailyFortuneResult) {
 
 const categoryValueMarkers: Record<string, RegExp> = {
   career: /负责人|交付标准/,
-  study: /学习目标|笔记|练习|沉淀/,
+  study: /学习目标|笔记|练习|沉淀|输出|应用|掌握/,
   wealth: /金额|付款节点|付款记录/,
   relationship: /语气|真实意图|对方重点|信息差|事实基础|推断立场/,
   travel: /路线|天气|时间余量|关键物品/,
@@ -108,10 +109,12 @@ function expectContentRichCategories(result: DailyFortuneResult) {
 
 function expectEvidenceDistribution(result: DailyFortuneResult) {
   const unit = result.period === 'today' ? '双小时时段' : result.period === 'month' ? '日期' : '节气阶段';
+  const measure = result.period === 'month' ? '天' : '段';
   result.evidenceInsights.filter((item) => ['opportunity', 'caution', 'secondary'].includes(item.key)).forEach((item) => {
-    expect(item.detail).toMatch(new RegExp(`\\d+个${unit}中，.+有\\d+个明确支持、\\d+个需要复核、\\d+个保持平稳`));
+    expect(item.detail).toMatch(new RegExp(`\\d+个${unit}里，.+有\\d+${measure}顺势、\\d+${measure}需要收紧，其余\\d+${measure}平稳`));
     if (item.key === 'caution' && item.sourceKey) expect(result.summary).toMatch(evidenceRiskMarkers[item.sourceKey]);
-    if (item.key === 'secondary') expect(item.detail).toMatch(/位于.+之后|并行保留/);
+    if (item.key === 'secondary') expect(item.detail).toMatch(/落实为|主线之后|事实基础|已经确定|并行保留/);
+    expect(item.detail).not.toMatch(/六项综合排序|六项中相对最需要复核/);
   });
 }
 
@@ -128,8 +131,8 @@ function expectContentRichTrend(result: DailyFortuneResult) {
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
   expect(result.reference.itemNote.length).toBeGreaterThan(22);
-  expect(result.reference.symbolicNote).toMatch(/颜色取.+数字.+由五行对应数、主线位置和盘面参数合并得出/);
-  expect(result.reference.symbolicNote).toMatch(/不用于|不替代/);
+  expect(result.reference.symbolicNote).toMatch(/偏向.+。.+可.+；看到标记时，检查/);
+  expect(result.reference.symbolicNote).not.toMatch(/数字|编号|投注|开奖/);
   const primary = result.categories.find((item) => ['本期主线', '守住基本盘'].includes(item.status));
   expect(primary).toBeTruthy();
   expect(referenceItemsByTopic[primary!.key]).toContain(result.reference.item);
@@ -178,7 +181,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v73');
+      expect(serialized).toContain('2026-08-26-v76');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -314,7 +317,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
     });
     expectContentRichCategories(result);
-    expect(result.categories.some((category) => category.detail.includes('本月'))).toBe(true);
+    expect(result.categories.map((category) => category.detail).join('\n')).not.toMatch(/这是本月|不是本月主线|本月的辅助线/);
     expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
     expectToneAndGradeConsistent(result);
   });
@@ -341,7 +344,7 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(year.periodTrend[0]).toMatchObject({ dateKey: '2026-08', label: '本月' });
     expect(year.periodTrend.at(-1)).toMatchObject({ dateKey: '2026-12', label: '12月' });
     const generalYear = generateDailyFortune(runtime, undefined, 'year', runtime);
-    expect(generalYear.actionTips[0]?.text).toMatch(/^公历8月7日—9月7日是较好的落点/);
+    expect(generalYear.actionTips[0]?.text).toMatch(/^公历8月7日—9月7日，/);
     [today, month, year].flatMap((result) => result.categories).forEach((category) => {
       const preferredWindow = category.detail.match(/^(.+?)可优先安排；/)?.[1];
       const cautionWindow = category.basis.match(/^(.+)：/)?.[1];
@@ -369,7 +372,7 @@ describe('今日、月运、年运统一周期算法', () => {
     });
     expectContentRichCategories(result);
     expectEvidenceDistribution(result);
-    expect(result.categories.some((category) => category.detail.includes('全年'))).toBe(true);
+    expect(result.categories.map((category) => category.detail).join('\n')).not.toMatch(/这是全年|不是全年主线|全年的辅助线/);
     result.timeWindows.forEach((window) => {
       expect(window.name).toMatch(/^(?:\d+月\d+日—\d+日|\d+月\d+日—\d+月\d+日)$/);
       expect(window.range).toBe('');
@@ -459,10 +462,11 @@ describe('今日、月运、年运统一周期算法', () => {
         expect(result.actionTips[0]?.text).toContain(summaryWindow);
         expect(`${result.timeWindows[0]?.name} ${result.timeWindows[0]?.range}`).toContain(summaryWindow);
       }
-      expect(result.categories.some((item) => item.detail.includes('整体判断中的主线')
-        || item.detail.includes('最值得优先照顾的一项')
-        || item.detail.includes('相对稳定的主线')
-        || item.detail.includes('眼下没有明显顺势项'))).toBe(true);
+      const primaryCategory = result.categories.find((item) => item.key === result.actionTips[0]?.sourceKey);
+      expect(primaryCategory?.status).toMatch(/本期主线|守住基本盘/);
+      expect(primaryCategory?.detail).toMatch(categoryValueMarkers[primaryCategory?.key || 'career']);
+      expect(result.categories.map((item) => item.detail).join('\n')).not.toMatch(/这是(?:当天|本月|全年).*(?:主线|一环|一项)|适合作为配合项|辅助线|辅助推进项|不是(?:当天|本月|全年)主线/);
+      expect(result.categories.find((item) => item.key === 'wellbeing')?.status).not.toBe('主线后再做');
     });
     results.filter((result) => result.actionTips[1]?.tone === 'support').forEach((result) => {
       expect(result.actionTips[1]?.label).toMatch(/^(?:随后(?:工作|学习|钱款|沟通|出行)|同时顾好休息)$/);
@@ -505,8 +509,8 @@ describe('今日、月运、年运统一周期算法', () => {
     const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
     if (necessaryCheck?.sourceKey) {
       const category = result.categories.find((item) => item.key === necessaryCheck.sourceKey);
-      expect(category?.detail).toContain('不是本月主线');
       expect(category?.detail).toMatch(categoryValueMarkers[necessaryCheck.sourceKey]);
+      expect(category?.detail).not.toContain('不是本月主线');
       expect(category?.detail).not.toMatch(/必须先把|仍有缺口/);
       expect(category?.detail).not.toContain('短板');
     }
@@ -522,21 +526,22 @@ describe('今日、月运、年运统一周期算法', () => {
       );
       const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
       const primaryCategory = result.categories.find((item) => item.key === primaryAction?.sourceKey);
-      const primaryWindow = primaryAction?.text.match(/^(.+?)是较好的落点/)?.[1];
+      const formatWindow = (item: DailyFortuneTimeWindow) => period === 'today'
+        ? `${item.name} ${item.range}`
+        : period === 'month'
+          ? `${item.name}（${item.range}）`
+          : `公历${item.name}`;
+      const primaryWindow = result.timeWindows.map(formatWindow).find((label) => primaryAction?.text.startsWith(`${label}，`));
       if (primaryWindow) expect(primaryCategory?.detail).not.toContain(primaryWindow);
       const cautionAction = result.actionTips.find((item) => item.tone === 'notice');
       if (!cautionAction) return;
       const category = result.categories.find((item) => item.key === cautionAction.sourceKey);
-      const cautionWindow = cautionAction.text.match(/^(.+?)这段时间尤其要留出复核余地/)?.[1];
+      const cautionWindow = result.timeWindows.map(formatWindow).find((label) => cautionAction.text.startsWith(`${label}，`));
       expect(cautionWindow).toBeTruthy();
       expect(category?.basis).toMatch(/^主要风险：/);
       expect(category?.basis).not.toContain(cautionWindow || '');
       const matchingWindow = result.timeWindows.find((item) => {
-        const label = period === 'today'
-          ? `${item.name} ${item.range}`
-          : period === 'month'
-            ? `${item.name}（${item.range}）`
-            : `公历${item.name}`;
+        const label = formatWindow(item);
         return label === cautionWindow;
       });
       const shortLabels: Record<string, string> = {

@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v73';
+const dailyFortuneCacheVersion = '2026-08-26-v76';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -466,6 +466,14 @@ const elementReferences: Record<FiveElement, ElementReference> = {
     colors: [{ name: '雾蓝', hex: '#718fae' }, { name: '墨蓝', hex: '#344b63' }],
     numbers: [1, 6], direction: '正北',
   },
+};
+
+const elementMeanings: Record<FiveElement, string> = {
+  木: '延展、梳理与持续跟进',
+  火: '行动、表达与及时反馈',
+  土: '稳定、承接与把事情落地',
+  金: '取舍、边界与形成标准',
+  水: '观察、调整与保留余地',
 };
 
 const topicReferenceItems: Record<string, PracticalReferenceItem[]> = {
@@ -1369,43 +1377,37 @@ function categoryDetailFromJudgment(
   const bestWindow = displayBestAnalysis ? formatAnalysisWindow(displayBestAnalysis, period) : '';
   const windowAlreadySummarized = timeWindowSummarizes(timeWindows, bestWindow, definition.shortLabel);
   const bestLead = !isPrimary && bestWindow && !windowAlreadySummarized ? `${bestWindow}可优先安排；` : '';
-  const preparation = definition.prepare.replace(/^先/, '');
   // 月内或年内偶有谨慎样本，只用于安排复核日期；只有综合评价本身偏谨慎，
   // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
   const hasActualCaution = tone === 'cautious';
-  const scopeLabel = period === 'today' ? '当天' : period === 'month' ? '本月' : '全年';
 
   if (isCaution && tone !== 'favorable') {
     if (!hasActualCaution) {
       return definition.key === 'wellbeing'
-        ? `身心状态不是${scopeLabel}主线，却决定其他安排能否持续；以完整休息后能否恢复专注作为减量信号，不用一时兴奋判断承受力。`
-        : `${definition.label}不是${scopeLabel}主线。${definition.completionRule}。`;
+        ? '以完整休息后能否恢复专注作为减量信号，不用一时兴奋判断承受力。'
+        : `${definition.completionRule}。`;
     }
     if (definition.key === 'wellbeing') {
-      return `这是${scopeLabel}牵动整体节奏的短板。先保住基本作息；只有完整休息后专注度确实恢复，才把其他安排重新加回来。`;
+      return '先保住基本作息；只有完整休息后专注度确实恢复，才把其他安排重新加回来。';
     }
-    return `这是${scopeLabel}最需要把关的一环。${definition.completionRule}。`;
+    return `${definition.completionRule}。`;
   }
   if (isPrimary) {
-    if (tone === 'favorable' && definition.key === 'wellbeing') return `这是${scopeLabel}最值得优先照顾的一项。以休息后能稳定恢复的精力作为继续安排其他事情的前提，不用短时兴奋代替真实恢复。`;
-    if (tone === 'favorable') return `这是${scopeLabel}整体判断中的主线。${bestLead}${definition.completionRule}。`;
-    if (tone === 'balanced') return `这是${scopeLabel}相对稳定的主线。${bestLead}${definition.completionRule}。`;
-    return `眼下没有明显顺势项，这一项只是相对可控。先${preparation}，不以扩大进度为目标。`;
+    if (definition.key === 'wellbeing' && tone !== 'cautious') return '以休息后能稳定恢复的精力作为继续安排其他事情的前提，不用短时兴奋代替真实恢复。';
+    if (tone !== 'cautious') return `${bestLead}${definition.completionRule}。`;
+    return `${definition.completionRule}。`;
   }
   if (isSecondary) {
-    if (tone === 'favorable') return `可作为${scopeLabel}主线之后的第二步。${bestLead}${definition.completionRule}。`;
     if (definition.key === 'wellbeing') return `${bestLead}保持规律作息和饮食，让状态能够承接后续安排。`;
-    return period === 'today'
-      ? `适合作为配合项，等主线稳定后再处理。先${preparation}；${definition.completionRule}。`
-      : `这是${scopeLabel}的辅助线，不与主线同时用力。${bestLead}${definition.completionRule}。`;
+    return `${bestLead}${definition.completionRule}。`;
   }
   if (definition.key === 'wellbeing') {
     return tone === 'favorable'
       ? `${bestLead}状态可以承接日常安排，但仍要给休息、饮食和轻度活动留出固定时间。`
       : `${definition.prepare}，按睡眠、饮食和真实精力调整任务量。`;
   }
-  if (tone === 'favorable') return `这是${scopeLabel}的辅助推进项，不抢在主线之前。${bestLead}${definition.completionRule}。`;
-  if (tone === 'cautious') return `${definition.fallback}；等${definition.check}重新明确后再评估。`;
+  if (tone === 'favorable') return `${bestLead}${definition.completionRule}。`;
+  if (tone === 'cautious') return `${definition.personalReviewBoundary}。`;
   return `${bestLead}${definition.completionRule}。`;
 }
 
@@ -1419,7 +1421,10 @@ function categoryStatusFromJudgment(
   const isCaution = key === judgment.caution.evaluation.definition.key;
   if (isPrimary) return aggregate.evaluation.tone === 'cautious' ? '守住基本盘' : '本期主线';
   if (isCaution) return aggregate.evaluation.tone === 'cautious' ? '重点把关' : aggregate.evaluation.definition.statusGuard;
-  if (isSecondary) return aggregate.evaluation.tone === 'cautious' ? '只作维护' : '主线后再做';
+  if (isSecondary) {
+    if (key === 'wellbeing') return '同步照顾';
+    return aggregate.evaluation.tone === 'cautious' ? '只作维护' : '主线后再做';
+  }
   if (aggregate.evaluation.tone === 'favorable') return '主线后补充';
   if (aggregate.evaluation.tone === 'cautious') return '暂不加量';
   return aggregate.cautiousCount > 0 ? aggregate.evaluation.definition.statusGuard : '维持基本量';
@@ -1845,8 +1850,6 @@ function buildFortuneMasterJudgment(
     cautionWindow,
     primaryAction: primary.evaluation.definition.action,
     primaryBoundary: primary.evaluation.definition.personalSupportStop,
-    secondaryAction: secondary.evaluation.definition.action,
-    secondaryParallel: secondary.evaluation.definition.key === 'wellbeing',
     cautionAction: caution.evaluation.definition.cautionAction,
     primaryReason,
     cautionReason: hasCaution ? cautionReason : '',
@@ -1858,23 +1861,24 @@ function buildFortuneMasterJudgment(
 
 function categoryDistributionEvidence(aggregate: CategoryAggregate, period: FortunePeriod) {
   const unit = period === 'today' ? '双小时时段' : period === 'month' ? '日期' : '节气阶段';
+  const measure = period === 'month' ? '天' : '段';
   const neutralCount = Math.max(0, aggregate.sampleCount - aggregate.favorableCount - aggregate.cautiousCount);
-  return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}中，${aggregate.category.label}有${aggregate.favorableCount}个明确支持、${aggregate.cautiousCount}个需要复核、${neutralCount}个保持平稳。`;
+  return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}里，${aggregate.category.label}有${aggregate.favorableCount}${measure}顺势、${aggregate.cautiousCount}${measure}需要收紧，其余${neutralCount}${measure}平稳。`;
 }
 
 function primaryDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference >= 3) return `明确支持比需要复核多${difference}个，可执行窗口相对集中。`;
-  if (difference > 0) return `明确支持比需要复核多${difference}个，支持略占优势，但强度差距有限。`;
-  if (difference === 0) return '支持与复核窗口数量相同，需要分段安排，不能把整段周期视为同一强度。';
-  return `需要复核比明确支持多${Math.abs(difference)}个；这里的“主线”只表示六项中相对可控，不代表整段周期都能顺推。`;
+  if (difference >= 3) return '优势较清楚，但不是整段周期都同样顺，重要事项仍应落在前面的关键窗口。';
+  if (difference > 0) return '顺势窗口略多，适合分段推进，每完成一步再判断是否加量。';
+  if (difference === 0) return '顺势与收紧窗口相当，节奏会有反复，适合把目标拆成能独立完成的小段。';
+  return '收紧窗口更多；它被列为主线，是因为相较其他事项仍较可控，因此先守住完成质量。';
 }
 
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference > 0) return `支持窗口虽多${difference}个，${aggregate.cautiousCount}个复核窗口仍需单独处理；它们只集中在部分阶段，不代表整期受阻。`;
-  if (difference === 0) return '支持与复核窗口数量相同，需要逐段安排，不能把局部支持外推到整个周期。';
-  return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。`;
+  if (difference > 0) return `总体仍有可用空间，但${aggregate.cautiousCount}个收紧窗口一旦踩中，就可能打断前后衔接。`;
+  if (difference === 0) return '节奏容易来回切换，单次顺利不能作为后续继续加码的依据。';
+  return '收紧窗口已经多于顺势窗口，风险会在不同阶段重复出现，不是偶发单点。';
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
@@ -1894,21 +1898,21 @@ function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: 
 }
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
-  const cautionLabel = judgment.caution.category.label;
-  const role = judgment.caution.evaluation.tone === 'cautious'
-    ? `${cautionLabel}已经是本期明确牵制。`
-    : `${cautionLabel}并非整期受阻，但在六项中相对最需要复核。`;
-  return `${categoryDistributionEvidence(judgment.caution, period)}${role}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
+  return `${categoryDistributionEvidence(judgment.caution, period)}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
 }
 
 function secondaryReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const secondary = judgment.secondary;
-  const reason = secondary.evaluation.definition.masterReason;
   const primaryShortLabel = judgment.primary.evaluation.definition.shortLabel;
-  const role = secondary.category.key === 'wellbeing'
-    ? `它承担其他安排的承载作用，因此需要与${primaryShortLabel}并行保留，而不是等主线结束后才处理。`
-    : `它在六项综合排序中位于${primaryShortLabel}之后，适合承接主线形成的结果，不需要同时争夺第一优先级。`;
-  return `${categoryDistributionEvidence(secondary, period)}${reason}${role}`;
+  const roles: Record<string, string> = {
+    career: `它适合把${primaryShortLabel}形成的条件落实为负责人、下一步和验收标准，放在主线之后更容易收尾。`,
+    study: `它适合把${primaryShortLabel}中出现的信息整理成可复述、可检验的结果，在主线之后投入会更集中。`,
+    wealth: `它适合把${primaryShortLabel}形成的条件落实为金额、责任和付款节点，先等主线信息稳定更合适。`,
+    relationship: `它能把${primaryShortLabel}形成的结果变成双方共同确认的下一步，先有事实基础再沟通会更有效。`,
+    travel: `它适合承接${primaryShortLabel}已经确定的时间和任务边界，主线未定前贸然出发更容易返工。`,
+    wellbeing: `它为${primaryShortLabel}提供承载条件，应与主线并行保留；休息后的注意力比忙碌时的兴奋感更能判断实际余量。`,
+  };
+  return `${categoryDistributionEvidence(secondary, period)}${roles[secondary.category.key] || `它适合承接${primaryShortLabel}形成的结果，放在主线之后更容易收尾。`}`;
 }
 
 function stripPriorityPrefix(value: string) {
@@ -2401,7 +2405,6 @@ function buildReference(
   const focusLabel = focus.shortLabel;
   const focusName = focus.label;
   const colorNames = colors.map((color) => color.name).join('、');
-  const numberText = numbers.join('、');
   const elementBasis = usesPersonalElement
     ? `个人命盘较能承接${element}`
     : `本期${focusName}主线所落宫位偏${element}`;
@@ -2410,16 +2413,11 @@ function buildReference(
     : period === 'month'
       ? `可固定一种标记本月${focusLabel}文件或提醒`
       : `可固定一种用于区分全年${focusLabel}主线与临时事项`;
-  const numberBoundary = period === 'today'
-    ? '只作当天清单编号，不用于金额、投注或结果判断'
-    : period === 'month'
-      ? '只作本月复盘编号，不替代日期、预算或现实条件'
-      : '只作年度目标编号，不用于投资、开奖或重要日期推断';
   return {
     element,
     colors,
     numbers,
-    symbolicNote: `${elementBasis}，颜色取${colorNames}，${colorUse}。数字 ${numberText} 由五行对应数、主线位置和盘面参数合并得出，${numberBoundary}。`,
+    symbolicNote: `${elementBasis}，偏向${elementMeanings[element]}。${colorNames}${colorUse}；看到标记时，检查${focus.check}。`,
     direction,
     directionNote: goodDirections.length
       ? goodDirections[0].detail

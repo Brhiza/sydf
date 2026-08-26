@@ -9,8 +9,6 @@ export interface FortuneReadingPhraseContext {
   cautionWindow: string;
   primaryAction: string;
   primaryBoundary: string;
-  secondaryAction: string;
-  secondaryParallel: boolean;
   cautionAction: string;
   primaryReason: string;
   cautionReason: string;
@@ -36,16 +34,11 @@ interface FortuneReadingCorpusEntry {
 }
 
 function windowLead(window: string) {
-  return window ? `${window}是较好的落点，` : '';
+  return window ? `${window}，` : '';
 }
 
 function cautionLead(window: string) {
-  return window ? `${window}这段时间尤其要留出复核余地，` : '';
-}
-
-function followupAction(action: string, lead: string, parallel: boolean) {
-  const concreteAction = action.replace(/^(?:先|优先)/, '');
-  return concreteAction ? `${parallel ? '同时' : lead}${concreteAction}。` : '';
+  return window ? `${window}，` : '';
 }
 
 function reasonedSummary(base: string, context: FortuneReadingPhraseContext) {
@@ -66,8 +59,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '主线清楚，可顺势推进',
     opportunities: [
-      ({ primaryAction, primaryBoundary, secondaryAction, secondaryParallel, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。${followupAction(secondaryAction, '完成后，再', secondaryParallel)}`,
-      ({ primaryAction, primaryBoundary, secondaryAction, secondaryParallel, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。${followupAction(secondaryAction, '当前一步落定后，再', secondaryParallel)}`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
   },
   focus: {
@@ -81,7 +73,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '有进有守，宜集中发力',
     opportunities: [
-      ({ primaryAction, primaryBoundary, secondaryAction, secondaryParallel, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。${followupAction(secondaryAction, '主线稳定后，再', secondaryParallel)}`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
   },
   stabilize: {
@@ -95,7 +87,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '整体平稳，次序比速度重要',
     opportunities: [
-      ({ primaryAction, primaryBoundary, secondaryAction, secondaryParallel, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。${followupAction(secondaryAction, '当前条件核对完成后，再', secondaryParallel)}`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
   },
   cultivate: {
@@ -111,8 +103,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '阻力不强，适合稳步积累',
     opportunities: [
-      ({ primaryAction, primaryBoundary, secondaryAction, secondaryParallel, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。${followupAction(secondaryAction, '连续稳定后，再', secondaryParallel)}`,
-      ({ primaryAction, primaryBoundary, secondaryAction, secondaryParallel, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。${followupAction(secondaryAction, '保持一段稳定投入后，再', secondaryParallel)}`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
   },
   resolve: {
