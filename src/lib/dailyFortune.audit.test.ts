@@ -47,8 +47,9 @@ describe('今日运势批量内容质量', () => {
     const genericPattern = /重大决定宜多留一道复核|其余事项按既定次序跟进即可|保持弹性即可|照常核实|避免小问题累积|条件未齐时保留调整空间|不需要全面回避/;
     results.forEach((result) => {
       result.categories.forEach((item) => {
-        if (item.tone === 'cautious') expect(item.status).not.toMatch(/本期主线|随后安排/);
-        if (item.tone === 'favorable') expect(item.status).not.toMatch(/重点把关|暂不主攻/);
+        expect(item.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护/);
+        if (item.tone === 'cautious') expect(item.status).not.toMatch(/本期主线|主线后再做/);
+        if (item.tone === 'favorable') expect(item.status).not.toMatch(/重点把关|暂不加量/);
       });
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
       if (result.period !== 'today') {

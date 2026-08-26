@@ -153,6 +153,7 @@ interface TopicDefinition {
   masterReason: string;
   personalSupportStop: string;
   personalReviewBoundary: string;
+  statusGuard: string;
   trendActions: string[];
   trendGuards: string[];
 }
@@ -271,6 +272,7 @@ const topicDefinitions: TopicDefinition[] = [
     masterReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
     personalSupportStop: '临时插单或责任人发生变化时停止加量',
     personalReviewBoundary: '先收完已有任务，不额外接下临时承诺',
+    statusGuard: '先定边界',
     trendActions: ['先定负责人和交付标准', '把截止时间与承诺范围写清', '只保留一个可验收成果', '把待确认事项清成一张清单', '完成一个可交付的小阶段', '为下一步留下明确负责人'],
     trendGuards: ['先核对分工、截止时间与承诺范围', '未写清负责人和验收标准，就不提前承诺', '先收窄任务边界，再决定是否接下', '交付口径没有统一前，不增加任务', '时间或责任仍有空白时，先暂停承诺', '新任务进来前，先确认谁负责收尾'],
   },
@@ -285,6 +287,7 @@ const topicDefinitions: TopicDefinition[] = [
     masterReason: '学习成长可以分段积累，并用输出检验投入是否真正有效。',
     personalSupportStop: '连续分心或无法复述要点时停止加量',
     personalReviewBoundary: '只整理现有资料，暂不继续增加课程或题量',
+    statusGuard: '先稳专注',
     trendActions: ['留下一段可复述的成果', '用笔记或练习检验掌握', '只完成一个学习目标', '把零散资料整理成一页要点', '用一次输出检验理解', '复盘一个尚未掌握的环节'],
     trendGuards: ['减小任务量，避免频繁切换', '只保留一个目标，再用练习检查理解', '未形成笔记或成果前，不继续增加资料', '注意力已经分散时，先停止收集资料', '无法复述核心内容时，先回到原材料', '休息间隔没有留足时，不继续加量'],
   },
@@ -299,6 +302,7 @@ const topicDefinitions: TopicDefinition[] = [
     masterReason: '金钱合作的条件可以逐项核对，结果也便于留痕和复盘。',
     personalSupportStop: '报价与实际付款条件出现新差异时停止加量',
     personalReviewBoundary: '只保留询价和记录，不付款也不替人担保',
+    statusGuard: '先核条款',
     trendActions: ['只处理条款清楚的款项', '逐项写清金额和付款节点', '先保存一份可复核的交易记录', '把报价、金额与责任对齐', '完成一次对账或比价', '给付款条件留一份书面记录'],
     trendGuards: ['逐项核对金额、责任与付款节点', '口头约定没有落成记录，就不付款或承诺', '条款仍有空白时，只做询价和资料整理', '报价和实际付款条件不一致时，先暂停', '没有留存凭证的交易，不进入下一步', '责任边界不清时，先把问题逐项列出'],
   },
@@ -313,6 +317,7 @@ const topicDefinitions: TopicDefinition[] = [
     masterReason: '沟通关系能先消除信息差，减少其他安排里的猜测与返工。',
     personalSupportStop: '同一事实出现两种说法时停止加量',
     personalReviewBoundary: '只确认事实，不在情绪高点给关系定性',
+    statusGuard: '先清信息',
     trendActions: ['一次只谈清一个分歧', '先确认事实，再商量下一步', '用一次不赶时间的沟通形成共识', '先消除一处信息差', '把事实、感受与下一步说清', '结束一场悬而未决的沟通'],
     trendGuards: ['先复述对方意思，再表达自己的判断', '语气和意图不一致时，先暂停推测', '信息没有确认前，不用猜测补齐结论', '事实与猜测混在一起时，先拆开确认', '对方还没表达完整时，不抢着定性', '同一分歧反复出现时，先暂停扩大话题'],
   },
@@ -327,6 +332,7 @@ const topicDefinitions: TopicDefinition[] = [
     masterReason: '出行行动的风险大多能在出发前被看见，必要时可以改线或删减行程。',
     personalSupportStop: '路线或返程时间改变时停止加量',
     personalReviewBoundary: '只准备物品和备选路线，不追加新的行程',
+    statusGuard: '先定路线',
     trendActions: ['预留时间并准备备选路线', '把路线、证件和关键物品一次核清', '合并同方向行程，留下转场余量', '先定路线、时间与备选方案', '把同方向事项集中完成', '为临时变化预留一段机动时间'],
     trendGuards: ['先查路线天气，给临时变化留缓冲', '证件和关键物品未核对，就不要赶着出发', '前后事项衔接过紧时，主动删减一站', '天气或交通有变时，立即启用备选路线', '时间余量不足时，主动取消次要行程', '临时加项前，先确认不会影响返程'],
   },
@@ -341,13 +347,14 @@ const topicDefinitions: TopicDefinition[] = [
     masterReason: '身心状态决定其他事情能否持续，先稳住状态可以减少全局消耗。',
     personalSupportStop: '休息后仍无法集中注意力时停止加量',
     personalReviewBoundary: '先恢复一顿饭或一段睡眠，不用兴奋感判断状态',
+    statusGuard: '先看精力',
     trendActions: ['先保住睡眠与实际精力', '给饮食、休息和轻度活动留固定时间', '按真实精力删减一项次要任务', '把一段无打扰休息固定下来', '先恢复睡眠、饮食与注意力', '用一次轻量活动调整状态'],
     trendGuards: ['疲劳没有恢复，就主动减量', '睡眠、食欲或注意力连续偏弱时，先减任务', '不用短时兴奋高估当天承受量', '休息后仍未恢复时，不用意志硬撑', '饮食和睡眠连续紊乱时，先暂停加量', '注意力明显下降时，先离开当前任务'],
   },
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v39';
+const dailyFortuneCacheVersion = '2026-08-26-v40';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1340,11 +1347,11 @@ function categoryStatusFromJudgment(
   const isSecondary = key === judgment.secondary.evaluation.definition.key;
   const isCaution = key === judgment.caution.evaluation.definition.key;
   if (isPrimary) return aggregate.evaluation.tone === 'cautious' ? '守住基本盘' : '本期主线';
-  if (isCaution) return aggregate.evaluation.tone === 'cautious' ? '重点把关' : '持续观察';
-  if (isSecondary) return aggregate.evaluation.tone === 'cautious' ? '暂作维护' : '随后安排';
-  if (aggregate.evaluation.tone === 'favorable') return '可作补充';
-  if (aggregate.evaluation.tone === 'cautious') return '暂不主攻';
-  return '按需安排';
+  if (isCaution) return aggregate.evaluation.tone === 'cautious' ? '重点把关' : aggregate.evaluation.definition.statusGuard;
+  if (isSecondary) return aggregate.evaluation.tone === 'cautious' ? '只作维护' : '主线后再做';
+  if (aggregate.evaluation.tone === 'favorable') return '主线后补充';
+  if (aggregate.evaluation.tone === 'cautious') return '暂不加量';
+  return aggregate.cautiousCount > 0 ? aggregate.evaluation.definition.statusGuard : '维持基本量';
 }
 
 function formatAnalysisWindow(analysis: ChartAnalysis, period: FortunePeriod) {
@@ -1922,14 +1929,21 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const secondaryAction = takeTrendPhrase(secondary, 'trendActions', usage.actions, phraseIndex + 1);
   const weakestGuard = takeTrendPhrase(weakest, 'trendGuards', usage.guards, phraseIndex);
   const continuation = secondaryAction ? continuationAction(secondaryAction) : '';
+  const primaryLabel = primary?.shortLabel || '主线';
+  const secondaryLabel = secondary?.shortLabel || '后续';
+  const weakestLabel = weakest?.shortLabel || '风险';
   return {
     tone,
-    status: tone === 'favorable' ? '适合落地' : tone === 'cautious' ? '先降风险' : '先成一事',
+    status: tone === 'favorable' ? `${primaryLabel}可落地` : tone === 'cautious' ? `先稳${weakestLabel}` : `先做${primaryLabel}`,
     focus: tone === 'cautious'
-      ? `${weakestGuard || '先减少变量，再决定是否继续'}${primaryAction ? `；${primaryAction}，不扩大范围${continuation ? `；条件稳定后，${continuation}` : ''}` : ''}`
+      ? [
+          `${weakestLabel}先查：${weakestGuard || '先减少变量，再决定是否继续'}`,
+          primaryAction ? `${primaryLabel}保留：${primaryAction}，不扩大范围` : '',
+          continuation ? `稳定后再做${secondaryLabel}：${continuation}` : '',
+        ].filter(Boolean).join('；')
       : primary
-        ? `${primaryAction}${continuation ? `；接着${continuation}` : ''}`
-        : '先完成已经明确的一件事',
+        ? `${primaryLabel}：${primaryAction}${continuation ? `；完成后再做${secondaryLabel}：${continuation}` : ''}`
+        : '主线：先完成已经明确的一件事',
   };
 }
 

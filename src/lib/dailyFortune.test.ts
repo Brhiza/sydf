@@ -86,18 +86,23 @@ function expectContentRichCategories(result: DailyFortuneResult) {
   result.categories.forEach((category) => {
     expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
     if (category.basis) expect(category.basis.length).toBeGreaterThan(24);
+    expect(category.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护/);
   });
   expect(result.categories.some((item) => ['本期主线', '守住基本盘'].includes(item.status))).toBe(true);
-  expect(result.categories.some((item) => ['随后安排', '重点把关', '暂作维护'].includes(item.status))).toBe(true);
+  expect(result.categories.some((item) => ['主线后再做', '重点把关', '只作维护'].includes(item.status))).toBe(true);
   expect(new Set(result.categories.map((item) => item.status)).size).toBeGreaterThanOrEqual(3);
 }
 
 function expectContentRichTrend(result: DailyFortuneResult) {
   result.periodTrend.forEach((item) => {
-    expect(item.status).toMatch(/适合落地|先成一事|先降风险/);
-    expect(item.focus).not.toMatch(/可优先|日常节奏/);
+    expect(item.status).toMatch(/^(?:先稳|先做)?(?:工作|学习|钱款|沟通|出行|休息)(?:可落地)?$/);
+    expect(item.focus).not.toMatch(/可优先|日常节奏|接着/);
     expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|验收|边界|复述|学习|任务量|切换|笔记|练习|资料|复盘|输出|款项|金额|付款|交易记录|报价|对账|比价|分歧|对方|事实|共识|意图|推测|信息差|沟通|路线|天气|证件|物品|行程|转场|机动时间|返程|睡眠|精力|疲劳|饮食|活动|承受量|注意力|休息/);
     expect(item.focus.length).toBeGreaterThan(8);
+    const topics = [...item.focus.matchAll(/(?:完成后再做|稳定后再做)?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
+    expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
+    if (item.tone === 'cautious') expect(item.focus).toMatch(/先查：.*；.*保留：.*；稳定后再做/);
+    else expect(item.focus).toContain('完成后再做');
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
   expect(result.reference.itemNote.length).toBeGreaterThan(22);
@@ -151,7 +156,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v39');
+      expect(serialized).toContain('2026-08-26-v40');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
