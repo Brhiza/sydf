@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-27-v89';
+const dailyFortuneCacheVersion = '2026-08-27-v90';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -427,15 +427,15 @@ const tenGodFocusLabels: Record<string, string> = {
 };
 const personalFocusImpacts: Record<string, string> = {
   '责任与规则': '责任与流程会成为判断前提，含糊的分工更容易拖慢后续',
-  '压力与突破': '压力会推动突破，也会让人高估短期承受量',
-  '支持与吸收': '学习与外部支持更容易进入视野，关键在消化而不是继续收集',
-  '研究与调整': '细节与替代方案更容易被看见，但研究过久会推迟决定',
-  '产出与分享': '已有积累更容易转成可见成果，完成一项再扩大分享更有利',
-  '表达与变化': '临场表达和变化都会增加，短期反应不宜直接变成长期安排',
-  '稳定资源': '固定收入、预算与长期资源更值得整理，稳定来源应优先于扩张',
-  '流动资源': '外部机会会更活跃，但持续性仍要单独验证',
+  '压力与突破': '压力会提高反应速度，也会压缩休息与复核时间，容易高估短期承受量',
+  '支持与吸收': '信息和帮助会主动增加，但只有能复述或应用的部分才算真正吸收',
+  '研究与调整': '细节和替代方案更容易被看见，但迟迟不停止比较会推迟决定',
+  '产出与分享': '已有积累更容易变成可见成果，完成一项后再扩大分享更有效',
+  '表达与变化': '临场表达和变化都会增加，短期反应不能直接替代长期安排',
+  '稳定资源': '固定收入、预算和长期资源更值得整理，先守住连续来源再考虑扩张',
+  '流动资源': '短期机会会增多，但要看能否留下记录并形成连续回报',
   '自主与协作': '自主决定与协作边界会更突出，能自行决定和需要协商的部分要分开',
-  '竞争与分配': '比较压力会放大资源分配问题，跟随他人节奏更容易偏离主线',
+  '竞争与分配': '比较压力会放大资源分配问题，照搬他人节奏更容易挤掉自己的必要事项',
 };
 const flowLayerWeights: Record<QimenScope, Partial<Record<FortuneTriggerLayer['type'], number>>> = {
   year: { dayun: .35, year: .65 },
@@ -1758,49 +1758,74 @@ function buildPersonalJudgmentInsight(
     .map(([label]) => personalFocusImpacts[label])
     .filter(Boolean)
     .slice(0, 2);
-  const reasonClauses: Record<PersonalRelationReason, string> = {
-    'attention-aligned': '个人盘当前的注意力正好集中在同一类事务上，较容易持续推进',
-    'attention-blocked': '这类事务虽然会集中占用注意力，但同时带有阻滞信号，投入越多越容易被牵制',
-    'approach-aligned': '这类事务需要的推进方式与个人更顺手的发力方式一致，较容易保持连续性',
-    'approach-friction': '这类事务需要的推进方式与个人惯常节奏不完全一致，过程中更容易反复调整',
-    'rhythm-aligned': '个人基础节奏能配合这类事务的推进，持续投入的成本相对较低',
-    'rhythm-friction': '这类事务会打乱个人较稳定的节奏，推进时需要额外分配注意力',
-    'strength-aligned': '这类事务调用的是个人盘里较能发挥的能力，做取舍和收尾会更顺手',
-    'effort-friction': '这类事务更容易触发个人盘里相对吃力的部分，处理同样的事情会消耗更多精力',
-    'period-aligned': '本期外部节奏与个人较能发挥的方向一致，行动更容易接续起来',
-    'period-friction': '本期外部节奏更多落在个人相对吃力的方向，同样的投入更容易产生疲惫感',
+  const topicCapabilities: Record<string, string> = {
+    career: '梳理分工、划定责任和完成收尾',
+    study: '整理信息、提炼要点和检验理解',
+    wealth: '核对金额、比较条件和保存记录',
+    relationship: '倾听、确认事实和表达边界',
+    travel: '规划路线、预留时间和处理临时变化',
+    wellbeing: '察觉疲劳、调整任务量和恢复注意力',
+  };
+  const reasonClauses: Record<PersonalRelationReason, (capability: string) => string> = {
+    'attention-aligned': (capability) => `注意力会自然回到${capability}这组任务上，开始后较少被其他事项拉走`,
+    'attention-blocked': (capability) => `注意力会被${capability}长期占用，却常卡在等待、犹豫或反复核对上`,
+    'approach-aligned': (capability) => `${capability}与惯常做事方式一致，开始、取舍和收尾较连贯`,
+    'approach-friction': (capability) => `${capability}需要频繁切换做事方式，通常会多一次沟通、复核或返工`,
+    'rhythm-aligned': (capability) => `${capability}较少打乱原有作息和任务顺序，连续投入成本较低`,
+    'rhythm-friction': (capability) => `${capability}会挤占原有作息或其他任务，投入后更容易疲劳或漏掉后续`,
+    'strength-aligned': (capability) => `${capability}更容易进入状态，完成标准也较快看清`,
+    'effort-friction': (capability) => `${capability}需要额外维持，同样任务会消耗更多时间和注意力`,
+    'period-aligned': (capability) => `当前周期对${capability}有连续承接，前一步结果较容易进入下一步`,
+    'period-friction': (capability) => `当前周期会多次打断${capability}，投入容易停在中途或变成补救`,
+  };
+  const reasonFor = (item: CategoryAggregate, fallback: PersonalRelationReason) => {
+    const reason = item.evaluation.personalReason || fallback;
+    const capability = topicCapabilities[item.category.key] || `处理${item.category.label}`;
+    return reasonClauses[reason](capability);
   };
   const focusSentence = focusImpacts.length
-    ? `结合个人命盘，本期${focusImpacts.join('；')}。`
+    ? `结合出生资料与当前周期，${focusImpacts.join('；')}。`
     : '';
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
-      ? `${supportItem.category.label}之所以更适合投入，是因为${reasonClauses[supportItem.evaluation.personalReason || 'period-aligned']}；${supportItem.evaluation.definition.personalSupportAction}。`
-      : `${supportItem.category.label}是个人命盘里较稳的一项，因为${reasonClauses[supportItem.evaluation.personalReason || 'period-aligned']}；本期确有相关事项时，${supportItem.evaluation.definition.personalSupportAction}。没有相关事项就略过，整体仍以${primary.category.label}为主。`
+      ? `对这个案例，${supportItem.category.label}的投入更容易形成结果，因为${reasonFor(supportItem, 'period-aligned')}。${supportItem.evaluation.definition.personalSupportAction}。`
+      : `${supportItem.category.label}不是整体主线，但处理成本较低，因为${reasonFor(supportItem, 'period-aligned')}。现实中有对应事项时，${supportItem.evaluation.definition.personalSupportAction}；没有就不另起任务。`
     : '';
   const reviewAdvice = reviewItem
-    ? `${reviewItem.category.label}之所以更耗精力，是因为${reasonClauses[reviewItem.evaluation.personalReason || 'period-friction']}；${reviewItem.evaluation.definition.personalReviewBoundary}。`
+    ? `${reviewItem.category.label}会额外消耗精力，因为${reasonFor(reviewItem, 'period-friction')}。${reviewItem.evaluation.definition.personalReviewBoundary}。`
     : '';
+  const detail = `${focusSentence}${supportAdvice}${reviewAdvice}`;
+  if (!detail) return undefined;
   if (tone === 'favorable') {
     const primarySupported = primaryRelation === 'support' || (primaryRelation === 'neutral' && primaryAlignment >= .18);
     return {
       tone,
-      title: primarySupported ? '个人命盘与主线同向' : '个人支持落在另一项',
-      detail: `${focusSentence}${supportAdvice}${reviewAdvice}`,
+      title: primarySupported
+        ? `${primary.evaluation.definition.shortLabel}更容易形成结果`
+        : `${supportItem?.evaluation.definition.shortLabel || '另一项'}是个案的低成本支点`,
+      detail,
     };
   }
   if (tone === 'cautious') {
     const primaryNeedsReview = primaryRelation === 'review' || (primaryRelation === 'neutral' && primaryAlignment <= -.18);
     return {
       tone,
-      title: primaryNeedsReview ? '主线仍可用，但不宜加量' : '个人命盘另有消耗点',
+      title: primaryNeedsReview
+        ? `${primary.evaluation.definition.shortLabel}要主动减量`
+        : `${reviewItem?.evaluation.definition.shortLabel || '另一项'}是个案的额外消耗`,
       detail: `${focusSentence}${reviewAdvice}${supportAdvice}`,
     };
   }
   return {
     tone,
-    title: supportItem || reviewItem ? '个人支持与消耗并存' : '个人命盘没有明显偏移',
-    detail: `${focusSentence}${supportAdvice}${reviewAdvice}`,
+    title: supportItem && reviewItem
+      ? '个案支持与消耗同时出现'
+      : supportItem
+        ? `${supportItem.evaluation.definition.shortLabel}较容易形成结果`
+        : reviewItem
+          ? `${reviewItem.evaluation.definition.shortLabel}需要主动减量`
+          : '当前周期主要放大一个观察点',
+    detail,
   };
 }
 
