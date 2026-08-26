@@ -56,23 +56,22 @@ describe('今日运势批量内容质量', () => {
         if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
       });
       const unit = result.period === 'today' ? '双小时时段' : result.period === 'month' ? '日期' : '节气阶段';
-      result.evidenceInsights.filter((item) => item.key === 'opportunity' || item.key === 'caution').forEach((item) => {
+      result.evidenceInsights.filter((item) => ['opportunity', 'caution', 'secondary'].includes(item.key)).forEach((item) => {
         expect(item.detail).toMatch(new RegExp(`\\d+个${unit}中，.+有\\d+个明确支持、\\d+个需要复核、\\d+个保持平稳`));
         if (item.key === 'opportunity') {
           expect(item.detail).toMatch(/可执行窗口相对集中|强度差距有限|需要分段安排|只表示六项中相对可控/);
-          expect(item.detail).toMatch(/转成明确交付|分段积累|条件可以逐项核对|先消除信息差|出发前被看见|决定其他事情能否持续/);
-        } else {
+          expect(result.summary).toMatch(/转成明确交付|分段积累|条件可以逐项核对|先消除信息差|出发前被看见|决定其他事情能否持续/);
+        } else if (item.key === 'caution') {
           expect(item.detail).toMatch(/只集中在部分阶段|需要逐段安排|风险已经跨越多个窗口/);
-          expect(item.detail).toMatch(/责任交接|连续注意力|现金流|共同理解|时间链条|承载条件/);
-          if (/有\d+个明确支持、0个需要复核/.test(item.detail)) {
-            expect(item.detail).toContain('没有明确风险窗口');
-            expect(item.detail).not.toMatch(/已经是本期明确牵制|结果通常表现/);
-          } else {
-            expect(item.detail).toMatch(/任务反复|资料越积越多|补单|同一件事反复解释|转场时间|短时仍能推进/);
-          }
+          expect(result.summary).toMatch(/责任交接|连续注意力|现金流|共同理解|时间链条|承载条件/);
+          expect(item.detail).toMatch(/任务反复|资料越积越多|补单|同一件事反复解释|转场时间|短时仍能推进/);
+        } else {
+          expect(item.detail).toMatch(/位于.+之后|并行保留/);
+          expect(item.detail).toMatch(/转成明确交付|分段积累|条件可以逐项核对|先消除信息差|出发前被看见|决定其他事情能否持续/);
         }
       });
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
+      expect(allText(result).join('\n')).not.toMatch(/没有明确风险窗口|相对优势最弱/);
       if (result.period !== 'today') {
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段).*出现\d+次支持、\d+次回避/));
         result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段).*出现\d+次回避、\d+次支持/));

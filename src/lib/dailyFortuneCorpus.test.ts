@@ -37,6 +37,8 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     secondaryAction: '集中完成一段阅读、写作或复盘',
     secondaryParallel: false,
     cautionAction,
+    primaryReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
+    cautionReason: '金钱合作同时影响现金流与合作责任，一处误差可能延续到后续结算。',
     personalClause: '',
     mixed: true,
   };

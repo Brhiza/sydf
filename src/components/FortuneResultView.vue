@@ -108,10 +108,10 @@ const cautiousRows = computed(() => (props.result.modernAlmanac?.cautious || [])
 
 const actionRows = computed(() => props.result.actionTips.map((item) => ({
   key: `${item.sourceKey}-${item.label}`,
-  marker: item.tone === 'positive' ? '先' : '查',
+  marker: item.tone === 'positive' ? '先' : item.tone === 'support' ? '辅' : '查',
   title: item.label,
   detail: item.text,
-  tone: item.tone === 'positive' ? 'success' as const : 'caution' as const,
+  tone: item.tone === 'positive' ? 'success' as const : item.tone === 'support' ? 'accent' as const : 'caution' as const,
 })));
 
 const actionTitle = computed(() => props.result.period === 'today'

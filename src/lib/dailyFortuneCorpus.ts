@@ -12,6 +12,8 @@ export interface FortuneReadingPhraseContext {
   secondaryAction: string;
   secondaryParallel: boolean;
   cautionAction: string;
+  primaryReason: string;
+  cautionReason: string;
   personalClause: string;
   mixed: boolean;
 }
@@ -46,6 +48,12 @@ function followupAction(action: string, lead: string, parallel: boolean) {
   return concreteAction ? `${parallel ? '同时' : lead}${concreteAction}。` : '';
 }
 
+function reasonedSummary(base: string, context: FortuneReadingPhraseContext) {
+  return [base.trim(), context.primaryReason.trim(), context.cautionLabel ? context.cautionReason.trim() : '', context.personalClause.trim()]
+    .filter(Boolean)
+    .join('');
+}
+
 const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEntry> = {
   advance: {
     titles: [
@@ -53,8 +61,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}可顺势推进，重心放在${primaryLabel}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel, mixed }) => `从整体看，主线清楚，${primaryLabel}最能带动局面，${secondaryLabel}可随之展开。先完成关键一步，再逐项扩展。${mixed && cautionLabel ? `${cautionLabel}暂不与主线同时加量。` : '没有被列为主线的事项，只维持已经开始且能按时收尾的部分。'}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel, mixed }) => `整体助力较集中，不需要四处试探。先以${primaryLabel}打开局面，再衔接${secondaryLabel}；每一步都以能够完成和交付为准。${mixed && cautionLabel ? `${cautionLabel}暂不与主线同时加量。` : ''}`,
+      ({ primaryLabel, secondaryLabel }) => `整体主线清楚，${primaryLabel}先形成结果，${secondaryLabel}再承接已有进展。`,
+      ({ primaryLabel, secondaryLabel }) => `助力集中在${primaryLabel}，不需要四处试探；${secondaryLabel}适合接在主线之后。`,
     ],
     overviewLabel: '主线清楚，可顺势推进',
     opportunities: [
@@ -68,8 +76,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}宜择一处发力，以${primaryLabel}为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `这不是全面铺开的局面，而是有一处较清楚的着力点。${primaryLabel}可先行，${secondaryLabel}作为配合；先做确定性高的部分。${cautionLabel ? `${cautionLabel}只处理条件已经写清的部分，避免反复拖慢主线。` : '其他事项只保留必要维护，等主线收尾再接上。'}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `整体信号并不平均，真正可用的是${primaryLabel}，${secondaryLabel}次之，资源应向主线集中。${cautionLabel ? `${cautionLabel}先核实条件，不与主线同时推进。` : '其余方向只做准备，不提前占用主线时间。'}`,
+      ({ primaryLabel, secondaryLabel }) => `整体信号并不平均，资源应集中在${primaryLabel}，${secondaryLabel}作为配合。`,
+      ({ primaryLabel, secondaryLabel }) => `${primaryLabel}是当前最清楚的着力点，${secondaryLabel}可以承接，但不抢占主线资源。`,
     ],
     overviewLabel: '有进有守，宜集中发力',
     opportunities: [
@@ -82,8 +90,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}宜稳中求进，不必急着求快`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `从整体看，助力与牵制相互交错，关键不在多做，而在先后次序。先以${primaryLabel}稳住节奏，${secondaryLabel}等条件明确后再接上。${cautionLabel ? `${cautionLabel}先明确当前缺口，再决定是否接入主线。` : '暂时不明朗的部分只做资料整理，不提前承诺。'}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `局面没有明显偏向，过快容易把小问题放大，过慢又会错过可用之处。${primaryLabel}可作为起点，${secondaryLabel}随后跟进。${cautionLabel ? `${cautionLabel}先完成核实，再决定是否接入主线。` : '其余事项只保留已经开始且能按时收尾的部分。'}`,
+      ({ primaryLabel, secondaryLabel }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryLabel}随后。`,
+      ({ primaryLabel, secondaryLabel }) => `局面没有明显偏向，以${primaryLabel}作为起点，再根据结果接上${secondaryLabel}。`,
     ],
     overviewLabel: '整体平稳，次序比速度重要',
     opportunities: [
@@ -97,9 +105,9 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}没有明显阻力，适合稳步积累`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel }) => `整体没有明显冲突，但助力尚未集中到适合大幅推进的程度。先把${primaryLabel}做扎实，${secondaryLabel}保持连续性，以积累成果和校正方向为主。`,
-      ({ primaryLabel, secondaryLabel }) => `局面平顺而不张扬，最适合把已有基础往前推一层。${primaryLabel}作为长期着力点，${secondaryLabel}维持稳定投入；不求一步到位，重在形成连续进展。`,
-      ({ primaryLabel, secondaryLabel }) => `当前更像培土蓄势，而不是抢快争先。先围绕${primaryLabel}完善基础，再让${secondaryLabel}逐步接上，把可重复的做法固定下来。`,
+      ({ primaryLabel, secondaryLabel }) => `阻力不强但助力分散，适合围绕${primaryLabel}积累基础，让${secondaryLabel}保持连续。`,
+      ({ primaryLabel, secondaryLabel }) => `局面平顺而不张扬，${primaryLabel}适合形成可重复的做法，${secondaryLabel}维持稳定投入。`,
+      ({ primaryLabel, secondaryLabel }) => `当前更像培土蓄势，以${primaryLabel}校正方向，再让${secondaryLabel}逐步接上。`,
     ],
     overviewLabel: '阻力不强，适合稳步积累',
     opportunities: [
@@ -114,9 +122,9 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}先清理牵制，再恢复主线`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `整体并非全面受阻，真正影响节奏的是${cautionLabel || '一处尚未确认的环节'}。${primaryLabel}只完成当前最小闭环，${secondaryLabel}暂作配合；把卡点处理清楚后，再决定是否加速。`,
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `当前不需要全面收缩，但必须先解决${cautionLabel || '最容易反复的一环'}。${primaryLabel}负责稳住进度，${secondaryLabel}只保留已经开始且能收尾的部分，不让局部问题扩散到其他安排。`,
-      ({ primaryLabel, cautionLabel }) => `局面的关键在于先拆掉一处牵制。${primaryLabel}仍可维持，${cautionLabel || '待确认事项'}不宜绕过去；只落地确定部分，条件厘清后再继续。`,
+      ({ primaryLabel, secondaryLabel, cautionLabel }) => `整体并非全面受阻，${cautionLabel || '待确认事项'}是当前卡点；${primaryLabel}维持一个闭环，${secondaryLabel}暂作配合。`,
+      ({ primaryLabel, cautionLabel }) => `当前不需要全面收缩，但必须先处理${cautionLabel || '最容易反复的一环'}，${primaryLabel}只维持能够独立收尾的部分。`,
+      ({ primaryLabel, cautionLabel }) => `局面的关键在于拆掉${cautionLabel || '一处牵制'}，${primaryLabel}只落地条件确定的部分。`,
     ],
     overviewLabel: '局部受阻，先解决关键卡点',
     opportunities: [
@@ -130,8 +138,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}宜先整顿身心，不以勉强推进为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `整体的关键不是机会多少，而是承接能力是否稳定。先把休息、饮食和精力恢复到可用状态，再处理${primaryLabel}；${secondaryLabel}只保留必要安排。${cautionLabel ? `${cautionLabel}只完成必须收尾的一步，其余安排后移。` : ''}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `当前局面容易受状态起伏牵动，先稳住人，再稳住事。${primaryLabel}只安排一段能够独立收尾的任务，${secondaryLabel}后移到状态恢复后。${cautionLabel ? `${cautionLabel}先删去一个非必要安排，再看状态是否恢复。` : ''}`,
+      ({ primaryLabel, secondaryLabel }) => `当前承接能力比机会多少更重要，先恢复状态，再处理${primaryLabel}；${secondaryLabel}只保留必要安排。`,
+      ({ primaryLabel, secondaryLabel }) => `局面容易受状态起伏牵动，${primaryLabel}只安排能够独立收尾的一步，${secondaryLabel}不再加量。`,
     ],
     overviewLabel: '先稳住状态，再处理事情',
     opportunities: [
@@ -144,8 +152,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}先避开反复，以${primaryLabel}维持节奏`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `从整体看，牵制多于助力，当前不以扩张为要。${primaryLabel}是相对可控的落点，${secondaryLabel}只做必要维护。${cautionLabel ? `${cautionLabel}只完成核对，不形成新的承诺。` : '没有完成资料核对与责任确认的事项，本期不进入承诺阶段。'}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel }) => `眼下最重要的是减少失误，而不是追求进度。以${primaryLabel}守住日常秩序，${secondaryLabel}避免增加变量。${cautionLabel ? `${cautionLabel}停止新增承诺，只处理已经出现的问题。` : '责任、金额或时间边界仍不清楚的事项，暂不承诺。'}`,
+      ({ primaryLabel, secondaryLabel }) => `牵制多于助力，先以${primaryLabel}守住基本盘，${secondaryLabel}不增加变量。`,
+      ({ primaryLabel, secondaryLabel }) => `当前重点是减少失误，以${primaryLabel}维持秩序，${secondaryLabel}只做必要维护。`,
     ],
     overviewLabel: '牵制偏多，先守住基本盘',
     opportunities: [
@@ -169,10 +177,10 @@ export function renderFortuneReading(
   seed: string,
 ): FortuneReadingCopy {
   const corpus = fortuneReadingCorpus[posture];
-  const summary = pick(corpus.summaries, context, `${seed}|summary`).trim();
+  const summary = reasonedSummary(pick(corpus.summaries, context, `${seed}|summary`), context);
   return {
     title: pick(corpus.titles, context, `${seed}|title`),
-    summary: [summary, context.personalClause.trim()].filter(Boolean).join(''),
+    summary,
     overviewLabel: corpus.overviewLabel,
     opportunity: pick(corpus.opportunities, context, `${seed}|opportunity`),
     caution: `${cautionLead(context.cautionWindow)}${context.cautionAction}`,

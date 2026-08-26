@@ -32,9 +32,9 @@ describe('今日运势个案内容审计', () => {
     results.forEach(({ profile, result }) => {
       expect(result.summary).not.toMatch(/\d{1,2}:\d{2}|公历\d{1,2}月|\d{1,2}月\d{1,2}日/);
       expect(result.evidenceInsights.some((item) => item.key === 'distribution')).toBe(false);
-      expect(result.evidenceInsights.map((item) => item.label)).toEqual(
-        profile === '通用' ? ['判断主线', '必要检查'] : ['判断主线', '必要检查', '结合案例'],
-      );
+      expect(result.evidenceInsights[0]?.label).toBe('判断主线');
+      expect(result.evidenceInsights[1]?.label).toMatch(/必要检查|牵制所在|配合项/);
+      expect(result.evidenceInsights.at(-1)?.label).toBe(profile === '通用' ? result.evidenceInsights[1]?.label : '结合案例');
       const sections = [
         result.summary,
         ...result.actionTips.map((item) => item.text),

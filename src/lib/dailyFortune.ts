@@ -87,7 +87,7 @@ export interface DailyFortuneActionTip {
   sourceKey: string;
   label: string;
   text: string;
-  tone: 'positive' | 'notice';
+  tone: 'positive' | 'support' | 'notice';
 }
 
 export interface DailyFortuneEvidenceInsight {
@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v63';
+const dailyFortuneCacheVersion = '2026-08-26-v65';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1631,11 +1631,11 @@ function chooseJudgmentAnalyses(
     - (left.score * .58 + analysisTopicScore(left, primaryKey) * .42)
     || compareAnalyses(left, right)
   ))[0];
-  const cautionAnalysis = [...analyses]
-    .filter((analysis) => analysis.date.getTime() !== bestAnalysis?.date.getTime())
+  const cautionAnalysis = caution.worstAnalysis || [...analyses]
+    .filter((analysis) => analysis.categories.some((item) => item.definition.key === cautionKey && item.tone === 'cautious'))
     .sort((left, right) => (
-      (left.score * .45 + analysisTopicScore(left, cautionKey) * .55)
-      - (right.score * .45 + analysisTopicScore(right, cautionKey) * .55)
+      analysisTopicScore(left, cautionKey) - analysisTopicScore(right, cautionKey)
+      || left.score - right.score
       || left.date.getTime() - right.date.getTime()
     ))[0];
   return { bestAnalysis, cautionAnalysis };
@@ -1781,11 +1781,14 @@ function buildFortuneMasterJudgment(
   const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
   const cautionWindow = cautionAnalysis ? formatAnalysisWindow(cautionAnalysis, period) : '';
   const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal);
+  const primaryReason = primary.evaluation.definition.masterReason;
+  const cautionReason = caution.evaluation.definition.masterRiskReason.replace(/^它/, caution.category.label);
+  const hasCaution = caution.cautiousCount > 0 && caution.category.key !== primary.category.key;
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
     secondaryLabel: secondary.category.label,
-    cautionLabel: caution.category.key === primary.category.key ? '' : caution.category.label,
+    cautionLabel: hasCaution ? caution.category.label : '',
     bestWindow,
     cautionWindow,
     primaryAction: primary.evaluation.definition.action,
@@ -1793,6 +1796,8 @@ function buildFortuneMasterJudgment(
     secondaryAction: secondary.evaluation.definition.action,
     secondaryParallel: secondary.evaluation.definition.key === 'wellbeing',
     cautionAction: caution.evaluation.definition.cautionAction,
+    primaryReason,
+    cautionReason: hasCaution ? cautionReason : '',
     personalClause: personalInsight?.clause || '',
     mixed,
   }, seed);
@@ -1807,19 +1812,17 @@ function categoryDistributionEvidence(aggregate: CategoryAggregate, period: Fort
 
 function primaryDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  const reason = aggregate.evaluation.definition.masterReason;
-  if (difference >= 3) return `明确支持比需要复核多${difference}个，可执行窗口相对集中。${reason}`;
-  if (difference > 0) return `明确支持比需要复核多${difference}个，支持略占优势，但强度差距有限。${reason}`;
-  if (difference === 0) return `支持与复核窗口数量相同，需要分段安排，不能把整段周期视为同一强度。${reason}`;
-  return `需要复核比明确支持多${Math.abs(difference)}个；这里的“主线”只表示六项中相对可控，不代表整段周期都能顺推。${reason}`;
+  if (difference >= 3) return `明确支持比需要复核多${difference}个，可执行窗口相对集中。`;
+  if (difference > 0) return `明确支持比需要复核多${difference}个，支持略占优势，但强度差距有限。`;
+  if (difference === 0) return '支持与复核窗口数量相同，需要分段安排，不能把整段周期视为同一强度。';
+  return `需要复核比明确支持多${Math.abs(difference)}个；这里的“主线”只表示六项中相对可控，不代表整段周期都能顺推。`;
 }
 
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  const reason = aggregate.evaluation.definition.masterRiskReason;
-  if (difference > 0) return `支持窗口虽多${difference}个，${aggregate.cautiousCount}个复核窗口仍需单独处理；它们只集中在部分阶段，不代表整期受阻。${reason}`;
-  if (difference === 0) return `支持与复核窗口数量相同，需要逐段安排，不能把局部支持外推到整个周期。${reason}`;
-  return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。${reason}`;
+  if (difference > 0) return `支持窗口虽多${difference}个，${aggregate.cautiousCount}个复核窗口仍需单独处理；它们只集中在部分阶段，不代表整期受阻。`;
+  if (difference === 0) return '支持与复核窗口数量相同，需要逐段安排，不能把局部支持外推到整个周期。';
+  return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。`;
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
@@ -1840,15 +1843,35 @@ function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: 
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const cautionLabel = judgment.caution.category.label;
-  const riskReason = judgment.caution.evaluation.definition.masterRiskReason;
-  if (judgment.caution.cautiousCount === 0) {
-    const check = judgment.caution.evaluation.definition.check;
-    return `${categoryDistributionEvidence(judgment.caution, period)}${cautionLabel}没有明确风险窗口；把它列作复核项，只因为在六项中相对优势最弱。${riskReason}这类风险本期没有集中出现；只有${check}发生变化时才需要重新评估。`;
-  }
   const role = judgment.caution.evaluation.tone === 'cautious'
     ? `${cautionLabel}已经是本期明确牵制。`
     : `${cautionLabel}并非整期受阻，但在六项中相对最需要复核。`;
   return `${categoryDistributionEvidence(judgment.caution, period)}${role}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
+}
+
+function secondaryReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
+  const secondary = judgment.secondary;
+  const reason = secondary.evaluation.definition.masterReason;
+  const primaryShortLabel = judgment.primary.evaluation.definition.shortLabel;
+  const role = secondary.category.key === 'wellbeing'
+    ? `它承担其他安排的承载作用，因此需要与${primaryShortLabel}并行保留，而不是等主线结束后才处理。`
+    : `它在六项综合排序中位于${primaryShortLabel}之后，适合承接主线形成的结果，不需要同时争夺第一优先级。`;
+  return `${categoryDistributionEvidence(secondary, period)}${reason}${role}`;
+}
+
+function stripPriorityPrefix(value: string) {
+  return value.replace(/^(?:先|优先)/, '');
+}
+
+function supportActionFromJudgment(judgment: FortuneMasterJudgment) {
+  const primary = judgment.primary.evaluation.definition;
+  const secondary = judgment.secondary.evaluation.definition;
+  const action = stripPriorityPrefix(secondary.action);
+  if (secondary.key === 'wellbeing') {
+    return `与${primary.shortLabel}并行，${action}；用休息后的注意力判断实际承受量。`;
+  }
+  const preparation = stripPriorityPrefix(secondary.prepare);
+  return `等${primary.shortLabel}形成一个可复核结果后，${action}；开始前先${preparation}。`;
 }
 
 function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortunePeriod): DailyFortuneEvidenceInsight[] {
@@ -1863,7 +1886,7 @@ function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortuneP
     tone: judgment.primary.category.tone,
   });
 
-  if (judgment.caution.category.key !== judgment.primary.category.key) {
+  if (judgment.caution.cautiousCount > 0 && judgment.caution.category.key !== judgment.primary.category.key) {
     insights.push({
       key: 'caution',
       sourceKey: judgment.caution.category.key,
@@ -1871,6 +1894,15 @@ function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortuneP
       title: `${judgment.caution.category.label}为何需要留意`,
       detail: cautionReasonFromJudgment(judgment, period),
       tone: judgment.caution.evaluation.tone === 'cautious' ? 'cautious' : 'balanced',
+    });
+  } else if (judgment.secondary.category.key !== judgment.primary.category.key) {
+    insights.push({
+      key: 'secondary',
+      sourceKey: judgment.secondary.category.key,
+      label: '配合项',
+      title: `${judgment.secondary.category.label}为何作为第二步`,
+      detail: secondaryReasonFromJudgment(judgment, period),
+      tone: judgment.secondary.category.tone,
     });
   }
 
@@ -2455,9 +2487,10 @@ function calculateDailyFortune(
   const evidenceInsights = buildEvidenceInsights(judgment, period);
   const summary = judgment.copy.summary;
   const readyAggregate = judgment.primary;
-  const slowAggregate = judgment.caution;
   const readySource = readyAggregate?.category || categories[0];
-  const slowSource = slowAggregate?.category;
+  const hasExplicitCaution = judgment.caution.cautiousCount > 0
+    && judgment.caution.category.key !== judgment.primary.category.key;
+  const followUpSource = hasExplicitCaution ? judgment.caution.category : judgment.secondary.category;
   const actionTips: DailyFortuneActionTip[] = [
     {
       sourceKey: readySource?.key || 'general',
@@ -2466,10 +2499,10 @@ function calculateDailyFortune(
       tone: 'positive',
     },
     {
-      sourceKey: slowSource?.key || 'general',
-      label: '记得检查',
-      text: judgment.copy.caution,
-      tone: 'notice',
+      sourceKey: followUpSource?.key || 'general',
+      label: hasExplicitCaution ? '记得检查' : '配合安排',
+      text: hasExplicitCaution ? judgment.copy.caution : supportActionFromJudgment(judgment),
+      tone: hasExplicitCaution ? 'notice' : 'support',
     },
   ];
   const overview: DailyFortuneOverview = {
