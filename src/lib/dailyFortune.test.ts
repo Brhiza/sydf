@@ -178,7 +178,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v66');
+      expect(serialized).toContain('2026-08-26-v69');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -340,6 +340,8 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(year.periodTrend).toHaveLength(5);
     expect(year.periodTrend[0]).toMatchObject({ dateKey: '2026-08', label: '本月' });
     expect(year.periodTrend.at(-1)).toMatchObject({ dateKey: '2026-12', label: '12月' });
+    const generalYear = generateDailyFortune(runtime, undefined, 'year', runtime);
+    expect(generalYear.actionTips[0]?.text).toMatch(/^公历8月7日—9月7日是较好的落点/);
     [today, month, year].flatMap((result) => result.categories).forEach((category) => {
       const preferredWindow = category.detail.match(/^(.+?)可优先安排；/)?.[1];
       const cautionWindow = category.basis.match(/^(.+)：/)?.[1];
@@ -484,9 +486,12 @@ describe('今日、月运、年运统一周期算法', () => {
     };
     const mainLine = result.evidenceInsights.find((item) => item.key === 'opportunity');
     expect(mainLine?.sourceKey).toBeTruthy();
-    expect(result.timeWindows[0]?.coverage).toContain(shortLabels[mainLine?.sourceKey || '']);
+    expect(
+      result.timeWindows[0]?.coverage,
+      JSON.stringify({ action: result.actionTips[0], windows: result.timeWindows, mainLine }),
+    ).toContain(shortLabels[mainLine?.sourceKey || '']);
     result.timeWindows.forEach((window) => {
-      expect(window.coverage).toMatch(/^(?:优先|可安排).+|只宜整理、复核$/);
+      expect(window.coverage).toMatch(/^(?:优先|可安排).+|只复核.+，不安排新增$|只做已有事项的整理与收尾$/);
       expect(window.coverage).not.toMatch(/适合.+、.+、.+/);
     });
 
@@ -508,12 +513,35 @@ describe('今日、月运、年运统一周期算法', () => {
         period,
         new Date(2026, 7, 26, 12, 0, 0, 0),
       );
+      const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
+      const primaryCategory = result.categories.find((item) => item.key === primaryAction?.sourceKey);
+      const primaryWindow = primaryAction?.text.match(/^(.+?)是较好的落点/)?.[1];
+      if (primaryWindow && primaryCategory?.detail.includes('可优先安排')) {
+        expect(primaryCategory.detail).toContain(`${primaryWindow}可优先安排`);
+      }
       const cautionAction = result.actionTips.find((item) => item.tone === 'notice');
       if (!cautionAction) return;
       const category = result.categories.find((item) => item.key === cautionAction.sourceKey);
       const categoryWindow = category?.basis.split('：')[0];
       expect(categoryWindow).toBeTruthy();
       expect(cautionAction.text.startsWith(categoryWindow || '')).toBe(true);
+      const matchingWindow = result.timeWindows.find((item) => {
+        const label = period === 'today'
+          ? `${item.name} ${item.range}`
+          : period === 'month'
+            ? `${item.name}（${item.range}）`
+            : `公历${item.name}`;
+        return label === categoryWindow;
+      });
+      const shortLabels: Record<string, string> = {
+        career: '工作',
+        study: '学习',
+        wealth: '钱款',
+        relationship: '沟通',
+        travel: '出行',
+        wellbeing: '休息',
+      };
+      expect(matchingWindow?.coverage).toContain(`${shortLabels[cautionAction.sourceKey]}需复核`);
     });
   }, 15_000);
 

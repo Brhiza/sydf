@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v66';
+const dailyFortuneCacheVersion = '2026-08-26-v69';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1349,11 +1349,12 @@ function categoryDetailFromJudgment(
 ) {
   const { evaluation, bestAnalysis } = aggregate;
   const { definition, tone } = evaluation;
-  const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
-  const bestLead = bestWindow ? `${bestWindow}可优先安排；` : '';
   const isPrimary = definition.key === judgment.primary.evaluation.definition.key;
   const isSecondary = definition.key === judgment.secondary.evaluation.definition.key;
   const isCaution = definition.key === judgment.caution.evaluation.definition.key;
+  const displayBestAnalysis = isPrimary ? judgment.bestAnalysis || bestAnalysis : bestAnalysis;
+  const bestWindow = displayBestAnalysis ? formatAnalysisWindow(displayBestAnalysis, period) : '';
+  const bestLead = bestWindow ? `${bestWindow}可优先安排；` : '';
   const preparation = definition.prepare.replace(/^先/, '');
   // 月内或年内偶有谨慎样本，只用于安排复核日期；只有综合评价本身偏谨慎，
   // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
@@ -1615,6 +1616,7 @@ function chooseJudgmentAnalyses(
   analyses: ChartAnalysis[],
   primary: CategoryAggregate,
   caution: CategoryAggregate,
+  preferCurrentWindow = false,
 ) {
   const primaryKey = primary.evaluation.definition.key;
   const cautionKey = caution.evaluation.definition.key;
@@ -1626,11 +1628,25 @@ function chooseJudgmentAnalyses(
     const focusCategories = (favorableCategories.length ? favorableCategories : balancedCategories).slice(0, 3);
     return focusCategories.some((item) => item.definition.key === primaryKey);
   });
-  const bestAnalysis = [...(primaryCandidates.length ? primaryCandidates : usableAnalyses)].sort((left, right) => (
+  const scoredBestAnalysis = [...(primaryCandidates.length ? primaryCandidates : usableAnalyses)].sort((left, right) => (
     (right.score * .58 + analysisTopicScore(right, primaryKey) * .42)
     - (left.score * .58 + analysisTopicScore(left, primaryKey) * .42)
     || compareAnalyses(left, right)
   ))[0];
+  const currentAnalysis = preferCurrentWindow
+    ? [...analyses].sort((left, right) => left.date.getTime() - right.date.getTime())[0]
+    : undefined;
+  const currentPrimaryEvaluation = currentAnalysis?.categories.find((item) => item.definition.key === primaryKey);
+  const currentHasFavorableCategory = currentAnalysis?.categories.some((item) => item.tone === 'favorable') || false;
+  const currentPrimaryIsUsable = currentPrimaryEvaluation?.tone === 'favorable'
+    || (!currentHasFavorableCategory && currentPrimaryEvaluation?.tone === 'balanced');
+  const currentPrimaryAnalysis = currentAnalysis
+    && currentPrimaryEvaluation
+    && currentPrimaryIsUsable
+    && isUsablePriorityAnalysis(currentAnalysis)
+    ? currentAnalysis
+    : undefined;
+  const bestAnalysis = currentPrimaryAnalysis || scoredBestAnalysis;
   const cautionAnalysis = caution.worstAnalysis || [...analyses]
     .filter((analysis) => analysis.categories.some((item) => item.definition.key === cautionKey && item.tone === 'cautious'))
     .sort((left, right) => (
@@ -1777,7 +1793,7 @@ function buildFortuneMasterJudgment(
   else if (cautiousCount === 0 && favorableCount === 0) posture = 'cultivate';
   else posture = 'stabilize';
 
-  const { bestAnalysis, cautionAnalysis } = chooseJudgmentAnalyses(analyses, primary, caution);
+  const { bestAnalysis, cautionAnalysis } = chooseJudgmentAnalyses(analyses, primary, caution, isCurrentPeriod);
   const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
   const cautionWindow = cautionAnalysis ? formatAnalysisWindow(cautionAnalysis, period) : '';
   const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal);
@@ -2077,6 +2093,8 @@ function buildTimeWindows(
   restrictTodayHours = true,
   preferredAnalysis?: ChartAnalysis,
   primaryKey?: string,
+  cautionAnalysis?: ChartAnalysis,
+  cautionKey?: string,
 ) {
   const practicalAnalyses = period === 'today' ? analyses.filter(isPracticalHourAnalysis) : analyses;
   const candidates = period === 'today'
@@ -2090,14 +2108,29 @@ function buildTimeWindows(
   const preferred = preferredAnalysis
     ? usable.find((analysis) => analysis.date.getTime() === preferredAnalysis.date.getTime())
     : undefined;
-  const selected = preferred
-    ? [preferred, ...usable.filter((analysis) => analysis.date.getTime() !== preferred.date.getTime())].slice(0, 3)
-    : usable.slice(0, 3);
+  const caution = cautionAnalysis
+    ? ranked.find((analysis) => analysis.date.getTime() === cautionAnalysis.date.getTime())
+    : undefined;
+  const selected: ChartAnalysis[] = [];
+  const addUnique = (analysis?: ChartAnalysis) => {
+    if (analysis && !selected.some((item) => item.date.getTime() === analysis.date.getTime())) selected.push(analysis);
+  };
+  addUnique(preferred);
+  const reservesCautionSlot = caution && caution.date.getTime() !== preferred?.date.getTime();
+  usable.forEach((analysis) => {
+    if (selected.length < (reservesCautionSlot ? 2 : 3)
+      && analysis.date.getTime() !== caution?.date.getTime()) addUnique(analysis);
+  });
+  addUnique(caution);
+  if (selected.length < 3) usable.forEach((analysis) => {
+    if (selected.length < 3) addUnique(analysis);
+  });
   return selected.map((analysis) => {
     const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
     const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
     const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
-    const cautiousCategory = [...rankedCategories].reverse().find((item) => item.tone === 'cautious');
+    const cautionCategory = rankedCategories.find((item) => item.definition.key === cautionKey && item.tone === 'cautious');
+    const cautiousCategory = cautionCategory || [...rankedCategories].reverse().find((item) => item.tone === 'cautious');
     const usableCategories = favorableCategories.length ? favorableCategories : balancedCategories;
     const primaryCategory = usableCategories.find((item) => item.definition.key === primaryKey);
     const focusCategories = primaryCategory
@@ -2106,7 +2139,9 @@ function buildTimeWindows(
     const focusLabels = focusCategories.map((item) => item.definition.shortLabel);
     const coverage = focusLabels.length
       ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
-      : '只宜整理、复核';
+      : cautiousCategory
+        ? `只复核${cautiousCategory.definition.shortLabel}，不安排新增`
+        : '只做已有事项的整理与收尾';
     if (period === 'today') {
       const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours()) || shichenSlots[0];
       return { name: dayPartForHour(slot.hour), range: formatTimeRange(slot.range), coverage };
@@ -2478,6 +2513,8 @@ function calculateDailyFortune(
     isCurrentDay,
     judgment.bestAnalysis,
     judgment.primary.evaluation.definition.key,
+    judgment.cautionAnalysis,
+    judgment.cautionAnalysis ? judgment.caution.evaluation.definition.key : undefined,
   );
   aggregates.forEach((aggregate) => {
     aggregate.category = {
