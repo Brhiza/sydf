@@ -154,7 +154,7 @@ const leadKicker = computed(() => props.result.period === 'today'
             <p v-else><small>公历范围</small><b>{{ calendar.periodRange }}</b></p>
           </div>
         </div>
-        <p v-if="calendar.events.length" class="fortune-date-events" aria-label="当天事件">
+        <p v-if="result.period === 'today' && calendar.events.length" class="fortune-date-events" aria-label="当天事件">
           <span v-for="event in calendar.events" :key="event.id">{{ event.label }}</span>
         </p>
       </div>
