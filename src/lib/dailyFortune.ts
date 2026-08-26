@@ -286,7 +286,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'career', icon: '业', label: '工作事业', shortLabel: '工作', primaryDoor: '开门',
     supportStars: ['天心', '天辅', '天任'], supportGods: ['值符', '九天', '九地'],
     action: '先处理目标清楚、能直接推进的工作', prepare: '整理优先级和待确认事项', check: '截止时间、分工和交付标准',
-    completionRule: '负责人、下一步或验收标准仍有空白时，这件事只留在待确认清单，不占正式排期',
+    completionRule: '把可执行项和待确认项分开：负责人、下一步和验收标准齐全的进入正式排期，其余留在确认清单',
     cautionPattern: '任务边界、负责人或交付标准容易临时变化',
     cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
     fallback: '负责人或截止时间未定时，先整理优先级和待确认事项',
@@ -303,7 +303,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'study', icon: '学', label: '学习成长', shortLabel: '学习', primaryDoor: '景门',
     supportStars: ['天辅', '天心', '天任'], supportGods: ['太阴', '九地', '值符'],
     action: '集中完成一段阅读、写作或复盘', prepare: '整理资料并拆小学习目标', check: '任务量、专注时段和休息间隔',
-    completionRule: '还不能复述要点或用练习验证时，说明仍在输入阶段，不继续增加资料',
+    completionRule: '能用自己的话说清要点，并在一道题或一段输出中正确应用，才从输入转为已掌握；否则不再增加资料',
     cautionPattern: '任务切换过多，容易读了很多却没有真正沉淀',
     cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
     fallback: '注意力不稳时，只整理资料并把学习目标拆成一段',
@@ -320,7 +320,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'wealth', icon: '财', label: '金钱合作', shortLabel: '钱款', primaryDoor: '生门',
     supportStars: ['天任', '天心', '天辅'], supportGods: ['值符', '六合', '太阴'],
     action: '优先处理金额和条件已经明确的事项', prepare: '对账、比价并梳理必要支出', check: '金额、条款和付款节点',
-    completionRule: '金额、责任与付款节点没有形成可复核记录时，不进入付款或合作承诺',
+    completionRule: '把金额、责任和付款节点留成可复核记录，记录没有闭合前不付款，也不承诺合作',
     cautionPattern: '口头约定与实际金额、责任或付款条件容易出现偏差',
     cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
     fallback: '条款未齐时只保存报价和问题清单，不进入付款',
@@ -337,7 +337,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'relationship', icon: '缘', label: '沟通关系', shortLabel: '沟通', primaryDoor: '休门',
     supportStars: ['天辅', '天心', '天任'], supportGods: ['六合', '太阴', '值符'],
     action: '安排一次不赶时间的沟通', prepare: '先听完对方的重点，再整理自己的表达', check: '语气、对方感受和信息差',
-    completionRule: '双方尚未确认同一事实基础时，不继续推断立场，也不增加新的承诺',
+    completionRule: '先确认双方是否建立在同一事实基础上；事实没有对齐时不推断立场，也不增加承诺',
     cautionPattern: '表达语气与真实意图容易错位，猜测会放大信息差',
     cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
     fallback: '信息不全时只确认事实，不急着表达立场',
@@ -354,7 +354,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'travel', icon: '行', label: '出行行动', shortLabel: '出行', primaryDoor: '开门',
     supportStars: ['天冲', '天辅', '天心'], supportGods: ['九天', '六合', '九地'],
     action: '把需要外出的事情按路线集中处理', prepare: '提前整理路线、物品和时间余量', check: '路线、天气和临时变动',
-    completionRule: '路线、时间余量与备选方案未确定时，只做物品准备，不进入出发安排',
+    completionRule: '路线、时间余量和备选方案三项齐全后再出发，缺一项时只做物品准备',
     cautionPattern: '路线、天气或前后事项的衔接时间更容易变化',
     cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
     fallback: '路线或天气未定时，先整理物品并预留转场时间',
@@ -371,7 +371,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'wellbeing', icon: '养', label: '身心状态', shortLabel: '休息', primaryDoor: '休门',
     supportStars: ['天心', '天任'], supportGods: ['太阴', '九地'],
     action: '给休息、饮食和轻度活动留出固定时间', prepare: '减少透支并安排规律休息', check: '睡眠、饮食、精力和身体感受',
-    completionRule: '完整休息后仍无法恢复专注时，直接减少任务量，不用短时兴奋代替恢复',
+    completionRule: '完整休息后再看专注是否恢复；仍无法集中时直接减少任务量，不用短时兴奋代替恢复',
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
     cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v58';
+const dailyFortuneCacheVersion = '2026-08-26-v61';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1364,7 +1364,7 @@ function categoryDetailFromJudgment(
     if (!hasActualCaution) {
       return definition.key === 'wellbeing'
         ? `身心状态不是${scopeLabel}主线，却决定其他安排能否持续；以完整休息后能否恢复专注作为减量信号，不用一时兴奋判断承受力。`
-        : `${definition.label}不是${scopeLabel}主线，只保留条件已经具备的部分。${definition.completionRule}。`;
+        : `${definition.label}不是${scopeLabel}主线。${definition.completionRule}。`;
     }
     if (definition.key === 'wellbeing') {
       return `这是${scopeLabel}牵动整体节奏的短板。先保住基本作息；只有完整休息后专注度确实恢复，才把其他安排重新加回来。`;
@@ -1790,6 +1790,8 @@ function buildFortuneMasterJudgment(
     cautionWindow,
     primaryAction: primary.evaluation.definition.action,
     primaryBoundary: primary.evaluation.definition.personalSupportStop,
+    secondaryAction: secondary.evaluation.definition.action,
+    secondaryParallel: secondary.evaluation.definition.key === 'wellbeing',
     cautionAction: caution.evaluation.definition.cautionAction,
     personalClause: personalInsight?.clause || '',
     mixed,

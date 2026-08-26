@@ -34,6 +34,8 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     cautionWindow: '下午 15:00—16:59',
     primaryAction: '先处理目标清楚、能直接推进的工作',
     primaryBoundary: '临时插单或责任人发生变化时，先不接新任务',
+    secondaryAction: '集中完成一段阅读、写作或复盘',
+    secondaryParallel: false,
     cautionAction,
     personalClause: '',
     mixed: true,
@@ -49,7 +51,7 @@ describe('运势整体语料', () => {
   });
 
   it('不同姿态和语料变体不再产生低信息表达', () => {
-    const genericPattern = /同一偏差连续出现两次|保持弹性|先留后手|不宜硬撑|先减负再判断|先止损|局面自然会顺|需要多看一步|根据实际进展调整|留有收尾空间|重要决定.{0,4}多核对一次|不宜同步冒进/;
+    const genericPattern = /同一偏差连续出现两次|保持弹性|先留后手|不宜硬撑|先减负再判断|先止损|局面自然会顺|需要多看一步|根据实际进展调整|留有收尾空间|重要决定.{0,4}多核对一次|不宜同步冒进|边界稳定后再考虑扩大范围|完成当前一步后再衔接其他安排|主线完成前不新开第二项|完成一次核对后再决定下一步|连续稳定后再提高强度|先保持一段稳定投入，不追求一次做满|完成当前一步后转去处理卡点|本期不追加新的承诺/;
     postures.forEach((posture) => {
       Array.from({ length: 80 }, (_, index) => renderFortuneReading(posture, context(cautionActions[index % cautionActions.length]), `${posture}-${index}`))
         .forEach((result) => {
@@ -58,6 +60,19 @@ describe('运势整体语料', () => {
           expect(result.summary.length).toBeGreaterThan(35);
           expect(result.opportunity.length).toBeGreaterThan(20);
         });
+    });
+  });
+
+  it('身心状态作为第二主题时保持并行，不被排到主线完成之后', () => {
+    const parallelContext: FortuneReadingPhraseContext = {
+      ...context(cautionActions[0]),
+      secondaryAction: '给休息、饮食和轻度活动留出固定时间',
+      secondaryParallel: true,
+    };
+    (['advance', 'focus', 'stabilize', 'cultivate'] satisfies FortuneReadingPosture[]).forEach((posture) => {
+      const result = renderFortuneReading(posture, parallelContext, `${posture}-parallel-wellbeing`);
+      expect(result.opportunity).toContain('同时给休息、饮食和轻度活动留出固定时间');
+      expect(result.opportunity).not.toMatch(/后，再给休息/);
     });
   });
 });

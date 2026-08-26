@@ -32,18 +32,22 @@ function grams(value: string, size = 8) {
 }
 
 describe('运势区块职责审计', () => {
-  it('行动、分项和依据不再复述同一段处理办法', () => {
+  it('总评、行动、分项、趋势与助运不再复述同一段内容', () => {
     const dates = [new Date(2026, 0, 15, 12), new Date(2026, 7, 26, 12)];
     const periods: FortunePeriod[] = ['today', 'month', 'year'];
     const reports = profiles.flatMap((profile, profileIndex) => dates.flatMap((date) => periods.flatMap((period) => {
       const result = generateDailyFortune(date, profile, period, date);
       const sections = [
+        { key: 'summary', role: 'summary', sourceKey: undefined, text: result.summary },
         ...result.actionTips.map((item, index) => ({ key: `action-${index}`, role: 'action', sourceKey: item.sourceKey, text: item.text })),
         ...result.evidenceInsights.map((item) => ({ key: `evidence-${item.key}`, role: 'evidence', sourceKey: item.sourceKey, text: item.detail })),
         ...result.categories.flatMap((item) => [
           { key: `category-${item.key}-detail`, role: 'category-detail', sourceKey: item.key, text: item.detail },
           { key: `category-${item.key}-basis`, role: 'category-basis', sourceKey: item.key, text: item.basis },
         ]).filter((item) => item.text),
+        ...result.periodTrend.map((item, index) => ({ key: `trend-${index}`, role: 'trend', sourceKey: undefined, text: item.focus })),
+        { key: 'reference-direction', role: 'reference', sourceKey: undefined, text: result.reference.directionNote },
+        { key: 'reference-item', role: 'reference', sourceKey: undefined, text: result.reference.itemNote },
       ];
       const cautionSourceKey = result.evidenceInsights.find((item) => item.key === 'caution')?.sourceKey;
       const cautionCategory = result.categories.find((item) => item.key === cautionSourceKey && item.tone !== 'favorable');
@@ -56,7 +60,10 @@ describe('运势区块职责审计', () => {
         const shouldCompare = roles.has('action') && (roles.has('category-detail') || roles.has('category-basis'))
           || roles.has('category-detail') && roles.has('category-basis') && left.sourceKey === right.sourceKey
           || roles.has('evidence') && (roles.has('category-detail') || roles.has('category-basis'))
-            && (!left.sourceKey || !right.sourceKey || left.sourceKey === right.sourceKey || left.key === 'evidence-personal' || right.key === 'evidence-personal');
+            && (!left.sourceKey || !right.sourceKey || left.sourceKey === right.sourceKey || left.key === 'evidence-personal' || right.key === 'evidence-personal')
+          || roles.has('summary')
+          || roles.has('trend') && (roles.has('action') || roles.has('category-detail') || roles.has('category-basis') || roles.has('evidence') || roles.has('reference'))
+          || roles.has('reference') && (roles.has('action') || roles.has('category-detail') || roles.has('category-basis') || roles.has('evidence'));
         if (!shouldCompare) return [];
         const leftGrams = grams(left.text);
         const shared = [...leftGrams].filter((item) => grams(right.text).has(item));
