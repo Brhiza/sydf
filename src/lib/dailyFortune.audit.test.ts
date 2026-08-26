@@ -34,6 +34,7 @@ function allText(result: DailyFortuneResult) {
     ...result.categories.flatMap((item) => [item.status, item.detail, item.basis]),
     ...result.periodTrend.flatMap((item) => [item.status, item.focus]),
     result.reference.directionNote,
+    result.reference.symbolicNote,
     result.reference.itemNote,
   ].filter(Boolean);
 }

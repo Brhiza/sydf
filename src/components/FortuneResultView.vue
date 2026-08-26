@@ -65,17 +65,10 @@ const insightRows = computed(() => props.result.evidenceInsights.map((item) => (
 
 const referenceRows = computed(() => [
   {
-    key: 'colors',
-    marker: '色',
-    title: `助运颜色：${props.result.reference.colors.map((item) => item.name).join('、')}`,
-    detail: props.result.reference.colorNote,
-    tone: 'accent' as const,
-  },
-  {
-    key: 'numbers',
-    marker: '数',
-    title: `助运数字：${props.result.reference.numbers.join('、')}`,
-    detail: props.result.reference.numberNote,
+    key: 'element',
+    marker: '五',
+    title: `五行参考：${props.result.reference.element}`,
+    detail: props.result.reference.symbolicNote,
     tone: 'accent' as const,
   },
   {

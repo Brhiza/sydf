@@ -126,8 +126,8 @@ function expectContentRichTrend(result: DailyFortuneResult) {
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
   expect(result.reference.itemNote.length).toBeGreaterThan(22);
-  expect(result.reference.colorNote).toMatch(/标记|标签|视觉/);
-  expect(result.reference.numberNote).toMatch(/不用于|不替代/);
+  expect(result.reference.symbolicNote).toMatch(/颜色取.+数字.+由五行对应数、主线位置和盘面参数合并得出/);
+  expect(result.reference.symbolicNote).toMatch(/不用于|不替代/);
   const primary = result.categories.find((item) => ['本期主线', '守住基本盘'].includes(item.status));
   expect(primary).toBeTruthy();
   expect(referenceItemsByTopic[primary!.key]).toContain(result.reference.item);
@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v61');
+      expect(serialized).toContain('2026-08-26-v63');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();

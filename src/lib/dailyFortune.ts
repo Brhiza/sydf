@@ -72,10 +72,10 @@ export interface DailyFortuneOverview {
 }
 
 export interface DailyFortuneReference {
+  element: string;
   colors: DailyFortuneColor[];
-  colorNote: string;
   numbers: number[];
-  numberNote: string;
+  symbolicNote: string;
   direction: string;
   directionNote: string;
   item: string;
@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v61';
+const dailyFortuneCacheVersion = '2026-08-26-v63';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2280,7 +2280,8 @@ function buildReference(
   const palace = chooseReferencePalace(analysis, goodDirections);
   const palaceElement = isFiveElement(palace.element) ? palace.element : '土';
   const palaceAlignment = personal ? elementAlignment(personal, palaceElement) : 0;
-  const element = personal?.primaryFavorableElement && palaceAlignment <= 0
+  const usesPersonalElement = Boolean(personal?.primaryFavorableElement && palaceAlignment <= 0);
+  const element = usesPersonalElement && personal?.primaryFavorableElement
     ? personal.primaryFavorableElement
     : palaceElement;
   const elementReference = elementReferences[element];
@@ -2292,26 +2293,34 @@ function buildReference(
   const item = practicalItems[seed % practicalItems.length];
   const direction = goodDirections[0]?.direction || '不固定';
   const focusLabel = focus.shortLabel;
+  const focusName = focus.label;
+  const colorNames = colors.map((color) => color.name).join('、');
+  const numberText = numbers.join('、');
+  const elementBasis = usesPersonalElement
+    ? `个人命盘较能承接${element}`
+    : `本期${focusName}主线所落宫位偏${element}`;
+  const colorUse = period === 'today'
+    ? `可任选一种标记今天的${focusLabel}清单`
+    : period === 'month'
+      ? `可固定一种标记本月${focusLabel}文件或提醒`
+      : `可固定一种用于区分全年${focusLabel}主线与临时事项`;
+  const numberBoundary = period === 'today'
+    ? '只作当天清单编号，不用于金额、投注或结果判断'
+    : period === 'month'
+      ? '只作本月复盘编号，不替代日期、预算或现实条件'
+      : '只作年度目标编号，不用于投资、开奖或重要日期推断';
   return {
+    element,
     colors,
-    colorNote: period === 'today'
-      ? `可从中选一种标记今天的${focusLabel}清单，看到颜色时回到当前主线，不需要整套穿戴。`
-      : period === 'month'
-        ? `选一种固定用于本月${focusLabel}相关的文件标签或提醒，帮助在多项事务间识别主线。`
-        : `可作为全年${focusLabel}计划的视觉标记，用来区分主线与临时事项，不必长期限定穿着或环境配色。`,
     numbers,
-    numberNote: period === 'today'
-      ? '仅作当天清单排序或提醒符号，不用于金额、投注和结果判断。'
-      : period === 'month'
-        ? '仅作本月清单分组或复盘编号，不替代日期、预算和现实条件。'
-        : '仅作年度目标分组的象征编号，不用于投资、开奖或重要日期推断。',
+    symbolicNote: `${elementBasis}，颜色取${colorNames}，${colorUse}。数字 ${numberText} 由五行对应数、主线位置和盘面参数合并得出，${numberBoundary}。`,
     direction,
     directionNote: goodDirections.length
       ? goodDirections[0].detail
       : '方位信号不集中，不设优先方向。',
     item: item.name,
     itemSymbol: item.symbol,
-    itemNote: item.note,
+    itemNote: `它被选作${focusLabel}提醒物：${item.note}`,
   };
 }
 

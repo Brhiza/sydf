@@ -46,6 +46,7 @@ describe('运势区块职责审计', () => {
           { key: `category-${item.key}-basis`, role: 'category-basis', sourceKey: item.key, text: item.basis },
         ]).filter((item) => item.text),
         ...result.periodTrend.map((item, index) => ({ key: `trend-${index}`, role: 'trend', sourceKey: undefined, text: item.focus })),
+        { key: 'reference-symbolic', role: 'reference', sourceKey: undefined, text: result.reference.symbolicNote },
         { key: 'reference-direction', role: 'reference', sourceKey: undefined, text: result.reference.directionNote },
         { key: 'reference-item', role: 'reference', sourceKey: undefined, text: result.reference.itemNote },
       ];
