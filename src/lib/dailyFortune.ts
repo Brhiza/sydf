@@ -435,6 +435,11 @@ interface PeriodPersonalGuidance {
   boundary: string;
 }
 
+interface PeriodReferenceGuidance {
+  check: string;
+  itemUse: string;
+}
+
 const periodActionGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodActionGuidance>> = {
   month: {
     career: {
@@ -557,6 +562,61 @@ const periodPersonalGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<str
   },
 };
 
+const periodReferenceGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodReferenceGuidance>> = {
+  month: {
+    career: {
+      check: '本月任务中哪些已有稳定交接，哪些仍在重复改动',
+      itemUse: '让它作为更新本月任务表的固定提示，只补充责任变化、实际完成和未闭环事项',
+    },
+    study: {
+      check: '本月多轮输出是否反复卡在同一要点，学习范围是否需要收拢',
+      itemUse: '让它提示你把本月每次复述、练习和成品结果记在同一处，月末据此判断真实掌握',
+    },
+    wealth: {
+      check: '本月现金余量、待付款和合作义务是否仍在预算内',
+      itemUse: '让它提醒你更新本月资金表，只记录会改变余额或责任期限的事项',
+    },
+    relationship: {
+      check: '本月共识在后续行动中是否仍成立，同一信息差是否再次出现',
+      itemUse: '让它提醒你保留本月关键沟通的事实、共识和执行结果，用后续行动验证',
+    },
+    travel: {
+      check: '本月多次行程在哪个转场或返程环节反复失去余量',
+      itemUse: '让它提示你汇总本月延误位置与替代路线，下次优先修正重复出现的节点',
+    },
+    wellbeing: {
+      check: '本月睡眠、进食和注意力是否持续恢复，哪类安排最容易造成透支',
+      itemUse: '让它提醒你记录本月恢复速度而非单日情绪，据此调整后续任务密度',
+    },
+  },
+  year: {
+    career: {
+      check: '全年哪些职责已经形成可重复交接，哪些仍依赖临时救火',
+      itemUse: '让它提示你保留一份全年工作方法，只沉淀经过不同任务验证的交接与验收规则',
+    },
+    study: {
+      check: '全年学习方法能否迁移到陌生问题，还是只增加了课程与资料',
+      itemUse: '让它提示你维护一份全年能力记录，用新问题、成品和复盘结果证明方法确实可迁移',
+    },
+    wealth: {
+      check: '全年现金流能否覆盖低收入月份、固定成本与长期付款',
+      itemUse: '让它提示你持续更新全年资金底表，把固定责任、可调支出和预留资金分开记录',
+    },
+    relationship: {
+      check: '全年同类误解是否逐步减少，沟通约定能否在不同情境继续使用',
+      itemUse: '让它提示你记录全年关键关系中的事实确认、共同约定和执行偏差，只修正反复出现的环节',
+    },
+    travel: {
+      check: '全年哪些路线与时段能够稳定复用，哪些延误仍在重复发生',
+      itemUse: '让它提示你维护全年出行方案，保留可靠路线、常见延误点和真正可用的替代选择',
+    },
+    wellbeing: {
+      check: '全年恢复基线能否经过忙闲变化，还是持续依赖临时补觉与停工',
+      itemUse: '让它提示你维护全年恢复记录，比较忙闲阶段的睡眠、进食、活动与注意力变化',
+    },
+  },
+};
+
 function categoryCompletionRule(definition: TopicDefinition, period: FortunePeriod) {
   return period === 'today'
     ? definition.completionRule
@@ -597,7 +657,20 @@ function personalActionGuidance(definition: TopicDefinition, period: FortunePeri
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v96';
+function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): PeriodReferenceGuidance {
+  if (period === 'today') {
+    return {
+      check: definition.check,
+      itemUse: '',
+    };
+  }
+  return periodReferenceGuidance[period][definition.key] || {
+    check: definition.check,
+    itemUse: '',
+  };
+}
+
+const dailyFortuneCacheVersion = '2026-08-27-v97';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2798,18 +2871,20 @@ function buildReference(
   };
   const periodUse = period === 'today' ? '今天' : period === 'month' ? '本月' : '今年';
   const colorUse = `可任选一种标记${periodUse}的${referenceTargets[focus.key] || `${focusLabel}事项`}`;
+  const guidance = referenceGuidance(focus, period);
+  const itemNote = (period === 'today' ? item.note : guidance.itemUse).replace(/[。；]+$/, '');
   return {
     element,
     colors,
     numbers,
-    symbolicNote: `${elementBasis}，偏向${elementMeanings[element]}。${colorNames}${colorUse}；看到标记时，检查${focus.check}。`,
+    symbolicNote: `${elementBasis}，偏向${elementMeanings[element]}。${colorNames}${colorUse}；看到标记时，检查${guidance.check}。`,
     direction,
     directionNote: goodDirections.length
       ? goodDirections[0].detail
       : '方位信号分散，不必为此绕路或改动日程；按距离、交通和现实条件选择即可。',
     item: item.name,
     itemSymbol: item.symbol,
-    itemNote: `它被选作${focusLabel}提醒物：${item.note}`,
+    itemNote: `它被选作${focusLabel}提醒物：${itemNote}。`,
   };
 }
 

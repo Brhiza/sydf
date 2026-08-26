@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v96');
+      expect(serialized).toContain('2026-08-27-v97');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -395,6 +395,21 @@ describe('今日、月运、年运统一周期算法', () => {
         expect(tip.text).toMatch(actionMarkers[result.period as 'month' | 'year'][tip.sourceKey]);
       });
       expect(result.actionTips.map((tip) => tip.text).join('')).not.toMatch(/集中完成一段阅读|安排一次不赶时间的沟通|集中完成一次对账|只完成一个可验收成果/);
+    });
+  }, 15_000);
+
+  it('月运和年运的五行标记与提醒物用于观察整个周期', () => {
+    const date = new Date(2026, 7, 27, 12, 0, 0, 0);
+    const month = generateDailyFortune(date, profile, 'month', date);
+    const year = generateDailyFortune(date, profile, 'year', date);
+
+    expect(month.reference.symbolicNote).toMatch(/检查本月/);
+    expect(month.reference.itemNote).toContain('本月');
+    expect(year.reference.symbolicNote).toMatch(/检查全年/);
+    expect(year.reference.itemNote).toContain('全年');
+    [month, year].forEach((result) => {
+      expect(`${result.reference.symbolicNote}${result.reference.itemNote}`).not.toMatch(/每次只留一页|再次打开时先复述|出门前按证件|准备回应前先停一下|喝水时暂停一分钟|放在手边，提醒自己/);
+      expect(`${result.reference.symbolicNote}${result.reference.itemNote}`).not.toContain('。。');
     });
   }, 15_000);
 
