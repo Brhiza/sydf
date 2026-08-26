@@ -41,7 +41,8 @@ describe('今日运势个案内容审计', () => {
         ...result.evidenceInsights.map((item) => item.detail),
       ];
       const sentences = sections.flatMap(splitSentences);
-      expect(new Set(sentences).size).toBe(sentences.length);
+      const duplicates = [...new Set(sentences.filter((sentence, index) => sentences.indexOf(sentence) !== index))];
+      expect(duplicates, JSON.stringify({ profile, period: result.period, duplicates })).toEqual([]);
       expect(sections.join('\n')).not.toMatch(/当前案例没有明显加减|根据真实反馈及时调整|不在信息不足时做最终决定|  {2,}/);
     });
   }, 60_000);
@@ -54,7 +55,8 @@ describe('今日运势个案内容审计', () => {
       personalized.forEach((result) => {
         const personalInsight = result.evidenceInsights.find((item) => item.key === 'personal');
         expect(personalInsight?.detail).toMatch(/本期个人议题|个人命盘/);
-        expect(personalInsight?.detail).toMatch(/借力点|承接较好|更耗承接力|停止加量|准备动作|判断主线/);
+        expect(personalInsight?.detail).toMatch(/较稳的一项|承接较好|更耗承接力|停止加量|准备动作|判断主线/);
+        expect(personalInsight?.detail).not.toMatch(/主线卡住时.+恢复进度|可用它配合主线|多分配一档精力/);
         expect(result.summary).not.toBe(general.summary);
       });
       expect(personalized[0].summary).not.toBe(personalized[1].summary);

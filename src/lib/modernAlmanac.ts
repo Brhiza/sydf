@@ -145,7 +145,7 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     key: 'travel', theme: 'travel', priority: 86,
     terms: ['出行', '赴任', '乘船'],
     recommendedTitle: '外出、差旅与到岗',
-    recommendedDetail: '适合安排出行、差旅或正式到岗，出发前照常检查天气、路线和证件。',
+    recommendedDetail: '适合安排出行、差旅或正式到岗，出发前逐项确认天气、路线、证件和返程余量。',
     cautiousTitle: '远行多留时间余量',
     cautiousDetail: '非必要远行可调整；必须出发时提前核对天气、交通和备选路线。',
   },
@@ -169,7 +169,7 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     key: 'nature', theme: 'nature', priority: 72,
     terms: ['栽种', '纳畜', '牧养', '教牛马', '造畜稠', '畋猎', '捕捉', '结网', '取渔', '割蜜', '断蚁', '归岫'],
     recommendedTitle: '园艺、宠物与户外劳作',
-    recommendedDetail: '适合种植、照料动物或处理户外维护，注意天气、工具和动物安全。',
+    recommendedDetail: '适合种植、照料动物或处理户外维护，开始前核对天气、防护工具和动物安置条件。',
     cautiousTitle: '户外劳作量力而行',
     cautiousDetail: '较大的种植、捕捞或动物安置先看天气与现场条件，避免临时冒险。',
   },
@@ -194,16 +194,16 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
 const dayOfficerRhythms: Record<string, Omit<ModernAlmanacRhythm, 'sourceLabel'>> = {
   建: { title: '适合建立计划', detail: '更适合明确目标、启动准备和搭好框架，第一次推进不必铺得太大。' },
   除: { title: '适合清理旧事', detail: '优先处理积压、修正问题和移除障碍，为后续安排腾出空间。' },
-  满: { title: '适合补充与分享', detail: '适合沟通、庆祝和补充资源，同时注意别因为兴致高而过度承诺。' },
+  满: { title: '适合补充与分享', detail: '适合沟通、庆祝和补充资源，先列清预算与承诺范围，避免兴致高时答应过量。' },
   平: { title: '适合按部就班', detail: '今天更适合稳定推进、协调关系，把普通事情做扎实。' },
-  定: { title: '适合确认方案', detail: '适合把已经讨论成熟的计划定下来，临时起意的决定仍要多核对。' },
-  执: { title: '适合坚持执行', detail: '延续已经明确的安排比频繁改方向更稳妥，先把手里的事完成。' },
+  定: { title: '适合确认方案', detail: '适合把已经讨论成熟的计划定下来；临时起意的决定先补齐负责人、成本和退出条件。' },
+  执: { title: '适合坚持执行', detail: '继续执行已经确认责任人和截止时间的部分，未确认的事项不在今天追加。' },
   破: { title: '适合拆解旧问题', detail: '适合止损、修正和打破无效做法，不宜在准备不足时启动重大事项。' },
-  危: { title: '适合检查风险', detail: '先做安全检查、备选方案和边界确认，重要事项不要省略验证。' },
-  成: { title: '适合收尾见成果', detail: '适合交付、确认结果和推进已经成熟的事项，注意完成最后检查。' },
+  危: { title: '适合检查风险', detail: '先核对安全条件、备选方案和停止条件，三项没有写清前不启动高成本安排。' },
+  成: { title: '适合收尾见成果', detail: '适合交付和确认结果，交付前核对成果内容、接收人和后续责任。' },
   收: { title: '适合归档与收拢', detail: '适合回款、整理、归档和减少分散投入，暂不追求快速扩张。' },
-  开: { title: '适合开放沟通', detail: '适合启动交流、公开信息和推进新事项，仍要把必要条件说清楚。' },
-  闭: { title: '适合内部整理', detail: '适合休整、复盘和处理内部事务，重大对外启动可以多准备一下。' },
+  开: { title: '适合开放沟通', detail: '适合启动交流、公开信息和推进新事项，发出前写清条件、责任人和回应期限。' },
+  闭: { title: '适合内部整理', detail: '适合休整、复盘和处理内部事务；未完成资源清点和问题复盘前，不启动重大对外事项。' },
 };
 
 const auspiciousHourGuidance: Record<string, { title: string; detail: string }> = {
@@ -295,7 +295,7 @@ function modernPersonalConflictNote(name: string, basis: '年支' | '日支', re
   };
   const guidance: Record<PersonalConflictRelation, string> = {
     冲: '重要会面、签约或出行尽量避开；无法调整时，提前确认时间、路线和资料。',
-    刑: '处理手续、规则和多人协作时要多检查细节，避免赶时间或临时决定。',
+    刑: '处理手续、规则和多人协作时，逐项核对材料、责任人和截止时间，不赶时间定案。',
     害: '沟通合作中更要防止遗漏和误解，关键约定尽量说清并留记录。',
     破: '原定安排较容易被打断，涉及交付、搬动或长期决定时准备替代时间或方案。',
   };
@@ -377,7 +377,7 @@ export function modernizeAlmanacDay(day: AlmanacDayCandidate): ModernAlmanacResu
   const officer = day.dayOfficer.replace(/日$/, '');
   const rhythm = dayOfficerRhythms[officer] || {
     title: '按现实条件安排',
-    detail: '今天没有需要额外强调的日子基调，照常按计划推进即可。',
+    detail: '今天不设额外节奏限制，直接按已有优先级和现实条件安排。',
   };
 
   return {

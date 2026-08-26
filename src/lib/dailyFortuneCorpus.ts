@@ -8,6 +8,7 @@ export interface FortuneReadingPhraseContext {
   bestWindow: string;
   cautionWindow: string;
   primaryAction: string;
+  primaryBoundary: string;
   cautionAction: string;
   personalClause: string;
   mixed: boolean;
@@ -50,8 +51,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '主线清楚，可顺势推进',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先形成一个明确成果，再考虑扩大范围。`,
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，把最有把握的一步落到实处。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。边界稳定后再考虑扩大范围。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。完成当前一步后再衔接其他安排。`,
     ],
   },
   focus: {
@@ -65,7 +66,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '有进有守，宜集中发力',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只推进最关键的一段，不同时摊开过多任务。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。主线完成前不新开第二项。`,
     ],
   },
   stabilize: {
@@ -79,7 +80,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '整体平稳，次序比速度重要',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，以能确认、能收尾为判断标准。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。完成一次核对后再决定下一步。`,
     ],
   },
   cultivate: {
@@ -95,8 +96,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '阻力不强，适合稳步积累',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，把这一步做成可以持续复用的基础。`,
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先求稳定完成，再逐步提高强度。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。连续稳定后再提高强度。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。先保持一段稳定投入，不追求一次做满。`,
     ],
   },
   resolve: {
@@ -112,8 +113,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '局部受阻，先解决关键卡点',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只完成一个能够独立收尾的安排，不新增第二条线。`,
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，完成当前安排并留下结果记录，再处理卡点。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只保留当前一条线；${primaryBoundary}。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。完成当前一步后转去处理卡点。`,
     ],
   },
   restore: {
@@ -127,7 +128,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '先稳住状态，再处理事情',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，控制任务量，并给休息和收尾留出固定时间。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，同时删去一项非必要安排；${primaryBoundary}。`,
     ],
   },
   protect: {
@@ -141,7 +142,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
     ],
     overviewLabel: '牵制偏多，先守住基本盘',
     opportunities: [
-      ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只做范围清楚且随时可以收回的部分。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。本期不追加新的承诺。`,
     ],
   },
 };
@@ -164,7 +165,7 @@ export function renderFortuneReading(
   const summary = pick(corpus.summaries, context, `${seed}|summary`).trim();
   return {
     title: pick(corpus.titles, context, `${seed}|title`),
-    summary: [summary, context.personalClause.trim()].filter(Boolean).join(' '),
+    summary: [summary, context.personalClause.trim()].filter(Boolean).join(''),
     overviewLabel: corpus.overviewLabel,
     opportunity: pick(corpus.opportunities, context, `${seed}|opportunity`),
     caution: `${cautionLead(context.cautionWindow)}${context.cautionAction}`,

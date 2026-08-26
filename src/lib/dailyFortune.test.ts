@@ -89,7 +89,7 @@ const referenceItemsByTopic: Record<string, string[]> = {
 
 function expectContentRichCategories(result: DailyFortuneResult) {
   const text = result.categories.map((item) => `${item.detail}${item.basis}`).join('');
-  expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少/);
+  expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少|确认承载条件|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度/);
   const bases = result.categories.map((item) => item.basis).filter(Boolean);
   expect(new Set(bases).size).toBe(bases.length);
   result.categories.forEach((category) => {
@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v44');
+      expect(serialized).toContain('2026-08-26-v46');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();

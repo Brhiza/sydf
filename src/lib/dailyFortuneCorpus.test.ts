@@ -33,6 +33,7 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     bestWindow: '上午 09:00—10:59',
     cautionWindow: '下午 15:00—16:59',
     primaryAction: '先处理目标清楚、能直接推进的工作',
+    primaryBoundary: '临时插单或责任人发生变化时，先不接新任务',
     cautionAction,
     personalClause: '',
     mixed: true,

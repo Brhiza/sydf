@@ -152,6 +152,7 @@ interface TopicDefinition {
   fallback: string;
   masterReason: string;
   masterRiskReason: string;
+  personalSupportAction: string;
   personalSupportStop: string;
   personalReviewBoundary: string;
   statusGuard: string;
@@ -272,7 +273,8 @@ const topicDefinitions: TopicDefinition[] = [
     fallback: '负责人或截止时间未定时，先整理优先级和待确认事项',
     masterReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
     masterRiskReason: '它牵涉多人之间的责任交接，一处变动就会让后续环节重新排队。',
-    personalSupportStop: '临时插单或责任人发生变化时停止加量',
+    personalSupportAction: '留出一段不被临时插单打断的执行时间，只完成一个可验收成果',
+    personalSupportStop: '临时插单或责任人发生变化时，先不接新任务',
     personalReviewBoundary: '先收完已有任务，不额外接下临时承诺',
     statusGuard: '先定边界',
     trendActions: ['先定负责人和交付标准', '把截止时间与承诺范围写清', '只保留一个可验收成果', '把待确认事项清成一张清单', '完成一个可交付的小阶段', '为下一步留下明确负责人'],
@@ -288,7 +290,8 @@ const topicDefinitions: TopicDefinition[] = [
     fallback: '注意力不稳时，只整理资料并把学习目标拆成一段',
     masterReason: '学习成长可以分段积累，并用输出检验投入是否真正有效。',
     masterRiskReason: '它消耗的是连续注意力，切换次数增加后，投入时间并不等于真正掌握。',
-    personalSupportStop: '连续分心或无法复述要点时停止加量',
+    personalSupportAction: '留出一段连续专注时间，并用笔记或练习留下结果',
+    personalSupportStop: '连续分心或无法复述要点时，停止增加资料和题量',
     personalReviewBoundary: '只整理现有资料，暂不继续增加课程或题量',
     statusGuard: '先稳专注',
     trendActions: ['留下一段可复述的成果', '用笔记或练习检验掌握', '只完成一个学习目标', '把零散资料整理成一页要点', '用一次输出检验理解', '复盘一个尚未掌握的环节'],
@@ -304,7 +307,8 @@ const topicDefinitions: TopicDefinition[] = [
     fallback: '条款未齐时只保存报价和问题清单，不进入付款',
     masterReason: '金钱合作的条件可以逐项核对，结果也便于留痕和复盘。',
     masterRiskReason: '它同时影响现金流与合作责任，一处误差可能延续到后续结算。',
-    personalSupportStop: '报价与实际付款条件出现新差异时停止加量',
+    personalSupportAction: '集中完成一次对账、比价或条款确认，并保存可复核记录',
+    personalSupportStop: '报价与实际付款条件出现新差异时，暂停付款和新增承诺',
     personalReviewBoundary: '只保留询价和记录，不付款也不替人担保',
     statusGuard: '先核条款',
     trendActions: ['只处理条款清楚的款项', '逐项写清金额和付款节点', '先保存一份可复核的交易记录', '把报价、金额与责任对齐', '完成一次对账或比价', '给付款条件留一份书面记录'],
@@ -320,7 +324,8 @@ const topicDefinitions: TopicDefinition[] = [
     fallback: '信息不全时只确认事实，不急着表达立场',
     masterReason: '沟通关系能先消除信息差，减少其他安排里的猜测与返工。',
     masterRiskReason: '它依赖双方对同一事实的共同理解，误读会让后续行动建立在不同前提上。',
-    personalSupportStop: '同一事实出现两种说法时停止加量',
+    personalSupportAction: '安排一次不赶时间的沟通，只确认事实、分歧和下一步',
+    personalSupportStop: '同一事实出现两种说法时，先暂停定性和新的承诺',
     personalReviewBoundary: '只确认事实，不在情绪高点给关系定性',
     statusGuard: '先清信息',
     trendActions: ['一次只谈清一个分歧', '先确认事实，再商量下一步', '用一次不赶时间的沟通形成共识', '先消除一处信息差', '把事实、感受与下一步说清', '结束一场悬而未决的沟通'],
@@ -336,7 +341,8 @@ const topicDefinitions: TopicDefinition[] = [
     fallback: '路线或天气未定时，先整理物品并预留转场时间',
     masterReason: '出行行动的风险大多能在出发前被看见，必要时可以改线或删减行程。',
     masterRiskReason: '它受外部条件与时间链条共同影响，一处延误会继续挤压后续行程。',
-    personalSupportStop: '路线或返程时间改变时停止加量',
+    personalSupportAction: '把同方向事项合并，并为转场和返程保留机动时间',
+    personalSupportStop: '路线或返程时间改变时，取消次要行程，不继续加站',
     personalReviewBoundary: '只准备物品和备选路线，不追加新的行程',
     statusGuard: '先定路线',
     trendActions: ['预留时间并准备备选路线', '把路线、证件和关键物品一次核清', '合并同方向行程，留下转场余量', '先定路线、时间与备选方案', '把同方向事项集中完成', '为临时变化预留一段机动时间'],
@@ -352,7 +358,8 @@ const topicDefinitions: TopicDefinition[] = [
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
     masterReason: '身心状态决定其他事情能否持续，先稳住状态可以减少全局消耗。',
     masterRiskReason: '它是其他安排的承载条件，状态判断失真会让所有计划同时超量。',
-    personalSupportStop: '休息后仍无法集中注意力时停止加量',
+    personalSupportAction: '固定一段完整休息、规律进食或轻度活动，以恢复后的专注度判断承受量',
+    personalSupportStop: '休息后仍无法集中注意力时，删去一项次要任务',
     personalReviewBoundary: '先恢复一顿饭或一段睡眠，不用兴奋感判断状态',
     statusGuard: '先看精力',
     trendActions: ['先保住睡眠与实际精力', '给饮食、休息和轻度活动留固定时间', '按真实精力删减一项次要任务', '把一段无打扰休息固定下来', '先恢复睡眠、饮食与注意力', '用一次轻量活动调整状态'],
@@ -361,7 +368,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v44';
+const dailyFortuneCacheVersion = '2026-08-26-v46';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1600,8 +1607,8 @@ function buildPersonalJudgmentInsight(
     : '个人命盘没有显示需要额外放大的单一议题。';
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
-      ? `${supportItem.category.label}的个人承接较好，可以适当主动；${supportItem.evaluation.definition.personalSupportStop}。`
-      : `${supportItem.category.label}是个人层面的借力点；主线卡住时，先从这里恢复进度，不必硬推${primary.category.label}。`
+      ? `${supportItem.category.label}的个人承接较好；${supportItem.evaluation.definition.personalSupportAction}。`
+      : `${supportItem.category.label}是个人层面较稳的一项；若本期确有相关事项，${supportItem.evaluation.definition.personalSupportAction}。没有相关事项就不额外增加任务，也不改变${primary.category.label}的整体顺序。`
     : '';
   const reviewAdvice = reviewItem
     ? `${reviewItem.category.label}更耗承接力；${reviewItem.evaluation.definition.personalReviewBoundary}。`
@@ -1612,11 +1619,11 @@ function buildPersonalJudgmentInsight(
       tone,
       title: primarySupported ? '主线也得到个人节奏支持' : '个人层面另有借力点',
       clause: primarySupported
-        ? `个人层面也支持${primary.category.label}，可比其他事项多分配一档精力。`
-        : `个人层面的助力更多落在${supportItem?.category.label || primary.category.label}，可用它配合主线。`,
+        ? `个人层面也支持${primary.category.label}，可优先留出一段完整时间。`
+        : `个人层面的助力更多落在${supportItem?.category.label || primary.category.label}，可单独安排，但不替代整体主线。`,
       detail: `${focusSentence}${supportAdvice}${reviewAdvice || (primarySupported
         ? ''
-        : `${primary.category.label}先保持原计划强度，等借力点形成实际进展后再加码。`)}`,
+        : `${primary.category.label}仍按${primary.evaluation.definition.check}是否齐全决定推进范围。`)}`,
     };
   }
   if (tone === 'cautious') {
@@ -1627,20 +1634,20 @@ function buildPersonalJudgmentInsight(
       clause: primaryNeedsReview
         ? `整体仍以${primary.category.label}为主，但个人层面不宜加量，先确认${primary.evaluation.definition.check}。`
         : `个人层面的消耗更多落在${reviewItem?.category.label || caution.category.label}，这项先收窄范围。`,
-      detail: `${focusSentence}${reviewAdvice}${supportAdvice || `先控制投入，再观察${caution.category.label}的牵制是否减轻。`}`,
+      detail: `${focusSentence}${reviewAdvice}${supportAdvice || `${caution.category.label}先把${caution.evaluation.definition.check}逐项确认清楚，没有确认结果前不追加投入。`}`,
     };
   }
   return {
     tone,
     title: supportItem || reviewItem ? '个人层面有进有守' : '个人层面没有额外加减',
     clause: supportItem
-      ? `个人层面可借${supportItem.category.label}配合主线${reviewItem ? `，${reviewItem.category.label}则先控制投入` : ''}。`
+      ? `个人层面可单独安排${supportItem.category.label}${reviewItem ? `，${reviewItem.category.label}则先控制投入` : ''}。`
       : reviewItem
         ? `个人层面暂不放大${reviewItem.category.label}，其余事项按整体主线推进。`
-        : '个人层面没有额外助力或牵制，按整体主线推进即可。',
+        : '个人层面没有额外加减信号，直接按整体主线安排。',
     detail: `${focusSentence}${supportAdvice}${reviewAdvice || (supportAdvice
-      ? `${primary.category.label}只保持当前强度，不额外加码。`
-      : `${primary.evaluation.definition.personalSupportStop}，主线则维持原计划。`)}`,
+      ? `${primary.category.label}仍按${primary.evaluation.definition.check}是否齐全决定推进范围。`
+      : `${primary.evaluation.definition.check}确认清楚后再推进，未确认的部分只做准备。`)}`,
   };
 }
 
@@ -1686,6 +1693,7 @@ function buildFortuneMasterJudgment(
     bestWindow,
     cautionWindow,
     primaryAction: primary.evaluation.definition.action,
+    primaryBoundary: primary.evaluation.definition.personalSupportStop,
     cautionAction: caution.evaluation.definition.cautionAction,
     personalClause: personalInsight?.clause || '',
     mixed,
@@ -1699,30 +1707,50 @@ function categoryDistributionEvidence(aggregate: CategoryAggregate, period: Fort
   return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}中，${aggregate.category.label}有${aggregate.favorableCount}个明确支持、${aggregate.cautiousCount}个需要复核、${neutralCount}个保持平稳。`;
 }
 
+function primaryDistributionMeaning(aggregate: CategoryAggregate) {
+  const difference = aggregate.favorableCount - aggregate.cautiousCount;
+  if (difference >= 3) return `明确支持比需要复核多${difference}个，可执行窗口相对集中。`;
+  if (difference > 0) return `明确支持比需要复核多${difference}个，优势存在，但仍取决于前置条件是否落实。`;
+  if (difference === 0) return '明确支持与需要复核数量相同，结果更依赖前置条件是否落实。';
+  return `需要复核比明确支持多${Math.abs(difference)}个；它只是六项中相对可控的落点，不能当作无条件顺势。`;
+}
+
+function cautionDistributionMeaning(aggregate: CategoryAggregate) {
+  const difference = aggregate.favorableCount - aggregate.cautiousCount;
+  if (difference > 0) return `支持虽比复核多${difference}个，但仍有${aggregate.cautiousCount}个复核窗口；问题集中在部分条件，并非全期受阻。`;
+  if (difference === 0) return '支持与复核数量相同，能否落地取决于前置条件是否先被确认。';
+  return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。`;
+}
+
+function cautionConsequence(caution: CategoryAggregate) {
+  const consequences: Record<string, string> = {
+    career: '结果通常表现为任务反复、等待交接，或做完后仍无法验收。',
+    study: '结果通常表现为资料越积越多，却没有可复述、可练习或可检验的产出。',
+    wealth: '结果通常表现为补单、追款、重复核算，或后续责任争议。',
+    relationship: '结果通常表现为同一件事反复解释，行动仍建立在不同前提上。',
+    travel: '结果通常表现为转场时间被压缩、误点，或后续事项被连带推迟。',
+    wellbeing: '结果通常表现为短时仍能推进，随后多项安排同时降速或返工。',
+  };
+  return consequences[caution.category.key] || `${caution.category.label}的条件未确认前，相关安排容易反复。`;
+}
+
 function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const reason = judgment.primary.evaluation.definition.masterReason;
   const primaryLabel = judgment.primary.category.label;
-  const secondaryLabel = judgment.secondary.category.label;
-  const conclusion: Record<FortuneReadingPosture, string> = {
-    advance: `因此可以先从${primaryLabel}打开局面，再观察是否扩展。`,
-    focus: `因此资源先向${primaryLabel}集中，比同时铺开更容易收尾。`,
-    cultivate: `因此先用${primaryLabel}积累一项可以复用的成果，再衔接${secondaryLabel}。`,
-    resolve: `因此卡点未清前，${primaryLabel}仍可维持必要进度。`,
-    stabilize: `因此先用${primaryLabel}建立秩序，再衔接${secondaryLabel}。`,
-    restore: `因此控制任务量后，${primaryLabel}仍可保留。`,
-    protect: `因此在不新增承诺的前提下，${primaryLabel}是相对可控的落点。`,
-  };
-  return `${categoryDistributionEvidence(judgment.primary, period)}${reason}${conclusion[judgment.posture]}`;
+  return `${categoryDistributionEvidence(judgment.primary, period)}在六项主题中，${primaryLabel}的综合信号最高。${primaryDistributionMeaning(judgment.primary)}${reason}`;
 }
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const cautionLabel = judgment.caution.category.label;
-  const primaryLabel = judgment.primary.category.label;
   const riskReason = judgment.caution.evaluation.definition.masterRiskReason;
-  const reason = judgment.caution.evaluation.tone === 'cautious'
-    ? `${riskReason}当前这项牵制已经足以带来返工或误判，应先隔离它，不让局部问题占用${primaryLabel}的资源。`
-    : `${riskReason}${cautionLabel}尚未形成阻断，但要先确认承载条件，避免它反复打断${primaryLabel}的连续性。`;
-  return `${categoryDistributionEvidence(judgment.caution, period)}${reason}`;
+  if (judgment.caution.cautiousCount === 0) {
+    const check = judgment.caution.evaluation.definition.check;
+    return `${categoryDistributionEvidence(judgment.caution, period)}${cautionLabel}没有明确风险窗口，只是综合信号在六项中最低。${riskReason}这类风险本期没有集中出现；只有${check}发生变化时才需要重新评估。`;
+  }
+  const role = judgment.caution.evaluation.tone === 'cautious'
+    ? `${cautionLabel}已经是本期明确牵制。`
+    : `${cautionLabel}不是全面阻断，但在六项中最需要前置核对。`;
+  return `${categoryDistributionEvidence(judgment.caution, period)}${role}${cautionDistributionMeaning(judgment.caution)}${riskReason}${cautionConsequence(judgment.caution)}`;
 }
 
 function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortunePeriod): DailyFortuneEvidenceInsight[] {
