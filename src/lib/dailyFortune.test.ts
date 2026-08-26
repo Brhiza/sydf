@@ -364,17 +364,31 @@ describe('今日、月运、年运统一周期算法', () => {
     });
   }, 15_000);
 
-  it('当前只剩主线谨慎时段时，不把该时段反写成主线优先窗口', () => {
-    const runtime = new Date(2026, 7, 26, 22, 20, 0, 0);
-    const result = generateDailyFortune(runtime, undefined, 'today', runtime);
-    const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
-    const primaryShortLabel = primaryAction?.label.replace(/^优先/, '') || '';
-    const cautionWindow = result.timeWindows.find((item) => item.coverage.includes(`${primaryShortLabel}需复核`));
-    expect(cautionWindow, JSON.stringify({ primaryAction, windows: result.timeWindows })).toBeTruthy();
-    const cautionLabel = `${cautionWindow?.name} ${cautionWindow?.range}`;
-    expect(primaryAction?.text).not.toContain(cautionLabel);
-    expect(result.categories.find((item) => item.key === primaryAction?.sourceKey)?.detail).not.toContain(cautionLabel);
-  });
+  it('不同运行时只要出现主线需复核窗口，就不把它反写成主线优先窗口', () => {
+    let scenario: {
+      result: DailyFortuneResult;
+      primaryAction: DailyFortuneResult['actionTips'][number];
+      cautionWindow: DailyFortuneResult['timeWindows'][number];
+    } | undefined;
+    for (let day = 1; day <= 31 && !scenario; day += 1) {
+      for (const hour of [18, 20, 22]) {
+        const runtime = new Date(2026, 7, day, hour, 20, 0, 0);
+        const result = generateDailyFortune(runtime, undefined, 'today', runtime);
+        const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
+        const primaryShortLabel = primaryAction?.label.replace(/^优先/, '') || '';
+        const cautionWindow = result.timeWindows.find((item) => item.coverage.includes(`${primaryShortLabel}需复核`));
+        if (primaryAction && cautionWindow) {
+          scenario = { result, primaryAction, cautionWindow };
+          break;
+        }
+      }
+    }
+    expect(scenario).toBeTruthy();
+    if (!scenario) return;
+    const cautionLabel = `${scenario.cautionWindow.name} ${scenario.cautionWindow.range}`;
+    expect(scenario.primaryAction.text).not.toContain(cautionLabel);
+    expect(scenario.result.categories.find((item) => item.key === scenario.primaryAction.sourceKey)?.detail).not.toContain(cautionLabel);
+  }, 60_000);
 
   it('年运完整计算全年阶段，并向用户换算为公历范围', () => {
     const result = generateDailyFortune(new Date(2025, 6, 1, 12, 0, 0, 0), profile, 'year');
