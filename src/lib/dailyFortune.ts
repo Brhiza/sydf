@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v115';
+const dailyFortuneCacheVersion = '2026-08-27-v117';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2524,26 +2524,24 @@ function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: Fort
   const primary = judgment.primary;
   const secondary = judgment.secondary;
   const difference = primary.favorableCount - primary.cautiousCount;
-  const neutralCount = Math.max(0, primary.sampleCount - primary.favorableCount - primary.cautiousCount);
   const scoreGap = primary.evaluation.score - secondary.evaluation.score;
-  const measure = period === 'month' ? '天' : '段';
   const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
-  const distribution = difference >= 3
-    ? `${primary.evaluation.definition.shortLabel}的优势跨过多个${windowType}，不是单点偶发，可把真正有利的窗口集中用于本期主线。`
-    : difference > 0
-      ? `${primary.evaluation.definition.shortLabel}只在部分${windowType}占优，${neutralCount}${measure}平稳窗口应维持正常负荷，不能跟随顺势窗口一并加量。`
-      : difference === 0
-        ? `${primary.evaluation.definition.shortLabel}没有净优势，${neutralCount}${measure}平稳窗口更适合维持正常负荷并逐步验证，不适合追求一次突破。`
-        : `${primary.evaluation.definition.shortLabel}当前更适合纠偏而非加量；可用之处是问题边界已经显现，可以先完成一次可验证的修正。`;
   const primaryCheck = topicEvidenceChecks[primary.category.key] || `${primary.category.label}是否形成明确结果`;
   const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
+  const distribution = difference >= 3
+    ? `${primary.evaluation.definition.shortLabel}的优势分布在多个${windowType}，有利窗口可集中用于本期主线。`
+    : difference > 0
+      ? `${primary.evaluation.definition.shortLabel}只在部分${windowType}占优，其他安排保持原定负荷。`
+      : difference === 0
+        ? `${primary.evaluation.definition.shortLabel}的顺势与收紧互相抵消，先按实际结果验证，不随单个窗口加量。`
+        : `${primary.evaluation.definition.shortLabel}更适合先纠偏；本期价值在于问题边界已经显现，可先完成一次可验证的修正。`;
   const interaction = secondaryInteractionEffects[secondary.category.key]
     || `${secondary.category.label}一旦失守，${primary.category.label}形成的结果也会失去后续承接`;
   const comparison = scoreGap >= .38
-    ? `${primary.evaluation.definition.shortLabel}的支持更集中，主要看${primaryCheck}；${secondary.evaluation.definition.shortLabel}的信号较分散，仍要观察${secondaryCheck}。${interaction}。`
+    ? `${primary.evaluation.definition.shortLabel}的支持更集中。判断${primary.evaluation.definition.shortLabel}，看${primaryCheck}；判断${secondary.evaluation.definition.shortLabel}，看${secondaryCheck}。${interaction}。`
     : scoreGap >= .14
-      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}；前者用${primaryCheck}判断，后者用${secondaryCheck}判断。${interaction}，两项检查都通过后才适合继续加量。`
-      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}接近；前者用${primaryCheck}判断，后者用${secondaryCheck}判断。${interaction}，不能只凭${primary.evaluation.definition.shortLabel}一项顺势就扩大安排。`;
+      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}。前者看${primaryCheck}；后者看${secondaryCheck}。${interaction}。`
+      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}强度接近。前者看${primaryCheck}；后者看${secondaryCheck}。${interaction}。`;
   return `${distribution}${comparison}`;
 }
 
@@ -2562,13 +2560,13 @@ function cautionDistributionMeaning(aggregate: CategoryAggregate, period: Fortun
   const riskNode = topicRiskNodes[aggregate.category.key] || '关键执行条件';
   const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
   if (difference > 0) {
-    return `${shortLabel}的风险集中在${riskNode}，这一环节若落在前后衔接处，会直接中断已有进展，不能被总体偏顺抵消。`;
+    return `${shortLabel}虽有可用窗口，风险仍集中在${riskNode}；这一环节若落在前后衔接处，会直接中断已有进展。`;
   }
   if (difference === 0) {
     const check = topicEvidenceChecks[aggregate.category.key] || `${aggregate.category.label}是否形成明确结果`;
-    return `${shortLabel}没有稳定优势，${check}需要在每次安排后按实际结果重新验证。`;
+    return `${shortLabel}的顺势与收紧相抵，需用${check}逐次判断，不沿用上一次结论。`;
   }
-  return `${riskNode}在多个${windowType}反复失守，应按持续性风险处理，不能归为一次偶发。`;
+  return `${riskNode}在多个${windowType}反复失守，是本期最容易形成连锁影响的节点。`;
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
@@ -3073,24 +3071,25 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage, scale:
   const weakestLabel = weakest?.shortLabel || '风险';
   const useSecondary = Boolean(continuation) && secondaryScore >= -.05;
   const continuationText = useSecondary
-    ? secondary?.key === 'wellbeing'
-      ? `同步照顾${secondaryLabel}：${continuation}`
-      : `${primaryScore - secondaryScore <= .18 ? '同时推进' : '有余量再处理'}${secondaryLabel}：${continuation}`
+    ? `${secondaryLabel}：${continuation}`
     : weakestGuard
-      ? `留意${weakestLabel}：${weakestGuard}`
+      ? `${weakestLabel}：${weakestGuard}`
       : '';
+  const primaryStatus = `${primaryLabel}${tone === 'favorable' ? '较顺' : '优先'}`;
   const status = tone === 'cautious'
     ? `${weakestLabel}先收紧，${primaryLabel}仍可保留`
-    : secondary && secondary.key !== primary?.key
-      ? `${primaryLabel}${tone === 'favorable' ? '较顺' : '优先'}，${secondaryLabel}${primaryScore - secondaryScore <= .18 ? '可并行' : '可承接'}`
-      : `${primaryLabel}${tone === 'favorable' ? '较顺' : '优先'}`;
+    : useSecondary && secondary && secondary.key !== primary?.key
+      ? `${primaryStatus}，${secondaryLabel}${primaryScore - secondaryScore <= .18 ? '可并行' : '可承接'}`
+      : weakestGuard
+        ? `${primaryStatus}，${weakestLabel}需留意`
+        : primaryStatus;
   return {
     tone,
     status,
     focus: tone === 'cautious'
       ? [
-          `${weakestLabel}先查：${weakestGuard || '先减少变量，再决定是否继续'}`,
-          primaryAction ? `${primaryLabel}保留：${primaryAction}` : '',
+          `${weakestLabel}：${weakestGuard || '先减少变量，再决定是否继续'}`,
+          primaryAction ? `${primaryLabel}：${primaryAction}` : '',
         ].filter(Boolean).join('；')
       : primary
         ? `${primaryLabel}：${primaryAction}${continuationText ? `；${continuationText}` : ''}`

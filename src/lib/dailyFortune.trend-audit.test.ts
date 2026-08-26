@@ -20,7 +20,7 @@ const profiles: Array<DailyFortuneProfile | undefined> = [
 function coreFragments(focus: string) {
   return focus.split('；')
     .map((item) => item
-      .replace(/^(?:(?:同时推进|有余量再处理|同步照顾|留意)?(?:工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：)/, '')
+      .replace(/^(?:工作|学习|钱款|沟通|出行|休息)：/, '')
       .trim())
     .filter((item) => item.length >= 6);
 }
@@ -37,9 +37,11 @@ describe('运势趋势内容审计', () => {
       result.periodTrend.forEach((item) => {
         expect(item.status).toMatch(/工作|学习|钱款|沟通|出行|返程|状态|睡眠|任务|猜测/);
         expect(item.status).not.toMatch(/^(?:先做|先稳)(?:工作|学习|钱款|沟通|出行|休息)$|可落地/);
-        expect(item.focus).not.toMatch(/随后安排|接着|完成后再做|稳定后再做/);
-        const topics = [...item.focus.matchAll(/(?:同时推进|有余量再处理|同步照顾|留意)?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
+        expect(item.focus).not.toMatch(/随后安排|接着|完成后再做|稳定后再做|同时推进|有余量再处理|同步照顾|留意|先查：|保留：/);
+        const topics = [...item.focus.matchAll(/(工作|学习|钱款|沟通|出行|休息)：/g)].map((match) => match[1]);
+        const statusTopics = [...item.status.matchAll(/工作|学习|钱款|沟通|出行|休息/g)].map((match) => match[0]);
         expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
+        expect(new Set(statusTopics)).toEqual(new Set(topics));
         expect(coreFragments(item.focus).length).toBeGreaterThanOrEqual(2);
         expect(item.focus).not.toContain('不扩大范围');
         if (period === 'month') expect(item.focus).toMatch(/这段时间|阶段中途|阶段结束|下一阶段/);

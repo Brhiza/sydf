@@ -144,10 +144,11 @@ function expectContentRichTrend(result: DailyFortuneResult) {
     expect(item.focus).not.toMatch(/可优先|日常节奏|接着|完成后再做|稳定后再做/);
     expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|验收|边界|复述|学习|任务量|切换|笔记|练习|资料|复盘|输出|款项|金额|付款|交易记录|报价|对账|比价|分歧|对方|事实|共识|意图|推测|信息差|沟通|路线|天气|证件|物品|行程|转场|机动时间|返程|睡眠|精力|疲劳|饮食|活动|承受量|注意力|休息/);
     expect(item.focus.length).toBeGreaterThan(8);
-    const topics = [...item.focus.matchAll(/(?:(?:同时推进|有余量再处理|同步照顾|留意))?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
+    const topics = [...item.focus.matchAll(/(工作|学习|钱款|沟通|出行|休息)：/g)].map((match) => match[1]);
+    const statusTopics = [...item.status.matchAll(/工作|学习|钱款|沟通|出行|休息/g)].map((match) => match[0]);
     expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
-    if (item.tone === 'cautious') expect(item.focus).toMatch(/先查：.*；.*保留：/);
-    else expect(item.focus).toMatch(/同时推进|有余量再处理|同步照顾|留意/);
+    expect(new Set(statusTopics)).toEqual(new Set(topics));
+    expect(item.focus).not.toMatch(/同时推进|有余量再处理|同步照顾|留意|先查：|保留：/);
     expect(item.focus).not.toContain('不扩大范围');
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
@@ -205,7 +206,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v115');
+      expect(serialized).toContain('2026-08-27-v117');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();

@@ -108,11 +108,13 @@ describe('今日运势批量内容质量', () => {
       const measure = result.period === 'month' ? '天' : '段';
       result.evidenceInsights.filter((item) => ['opportunity', 'caution', 'secondary'].includes(item.key)).forEach((item) => {
         expect(item.detail).toMatch(new RegExp(`\\d+个${unit}里，.+有\\d+${measure}顺势、\\d+${measure}需要收紧，其余\\d+${measure}平稳`));
+        expect(item.detail.match(new RegExp(`\\d+个${unit}里`, 'g'))).toHaveLength(1);
+        expect(item.detail).not.toMatch(/\d+[天段]平稳窗口|不是单点偶发|不能只凭.+扩大安排|不能归为一次偶发/);
         if (item.key === 'opportunity') {
           expect(item.detail).toMatch(/责任|验收|交付|任务|接手|学习成果|输入|专注|资料|复述|练习|输出|款项|对账|交易|付款|留痕|询价|收支|凭证|义务|结清|事实|共识|沟通|关系|行程|路线|返程|出发|转场|回程|完整休息|睡眠|进食|专注度|注意力|食欲|兴奋/);
           expect(result.summary).toMatch(/责任清楚|有人验收|复述|应用|学习输出|金额|追溯|事实分歧|双方下一步|时间链|按时收尾|注意力|承受量/);
         } else if (item.key === 'caution') {
-          expect(item.detail).toMatch(/风险集中在|没有稳定优势|在多个.+反复失守/);
+          expect(item.detail).toMatch(/风险(?:仍)?集中在|顺势与收紧相抵|在多个.+反复失守/);
           expect(result.summary).toMatch(/责任边界|连续注意力|节点未闭合|共同事实|转场|返程余量|状态未恢复|短时兴奋/);
           expect(item.detail).toMatch(/前序任务|注意力被切碎|金额或责任未闭合|共同事实没有建立|时间余量被压缩|承受量被高估/);
         } else {
