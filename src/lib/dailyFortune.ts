@@ -368,7 +368,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v52';
+const dailyFortuneCacheVersion = '2026-08-26-v53';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1603,51 +1603,47 @@ function buildPersonalJudgmentInsight(
     ? primary
     : reviewItems[0];
   const focusSentence = focusNarratives.length
-    ? `本期个人议题集中在${focusNarratives.join('、')}。`
-    : '个人命盘没有显示需要额外放大的单一议题。';
+    ? `本期个人命盘会放大${focusNarratives.join('、')}，相关事项会比平时更占注意力。`
+    : '个人命盘没有额外放大单一议题。';
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
-      ? `${supportItem.category.label}的个人承接较好；${supportItem.evaluation.definition.personalSupportAction}。`
-      : `${supportItem.category.label}是个人层面较稳的一项；若本期确有相关事项，${supportItem.evaluation.definition.personalSupportAction}。没有相关事项就不额外增加任务，也不改变${primary.category.label}的整体顺序。`
+      ? `个人命盘对${supportItem.category.label}的支持较明确；${supportItem.evaluation.definition.personalSupportAction}。`
+      : `${supportItem.category.label}是个人命盘里较稳的一项；本期确有相关事项时，${supportItem.evaluation.definition.personalSupportAction}。没有相关事项就略过，不为“助力”额外增加任务；整体仍以${primary.category.label}为主。`
     : '';
   const reviewAdvice = reviewItem
-    ? `${reviewItem.category.label}更耗承接力；${reviewItem.evaluation.definition.personalReviewBoundary}。`
+    ? `${reviewItem.category.label}更容易消耗精力；${reviewItem.evaluation.definition.personalReviewBoundary}。`
     : '';
   if (tone === 'favorable') {
     const primarySupported = primaryRelation === 'support' || (primaryRelation === 'neutral' && primaryAlignment >= .18);
     return {
       tone,
-      title: primarySupported ? '主线也得到个人节奏支持' : '个人层面另有借力点',
+      title: primarySupported ? '个人命盘与主线同向' : '个人支持落在另一项',
       clause: primarySupported
-        ? `个人层面也支持${primary.category.label}，可优先留出一段完整时间。`
-        : `个人层面的助力更多落在${supportItem?.category.label || primary.category.label}，可单独安排，但不替代整体主线。`,
-      detail: `${focusSentence}${supportAdvice}${reviewAdvice || (primarySupported
-        ? ''
-        : `${primary.category.label}仍按${primary.evaluation.definition.check}是否齐全决定推进范围。`)}`,
+        ? `个人命盘与${primary.category.label}主线同向，整体判断的可用性更稳定。`
+        : `个人命盘的额外支持落在${supportItem?.category.label || primary.category.label}，但不改变${primary.category.label}的主线顺序。`,
+      detail: `${focusSentence}${supportAdvice}${reviewAdvice}`,
     };
   }
   if (tone === 'cautious') {
     const primaryNeedsReview = primaryRelation === 'review' || (primaryRelation === 'neutral' && primaryAlignment <= -.18);
     return {
       tone,
-      title: primaryNeedsReview ? '主线可用，但个人承接偏紧' : '个人层面先处理消耗点',
+      title: primaryNeedsReview ? '主线仍可用，但不宜加量' : '个人命盘另有消耗点',
       clause: primaryNeedsReview
-        ? `整体仍以${primary.category.label}为主，但个人层面不宜加量，先确认${primary.evaluation.definition.check}。`
-        : `个人层面的消耗更多落在${reviewItem?.category.label || caution.category.label}，这项先收窄范围。`,
-      detail: `${focusSentence}${reviewAdvice}${supportAdvice || `${caution.category.label}先把${caution.evaluation.definition.check}逐项确认清楚，没有确认结果前不追加投入。`}`,
+        ? `个人命盘显示${primary.category.label}更容易消耗精力，主线结论仍成立，但执行强度需要下调。`
+        : `个人命盘的主要消耗落在${reviewItem?.category.label || caution.category.label}，整体主线不变，但本期可承受的事项数量会减少。`,
+      detail: `${focusSentence}${reviewAdvice}${supportAdvice}`,
     };
   }
   return {
     tone,
-    title: supportItem || reviewItem ? '个人层面有进有守' : '个人层面没有额外加减',
+    title: supportItem || reviewItem ? '个人支持与消耗并存' : '个人命盘没有明显偏移',
     clause: supportItem
-      ? `个人层面可单独安排${supportItem.category.label}${reviewItem ? `，${reviewItem.category.label}则先控制投入` : ''}。`
+      ? `个人命盘对${supportItem.category.label}更有支持${reviewItem ? `，${reviewItem.category.label}则更耗精力` : ''}；整体主线顺序不变。`
       : reviewItem
-        ? `个人层面暂不放大${reviewItem.category.label}，其余事项按整体主线推进。`
-        : '个人层面没有额外加减信号，直接按整体主线安排。',
-    detail: `${focusSentence}${supportAdvice}${reviewAdvice || (supportAdvice
-      ? `${primary.category.label}仍按${primary.evaluation.definition.check}是否齐全决定推进范围。`
-      : `${primary.evaluation.definition.check}确认清楚后再推进，未确认的部分只做准备。`)}`,
+        ? `个人命盘的主要消耗落在${reviewItem.category.label}，整体主线顺序不变。`
+        : '个人命盘没有足以改变整体结论的明显偏移。',
+    detail: `${focusSentence}${supportAdvice}${reviewAdvice}`,
   };
 }
 
