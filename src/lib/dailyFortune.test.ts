@@ -78,6 +78,27 @@ function expectContentRichCategories(result: DailyFortuneResult) {
     expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
     if (category.basis) expect(category.basis.length).toBeGreaterThan(45);
   });
+  expect(result.categories.map((item) => item.status)).toContain('本期主线');
+  expect(result.categories.map((item) => item.status)).toContain('随后安排');
+  expect(new Set(result.categories.map((item) => item.status)).size).toBeGreaterThanOrEqual(3);
+}
+
+function expectContentRichTrend(result: DailyFortuneResult) {
+  result.periodTrend.forEach((item) => {
+    expect(item.status).toMatch(/适合落地|先成一事|先降风险/);
+    expect(item.focus).not.toMatch(/可优先|先确认|日常节奏/);
+    expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|复述|学习|任务量|切换|款项|金额|付款|分歧|对方|路线|天气|睡眠|精力|疲劳/);
+    expect(item.focus.length).toBeGreaterThan(8);
+  });
+  expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
+  expect(result.reference.itemNote.length).toBeGreaterThan(22);
+}
+
+function expectTrendRepeatsLimited(result: DailyFortuneResult) {
+  const repeatedTrendCounts = [...result.periodTrend.reduce((counts, item) => (
+    counts.set(item.focus, (counts.get(item.focus) || 0) + 1)
+  ), new Map<string, number>()).values()];
+  expect(Math.max(...repeatedTrendCounts)).toBeLessThanOrEqual(2);
 }
 
 describe('今日、月运、年运统一周期算法', () => {
@@ -116,7 +137,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v24');
+      expect(serialized).toContain('2026-08-26-v27');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -186,10 +207,7 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-08', label: '今天', dateLabel: '8/8' });
     expect(result.periodTrend[1]?.label).toBe('明天');
     expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(7);
-    result.periodTrend.forEach((item) => {
-      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
-      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
-    });
+    expectContentRichTrend(result);
     expectToneAndGradeConsistent(result);
   });
 
@@ -230,10 +248,7 @@ describe('今日、月运、年运统一周期算法', () => {
       label: '第5周',
       dateLabel: '29—31日',
     });
-    result.periodTrend.forEach((item) => {
-      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
-      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
-    });
+    expectContentRichTrend(result);
     result.categories.forEach((category) => {
       expect(category.basis).toMatch(/\d+月\d+日/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
@@ -255,10 +270,9 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-01', label: '1月', dateLabel: '' });
     expect(result.periodTrend[11]).toMatchObject({ dateKey: '2025-12', label: '12月', dateLabel: '' });
     expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(12);
-    result.periodTrend.forEach((item) => {
-      expect(item.status).toMatch(/适合推进|稳步安排|宜放慢/);
-      expect(item.focus).toMatch(/可优先|先确认|日常节奏/);
-    });
+    expectContentRichTrend(result);
+    expectTrendRepeatsLimited(result);
+    expectTrendRepeatsLimited(generateDailyFortune(new Date(2026, 7, 26, 12, 0, 0, 0), profile, 'year'));
     result.categories.forEach((category) => {
       expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);

@@ -147,13 +147,15 @@ interface TopicDefinition {
   outcome: string;
   cautionPattern: string;
   cautionAction: string;
+  trendAction: string;
+  trendGuard: string;
 }
 
 interface ElementReference {
   colors: DailyFortuneColor[];
   numbers: number[];
   direction: string;
-  items: Array<{ name: string; symbol: string }>;
+  items: Array<{ name: string; symbol: string; note: string }>;
 }
 
 interface PersonalContext {
@@ -254,6 +256,7 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '一份写明负责人、下一步和完成标准的安排',
     cautionPattern: '任务边界、负责人或交付标准容易临时变化',
     cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
+    trendAction: '先定负责人和交付标准', trendGuard: '先核对分工、截止时间与承诺范围',
   },
   {
     key: 'study', icon: '学', label: '学习成长', shortLabel: '学习', primaryDoor: '景门',
@@ -262,6 +265,7 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '可复述的要点、练习结果或一段可用产出',
     cautionPattern: '任务切换过多，容易读了很多却没有真正沉淀',
     cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
+    trendAction: '留下一段可复述的成果', trendGuard: '减小任务量，避免频繁切换',
   },
   {
     key: 'wealth', icon: '财', label: '金钱合作', shortLabel: '钱款', primaryDoor: '生门',
@@ -270,6 +274,7 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '可复核的金额、责任和付款节点记录',
     cautionPattern: '口头约定与实际金额、责任或付款条件容易出现偏差',
     cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
+    trendAction: '只处理条款清楚的款项', trendGuard: '逐项核对金额、责任与付款节点',
   },
   {
     key: 'relationship', icon: '缘', label: '沟通关系', shortLabel: '沟通', primaryDoor: '休门',
@@ -278,6 +283,7 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '双方对事实、分歧和下一步的一致理解',
     cautionPattern: '表达语气与真实意图容易错位，猜测会放大信息差',
     cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
+    trendAction: '一次只谈清一个分歧', trendGuard: '先复述对方意思，再表达自己的判断',
   },
   {
     key: 'travel', icon: '行', label: '出行行动', shortLabel: '出行', primaryDoor: '开门',
@@ -286,6 +292,7 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '明确的路线、时间余量和备选方案',
     cautionPattern: '路线、天气或前后事项的衔接时间更容易变化',
     cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
+    trendAction: '预留时间并准备备选路线', trendGuard: '先查路线天气，给临时变化留缓冲',
   },
   {
     key: 'wellbeing', icon: '养', label: '身心状态', shortLabel: '休息', primaryDoor: '休门',
@@ -294,11 +301,12 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '休息后稳定恢复的精力，而不是短时兴奋',
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
     cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
+    trendAction: '先保住睡眠与实际精力', trendGuard: '疲劳没有恢复，就主动减量',
   },
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v24';
+const dailyFortuneCacheVersion = '2026-08-26-v27';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -360,27 +368,47 @@ const elementReferences: Record<FiveElement, ElementReference> = {
   木: {
     colors: [{ name: '松柏绿', hex: '#6f8f72' }, { name: '米白', hex: '#f2eadb' }],
     numbers: [3, 8], direction: '正东',
-    items: [{ name: '木质书签', symbol: '▤' }, { name: '小型绿植', symbol: '🌿' }, { name: '帆布袋', symbol: '◫' }],
+    items: [
+      { name: '木质书签', symbol: '▤', note: '夹在当前主线的资料里，每次翻到它只确认下一步，不同时展开新任务。' },
+      { name: '小型绿植', symbol: '🌿', note: '放在视线能看到的位置，休息时离开屏幕、看向远处并活动肩颈。' },
+      { name: '帆布袋', symbol: '◫', note: '把当天外出必需品集中收纳，出门前按清单核对，减少临时遗漏。' },
+    ],
   },
   火: {
     colors: [{ name: '暖珊瑚', hex: '#c96f61' }, { name: '杏色', hex: '#e6b67a' }],
     numbers: [2, 7], direction: '正南',
-    items: [{ name: '暖色笔记本', symbol: '▥' }, { name: '小夜灯', symbol: '✦' }, { name: '红色挂件', symbol: '●' }],
+    items: [
+      { name: '暖色笔记本', symbol: '▥', note: '只写当天必须完成的一件事、完成标准和收尾时间，避免任务越列越多。' },
+      { name: '小夜灯', symbol: '✦', note: '把亮灯当作晚间收尾信号，之后减少新任务和强刺激，让节奏慢下来。' },
+      { name: '红色挂件', symbol: '●', note: '挂在钥匙或常用包上，出门看到它时检查物品、路线和时间余量。' },
+    ],
   },
   土: {
     colors: [{ name: '燕麦色', hex: '#c6ad86' }, { name: '陶土橙', hex: '#b87958' }],
     numbers: [0, 5], direction: '中央',
-    items: [{ name: '陶瓷杯', symbol: '◉' }, { name: '方形收纳盒', symbol: '□' }, { name: '米色卡套', symbol: '▣' }],
+    items: [
+      { name: '陶瓷杯', symbol: '◉', note: '固定放在手边，喝水时暂停一分钟，顺便检查自己的真实疲劳程度。' },
+      { name: '方形收纳盒', symbol: '□', note: '只收纳当前项目需要的物品，减少桌面干扰和临时寻找。' },
+      { name: '米色卡套', symbol: '▣', note: '把高频证件或卡片集中放置，出门和付款前逐项确认。' },
+    ],
   },
   金: {
     colors: [{ name: '月白', hex: '#e8e5de' }, { name: '银灰', hex: '#aeb4bd' }],
     numbers: [4, 9], direction: '正西',
-    items: [{ name: '金属签字笔', symbol: '⌁' }, { name: '简洁腕表', symbol: '◷' }, { name: '银色夹子', symbol: '◇' }],
+    items: [
+      { name: '金属签字笔', symbol: '⌁', note: '用于签字或确认清单，重要承诺先写清负责人、范围和截止时间。' },
+      { name: '简洁腕表', symbol: '◷', note: '给关键任务设定开始与停止时间，防止投入失去边界。' },
+      { name: '银色夹子', symbol: '◇', note: '夹住当天唯一的主线资料，这一叠没有收尾前不新增第二叠。' },
+    ],
   },
   水: {
     colors: [{ name: '雾蓝', hex: '#718fae' }, { name: '墨蓝', hex: '#344b63' }],
     numbers: [1, 6], direction: '正北',
-    items: [{ name: '深色水杯', symbol: '◒' }, { name: '蓝色卡套', symbol: '▣' }, { name: '圆润小挂件', symbol: '◌' }],
+    items: [
+      { name: '深色水杯', symbol: '◒', note: '把喝水当作短暂停顿，重新确认精力是否足以继续当前任务。' },
+      { name: '蓝色卡套', symbol: '▣', note: '集中收好证件和常用卡片，涉及出行或付款时少依赖临时记忆。' },
+      { name: '圆润小挂件', symbol: '◌', note: '触碰到它时停一下呼吸，先想清下一步，再决定是否立即回应。' },
+    ],
   },
 };
 
@@ -1254,6 +1282,23 @@ function categoryDetailFromJudgment(
     : `${bestLead}${definition.action}，以${definition.outcome}作为阶段成果。`;
 }
 
+function categoryStatusFromJudgment(
+  aggregate: CategoryAggregate,
+  judgment: FortuneMasterJudgment,
+) {
+  const key = aggregate.evaluation.definition.key;
+  const isPrimary = key === judgment.primary.evaluation.definition.key;
+  const isSecondary = key === judgment.secondary.evaluation.definition.key;
+  const isCaution = key === judgment.caution.evaluation.definition.key;
+  if (isPrimary && isCaution && aggregate.evaluation.tone === 'cautious') return '守住底线';
+  if (isPrimary) return '本期主线';
+  if (isSecondary) return '随后安排';
+  if (isCaution) return aggregate.evaluation.tone === 'cautious' ? '重点把关' : '持续观察';
+  if (aggregate.evaluation.tone === 'favorable') return '可作补充';
+  if (aggregate.evaluation.tone === 'cautious') return '暂不主攻';
+  return '按需安排';
+}
+
 function formatAnalysisWindow(analysis: ChartAnalysis, period: FortunePeriod) {
   if (period === 'today') {
     const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours());
@@ -1706,13 +1751,17 @@ function trendSummary(analyses: ChartAnalysis[]) {
     definition,
     score: analyses.reduce((total, item) => total + (item.categories[index]?.score || 0), 0) / Math.max(1, analyses.length),
   })).sort((left, right) => right.score - left.score);
-  const focusLabels = rankedTopics.slice(0, 2).map((item) => item.definition.shortLabel);
+  const primary = rankedTopics[0]?.definition;
+  const secondary = rankedTopics[1]?.definition;
+  const weakest = rankedTopics[rankedTopics.length - 1]?.definition;
   return {
     tone,
-    status: tone === 'favorable' ? '适合推进' : tone === 'cautious' ? '宜放慢' : '稳步安排',
-    focus: focusLabels.length
-      ? tone === 'cautious' ? `${focusLabels.join('、')}先确认` : `${focusLabels.join('、')}可优先`
-      : '按日常节奏安排',
+    status: tone === 'favorable' ? '适合落地' : tone === 'cautious' ? '先降风险' : '先成一事',
+    focus: tone === 'cautious'
+      ? `${weakest?.trendGuard || '先减少变量，再决定是否继续'}${primary ? `；${primary.shortLabel}只做已明确部分${secondary ? `，${secondary.shortLabel}随后` : ''}` : ''}`
+      : primary
+        ? `${primary.trendAction}${secondary ? `；${secondary.shortLabel}随后` : ''}`
+        : '先完成已经明确的一件事',
   };
 }
 
@@ -1823,11 +1872,15 @@ function buildReference(
     numbers,
     direction,
     directionNote: goodDirections.length
-      ? '优先用于安排外出、拜访或主动沟通。'
+      ? period === 'today'
+        ? '用于安排第一段外出、拜访或需要主动开口的沟通，不必为普通行程绕路。'
+        : period === 'month'
+          ? '可优先用于本月的重要拜访或需要主动推进的沟通，普通行程仍以便利为先。'
+          : '适合用于规划全年较重要的拜访和外出方向，日常行动不必刻意迁就。'
       : '方位信号不集中，不设优先方向。',
     item: item.name,
     itemSymbol: item.symbol,
-    itemNote: '放在手边，提醒自己按计划做事、及时收尾。',
+    itemNote: item.note,
   };
 }
 
@@ -1944,6 +1997,7 @@ function calculateDailyFortune(
   aggregates.forEach((aggregate) => {
     aggregate.category = {
       ...aggregate.category,
+      status: categoryStatusFromJudgment(aggregate, judgment),
       detail: categoryDetailFromJudgment(aggregate, judgment, period),
     };
   });
