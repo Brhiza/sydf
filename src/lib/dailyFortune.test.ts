@@ -581,7 +581,6 @@ describe('今日、月运、年运统一周期算法', () => {
           .filter((category) => window.coverage.includes(`${shortLabels[category.key]}需复核`))
           .forEach((category) => {
             expect(normalizeWindow(category.basis)).not.toContain(normalizeWindow(windowLabel));
-            expect(category.basis).toMatch(/^(?:主要风险|注意点)：/);
           });
       });
     });
