@@ -94,7 +94,7 @@ const referenceRows = computed(() => [
   },
 ]);
 
-const insightTitle = computed(() => props.result.period === 'today' ? '今日重点' : props.result.period === 'month' ? '本月重点解读' : '今年重点解读');
+const insightTitle = computed(() => props.result.period === 'today' ? '今日判断依据' : props.result.period === 'month' ? '本月判断依据' : '全年判断依据');
 const referenceTitle = computed(() => props.result.period === 'today' ? '今日助运' : props.result.period === 'month' ? '本月助运' : '今年助运');
 
 const recommendedRows = computed(() => (props.result.modernAlmanac?.recommended || []).map((item) => ({
@@ -122,10 +122,10 @@ const actionRows = computed(() => props.result.actionTips.map((item) => ({
 })));
 
 const actionTitle = computed(() => props.result.period === 'today'
-  ? (props.currentDate ? '今天先看这两件事' : '当天先看这两件事')
+  ? (props.currentDate ? '今天先做什么' : '当天先做什么')
   : props.result.period === 'month'
-    ? '本月先看这两件事'
-    : '今年先看这两件事');
+    ? '本月先做什么'
+    : '今年先做什么');
 
 const trendTitle = computed(() => props.result.period === 'today'
   ? '未来7天节奏'

@@ -137,7 +137,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v30');
+      expect(serialized).toContain('2026-08-26-v34');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -188,9 +188,11 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(category.basis).not.toMatch(/\d+个(?:时辰|较顺|宜缓)/);
     });
     expectContentRichCategories(result);
-    expect(result.evidenceInsights).toHaveLength(4);
-    expect(result.evidenceInsights[0]?.title).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}.*优先/);
-    expect(result.evidenceInsights[0]?.title).not.toMatch(/\d+顺|\d+平|\d+缓/);
+    expect(result.evidenceInsights).toHaveLength(3);
+    expect(result.evidenceInsights[0]?.key).toBe('opportunity');
+    expect(result.evidenceInsights[0]?.title).toMatch(/为何是主线/);
+    expect(result.evidenceInsights[0]?.title).not.toMatch(/\d{2}:\d{2}|\d+顺|\d+平|\d+缓/);
+    expect(result.actionTips[0]?.text).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
     result.evidenceInsights.forEach((insight) => {
       expect(insight.title.length).toBeGreaterThan(4);
       expect(insight.detail.length).toBeGreaterThan(12);
@@ -258,6 +260,21 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
     expectToneAndGradeConsistent(result);
   });
+
+  it('查看当前日月时，分项不再推荐已经过去的时段或日期', () => {
+    const runtime = new Date(2026, 7, 26, 12, 20, 0, 0);
+    const today = generateDailyFortune(runtime, profile, 'today', runtime);
+    today.categories.forEach((category) => {
+      const hours = [...`${category.detail}${category.basis}`.matchAll(/(\d{2}):\d{2}—/g)].map((match) => Number(match[1]));
+      hours.forEach((hour) => expect(hour).toBeGreaterThanOrEqual(11));
+    });
+
+    const month = generateDailyFortune(runtime, profile, 'month', runtime);
+    month.categories.forEach((category) => {
+      const days = [...`${category.detail}${category.basis}`.matchAll(/8月(\d{1,2})日/g)].map((match) => Number(match[1]));
+      days.forEach((day) => expect(day).toBeGreaterThanOrEqual(26));
+    });
+  }, 15_000);
 
   it('年运完整计算全年阶段，并向用户换算为公历范围', () => {
     const result = generateDailyFortune(new Date(2025, 6, 1, 12, 0, 0, 0), profile, 'year');

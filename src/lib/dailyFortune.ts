@@ -319,7 +319,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v30';
+const dailyFortuneCacheVersion = '2026-08-26-v34';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1446,6 +1446,23 @@ function aggregatePeriodCategories(
   });
 }
 
+function updateAggregateWindowsForRemainingPeriod(
+  aggregates: CategoryAggregate[],
+  analyses: ChartAnalysis[],
+) {
+  aggregates.forEach((aggregate) => {
+    const candidates = analyses.map((analysis) => ({
+      analysis,
+      evaluation: analysis.categories.find((item) => item.definition.key === aggregate.evaluation.definition.key),
+    })).filter((item): item is { analysis: ChartAnalysis; evaluation: CategoryEvaluation } => Boolean(item.evaluation));
+    aggregate.bestAnalysis = [...candidates]
+      .sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation) || compareAnalyses(left.analysis, right.analysis))[0]?.analysis;
+    const worst = [...candidates]
+      .sort((left, right) => categorySignalScore(left.evaluation) - categorySignalScore(right.evaluation) || left.analysis.date.getTime() - right.analysis.date.getTime())[0];
+    aggregate.worstAnalysis = worst?.evaluation.tone === 'cautious' ? worst.analysis : undefined;
+  });
+}
+
 function fortunePeriodLead(period: FortunePeriod, isCurrentPeriod: boolean) {
   if (period === 'today') return isCurrentPeriod ? '今天' : '这一天';
   if (period === 'month') return isCurrentPeriod ? '本月' : '这个月';
@@ -1499,44 +1516,76 @@ function buildPersonalJudgmentInsight(
 ) {
   if (!personal) return undefined;
   const personalAlignment = aggregates.reduce((total, item) => total + item.evaluation.personalAlignment, 0) / Math.max(1, aggregates.length);
-  const tone: DailyFortuneTone = personalAlignment >= .18
+  const primaryAlignment = primary.evaluation.personalAlignment;
+  const primaryRelation = primary.evaluation.personalRelation;
+  const tone: DailyFortuneTone = primaryRelation === 'support'
     ? 'favorable'
-    : personalAlignment <= -.18 ? 'cautious' : 'balanced';
+    : primaryRelation === 'review'
+      ? 'cautious'
+      : primaryAlignment >= .18
+        ? 'favorable'
+        : primaryAlignment <= -.18
+          ? 'cautious'
+          : personalAlignment >= .22
+            ? 'favorable'
+            : personalAlignment <= -.22 ? 'cautious' : 'balanced';
   const focusNarratives = [...new Set(aggregates.flatMap((item) => item.evaluation.personalFocus))]
     .map((label) => personalFocusNarratives[label] || label)
     .slice(0, 2);
-  const supportedLabels = aggregates
+  const supportedItems = aggregates
     .filter((item) => item.evaluation.personalRelation === 'support')
-    .map((item) => item.category.label)
-    .slice(0, 2);
-  const reviewLabels = aggregates
+    .sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation));
+  const reviewItems = aggregates
     .filter((item) => item.evaluation.personalRelation === 'review')
-    .map((item) => item.category.label)
-    .slice(0, 2);
+    .sort((left, right) => categorySignalScore(left.evaluation) - categorySignalScore(right.evaluation));
+  const supportItem = primaryRelation === 'support' || (primaryRelation === 'neutral' && primaryAlignment >= .18)
+    ? primary
+    : supportedItems[0];
+  const reviewItem = primaryRelation === 'review' || (primaryRelation === 'neutral' && primaryAlignment <= -.18)
+    ? primary
+    : reviewItems[0];
   const focusSentence = focusNarratives.length
-    ? `近期更容易被${focusNarratives.join('、')}牵动。`
-    : '当前个人节奏没有单一主题占据主导。';
+    ? `本期个人议题集中在${focusNarratives.join('、')}。`
+    : '个人命盘没有显示需要额外放大的单一议题。';
+  const supportAdvice = supportItem
+    ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
+      ? `${supportItem.category.label}的个人承接较好，可以适当主动；${supportItem.evaluation.definition.check}一旦变化就停止加量。`
+      : `${supportItem.category.label}是个人层面的借力点；主线卡住时，先从这里恢复进度，不必硬推${primary.category.label}。`
+    : '';
+  const reviewAdvice = reviewItem
+    ? `${reviewItem.category.label}更耗承接力；${reviewItem.evaluation.definition.check}尚未确认清楚时，只保留准备动作。`
+    : '';
   if (tone === 'favorable') {
+    const primarySupported = primaryRelation === 'support' || (primaryRelation === 'neutral' && primaryAlignment >= .18);
     return {
       tone,
-      title: '个人承接与主线较合',
-      clause: `结合个人承接，${primary.category.label}更容易形成连续进展。`,
-      detail: `${focusSentence}${supportedLabels.length ? `${supportedLabels.join('、')}更容易借力；` : ''}${reviewLabels.length ? `${reviewLabels.join('、')}仍要先确认条件。` : '主线可以适当主动，但不必同时扩大所有事项。'}`,
+      title: primarySupported ? '主线也得到个人节奏支持' : '个人层面另有借力点',
+      clause: primarySupported
+        ? `个人层面也支持${primary.category.label}，可比其他事项多分配一档精力。`
+        : `个人层面的助力更多落在${supportItem?.category.label || primary.category.label}，可用它配合主线。`,
+      detail: `${focusSentence}${supportAdvice}${reviewAdvice || `主线可以适当主动，但只在完成${primary.evaluation.definition.outcome}后再加量。`}`,
     };
   }
   if (tone === 'cautious') {
+    const primaryNeedsReview = primaryRelation === 'review' || (primaryRelation === 'neutral' && primaryAlignment <= -.18);
     return {
       tone,
-      title: '个人承接需要留出余量',
-      clause: '个人承接与当前节奏有落差，任务量应比表面机会更保守。',
-      detail: `${focusSentence}${reviewLabels.length ? `${reviewLabels.join('、')}更容易消耗精力；` : ''}先控制投入，再观察${caution.category.label}是否仍有反复。`,
+      title: primaryNeedsReview ? '主线可用，但个人承接偏紧' : '个人层面先处理消耗点',
+      clause: primaryNeedsReview
+        ? `整体仍以${primary.category.label}为主，但个人层面不宜加量，先确认${primary.evaluation.definition.check}。`
+        : `个人层面的消耗更多落在${reviewItem?.category.label || caution.category.label}，这项先收窄范围。`,
+      detail: `${focusSentence}${reviewAdvice}${supportAdvice || `先控制投入，再观察${caution.category.label}的牵制是否减轻。`}`,
     };
   }
   return {
     tone,
-    title: '个人节奏以真实反馈为准',
-    clause: '当前案例没有明显加减，推进后要根据真实反馈及时调整。',
-    detail: `${focusSentence}${supportedLabels.length ? `${supportedLabels.join('、')}可适量主动；` : ''}${reviewLabels.length ? `${reviewLabels.join('、')}保留调整空间。` : '先按整体主线推进，再根据实际感受增减强度。'}`,
+    title: supportItem || reviewItem ? '个人层面有进有守' : '个人层面没有额外加减',
+    clause: supportItem
+      ? `个人层面可借${supportItem.category.label}配合主线${reviewItem ? `，${reviewItem.category.label}则先控制投入` : ''}。`
+      : reviewItem
+        ? `个人层面暂不放大${reviewItem.category.label}，其余事项按整体主线推进。`
+        : '个人层面没有额外助力或牵制，按整体主线推进即可。',
+    detail: `${focusSentence}${supportAdvice}${reviewAdvice || `以${primary.evaluation.definition.outcome}判断主线是否值得继续。`}`,
   };
 }
 
@@ -1590,23 +1639,8 @@ function buildFortuneMasterJudgment(
   return { posture, primary, secondary, caution, bestAnalysis, cautionAnalysis, personalInsight, mixed, copy };
 }
 
-function buildEvidenceInsights(
-  period: FortunePeriod,
-  judgment: FortuneMasterJudgment,
-): DailyFortuneEvidenceInsight[] {
-  const bestWindow = judgment.bestAnalysis ? formatAnalysisWindow(judgment.bestAnalysis, period) : '';
-  const cautiousWindow = judgment.cautionAnalysis ? formatAnalysisWindow(judgment.cautionAnalysis, period) : '';
-  const primaryShortLabel = judgment.primary.evaluation.definition.shortLabel;
-  const secondaryShortLabel = judgment.secondary.evaluation.definition.shortLabel;
-  const insights: DailyFortuneEvidenceInsight[] = [{
-    key: 'distribution',
-    label: '节奏安排',
-    title: bestWindow ? `${bestWindow}优先推进${primaryShortLabel}` : `先沿${primaryShortLabel}主线小步推进`,
-    detail: cautiousWindow
-      ? `${secondaryShortLabel}可作配合；${cautiousWindow}更适合复核${judgment.caution.evaluation.definition.check}，不在信息不足时做最终决定。`
-      : `${secondaryShortLabel}可作配合，其余事项仍应预留核对和调整空间。`,
-    tone: judgment.bestAnalysis?.tone || judgment.primary.category.tone,
-  }];
+function buildEvidenceInsights(judgment: FortuneMasterJudgment): DailyFortuneEvidenceInsight[] {
+  const insights: DailyFortuneEvidenceInsight[] = [];
 
   insights.push({
     key: 'opportunity',
@@ -1996,6 +2030,7 @@ function calculateDailyFortune(
       ? displaySampleAnalyses.filter((analysis) => analysis.date.getHours() >= currentShichenCenterHour(runtimeNow.getHours()))
       : displaySampleAnalyses
     : windowAnalyses;
+  if (isCurrentPeriod) updateAggregateWindowsForRemainingPeriod(aggregates, judgmentAnalyses);
   const judgment = buildFortuneMasterJudgment(
     aggregates,
     judgmentAnalyses,
@@ -2018,11 +2053,12 @@ function calculateDailyFortune(
       ...aggregate.category,
       status: categoryStatusFromJudgment(aggregate, judgment),
       detail: categoryDetailFromJudgment(aggregate, judgment, period),
+      basis: categoryBasis(aggregate.evaluation, period, aggregate.cautiousCount, aggregate.worstAnalysis),
     };
   });
   const categories = aggregates.map((item) => item.category);
   const title = judgment.copy.title;
-  const evidenceInsights = buildEvidenceInsights(period, judgment);
+  const evidenceInsights = buildEvidenceInsights(judgment);
   const summary = judgment.copy.summary;
   const readyAggregate = judgment.primary;
   const slowAggregate = judgment.caution;
