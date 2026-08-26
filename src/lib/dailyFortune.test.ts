@@ -370,7 +370,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(JSON.stringify(result)).not.toContain('先先');
       expect(result.overview.label).toMatch(/主线|集中发力|次序|状态|基本盘|积累|卡点/);
       expect(result.summary).toMatch(/整体|局面|当前/);
-      expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|扩张|失误|积累|蓄势|基础|卡点|牵制|解决/);
+      expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|状态|稳住|扩张|失误|积累|蓄势|基础|卡点|牵制|解决/);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
       expect(result.actionTips[0]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'opportunity')?.detail);
       expect(result.actionTips[1]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'caution')?.detail);
