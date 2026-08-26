@@ -368,7 +368,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v46';
+const dailyFortuneCacheVersion = '2026-08-26-v48';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2076,14 +2076,12 @@ function buildSevenDayTrend(now: Date, personal: PersonalContext | null): DailyF
   const start = createReferenceDate(now);
   const usage = createTrendPhraseUsage();
   return Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(start, index);
+    const date = addDays(start, index + 1);
     const analysis = analyzeChart(date, 'day', personal);
     const trend = trendSummary([analysis], usage);
     const label = index === 0
-      ? '今天'
-      : index === 1
-        ? '明天'
-        : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date);
+      ? '明天'
+      : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date);
     return {
       dateKey: analysis.dateKey,
       label,

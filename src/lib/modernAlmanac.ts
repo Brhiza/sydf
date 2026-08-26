@@ -68,6 +68,10 @@ interface ModernAlmanacRule {
   cautiousDetail: string;
 }
 
+interface RankedModernAlmanacItem extends ModernAlmanacItem {
+  priority: number;
+}
+
 const modernAlmanacRules: ModernAlmanacRule[] = [
   {
     key: 'routine', theme: 'routine', priority: 110,
@@ -221,7 +225,7 @@ function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function buildToneItems(values: string[], tone: ModernAlmanacTone) {
+function buildToneItems(values: string[], tone: ModernAlmanacTone): RankedModernAlmanacItem[] {
   const remaining = new Set(unique(values).filter((item) => item !== '诸事不宜'));
   const items = modernAlmanacRules.flatMap((rule) => {
     const matched = rule.terms.filter((term) => remaining.has(term));
@@ -252,6 +256,57 @@ function buildToneItems(values: string[], tone: ModernAlmanacTone) {
   }
 
   return items.sort((left, right) => right.priority - left.priority || left.key.localeCompare(right.key));
+}
+
+function mergeItemPair(
+  items: RankedModernAlmanacItem[],
+  firstKey: string,
+  secondKey: string,
+  title: string,
+  detail: string,
+) {
+  const first = items.find((item) => item.key === firstKey);
+  const second = items.find((item) => item.key === secondKey);
+  if (!first || !second) return items;
+  const merged: RankedModernAlmanacItem = {
+    ...first,
+    title,
+    detail,
+    traditional: unique([...first.traditional, ...second.traditional]),
+    priority: Math.max(first.priority, second.priority),
+  };
+  return [...items.filter((item) => item.key !== firstKey && item.key !== secondKey), merged]
+    .sort((left, right) => right.priority - left.priority || left.key.localeCompare(right.key));
+}
+
+function mergeRelatedItems(items: RankedModernAlmanacItem[], tone: ModernAlmanacTone) {
+  let merged = mergeItemPair(
+    items,
+    'relationship',
+    'family-plan',
+    tone === 'recommended' ? '关系与家庭计划' : '关系与家庭计划先沟通',
+    tone === 'recommended'
+      ? '适合见家人、安排重要会面，或讨论关系、生育、育儿与长期照护；先确认参与人和下一步。'
+      : '订婚、结婚、分居、生育或长期照护等计划，先确认双方意愿、健康与现实条件，再约定下一步。',
+  );
+  merged = mergeItemPair(
+    merged,
+    'home',
+    'construction',
+    tone === 'recommended' ? '居住调整、维修与施工' : '居住改动与施工先核实',
+    tone === 'recommended'
+      ? '适合搬家、布置住处、安装维修或推进已经规划的施工；开始前确认物业或许可、人员、天气和现场安全。'
+      : '非必要搬动、改造和大型施工可延后；必须处理时先确认方案、人员、许可和现场安全，必要抢修不等待择日。',
+  );
+  return mergeItemPair(
+    merged,
+    'ritual',
+    'memorial',
+    tone === 'recommended' ? '纪念、静心与丧葬事务' : '纪念与丧葬事务先协调',
+    tone === 'recommended'
+      ? '如有祭扫、纪念或丧葬安排，先协调家属、服务机构、当地规定与习俗；个人静心和表达祝愿可从简进行。'
+      : '大型仪式和非紧急流程可先缓；现实丧葬需要先协调家属、机构和当地规定，不因日期延误。',
+  );
 }
 
 function hourPeriodLabel(range: string) {
@@ -360,7 +415,7 @@ function createMoon(day: AlmanacDayCandidate): ModernAlmanacMoon | null {
 export function modernizeAlmanacDay(day: AlmanacDayCandidate): ModernAlmanacResult {
   const traditionalRecommended = unique(day.recommends);
   const traditionalCautious = unique(day.avoids);
-  const cautiousItems = buildToneItems(traditionalCautious, 'cautious');
+  const cautiousItems = mergeRelatedItems(buildToneItems(traditionalCautious, 'cautious'), 'cautious');
   if (traditionalRecommended.includes('诸事不宜') || traditionalCautious.includes('诸事不宜')) {
     cautiousItems.unshift({
       key: 'major-decisions',
@@ -372,7 +427,7 @@ export function modernizeAlmanacDay(day: AlmanacDayCandidate): ModernAlmanacResu
     });
   }
   const cautiousKeys = new Set(cautiousItems.map((item) => item.key));
-  const recommendedItems = buildToneItems(traditionalRecommended, 'recommended')
+  const recommendedItems = mergeRelatedItems(buildToneItems(traditionalRecommended, 'recommended'), 'recommended')
     .filter((item) => !cautiousKeys.has(item.key));
   const officer = day.dayOfficer.replace(/日$/, '');
   const rhythm = dayOfficerRhythms[officer] || {

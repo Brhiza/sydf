@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v46');
+      expect(serialized).toContain('2026-08-26-v48');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -247,8 +247,10 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(window.coverage).toMatch(/适合|可安排|整理|复核/);
     });
     expect(result.periodTrend).toHaveLength(7);
-    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-08', label: '今天', dateLabel: '8/8' });
-    expect(result.periodTrend[1]?.label).toBe('明天');
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-09', label: '明天', dateLabel: '8/9' });
+    expect(result.periodTrend[1]).toMatchObject({ dateKey: '2025-08-10', label: '周日', dateLabel: '8/10' });
+    expect(result.periodTrend.at(-1)).toMatchObject({ dateKey: '2025-08-15', dateLabel: '8/15' });
+    expect(result.periodTrend.every((item) => item.dateKey > result.dateKey)).toBe(true);
     expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(7);
     expectContentRichTrend(result);
     expectToneAndGradeConsistent(result);

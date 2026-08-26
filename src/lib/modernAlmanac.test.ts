@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalAlmanac } from './almanac';
-import { getModernAlmanacHours, getModernAlmanacPersonalNotes } from './modernAlmanac';
+import { getModernAlmanacForDate, getModernAlmanacHours, getModernAlmanacPersonalNotes } from './modernAlmanac';
 
 describe('现代黄历时段', () => {
   it('只向普通用户推荐可实际使用的日间和晚间时段', () => {
@@ -55,5 +55,21 @@ describe('现代黄历时段', () => {
     expect(notes.some((note) => /签约|协作|沟通|交付/.test(note))).toBe(true);
     expect(notes.every((note) => !note.includes('没有明显冲突') && !note.includes('可以按计划安排'))).toBe(true);
     expect(notes.every((note) => !/候选日|地支|年支|日支|需谨慎/.test(note))).toBe(true);
+  });
+
+  it('同一天的关系与家庭计划合并展示，不重复占用两行', () => {
+    const result = getModernAlmanacForDate('2026-08-26');
+    expect(result).toBeTruthy();
+    const relationshipItems = result!.recommended.filter((item) => item.theme === 'relationship');
+    expect(relationshipItems).toHaveLength(1);
+    expect(relationshipItems[0]).toMatchObject({ title: '关系与家庭计划' });
+    expect(relationshipItems[0]?.detail).toMatch(/关系、生育、育儿与长期照护/);
+    expect(relationshipItems[0]?.traditional).toContain('求嗣');
+    const memorialItems = result!.recommended.filter((item) => item.key === 'ritual' || item.key === 'memorial');
+    expect(memorialItems).toHaveLength(1);
+    expect(memorialItems[0]?.detail).toMatch(/家属、服务机构、当地规定与习俗/);
+    const homeItems = result!.cautious.filter((item) => item.key === 'home' || item.key === 'construction');
+    expect(homeItems).toHaveLength(1);
+    expect(homeItems[0]?.detail).toMatch(/方案、人员、许可和现场安全/);
   });
 });
