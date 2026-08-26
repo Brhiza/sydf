@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v65';
+const dailyFortuneCacheVersion = '2026-08-26-v66';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1783,7 +1783,9 @@ function buildFortuneMasterJudgment(
   const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal);
   const primaryReason = primary.evaluation.definition.masterReason;
   const cautionReason = caution.evaluation.definition.masterRiskReason.replace(/^它/, caution.category.label);
-  const hasCaution = caution.cautiousCount > 0 && caution.category.key !== primary.category.key;
+  const hasCaution = caution.cautiousCount > 0
+    && caution.category.key !== primary.category.key
+    && Boolean(cautionAnalysis);
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
@@ -1886,7 +1888,10 @@ function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortuneP
     tone: judgment.primary.category.tone,
   });
 
-  if (judgment.caution.cautiousCount > 0 && judgment.caution.category.key !== judgment.primary.category.key) {
+  const hasExplicitCaution = judgment.caution.cautiousCount > 0
+    && judgment.caution.category.key !== judgment.primary.category.key
+    && Boolean(judgment.cautionAnalysis);
+  if (hasExplicitCaution) {
     insights.push({
       key: 'caution',
       sourceKey: judgment.caution.category.key,
@@ -2489,7 +2494,8 @@ function calculateDailyFortune(
   const readyAggregate = judgment.primary;
   const readySource = readyAggregate?.category || categories[0];
   const hasExplicitCaution = judgment.caution.cautiousCount > 0
-    && judgment.caution.category.key !== judgment.primary.category.key;
+    && judgment.caution.category.key !== judgment.primary.category.key
+    && Boolean(judgment.cautionAnalysis);
   const followUpSource = hasExplicitCaution ? judgment.caution.category : judgment.secondary.category;
   const actionTips: DailyFortuneActionTip[] = [
     {
