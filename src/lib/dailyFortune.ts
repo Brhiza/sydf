@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-27-v87';
+const dailyFortuneCacheVersion = '2026-08-27-v89';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1813,6 +1813,15 @@ const secondarySummaryRoles: Record<string, string> = {
   wellbeing: '身心状态是主线能否持续的底层条件，恢复不足会让其他判断同时失真',
 };
 
+const primaryTitleOutcomes: Record<string, string> = {
+  career: '可验收结果',
+  study: '可检验成果',
+  wealth: '闭合记录',
+  relationship: '一致结论',
+  travel: '可执行行程',
+  wellbeing: '稳定承载',
+};
+
 const periodPrimaryReasons: Record<FortunePeriod, Record<string, string>> = {
   today: {
     career: '工作能否顺势，可以由当天任务是否同时具备负责人、交付物和验收口径直接验证，忙碌本身不算成果。',
@@ -1914,6 +1923,8 @@ function buildFortuneMasterJudgment(
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
     primaryShortLabel: primary.evaluation.definition.shortLabel,
+    primaryOutcome: primaryTitleOutcomes[primary.category.key] || '明确结果',
+    periodUnit: period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段',
     secondaryRole: secondarySummaryRoles[secondary.category.key]
       || `${secondary.category.label}负责承接主线结果，前序条件变化会直接带来返工`,
     cautionLabel: hasCaution ? caution.category.label : '',
@@ -1936,13 +1947,13 @@ function categoryDistributionEvidence(aggregate: CategoryAggregate, period: Fort
   return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}里，${aggregate.category.label}有${aggregate.favorableCount}${measure}顺势、${aggregate.cautiousCount}${measure}需要收紧，其余${neutralCount}${measure}平稳。`;
 }
 
-const primaryEvidenceReasons: Record<string, string> = {
-  career: '工作优势可以通过负责人、交付标准和验收节点交叉验证，不只依赖某一个顺势窗口。',
-  study: '学习是否有效可以通过复述、练习和输出检验，阅读时长本身不等于掌握。',
-  wealth: '钱款是否可处理，可以由金额、责任、付款节点和记录完整度共同判断。',
-  relationship: '沟通是否有效，可以从双方对事实、分歧和下一步是否一致直接看见。',
-  travel: '行程能否落地，取决于路线、返程余量和备选方案是否同时成立。',
-  wellbeing: '恢复是否有效，可以由完整休息后的睡眠感受、食欲和专注度连续验证。',
+const topicEvidenceChecks: Record<string, string> = {
+  career: '任务能否被明确接手，完成内容能否按同一标准验收',
+  study: '输入能否被自己讲清，并在练习或输出中正确应用',
+  wealth: '收支是否留有完整凭证，合作义务能否按约定节点结清',
+  relationship: '双方是否在同一事实基础上处理同一分歧',
+  travel: '出发、转场和回程能否在预留时间内完成',
+  wellbeing: '休息后注意力与食欲是否持续回升，而不是短时兴奋',
 };
 
 function primaryComparisonEvidence(judgment: FortuneMasterJudgment) {
@@ -1956,31 +1967,33 @@ function primaryComparisonEvidence(judgment: FortuneMasterJudgment) {
     : difference > 0
       ? '顺势窗口只略多，优势存在但并不连续。'
       : difference === 0
-        ? `顺势与收紧相抵，主要可用空间来自${neutralCount}个平稳窗口。`
-        : '收紧窗口反而更多，它成为主线是因为相较其他主题仍更容易判断和控制。';
+        ? `顺势与收紧相抵，${neutralCount}个平稳窗口更适合按明确标准逐步验证，不适合追求一次突破。`
+        : '收紧窗口多于顺势窗口，这不是加量信号；它的价值在于问题边界清楚，可以先完成一次可验证的修正。';
+  const primaryCheck = topicEvidenceChecks[primary.category.key] || `${primary.category.label}是否形成明确结果`;
+  const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
   const comparison = scoreGap >= .38
-    ? `综合基础盘与各阶段强度后，${primary.evaluation.definition.shortLabel}和${secondary.evaluation.definition.shortLabel}之间仍有清楚差距，资源不必平均分配。`
+    ? `${primary.evaluation.definition.shortLabel}的支持更集中，主要看${primaryCheck}；${secondary.evaluation.definition.shortLabel}的信号较分散，只补充观察${secondaryCheck}。`
     : scoreGap >= .14
-      ? `综合基础盘与各阶段强度后，${primary.evaluation.definition.shortLabel}只比${secondary.evaluation.definition.shortLabel}略稳，主线代表先分配注意力，第二主题仍需保留。`
-      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}非常接近，列为主线只用于排定先后，不代表第二主题失效。`;
-  return `${distribution}${comparison}${primaryEvidenceReasons[primary.category.key] || ''}`;
+      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}；前者看${primaryCheck}，后者看${secondaryCheck}，两项都成立才适合持续投入。`
+      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}接近；需要同时确认两件事：一是${primaryCheck}，二是${secondaryCheck}。单看一项会高估局面的可用程度。`;
+  return `${distribution}${comparison}`;
 }
 
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference > 0) return `总体仍有可用空间，但${aggregate.cautiousCount}个收紧窗口一旦踩中，就可能打断前后衔接。`;
-  if (difference === 0) return '节奏容易来回切换，单次顺利不能作为后续继续加码的依据。';
-  return '收紧窗口已经多于顺势窗口，风险会在不同阶段重复出现，不是偶发单点。';
+  if (difference > 0) return '整体仍有优势，但风险窗口会直接打断前后衔接，不能用总体偏顺掩盖具体节点。';
+  if (difference === 0) return '顺势与收紧数量相同，结果高度依赖执行条件；单次顺利不能代表后续。';
+  return '同类风险在多个阶段重现，说明关键条件反复失守，而不是一次偶发。';
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
   const consequences: Record<string, string> = {
-    career: '结果通常表现为任务反复、等待交接，或做完后仍无法验收。',
-    study: '结果通常表现为资料越积越多，却没有可复述、可练习或可检验的产出。',
-    wealth: '结果通常表现为补单、追款、重复核算，或后续责任争议。',
-    relationship: '结果通常表现为同一件事反复解释，行动仍建立在不同前提上。',
-    travel: '结果通常表现为转场时间被压缩、误点，或后续事项被连带推迟。',
-    wellbeing: '结果通常表现为短时仍能推进，随后多项安排同时降速或返工。',
+    career: '责任或验收口径一旦变化，前序任务会等待交接，已经完成的内容也可能重新返工。',
+    study: '注意力被切碎后，资料会持续增加，复述、练习和输出却难以完成。',
+    wealth: '金额或责任未闭合，会继续演变为补单、追款、重复核算或后续责任争议。',
+    relationship: '共同事实没有建立，同一件事就会反复解释，后续行动仍基于不同前提。',
+    travel: '时间余量被压缩后，转场、误点和后续事项会形成连锁延误。',
+    wellbeing: '承受量被高估时，短时仍能推进，随后多项安排会一起降速或返工。',
   };
   return consequences[caution.category.key] || `${caution.category.label}的条件未确认前，相关安排容易反复。`;
 }

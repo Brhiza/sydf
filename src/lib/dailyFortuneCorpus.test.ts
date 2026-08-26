@@ -29,6 +29,8 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     lead: '今天',
     primaryLabel: '工作事业',
     primaryShortLabel: '工作',
+    primaryOutcome: '可验收结果',
+    periodUnit: '时段',
     secondaryRole: '学习负责把本期经验沉淀成可复用的方法，输出比继续收集更能检验成果',
     cautionLabel: '金钱合作',
     bestWindow: '上午 09:00—10:59',
@@ -51,7 +53,7 @@ describe('运势整体语料', () => {
   });
 
   it('不同姿态和语料变体不再产生低信息表达', () => {
-    const genericPattern = /同一偏差连续出现两次|保持弹性|先留后手|不宜硬撑|先减负再判断|先止损|局面自然会顺|需要多看一步|根据实际进展调整|留有收尾空间|重要决定.{0,4}多核对一次|不宜同步冒进|边界稳定后再考虑扩大范围|完成当前一步后再衔接其他安排|主线完成前不新开第二项|完成一次核对后再决定下一步|连续稳定后再提高强度|先保持一段稳定投入，不追求一次做满|完成当前一步后转去处理卡点|本期不追加新的承诺|是较好的落点|留出复核余地|气势较整|平顺而不张扬|培土蓄势|宜稳中求进|稳步积累|作为配合|保持连续|逐步接上|维持稳定投入|暂作配合|只做必要维护|不增加变量|再承接已有进展|可以承接，但不抢占主线资源/;
+    const genericPattern = /同一偏差连续出现两次|保持弹性|先留后手|不宜硬撑|先减负再判断|先止损|局面自然会顺|需要多看一步|根据实际进展调整|留有收尾空间|重要决定.{0,4}多核对一次|不宜同步冒进|边界稳定后再考虑扩大范围|完成当前一步后再衔接其他安排|主线完成前不新开第二项|完成一次核对后再决定下一步|连续稳定后再提高强度|先保持一段稳定投入，不追求一次做满|完成当前一步后转去处理卡点|本期不追加新的承诺|是较好的落点|留出复核余地|气势较整|平顺而不张扬|培土蓄势|宜稳中求进|稳步积累|先处理卡点，以|先养住状态|宜先整顿身心|宜收不宜放|维持节奏|形成可重复的做法|单点突破信号|作为配合|保持连续|逐步接上|维持稳定投入|暂作配合|只做必要维护|不增加变量|再承接已有进展|可以承接，但不抢占主线资源/;
     postures.forEach((posture) => {
       Array.from({ length: 80 }, (_, index) => renderFortuneReading(posture, context(cautionActions[index % cautionActions.length]), `${posture}-${index}`))
         .forEach((result) => {
@@ -62,6 +64,15 @@ describe('运势整体语料', () => {
           expect(result.opportunity).toMatch(/^上午 09:00—10:59，/);
         });
     });
+  });
+
+  it('标题直接说明周期单位和可验证结果', () => {
+    const results = Array.from({ length: 80 }, (_, index) => (
+      renderFortuneReading('cultivate', context(cautionActions[index % cautionActions.length]), `cultivate-title-${index}`)
+    ));
+    expect(results.some((result) => result.title.includes('多数时段平稳'))).toBe(true);
+    expect(results.some((result) => result.title.includes('能否形成可验收结果'))).toBe(true);
+    results.forEach((result) => expect(result.title).not.toMatch(/多数阶段平稳|突破信号不集中/));
   });
 
   it('首要行动只讲主线，不提前复述第二主题', () => {
