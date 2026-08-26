@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v94');
+      expect(serialized).toContain('2026-08-27-v95');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -362,6 +362,39 @@ describe('今日、月运、年运统一周期算法', () => {
     Object.keys(todayDetails).forEach((key) => {
       expect(monthDetails[key]).not.toBe(todayDetails[key]);
       expect(yearDetails[key]).not.toBe(monthDetails[key]);
+    });
+  }, 15_000);
+
+  it('月运和年运的两张行动卡都使用对应周期的动作', () => {
+    const date = new Date(2026, 7, 27, 12, 0, 0, 0);
+    const results = [
+      generateDailyFortune(date, profile, 'month', date),
+      generateDailyFortune(date, profile, 'year', date),
+    ];
+    const actionMarkers: Record<'month' | 'year', Record<string, RegExp>> = {
+      month: {
+        career: /本月在手任务|本月任务表/,
+        study: /本月核心主题|本月练习与输出/,
+        wealth: /本月资金表|资金表中的金额/,
+        relationship: /本月反复出现|先前共识与最近行动/,
+        travel: /本月已确定的外出|近期行程/,
+        wellbeing: /本月睡眠、进食和注意力|近期睡眠、食欲与注意力/,
+      },
+      year: {
+        career: /全年重复承担的职责|各阶段的接手人/,
+        study: /年度核心能力|新问题检验既有方法/,
+        wealth: /全年资金底表|低收入月份重算预算/,
+        relationship: /长期沟通约定|不同阶段的同类争议/,
+        travel: /全年常用路线|反复延误的路线与时段/,
+        wellbeing: /全年最低恢复基线|忙闲阶段的睡眠和注意力/,
+      },
+    };
+
+    results.forEach((result) => {
+      result.actionTips.forEach((tip) => {
+        expect(tip.text).toMatch(actionMarkers[result.period as 'month' | 'year'][tip.sourceKey]);
+      });
+      expect(result.actionTips.map((tip) => tip.text).join('')).not.toMatch(/集中完成一段阅读|安排一次不赶时间的沟通|集中完成一次对账|只完成一个可验收成果/);
     });
   }, 15_000);
 

@@ -424,6 +424,79 @@ const periodCategoryCautionPatterns: Record<Exclude<FortunePeriod, 'today'>, Rec
   },
 };
 
+interface PeriodActionGuidance {
+  action: string;
+  boundary: string;
+  cautionAction: string;
+}
+
+const periodActionGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodActionGuidance>> = {
+  month: {
+    career: {
+      action: '先盘点本月在手任务，按负责人员、截止节点和交付口径分成已就绪与待补信息两组',
+      boundary: '临时事项进来时，先决定它替换哪项原计划，不直接叠加到现有工作量',
+      cautionAction: '复核本月任务表；找不到接手人或验收依据的事项先移出日程。',
+    },
+    study: {
+      action: '选一个本月核心主题，安排多轮讲解、练习和成品输出，并记录每轮卡住的位置',
+      boundary: '同一知识点仍不能独立运用时，先回到原内容，不追加课程或题量',
+      cautionAction: '回看本月练习与输出；错误仍集中在同一要点时，先停新资料并重新讲清原理。',
+    },
+    wealth: {
+      action: '先做一张本月资金表，把已知收入、固定开销、待付项目和合作义务放到同一时间轴',
+      boundary: '余额在某个付款点无法解释时，先取消非必要支付',
+      cautionAction: '逐笔对照资金表中的金额、到期日和责任方；任一项无法追溯就暂停付款。',
+    },
+    relationship: {
+      action: '挑出本月反复出现的一处沟通问题，分开写下已知事实、双方理解和已经同意的下一步',
+      boundary: '实际行动偏离原共识时，先查哪条信息发生变化，不把话题扩到其他矛盾',
+      cautionAction: '对照先前共识与最近行动；先确认变化发生在哪一步，再讨论双方立场。',
+    },
+    travel: {
+      action: '汇总本月已确定的外出，按方向和时间合并，并标出每次换乘及回程的备用时长',
+      boundary: '前一段延误会压缩回程时，优先取消途中低优先级事项',
+      cautionAction: '重新计算近期行程的换乘和回程余量；连续受压的路线直接减少一站。',
+    },
+    wellbeing: {
+      action: '记录本月睡眠、进食和注意力变化，找出哪些安排会明显拉长恢复时间',
+      boundary: '休息之后仍无法连续集中时，降低随后几天的任务密度',
+      cautionAction: '对照近期睡眠、食欲与注意力；恢复没有起色就减少接下来的任务。',
+    },
+  },
+  year: {
+    career: {
+      action: '盘点全年重复承担的职责，找出返工最多的一段，改成固定的交接步骤和验收凭据',
+      boundary: '新流程还没在另一项任务中走通前，不扩大年度承诺',
+      cautionAction: '检查各阶段的接手人、交付物与验收依据；同类返工持续出现时，先修流程再接新职责。',
+    },
+    study: {
+      action: '选定一项年度核心能力，把学习、练习、成品和复盘排成可跨阶段重复的循环',
+      boundary: '方法尚不能解决陌生问题时，不用课时或收藏量判断进度',
+      cautionAction: '拿一个新问题检验既有方法；不能独立解决就收拢学习方向，不再扩充课程。',
+    },
+    wealth: {
+      action: '建立全年资金底表，分开固定成本、可调整支出、长期付款与预留资金',
+      boundary: '预算还覆盖不了收入偏低的月份时，不增加持续性支出',
+      cautionAction: '用低收入月份重算预算；固定成本和长期付款无法同时覆盖时，先削减新增投入。',
+    },
+    relationship: {
+      action: '建立一套长期沟通约定，明确事实怎么核对、分歧怎么表达、承诺怎么确认',
+      boundary: '相似误解仍换场景出现时，先修改约定，不用一次道歉视为解决',
+      cautionAction: '抽查不同阶段的同类争议；若仍从事实确认处开始错位，先重建沟通规则。',
+    },
+    travel: {
+      action: '复盘全年常用路线与高频延误点，为长途和多段行程分别准备固定替代路线',
+      boundary: '关键路径没有回程缓冲或替代方案时，不安排连续转场',
+      cautionAction: '找出反复延误的路线与时段；仍依赖临时补救的行程先降低复杂度。',
+    },
+    wellbeing: {
+      action: '确定全年最低恢复基线，写清睡眠、规律进食和活动不能被长期挤占的底线',
+      boundary: '忙碌期只能靠压缩休息维持时，先调整长期任务结构',
+      cautionAction: '比较忙闲阶段的睡眠和注意力；每次忙起来都明显下滑时，先减少长期负荷。',
+    },
+  },
+};
+
 function categoryCompletionRule(definition: TopicDefinition, period: FortunePeriod) {
   return period === 'today'
     ? definition.completionRule
@@ -436,7 +509,22 @@ function categoryCautionPattern(definition: TopicDefinition, period: FortunePeri
     : periodCategoryCautionPatterns[period][definition.key] || definition.cautionPattern;
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v94';
+function categoryActionGuidance(definition: TopicDefinition, period: FortunePeriod): PeriodActionGuidance {
+  if (period === 'today') {
+    return {
+      action: definition.action,
+      boundary: definition.personalSupportStop,
+      cautionAction: definition.cautionAction,
+    };
+  }
+  return periodActionGuidance[period][definition.key] || {
+    action: definition.action,
+    boundary: definition.personalSupportStop,
+    cautionAction: definition.cautionAction,
+  };
+}
+
+const dailyFortuneCacheVersion = '2026-08-27-v95';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1978,6 +2066,8 @@ function buildFortuneMasterJudgment(
   const hasCaution = caution.cautiousCount > 0
     && caution.category.key !== primary.category.key
     && Boolean(cautionAnalysis);
+  const primaryGuidance = categoryActionGuidance(primary.evaluation.definition, period);
+  const cautionGuidance = categoryActionGuidance(caution.evaluation.definition, period);
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
@@ -1989,9 +2079,9 @@ function buildFortuneMasterJudgment(
     cautionLabel: hasCaution ? caution.category.label : '',
     bestWindow,
     cautionWindow,
-    primaryAction: primary.evaluation.definition.action,
-    primaryBoundary: primary.evaluation.definition.personalSupportStop,
-    cautionAction: caution.evaluation.definition.cautionAction,
+    primaryAction: primaryGuidance.action,
+    primaryBoundary: primaryGuidance.boundary,
+    cautionAction: cautionGuidance.cautionAction,
     primaryReason,
     cautionReason: hasCaution ? cautionReason : '',
     mixed,
@@ -2094,9 +2184,17 @@ function stripPriorityPrefix(value: string) {
   return value.replace(/^(?:先|优先)/, '');
 }
 
-function supportActionFromJudgment(judgment: FortuneMasterJudgment) {
+function supportActionFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const primary = judgment.primary.evaluation.definition;
   const secondary = judgment.secondary.evaluation.definition;
+  if (period !== 'today') {
+    const guidance = categoryActionGuidance(secondary, period);
+    if (secondary.key === 'wellbeing') {
+      return `与${primary.shortLabel}并行，${guidance.action}；${guidance.boundary}。`;
+    }
+    const milestone = primaryMilestones[primary.key] || `${primary.shortLabel}得到明确结果`;
+    return `等${milestone}后，${guidance.action}；${guidance.boundary}。`;
+  }
   const action = stripPriorityPrefix(secondary.action);
   if (secondary.key === 'wellbeing') {
     return `与${primary.shortLabel}并行，${action}；用休息后的注意力判断实际承受量。`;
@@ -2802,7 +2900,7 @@ function calculateDailyFortune(
         : judgment.secondary.evaluation.definition.key === 'wellbeing'
           ? `同时顾好${judgment.secondary.evaluation.definition.shortLabel}`
           : `随后${judgment.secondary.evaluation.definition.shortLabel}`,
-      text: hasExplicitCaution ? judgment.copy.caution : supportActionFromJudgment(judgment),
+      text: hasExplicitCaution ? judgment.copy.caution : supportActionFromJudgment(judgment, period),
       tone: hasExplicitCaution ? 'notice' : 'support',
     },
   ];
