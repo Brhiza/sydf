@@ -385,6 +385,188 @@ const topicDefinitions: TopicDefinition[] = [
   },
 ];
 
+type TrendScale = 'day' | 'week' | 'month';
+
+interface ScaledTrendPhrases {
+  actions: string[];
+  guards: string[];
+}
+
+const scaledTrendPhrases: Record<Exclude<TrendScale, 'day'>, Record<string, ScaledTrendPhrases>> = {
+  week: {
+    career: {
+      actions: [
+        '这段时间只推进责任与验收都已确认的任务',
+        '把这段时间的交付拆成阶段结束时能够验收的结果',
+        '这段时间先收完已有职责，再决定是否接新增事项',
+        '阶段中途复核一次负责人、实际进度和交付口径',
+      ],
+      guards: [
+        '这段时间交接仍有空白时，不把待确认事项排进执行',
+        '临时插单挤占原任务时，明确替换关系而不是直接叠加',
+        '阶段中途仍无法确认验收人时，暂停后续投入',
+        '同类返工再次出现时，这段时间先修口径不加任务',
+      ],
+    },
+    study: {
+      actions: [
+        '这段时间围绕一个主题完成复述、练习和输出',
+        '把这段时间的输入整理成一份能够检验的成果',
+        '阶段中途用一个新问题检查是否真正理解',
+        '这段时间只扩展已经能够独立应用的内容',
+      ],
+      guards: [
+        '这段时间多次无法复述同一要点时，停止增加资料',
+        '练习错误仍集中在同一处时，回到原理重新处理',
+        '学习时段持续被切碎时，缩小这段时间的目标',
+        '阶段结束时仍没有可检查的输出，不把阅读量算作进展',
+      ],
+    },
+    wealth: {
+      actions: [
+        '这段时间把待收、待付和合作责任放进同一张清单',
+        '阶段中途完成一次余额、凭证和到期节点的核对',
+        '这段时间只处理能够说明金额去向的款项',
+        '把这段时间新增的财务责任写清期限与退出条件',
+      ],
+      guards: [
+        '这段时间余额变化无法解释时，暂停非必要付款',
+        '凭证与实际金额对不上时，不进入下一笔交易',
+        '合作责任仍停留在口头约定时，这段时间不签新条件',
+        '到期节点会挤压必要支出时，先调整付款顺序',
+      ],
+    },
+    relationship: {
+      actions: [
+        '这段时间只处理一处反复出现的信息差',
+        '把这段时间达成的共识写成双方可执行的下一步',
+        '阶段中途回看一次实际行动是否符合先前约定',
+        '这段时间把事实、各自理解和承诺分开确认',
+      ],
+      guards: [
+        '同一分歧再次出现时，先核对哪条事实发生变化',
+        '双方对原约定理解不同，这段时间不扩大讨论范围',
+        '情绪反应盖过具体问题时，暂停给关系下结论',
+        '行动没有跟上共识时，先修正下一步而不是重复表态',
+      ],
+    },
+    travel: {
+      actions: [
+        '这段时间把同方向外出合并，并重算每次回程余量',
+        '阶段中途提前确认后续行程的路线、物品和替代方案',
+        '这段时间优先完成转场较少、结束时间明确的外出',
+        '把这段时间已经发生的延误记到下一次路线选择里',
+      ],
+      guards: [
+        '前一段延误会压缩回程时，删去途中次要事项',
+        '路线和天气同时变化时，这段时间不追加站点',
+        '关键物品或证件没有确认时，先调整出发时间',
+        '连续转场没有机动余量时，改成分次完成',
+      ],
+    },
+    wellbeing: {
+      actions: [
+        '这段时间比较睡眠、进食和注意力的恢复变化',
+        '把这段时间恢复最快的一种作息或轻量活动固定下来',
+        '阶段中途按真实精力重新分配剩余任务量',
+        '这段时间给休息设置不会被临时事项挤占的时段',
+      ],
+      guards: [
+        '连续休息后仍无法集中时，减少这段时间剩余任务',
+        '睡眠与食欲同时走低时，不用兴奋感继续加量',
+        '恢复时间一天比一天长时，提前停止非必要安排',
+        '阶段结束时状态仍未回升，下一阶段先降低固定负荷',
+      ],
+    },
+  },
+  month: {
+    career: {
+      actions: [
+        '当月完成一套能在下一项任务复用的交付与验收流程',
+        '用当月主要交付检验责任、节点和验收能否闭环',
+        '把当月反复返工的一环改成固定检查步骤',
+        '当月先收掉职责清楚的积压，再决定是否扩量',
+      ],
+      guards: [
+        '当月规则仍随任务反复重写时，暂停扩大职责',
+        '同类交接再次无人接手时，先修流程再排新任务',
+        '月底仍无法说明由谁验收时，不把工作计作闭环',
+        '临时事项持续挤压主线时，减少并行承诺',
+      ],
+    },
+    study: {
+      actions: [
+        '当月用多个新问题验证同一套理解方法',
+        '把当月输入整理成可复述、可应用的成果',
+        '当月围绕一项核心能力完成学习、练习、输出和复盘',
+        '比较当月前后两次输出，确认错误是否真正减少',
+      ],
+      guards: [
+        '月底仍只能复述材料原话时，收拢下月方向',
+        '当月练习没有迁移到新问题时，不继续增加课程',
+        '资料增长快于成品与练习时，暂停扩展学习面',
+        '同类错误贯穿整月时，先重做基础环节',
+      ],
+    },
+    wealth: {
+      actions: [
+        '当月完成一次现金流、固定成本和长期付款的总核对',
+        '把当月新增付款责任放进预算，确认后续月份仍能承担',
+        '比较当月计划与实际余额，修正持续偏差的支出项',
+        '当月只扩大已经留下凭证并按节点结清的合作',
+      ],
+      guards: [
+        '月底现金去向仍不能追溯时，暂停新增投入',
+        '固定成本挤压必要余量时，下月先减少可变支出',
+        '长期付款没有进入预算时，不用单笔收益作担保',
+        '同类金额偏差再次出现时，先重做记录规则',
+      ],
+    },
+    relationship: {
+      actions: [
+        '当月用后续行动验证一项重要共识是否稳定',
+        '把整月反复出现的分歧收拢成一套沟通约定',
+        '比较月初与月底的理解差异，确认误解是否减少',
+        '当月只推进事实、边界和下一步都已对齐的承诺',
+      ],
+      guards: [
+        '同类误解贯穿整月时，下月先修沟通规则',
+        '表态与实际行动持续不一致时，暂停增加承诺',
+        '每次沟通都从事实确认重新开始时，不扩大议题',
+        '月底仍无法执行原共识时，先重定双方下一步',
+      ],
+    },
+    travel: {
+      actions: [
+        '当月整理一套能重复使用的路线与返程方案',
+        '比较当月多次外出的延误位置，修正高频节点',
+        '把当月常用路线、替代选择和所需余量集中记录',
+        '当月用一次复杂行程检验转场安排是否可靠',
+      ],
+      guards: [
+        '同类延误贯穿整月时，下月减少连续转场',
+        '返程持续依赖临时补救时，暂停增加复杂行程',
+        '常用路线仍没有替代选择时，不压缩时间余量',
+        '多次外出都在同一节点受阻时，先更换路线规则',
+      ],
+    },
+    wellbeing: {
+      actions: [
+        '当月确认一套经过忙闲变化仍能维持的恢复安排',
+        '比较整月睡眠、进食和注意力，找出主要消耗源',
+        '把当月恢复最快的习惯加入下月固定日程',
+        '用月底状态检验当前任务密度是否能够持续',
+      ],
+      guards: [
+        '整月恢复速度持续变慢时，下月先减少固定负荷',
+        '忙碌一增加就挤掉睡眠时，先调整长期排期',
+        '月底仍依赖临时补觉时，不恢复原有任务量',
+        '注意力与食欲没有共同回升时，继续保留减量',
+      ],
+    },
+  },
+};
+
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
 const periodCategoryCompletionRules: Record<Exclude<FortunePeriod, 'today'>, Record<string, string>> = {
   month: {
@@ -670,7 +852,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v97';
+const dailyFortuneCacheVersion = '2026-08-27-v100';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2662,9 +2844,14 @@ function takeTrendPhrase(
   phrases: 'trendActions' | 'trendGuards',
   usage: Map<string, number[]>,
   fallbackIndex: number,
+  scale: TrendScale,
 ) {
-  if (!definition || !definition[phrases].length) return '';
-  const phraseUsage = usage.get(definition.key) || definition[phrases].map(() => 0);
+  if (!definition) return '';
+  const candidates = scale === 'day'
+    ? definition[phrases]
+    : scaledTrendPhrases[scale][definition.key]?.[phrases === 'trendActions' ? 'actions' : 'guards'] || definition[phrases];
+  if (!candidates.length) return '';
+  const phraseUsage = usage.get(definition.key) || candidates.map(() => 0);
   const leastUsed = Math.min(...phraseUsage);
   let selectedIndex = fallbackIndex % phraseUsage.length;
   for (let offset = 0; offset < phraseUsage.length; offset += 1) {
@@ -2676,14 +2863,14 @@ function takeTrendPhrase(
   }
   phraseUsage[selectedIndex] += 1;
   usage.set(definition.key, phraseUsage);
-  return definition[phrases][selectedIndex];
+  return candidates[selectedIndex];
 }
 
 function continuationAction(action: string) {
   return action.replace(/^先/, '');
 }
 
-function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
+function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage, scale: TrendScale) {
   const averageScore = analyses.reduce((total, item) => total + item.score, 0) / Math.max(1, analyses.length);
   const favorableCount = analyses.filter((item) => item.tone === 'favorable').length;
   const cautiousCount = analyses.filter((item) => item.tone === 'cautious').length;
@@ -2705,9 +2892,9 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const primaryScore = rankedTopics[0]?.score || 0;
   const secondaryScore = rankedTopics[1]?.score || 0;
   const secondary = rankedTopics[1]?.definition;
-  const primaryAction = takeTrendPhrase(primary, 'trendActions', usage.actions, phraseIndex);
-  const secondaryAction = takeTrendPhrase(secondary, 'trendActions', usage.actions, phraseIndex + 1);
-  const weakestGuard = takeTrendPhrase(weakest, 'trendGuards', usage.guards, phraseIndex);
+  const primaryAction = takeTrendPhrase(primary, 'trendActions', usage.actions, phraseIndex, scale);
+  const secondaryAction = takeTrendPhrase(secondary, 'trendActions', usage.actions, phraseIndex + 1, scale);
+  const weakestGuard = takeTrendPhrase(weakest, 'trendGuards', usage.guards, phraseIndex, scale);
   const continuation = secondaryAction ? continuationAction(secondaryAction) : '';
   const primaryLabel = primary?.shortLabel || '主线';
   const secondaryLabel = secondary?.shortLabel || '后续';
@@ -2745,7 +2932,7 @@ function buildSevenDayTrend(now: Date, personal: PersonalContext | null): DailyF
   return Array.from({ length: 7 }, (_, index) => {
     const date = addDays(start, index + 1);
     const analysis = analyzeChart(date, 'day', personal);
-    const trend = trendSummary([analysis], usage);
+    const trend = trendSummary([analysis], usage, 'day');
     const label = index === 0
       ? '明天'
       : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date);
@@ -2779,7 +2966,7 @@ function buildMonthTrend(now: Date, analyses: ChartAnalysis[], runtimeNow?: Date
       dateKey: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-w${week + 1}`,
       label: currentWeek ? '本周' : monthStageLabels[week] || `第${week + 1}段`,
       dateLabel: `${startDay}—${endDay}日`,
-      ...trendSummary(items, usage),
+      ...trendSummary(items, usage, 'week'),
     };
   });
 }
@@ -2790,7 +2977,7 @@ function buildYearTrend(now: Date, personal: PersonalContext | null, runtimeNow?
   return Array.from({ length: 12 - startMonth }, (_, index) => {
     const month = startMonth + index;
     const date = new Date(now.getFullYear(), month, 15, 12, 0, 0, 0);
-    const trend = trendSummary([analyzeChart(date, 'month', personal)], usage);
+    const trend = trendSummary([analyzeChart(date, 'month', personal)], usage, 'month');
     return {
       dateKey: `${now.getFullYear()}-${String(month + 1).padStart(2, '0')}`,
       label: runtimeNow && month === runtimeNow.getMonth() ? '本月' : `${month + 1}月`,

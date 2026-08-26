@@ -42,7 +42,12 @@ describe('运势趋势内容审计', () => {
         expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
         expect(coreFragments(item.focus).length).toBeGreaterThanOrEqual(2);
         expect(item.focus).not.toContain('不扩大范围');
+        if (period === 'month') expect(item.focus).toMatch(/这段时间|阶段中途|阶段结束|下一阶段/);
+        if (period === 'year') expect(item.focus).toMatch(/当月|月底|下月|整月/);
       });
+      if (period !== 'today') {
+        expect(result.periodTrend.map((item) => item.focus).join('')).not.toMatch(/只完成一个学习目标|先保存一份可复核的交易记录|把待确认事项清成一张清单|完成一次对账或比价|一次只谈清一个分歧|合并同方向行程，留下转场余量|先保住睡眠与实际精力/);
+      }
       return {
         profileIndex,
         period,
