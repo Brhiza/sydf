@@ -3,8 +3,7 @@ export type FortuneReadingPosture = 'advance' | 'focus' | 'cultivate' | 'resolve
 export interface FortuneReadingPhraseContext {
   lead: string;
   primaryLabel: string;
-  secondaryLabel: string;
-  secondaryIsWellbeing: boolean;
+  secondaryStrategy: string;
   cautionLabel: string;
   bestWindow: string;
   cautionWindow: string;
@@ -54,8 +53,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}可顺势推进，重心放在${primaryLabel}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `整体主线清楚，${primaryLabel}先形成结果，${secondaryLabel}${secondaryIsWellbeing ? '同步照顾' : '再承接已有进展'}。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `助力集中在${primaryLabel}，不需要四处试探；${secondaryLabel}${secondaryIsWellbeing ? '同步保留恢复空间' : '适合接在主线之后'}。`,
+      ({ primaryLabel, secondaryStrategy }) => `整体主线清楚，${primaryLabel}先形成结果；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `助力集中在${primaryLabel}，不需要四处试探；${secondaryStrategy}。`,
     ],
     overviewLabel: '主线清楚，可顺势推进',
     opportunities: [
@@ -68,8 +67,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}宜择一处发力，以${primaryLabel}为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `整体信号并不平均，资源应集中在${primaryLabel}，${secondaryLabel}${secondaryIsWellbeing ? '同步照顾' : '作为配合'}。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `${primaryLabel}是当前最清楚的着力点，${secondaryLabel}${secondaryIsWellbeing ? '同步保留恢复空间' : '可以承接，但不抢占主线资源'}。`,
+      ({ primaryLabel, secondaryStrategy }) => `整体信号并不平均，资源应集中在${primaryLabel}；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `${primaryLabel}是当前最清楚的着力点；${secondaryStrategy}。`,
     ],
     overviewLabel: '有进有守，宜集中发力',
     opportunities: [
@@ -82,8 +81,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}宜稳中求进，不必急着求快`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryLabel}${secondaryIsWellbeing ? '同步照顾' : '随后'}。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `局面没有明显偏向，以${primaryLabel}作为起点，${secondaryIsWellbeing ? `同时给${secondaryLabel}留出固定空间` : `再根据结果接上${secondaryLabel}`}。`,
+      ({ primaryLabel, secondaryStrategy }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `局面没有明显偏向，以${primaryLabel}作为起点；${secondaryStrategy}。`,
     ],
     overviewLabel: '整体平稳，次序比速度重要',
     opportunities: [
@@ -97,9 +96,9 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}没有明显阻力，适合稳步积累`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `阻力不强但助力分散，适合围绕${primaryLabel}积累基础，${secondaryLabel}${secondaryIsWellbeing ? '同步照顾' : '保持连续'}。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `局面平顺而不张扬，${primaryLabel}适合形成可重复的做法，${secondaryIsWellbeing ? `同时给${secondaryLabel}留出固定恢复时间` : `${secondaryLabel}维持稳定投入`}。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `当前更像培土蓄势，以${primaryLabel}校正方向，${secondaryIsWellbeing ? `同步稳住${secondaryLabel}` : `再让${secondaryLabel}逐步接上`}。`,
+      ({ primaryLabel, secondaryStrategy }) => `阻力不强但助力分散，适合围绕${primaryLabel}积累基础；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `局面平顺而不张扬，${primaryLabel}适合形成可重复的做法；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `当前更像培土蓄势，以${primaryLabel}校正方向；${secondaryStrategy}。`,
     ],
     overviewLabel: '阻力不强，适合稳步积累',
     opportunities: [
@@ -113,7 +112,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}先清理牵制，再恢复主线`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing, cautionLabel }) => `整体并非全面受阻，${cautionLabel ? `${cautionLabel}里的反复` : '待确认事项'}是当前卡点；${primaryLabel}维持一个闭环，${secondaryLabel}${secondaryIsWellbeing ? '同步照顾' : '暂作配合'}。`,
+      ({ primaryLabel, secondaryStrategy, cautionLabel }) => `整体并非全面受阻，${cautionLabel ? `${cautionLabel}里的反复` : '待确认事项'}是当前卡点；${primaryLabel}维持一个闭环，${secondaryStrategy}。`,
       ({ primaryLabel, cautionLabel }) => `当前不需要全面收缩，但必须先查清${cautionLabel ? `${cautionLabel}的关键条件` : '最容易反复的一环'}，${primaryLabel}只维持能够独立收尾的部分。`,
       ({ primaryLabel, cautionLabel }) => `局面的关键在于处理${cautionLabel ? `${cautionLabel}里的反复` : '一处牵制'}，${primaryLabel}只落地条件确定的部分。`,
     ],
@@ -129,14 +128,12 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}宜先整顿身心，不以勉强推进为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => secondaryIsWellbeing
-        ? `当前承接能力比机会多少更重要，先恢复${secondaryLabel}，再处理${primaryLabel}；其他事项只保留必要安排。`
-        : `当前承接能力比机会多少更重要，先恢复状态，再处理${primaryLabel}；${secondaryLabel}只保留必要安排。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `局面容易受状态起伏牵动，${primaryLabel}只安排能够独立收尾的一步，${secondaryLabel}${secondaryIsWellbeing ? '同步保住基本作息' : '不再加量'}。`,
+      ({ primaryLabel, secondaryStrategy }) => `当前承接能力比机会多少更重要，先恢复状态，再处理${primaryLabel}；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `局面容易受状态起伏牵动，${primaryLabel}只安排能够独立收尾的一步；${secondaryStrategy}。`,
     ],
     overviewLabel: '先稳住状态，再处理事情',
     opportunities: [
-      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，同时删去一项非必要安排；${primaryBoundary}。`,
+      ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
   },
   protect: {
@@ -145,8 +142,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}先避开反复，以${primaryLabel}维持节奏`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `牵制多于助力，先以${primaryLabel}守住基本盘，${secondaryLabel}${secondaryIsWellbeing ? '同步保住基本作息' : '不增加变量'}。`,
-      ({ primaryLabel, secondaryLabel, secondaryIsWellbeing }) => `当前重点是减少失误，以${primaryLabel}维持秩序，${secondaryLabel}${secondaryIsWellbeing ? '同步照顾' : '只做必要维护'}。`,
+      ({ primaryLabel, secondaryStrategy }) => `牵制多于助力，先以${primaryLabel}守住基本盘；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryStrategy }) => `当前重点是减少失误，以${primaryLabel}维持秩序；${secondaryStrategy}。`,
     ],
     overviewLabel: '牵制偏多，先守住基本盘',
     opportunities: [

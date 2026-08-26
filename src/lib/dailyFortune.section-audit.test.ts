@@ -58,7 +58,8 @@ describe('运势区块职责审计', () => {
       }
       const overlaps = sections.flatMap((left, leftIndex) => sections.slice(leftIndex + 1).flatMap((right) => {
         const roles = new Set([left.role, right.role]);
-        const shouldCompare = roles.has('action') && (roles.has('category-detail') || roles.has('category-basis'))
+        const shouldCompare = left.role === 'action' && right.role === 'action'
+          || roles.has('action') && (roles.has('category-detail') || roles.has('category-basis'))
           || roles.has('category-detail') && roles.has('category-basis') && left.sourceKey === right.sourceKey
           || roles.has('evidence') && (roles.has('category-detail') || roles.has('category-basis'))
             && (!left.sourceKey || !right.sourceKey || left.sourceKey === right.sourceKey || left.key === 'evidence-personal' || right.key === 'evidence-personal')

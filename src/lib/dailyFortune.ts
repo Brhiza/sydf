@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v78';
+const dailyFortuneCacheVersion = '2026-08-26-v80';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1790,6 +1790,15 @@ function buildPersonalJudgmentInsight(
   };
 }
 
+const secondarySummaryStrategies: Record<string, string> = {
+  career: '后续工作只接责任已经归属、结果有人接收的部分',
+  study: '后续学习只留一个能说清、能练习的目标',
+  wealth: '钱款只处理费用、责任和退出方式已有书面记录的事项',
+  relationship: '沟通只推进双方基于同一事实确认的下一步',
+  travel: '出行只保留有返程余量和替代路线的安排',
+  wellbeing: '睡眠、进食和恢复时间同步保留',
+};
+
 function buildFortuneMasterJudgment(
   aggregates: CategoryAggregate[],
   analyses: ChartAnalysis[],
@@ -1832,8 +1841,8 @@ function buildFortuneMasterJudgment(
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
-    secondaryLabel: secondary.category.label,
-    secondaryIsWellbeing: secondary.category.key === 'wellbeing',
+    secondaryStrategy: secondarySummaryStrategies[secondary.category.key]
+      || `${secondary.category.label}只处理条件已经明确的部分`,
     cautionLabel: hasCaution ? caution.category.label : '',
     bestWindow,
     cautionWindow,
