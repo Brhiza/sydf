@@ -168,8 +168,9 @@ const leadKicker = computed(() => props.result.period === 'today'
       />
     </template>
 
-    <UiReadingSection v-if="result.period !== 'today' && result.timeWindows.length" class="fortune-period-section" :title="result.windowTitle">
-      <div class="fortune-period-list">
+    <UiReadingSection v-if="result.timeWindows.length" class="fortune-window-section" :title="result.windowTitle">
+      <UiReadingRows v-if="result.period === 'today'" :items="timeRows" />
+      <div v-else class="fortune-period-list">
         <article v-for="item in result.timeWindows" :key="item.name + item.range">
           <strong>{{ item.name }}</strong><span v-if="item.range">{{ item.range }}</span><small>{{ item.coverage }}</small>
         </article>
@@ -201,16 +202,9 @@ const leadKicker = computed(() => props.result.period === 'today'
       </UiReadingGrid>
     </template>
 
-    <UiReadingGrid ratio="wide-left">
-      <UiReadingSection class="fortune-arrangement-section" :title="arrangementTitle">
-        <UiReadingRows :items="categoryRows" marker-style="soft" />
-      </UiReadingSection>
-
-      <UiReadingSection v-if="result.period === 'today'" as="aside" class="fortune-time-section" :title="result.windowTitle">
-        <UiReadingRows v-if="result.timeWindows.length" :items="timeRows" />
-        <p v-else class="fortune-empty-copy">按自己的作息安排即可。</p>
-      </UiReadingSection>
-    </UiReadingGrid>
+    <UiReadingSection class="fortune-arrangement-section" :title="arrangementTitle">
+      <UiReadingRows :items="categoryRows" marker-style="soft" />
+    </UiReadingSection>
 
     <UiReadingSection v-if="result.periodTrend.length" class="fortune-trend-section" :title="trendTitle">
       <div class="fortune-trend-list" :class="`is-${result.period}`">
