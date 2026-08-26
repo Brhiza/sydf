@@ -72,10 +72,10 @@ describe('运势整体语料', () => {
       const result = renderFortuneReading(posture, phraseContext, `${posture}-title-summary-role`);
       const reasonStart = result.summary.indexOf(phraseContext.primaryReason);
       const opening = reasonStart >= 0 ? result.summary.slice(0, reasonStart) : result.summary;
-      expect(opening).toContain(phraseContext.secondaryRole);
+      expect(opening).toBe(`${phraseContext.secondaryRole}。`);
       expect(opening).not.toContain(phraseContext.primaryLabel);
       expect(opening).not.toContain(phraseContext.primaryOutcome);
-      expect(opening).toMatch(/承接|持续|闭合|等待|返工|反馈|条件|承载量|新增承诺/);
+      expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);
     });
   });
 
@@ -85,7 +85,7 @@ describe('运势整体语料', () => {
     ));
     expect(results.some((result) => result.title.includes('多数时段平稳'))).toBe(true);
     expect(results.some((result) => result.title.includes('能否形成可验收结果'))).toBe(true);
-    results.forEach((result) => expect(result.title).not.toMatch(/多数阶段平稳|突破信号不集中/));
+    results.forEach((result) => expect(result.title).not.toMatch(/多数阶段平稳|突破信号不集中|稳定.+节奏|固定方法/));
   });
 
   it('首要行动只讲主线，不提前复述第二主题', () => {
