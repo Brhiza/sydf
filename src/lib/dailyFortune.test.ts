@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v82');
+      expect(serialized).toContain('2026-08-26-v84');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -363,6 +363,18 @@ describe('今日、月运、年运统一周期算法', () => {
       if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
     });
   }, 15_000);
+
+  it('当前只剩主线谨慎时段时，不把该时段反写成主线优先窗口', () => {
+    const runtime = new Date(2026, 7, 26, 22, 20, 0, 0);
+    const result = generateDailyFortune(runtime, undefined, 'today', runtime);
+    const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
+    const primaryShortLabel = primaryAction?.label.replace(/^优先/, '') || '';
+    const cautionWindow = result.timeWindows.find((item) => item.coverage.includes(`${primaryShortLabel}需复核`));
+    expect(cautionWindow, JSON.stringify({ primaryAction, windows: result.timeWindows })).toBeTruthy();
+    const cautionLabel = `${cautionWindow?.name} ${cautionWindow?.range}`;
+    expect(primaryAction?.text).not.toContain(cautionLabel);
+    expect(result.categories.find((item) => item.key === primaryAction?.sourceKey)?.detail).not.toContain(cautionLabel);
+  });
 
   it('年运完整计算全年阶段，并向用户换算为公历范围', () => {
     const result = generateDailyFortune(new Date(2025, 6, 1, 12, 0, 0, 0), profile, 'year');

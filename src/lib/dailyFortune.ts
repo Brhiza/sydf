@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v82';
+const dailyFortuneCacheVersion = '2026-08-26-v84';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1666,11 +1666,13 @@ function chooseJudgmentAnalyses(
     const focusCategories = (favorableCategories.length ? favorableCategories : balancedCategories).slice(0, 3);
     return focusCategories.some((item) => item.definition.key === primaryKey);
   });
-  const scoredBestAnalysis = [...(primaryCandidates.length ? primaryCandidates : usableAnalyses)].sort((left, right) => (
-    (right.score * .58 + analysisTopicScore(right, primaryKey) * .42)
-    - (left.score * .58 + analysisTopicScore(left, primaryKey) * .42)
-    || compareAnalyses(left, right)
-  ))[0];
+  const scoredBestAnalysis = primaryCandidates.length
+    ? [...primaryCandidates].sort((left, right) => (
+        (right.score * .58 + analysisTopicScore(right, primaryKey) * .42)
+        - (left.score * .58 + analysisTopicScore(left, primaryKey) * .42)
+        || compareAnalyses(left, right)
+      ))[0]
+    : undefined;
   const currentAnalysis = preferCurrentWindow
     ? [...analyses].sort((left, right) => left.date.getTime() - right.date.getTime())[0]
     : undefined;
