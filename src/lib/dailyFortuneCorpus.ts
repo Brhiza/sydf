@@ -3,6 +3,7 @@ export type FortuneReadingPosture = 'advance' | 'focus' | 'cultivate' | 'resolve
 export interface FortuneReadingPhraseContext {
   lead: string;
   primaryLabel: string;
+  primaryShortLabel: string;
   secondaryRole: string;
   cautionLabel: string;
   bestWindow: string;
@@ -49,8 +50,8 @@ function reasonedSummary(base: string, context: FortuneReadingPhraseContext) {
 const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEntry> = {
   advance: {
     titles: [
-      ({ lead, primaryLabel }) => `${lead}气势较整，先把${primaryLabel}做实`,
-      ({ lead, primaryLabel }) => `${lead}可顺势推进，重心放在${primaryLabel}`,
+      ({ lead, primaryLabel }) => `${lead}主线明确，优先完成${primaryLabel}`,
+      ({ lead, primaryLabel }) => `${lead}多数信号支持${primaryLabel}`,
     ],
     summaries: [
       ({ primaryLabel, secondaryRole }) => `整体主线清楚，${primaryLabel}先形成结果；${secondaryRole}。`,
@@ -63,8 +64,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
   },
   focus: {
     titles: [
-      ({ lead, primaryLabel }) => `${lead}有进有守，先抓住${primaryLabel}`,
-      ({ lead, primaryLabel }) => `${lead}宜择一处发力，以${primaryLabel}为先`,
+      ({ lead, primaryLabel }) => `${lead}强弱分化，先做${primaryLabel}`,
+      ({ lead, primaryLabel }) => `${lead}重心清楚，优先${primaryLabel}`,
     ],
     summaries: [
       ({ primaryLabel, secondaryRole }) => `整体信号并不平均，资源应集中在${primaryLabel}；${secondaryRole}。`,
@@ -78,7 +79,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
   stabilize: {
     titles: [
       ({ lead, primaryLabel }) => `${lead}先定次序，从${primaryLabel}稳住局面`,
-      ({ lead }) => `${lead}宜稳中求进，不必急着求快`,
+      ({ lead, primaryLabel }) => `${lead}各项信号接近，先从${primaryLabel}开始`,
     ],
     summaries: [
       ({ primaryLabel, secondaryRole }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryRole}。`,
@@ -91,16 +92,16 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
   },
   cultivate: {
     titles: [
-      ({ lead, primaryLabel }) => `${lead}宜先蓄力，把${primaryLabel}做扎实`,
-      ({ lead, primaryLabel }) => `${lead}重在积累，以${primaryLabel}带动后续`,
-      ({ lead }) => `${lead}没有明显阻力，适合稳步积累`,
+      ({ lead, primaryShortLabel }) => `${lead}多数阶段平稳，先稳定${primaryShortLabel}节奏`,
+      ({ lead, primaryShortLabel }) => `${lead}没有持续风险，先建立${primaryShortLabel}的固定方法`,
+      ({ lead, primaryShortLabel }) => `${lead}突破信号不集中，先验证${primaryShortLabel}投入`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole }) => `阻力不强但助力分散，适合围绕${primaryLabel}积累基础；${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `局面平顺而不张扬，${primaryLabel}适合形成可重复的做法；${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `当前更像培土蓄势，以${primaryLabel}校正方向；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `没有持续性强的风险，但助力分散，先围绕${primaryLabel}积累可检查的结果；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `多数窗口保持平稳，${primaryLabel}适合形成可重复的做法；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `当前没有单点突破信号，先用${primaryLabel}验证投入是否有效；${secondaryRole}。`,
     ],
-    overviewLabel: '阻力不强，适合稳步积累',
+    overviewLabel: '多数窗口平稳，以积累为主',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],

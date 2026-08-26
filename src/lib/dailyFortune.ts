@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-27-v85';
+const dailyFortuneCacheVersion = '2026-08-27-v87';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1813,6 +1813,60 @@ const secondarySummaryRoles: Record<string, string> = {
   wellbeing: '身心状态是主线能否持续的底层条件，恢复不足会让其他判断同时失真',
 };
 
+const periodPrimaryReasons: Record<FortunePeriod, Record<string, string>> = {
+  today: {
+    career: '工作能否顺势，可以由当天任务是否同时具备负责人、交付物和验收口径直接验证，忙碌本身不算成果。',
+    study: '当天学习的有效信号不是阅读时长，而是能否复述、练习并留下一个可检查的输出。',
+    wealth: '当天钱款的可用性取决于金额、责任与付款节点能否一次对齐，记录闭合后才有继续空间。',
+    relationship: '当天沟通的价值在于消除一处信息差，让双方基于同一事实决定下一步。',
+    travel: '当天出行只有在路线、时间余量和返程方案同时成立时才能落地，缺项可以在出发前修正。',
+    wellbeing: '当天身心状态会直接改变判断力与持续时间，睡眠、食欲和专注度比短时兴奋更能说明承受量。',
+  },
+  month: {
+    career: '本月工作要看多次任务能否沿用同一责任与验收口径；口径稳定，阶段投入才会累积成可交付结果。',
+    study: '本月学习适合用多次复述、练习和输出观察知识是否真正连起来，单次高投入不能代表掌握。',
+    wealth: '本月钱款要把多笔收支、合作责任和付款节点放在同一张记录里看，才能判断现金流是否可承受。',
+    relationship: '本月沟通要观察同一分歧是否逐步减少、共识能否在后续行动中保持，单次谈顺不等于问题结束。',
+    travel: '本月出行适合合并同方向安排，并比较多次行程的延误与返程余量，找出真正稳定的路线节奏。',
+    wellbeing: '本月身心状态要看睡眠、进食与专注是否连续恢复；偶尔精神好不能抵消持续透支。',
+  },
+  year: {
+    career: '全年工作价值来自可重复的责任—交付—验收链条，只有多阶段都能闭环，投入才会沉淀成稳定成果。',
+    study: '全年学习要形成可迁移的理解与输出方法，课程数量和资料规模不能替代长期掌握。',
+    wealth: '全年钱款要同时看预算、固定成本与长期承诺，单笔收益不能替代对现金流和责任期限的判断。',
+    relationship: '全年沟通重点是建立可重复的事实确认和分歧处理方式，让长期行动不再反复更换前提。',
+    travel: '全年出行要从多次安排中识别稳定的路线、时间余量和返程条件，减少同类延误反复发生。',
+    wellbeing: '全年身心状态决定其他计划能否持续，稳定作息与恢复规律比短期高强度更能支撑长期安排。',
+  },
+};
+
+const periodRiskReasons: Record<FortunePeriod, Record<string, string>> = {
+  today: {
+    career: '当天工作风险集中在责任交接与验收口径临时变化，前一步看似完成，后续环节仍可能无人接收。',
+    study: '当天学习最容易被任务切换打断连续注意力，读过内容如果不能复述或应用，就不算真正掌握。',
+    wealth: '当天钱款风险会同时落到现金流和合作责任，金额或节点的一处误差就可能延续到后续结算。',
+    relationship: '当天沟通一旦缺少共同理解，语气和猜测会让双方用不同前提继续行动。',
+    travel: '当天出行受天气、交通和时间链条共同影响，一处延误会直接压缩后续行程。',
+    wellbeing: '当天状态是其他安排的承载条件，判断失真会让所有计划在同一时段同时超量。',
+  },
+  month: {
+    career: '本月若责任交接和验收口径反复变化，多个任务会在后续环节持续排队，返工不再是单次事件。',
+    study: '本月频繁切换会持续消耗连续注意力，资料越积越多，真正掌握的内容反而难以形成。',
+    wealth: '本月金额、责任或付款节点若多次偏差，会累积成现金流压力，并把问题带到后续结算。',
+    relationship: '本月同一信息若反复产生不同理解，双方会持续在不同前提上行动，分歧难以自然消失。',
+    travel: '本月若多次压缩转场与返程余量，时间链条中的小延误会持续挤占后续行程。',
+    wellbeing: '本月恢复不足会逐步削弱承载条件，最终让所有计划一起降速，而不是只影响某一天。',
+  },
+  year: {
+    career: '全年责任交接若没有稳定规则，后续环节会反复等待和返工，单次交付顺利也无法抵消结构问题。',
+    study: '全年若长期缺少连续注意力与输出检验，投入会停留在资料规模，难以形成真正掌握。',
+    wealth: '全年现金流与长期责任相互牵连，一处条款或期限误判可能跨阶段延续到后续结算。',
+    relationship: '全年缺少共同理解时，同类分歧会不断换场景重现，长期行动始终建立在不同前提上。',
+    travel: '全年行程若持续忽略时间链条与返程余量，同类延误会反复挤压后续行程和其他安排。',
+    wellbeing: '全年恢复规律一旦失稳，承载条件会持续下降，使所有计划同时面临减量或中断。',
+  },
+};
+
 function buildFortuneMasterJudgment(
   aggregates: CategoryAggregate[],
   analyses: ChartAnalysis[],
@@ -1847,14 +1901,19 @@ function buildFortuneMasterJudgment(
   const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
   const cautionWindow = cautionAnalysis ? formatAnalysisWindow(cautionAnalysis, period) : '';
   const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal);
-  const primaryReason = primary.evaluation.definition.masterReason;
-  const cautionReason = caution.evaluation.definition.masterRiskReason.replace(/^它/, caution.category.label);
+  const primaryReason = periodPrimaryReasons[period][primary.category.key]
+    || primary.evaluation.definition.masterReason;
+  const periodRiskReason = periodRiskReasons[period][caution.category.key];
+  const cautionReason = periodRiskReason
+    ? `${caution.category.label}方面，${periodRiskReason}`
+    : caution.evaluation.definition.masterRiskReason.replace(/^它/, caution.category.label);
   const hasCaution = caution.cautiousCount > 0
     && caution.category.key !== primary.category.key
     && Boolean(cautionAnalysis);
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
+    primaryShortLabel: primary.evaluation.definition.shortLabel,
     secondaryRole: secondarySummaryRoles[secondary.category.key]
       || `${secondary.category.label}负责承接主线结果，前序条件变化会直接带来返工`,
     cautionLabel: hasCaution ? caution.category.label : '',

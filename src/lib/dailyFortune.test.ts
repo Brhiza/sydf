@@ -82,7 +82,7 @@ const evidenceRiskMarkers: Record<string, RegExp> = {
 
 const evidenceOpportunityMarkers: Record<string, RegExp> = {
   career: /责任|验收|交付/,
-  study: /学习成果|输入|专注|资料/,
+  study: /学习成果|输入|专注|资料|复述|练习|输出/,
   wealth: /款项|对账|交易|付款/,
   relationship: /事实|共识|沟通|关系/,
   travel: /行程|路线|返程/,
@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v85');
+      expect(serialized).toContain('2026-08-27-v87');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -487,7 +487,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(result.summary).toMatch(/整体|局面|当前|牵制多于助力/);
       expect(result.summary).toContain(result.categories[0]!.label);
       expect(result.categories.slice(1).some((item) => result.summary.includes(item.label))).toBe(true);
-      expect(result.summary).toMatch(/明确交付|分段积累|逐项核对|信息差|出发前|其他事情能否持续/);
+      expect(result.summary).toMatch(evidenceOpportunityMarkers[result.categories[0]!.key]);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
       expect(result.actionTips[0]?.label).toMatch(/^优先(?:工作|学习|钱款|沟通|出行|休息)$/);
       expect(result.categories[0]?.key).toBe(result.actionTips[0]?.sourceKey);
