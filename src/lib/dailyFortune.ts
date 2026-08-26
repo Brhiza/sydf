@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v119';
+const dailyFortuneCacheVersion = '2026-08-27-v120';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1883,6 +1883,7 @@ function categoryDetailFromJudgment(
   judgment: FortuneMasterJudgment,
   period: FortunePeriod,
   timeWindows: DailyFortuneTimeWindow[] = [],
+  displayedStandaloneWindows = new Set<string>(),
 ) {
   const { evaluation, bestAnalysis } = aggregate;
   const { definition, tone } = evaluation;
@@ -1892,11 +1893,16 @@ function categoryDetailFromJudgment(
   const displayBestAnalysis = isPrimary ? judgment.bestAnalysis || bestAnalysis : bestAnalysis;
   const bestWindow = displayBestAnalysis ? formatAnalysisWindow(displayBestAnalysis, period) : '';
   const windowAlreadySummarized = timeWindowSummarizes(timeWindows, bestWindow, definition.shortLabel);
-  const bestLead = !isPrimary && bestWindow && !windowAlreadySummarized ? `${bestWindow}可优先安排；` : '';
+  const canShowStandaloneWindow = !isPrimary
+    && Boolean(bestWindow)
+    && !windowAlreadySummarized
+    && !displayedStandaloneWindows.has(bestWindow);
+  const bestLead = canShowStandaloneWindow ? `${bestWindow}可优先安排；` : '';
   const completionRule = categoryCompletionRule(definition, period);
   if (isCaution && tone !== 'favorable') {
     return `${completionRule}。`;
   }
+  if (canShowStandaloneWindow) displayedStandaloneWindows.add(bestWindow);
   if (isPrimary) {
     if (tone !== 'cautious') return `${bestLead}${completionRule}。`;
     return `${completionRule}。`;
@@ -3386,18 +3392,6 @@ function calculateDailyFortune(
     judgment.cautionAnalysis,
     judgment.cautionAnalysis ? judgment.caution.evaluation.definition.key : undefined,
   );
-  aggregates.forEach((aggregate) => {
-    aggregate.category = {
-      ...aggregate.category,
-      status: categoryStatusFromJudgment(aggregate, judgment),
-      detail: categoryDetailFromJudgment(aggregate, judgment, period, timeWindows),
-      basis: categoryBasisFromJudgment(aggregate, judgment, period, timeWindows),
-    };
-  });
-  const title = judgment.copy.title;
-  const evidenceInsights = buildEvidenceInsights(judgment, period);
-  const summary = judgment.copy.summary;
-  const readyAggregate = judgment.primary;
   const hasExplicitCaution = judgment.caution.cautiousCount > 0
     && judgment.caution.category.key !== judgment.primary.category.key
     && Boolean(judgment.cautionAnalysis);
@@ -3407,16 +3401,34 @@ function calculateDailyFortune(
     judgment.secondary.category.key,
   ].filter((key, index, items) => items.indexOf(key) === index);
   const categoryRoleOrder = new Map(categoryRoleKeys.map((key, index) => [key, index]));
-  const categories = [...aggregates]
-    .sort((left, right) => {
-      const leftRole = categoryRoleOrder.get(left.category.key);
-      const rightRole = categoryRoleOrder.get(right.category.key);
-      if (leftRole !== undefined || rightRole !== undefined) {
-        return (leftRole ?? Number.MAX_SAFE_INTEGER) - (rightRole ?? Number.MAX_SAFE_INTEGER);
-      }
-      return categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation);
-    })
-    .map((item) => item.category);
+  const orderedAggregates = [...aggregates].sort((left, right) => {
+    const leftRole = categoryRoleOrder.get(left.category.key);
+    const rightRole = categoryRoleOrder.get(right.category.key);
+    if (leftRole !== undefined || rightRole !== undefined) {
+      return (leftRole ?? Number.MAX_SAFE_INTEGER) - (rightRole ?? Number.MAX_SAFE_INTEGER);
+    }
+    return categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation);
+  });
+  const displayedStandaloneWindows = new Set<string>();
+  orderedAggregates.forEach((aggregate) => {
+    aggregate.category = {
+      ...aggregate.category,
+      status: categoryStatusFromJudgment(aggregate, judgment),
+      detail: categoryDetailFromJudgment(
+        aggregate,
+        judgment,
+        period,
+        timeWindows,
+        displayedStandaloneWindows,
+      ),
+      basis: categoryBasisFromJudgment(aggregate, judgment, period, timeWindows),
+    };
+  });
+  const title = judgment.copy.title;
+  const evidenceInsights = buildEvidenceInsights(judgment, period);
+  const summary = judgment.copy.summary;
+  const readyAggregate = judgment.primary;
+  const categories = orderedAggregates.map((item) => item.category);
   const readySource = readyAggregate?.category || categories[0];
   const followUpSource = hasExplicitCaution ? judgment.caution.category : judgment.secondary.category;
   const actionTips: DailyFortuneActionTip[] = [

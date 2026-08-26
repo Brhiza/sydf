@@ -103,6 +103,10 @@ describe('今日运势批量内容质量', () => {
         const cautionWindow = item.basis.match(/^(.+)：/)?.[1];
         if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
       });
+      const standalonePreferredWindows = result.categories
+        .map((item) => item.detail.match(/^(.+?)可优先安排；/)?.[1])
+        .filter((window): window is string => Boolean(window));
+      expect(new Set(standalonePreferredWindows).size).toBe(standalonePreferredWindows.length);
       expect(result.summary).toContain(result.period === 'today' ? '当天' : result.period === 'month' ? '本月' : '全年');
       const windowOrder = result.timeWindows.map((item) => windowOrderValue(result, item.name, item.range));
       expect(windowOrder).toEqual([...windowOrder].sort((left, right) => left - right));

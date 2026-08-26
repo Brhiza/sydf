@@ -206,7 +206,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v119');
+      expect(serialized).toContain('2026-08-27-v120');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -775,7 +775,7 @@ describe('今日、月运、年运统一周期算法', () => {
     });
   }, 15_000);
 
-  it('顶部窗口已概括的主题不在分项中重复同一时间', () => {
+  it('顶部窗口已概括的主题不再复述时间，其他共享时间也只在一张分项卡出现', () => {
     const shortLabels: Record<string, string> = {
       career: '工作',
       study: '学习',
@@ -809,6 +809,10 @@ describe('今日、月运、年运统一周期算法', () => {
             expect(normalizeWindow(category.basis)).not.toContain(normalizeWindow(windowLabel));
           });
       });
+      const standaloneWindows = result.categories
+        .map((category) => category.detail.match(/^(.+?)可优先安排；/)?.[1])
+        .filter((window): window is string => Boolean(window));
+      expect(new Set(standaloneWindows).size).toBe(standaloneWindows.length);
     });
   }, 15_000);
 
