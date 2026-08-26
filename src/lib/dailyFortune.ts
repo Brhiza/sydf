@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v72';
+const dailyFortuneCacheVersion = '2026-08-26-v73';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2558,15 +2558,30 @@ function calculateDailyFortune(
       basis: categoryBasisFromJudgment(aggregate, judgment, period, timeWindows),
     };
   });
-  const categories = aggregates.map((item) => item.category);
   const title = judgment.copy.title;
   const evidenceInsights = buildEvidenceInsights(judgment, period);
   const summary = judgment.copy.summary;
   const readyAggregate = judgment.primary;
-  const readySource = readyAggregate?.category || categories[0];
   const hasExplicitCaution = judgment.caution.cautiousCount > 0
     && judgment.caution.category.key !== judgment.primary.category.key
     && Boolean(judgment.cautionAnalysis);
+  const categoryRoleKeys = [
+    judgment.primary.category.key,
+    hasExplicitCaution ? judgment.caution.category.key : judgment.secondary.category.key,
+    judgment.secondary.category.key,
+  ].filter((key, index, items) => items.indexOf(key) === index);
+  const categoryRoleOrder = new Map(categoryRoleKeys.map((key, index) => [key, index]));
+  const categories = [...aggregates]
+    .sort((left, right) => {
+      const leftRole = categoryRoleOrder.get(left.category.key);
+      const rightRole = categoryRoleOrder.get(right.category.key);
+      if (leftRole !== undefined || rightRole !== undefined) {
+        return (leftRole ?? Number.MAX_SAFE_INTEGER) - (rightRole ?? Number.MAX_SAFE_INTEGER);
+      }
+      return categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation);
+    })
+    .map((item) => item.category);
+  const readySource = readyAggregate?.category || categories[0];
   const followUpSource = hasExplicitCaution ? judgment.caution.category : judgment.secondary.category;
   const actionTips: DailyFortuneActionTip[] = [
     {

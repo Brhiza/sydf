@@ -178,7 +178,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v72');
+      expect(serialized).toContain('2026-08-26-v73');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -447,6 +447,8 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|状态|稳住|扩张|失误|积累|蓄势|基础|卡点|牵制|解决/);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
       expect(result.actionTips[0]?.label).toMatch(/^优先(?:工作|学习|钱款|沟通|出行|休息)$/);
+      expect(result.categories[0]?.key).toBe(result.actionTips[0]?.sourceKey);
+      expect(result.categories[1]?.key).toBe(result.actionTips[1]?.sourceKey);
       expect(result.actionTips[0]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'opportunity')?.detail);
       const followUpEvidenceKey = result.actionTips[1]?.tone === 'notice' ? 'caution' : 'secondary';
       expect(result.actionTips[1]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === followUpEvidenceKey)?.detail);
