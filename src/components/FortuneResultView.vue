@@ -301,16 +301,19 @@ const leadKicker = computed(() => props.result.period === 'today'
 .fortune-trend-list p { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); line-height: 1.45; margin: 0; }
 
 @media (max-width: 720px) {
-  .fortune-trend-list.is-today { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fortune-trend-list.is-today,
   .fortune-trend-list.is-month,
-  .fortune-trend-list.is-year { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .fortune-trend-list article { padding: 8px 7px; }
-  .fortune-trend-list.is-today article:nth-child(4n + 1),
-  .fortune-trend-list.is-month article:nth-child(3n + 1),
-  .fortune-trend-list.is-year article:nth-child(3n + 1) { border-left: 0; }
-  .fortune-trend-list.is-today article:nth-child(n + 5),
-  .fortune-trend-list.is-month article:nth-child(n + 4),
-  .fortune-trend-list.is-year article:nth-child(n + 4) { border-top: 1px solid var(--ds-line); }
+  .fortune-trend-list.is-year { grid-template-columns: minmax(0, 1fr); }
+  .fortune-trend-list article {
+    align-items: start;
+    gap: 8px;
+    grid-template-columns: 58px 62px minmax(0, 1fr);
+    padding: 10px 0;
+  }
+  .fortune-trend-list article + article { border-left: 0; border-top: 1px solid var(--ds-line); }
+  .fortune-trend-list.is-year article:nth-child(7) { border-left: 0; }
   .fortune-trend-list header { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .fortune-trend-list b { padding-top: 1px; }
+  .fortune-trend-list p { line-height: 1.55; }
 }
 </style>
