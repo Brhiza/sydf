@@ -52,6 +52,11 @@ describe('今日运势个案内容审计', () => {
         expect(personalInsight?.detail).toMatch(/结合出生资料与当前周期/);
         expect(personalInsight?.detail).toMatch(/之所以|因为/);
         expect(personalInsight?.title).not.toMatch(/个人命盘|个人支持/);
+        if (result.period === 'month') expect(personalInsight?.detail).toContain('本月');
+        if (result.period === 'year') expect(personalInsight?.detail).toContain('全年');
+        if (result.period !== 'today') {
+          expect(personalInsight?.detail).not.toMatch(/留出一段不被临时插单打断|留出一段连续专注时间|集中完成一次对账|安排一次不赶时间的沟通|把同方向事项合并|固定一段完整休息|只确认事实，不在情绪高点|只准备物品和备选路线|先恢复一顿饭或一段睡眠/);
+        }
       }
     });
   }, 60_000);

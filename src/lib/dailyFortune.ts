@@ -430,6 +430,11 @@ interface PeriodActionGuidance {
   cautionAction: string;
 }
 
+interface PeriodPersonalGuidance {
+  support: string;
+  boundary: string;
+}
+
 const periodActionGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodActionGuidance>> = {
   month: {
     career: {
@@ -497,6 +502,61 @@ const periodActionGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<strin
   },
 };
 
+const periodPersonalGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodPersonalGuidance>> = {
+  month: {
+    career: {
+      support: '本月把精力留给责任清楚且能连续推进的任务，让梳理交接的优势用于稳定交付，而不是反复救火',
+      boundary: '本月临时事项持续挤占原排期时，减少新承诺，先保护已经接下的交付',
+    },
+    study: {
+      support: '本月把较容易进入状态的时段固定给同一主题，用连续输出积累优势，不把精力分散给过多资料',
+      boundary: '本月理解屡次停在输入层时，缩小学习面，只保留能够复述和运用的内容',
+    },
+    wealth: {
+      support: '本月把核对能力集中在少数关键账目与条款，先解决会影响现金余量的项目，不同时承接多笔复杂合作',
+      boundary: '本月核对成本持续偏高时，只维护已有收支与凭证，不新增付款义务',
+    },
+    relationship: {
+      support: '本月优先投入能够持续核对事实的一段关系或协作，让达成的共识接受后续行动检验',
+      boundary: '本月沟通消耗持续偏高时，减少同时处理的关系议题，只保留最需要确认的一处信息差',
+    },
+    travel: {
+      support: '本月优先处理路线熟悉、能够顺路完成的外出，把规划优势用于减少重复转场',
+      boundary: '本月外出反复打乱原有任务时，减少跨区或多站安排，只保留必要行程',
+    },
+    wellbeing: {
+      support: '本月把恢复较快的作息、进食或轻量活动固定下来，用个人状态较好的阶段修复承载力',
+      boundary: '本月恢复速度持续变慢时，主动降低任务密度，不用偶尔精神好判断整月负荷',
+    },
+  },
+  year: {
+    career: {
+      support: '全年把梳理责任与完成收尾的优势沉淀成长期工作方法，让常见任务不再依赖临时补救',
+      boundary: '全年职责反复占用额外精力时，把范围收窄到能够稳定交付的部分，不继续扩大责任',
+    },
+    study: {
+      support: '全年把容易整理信息与检验理解的优势集中到一项核心能力，形成可以迁移的个人学习方法',
+      boundary: '全年投入长期停留在收集资料时，缩减方向，只保留能够进入实际应用的学习内容',
+    },
+    wealth: {
+      support: '全年把核对金额与比较条件的优势用于守住现金流和长期资源，优先整理会持续产生影响的责任',
+      boundary: '全年财务事项长期消耗过多注意力时，减少复杂合作，只保留预算能够持续覆盖的义务',
+    },
+    relationship: {
+      support: '全年把倾听与表达边界的能力用于少数重要关系，逐步建立双方都能长期遵守的沟通方式',
+      boundary: '全年同类误解在不同阶段持续消耗精力时，减少并行议题，先修复一套共同确认事实的方法',
+    },
+    travel: {
+      support: '全年把路线规划与应变优势沉淀成常用出行方案，优先优化反复出现的路线和转场',
+      boundary: '全年出行长期打乱作息或任务顺序时，减少连续转场，不承担缺少回程保障的安排',
+    },
+    wellbeing: {
+      support: '全年把察觉疲劳和调整负荷的能力变成稳定恢复制度，让状态优势持续支撑其他计划',
+      boundary: '全年恢复长期依赖临时补觉或停工时，先减少固定负荷，重建不会被忙碌挤掉的底线',
+    },
+  },
+};
+
 function categoryCompletionRule(definition: TopicDefinition, period: FortunePeriod) {
   return period === 'today'
     ? definition.completionRule
@@ -524,7 +584,20 @@ function categoryActionGuidance(definition: TopicDefinition, period: FortunePeri
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v95';
+function personalActionGuidance(definition: TopicDefinition, period: FortunePeriod): PeriodPersonalGuidance {
+  if (period === 'today') {
+    return {
+      support: definition.personalSupportAction,
+      boundary: definition.personalReviewBoundary,
+    };
+  }
+  return periodPersonalGuidance[period][definition.key] || {
+    support: definition.personalSupportAction,
+    boundary: definition.personalReviewBoundary,
+  };
+}
+
+const dailyFortuneCacheVersion = '2026-08-27-v96';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1836,6 +1909,7 @@ function buildPersonalJudgmentInsight(
   primary: CategoryAggregate,
   caution: CategoryAggregate,
   personal: PersonalContext | null,
+  period: FortunePeriod,
 ) {
   if (!personal) return undefined;
   const personalAlignment = aggregates.reduce((total, item) => total + item.evaluation.personalAlignment, 0) / Math.max(1, aggregates.length);
@@ -1908,13 +1982,19 @@ function buildPersonalJudgmentInsight(
   const focusSentence = focusImpacts.length
     ? `结合出生资料与当前周期，${focusImpacts.join('；')}。`
     : '';
+  const supportGuidance = supportItem
+    ? personalActionGuidance(supportItem.evaluation.definition, period)
+    : null;
+  const reviewGuidance = reviewItem
+    ? personalActionGuidance(reviewItem.evaluation.definition, period)
+    : null;
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
-      ? `对这个案例，${supportItem.category.label}的投入更容易形成结果，因为${reasonFor(supportItem, 'period-aligned')}。${supportItem.evaluation.definition.personalSupportAction}。`
-      : `${supportItem.category.label}不是整体主线，但处理成本较低，因为${reasonFor(supportItem, 'period-aligned')}。现实中有对应事项时，${supportItem.evaluation.definition.personalSupportAction}；没有就不另起任务。`
+      ? `对这个案例，${supportItem.category.label}的投入更容易形成结果，因为${reasonFor(supportItem, 'period-aligned')}。${supportGuidance!.support}。`
+      : `${supportItem.category.label}不是整体主线，但处理成本较低，因为${reasonFor(supportItem, 'period-aligned')}。现实中有对应事项时，${supportGuidance!.support}；没有就不另起任务。`
     : '';
   const reviewAdvice = reviewItem
-    ? `${reviewItem.category.label}会额外消耗精力，因为${reasonFor(reviewItem, 'period-friction')}。${reviewItem.evaluation.definition.personalReviewBoundary}。`
+    ? `${reviewItem.category.label}会额外消耗精力，因为${reasonFor(reviewItem, 'period-friction')}。${reviewGuidance!.boundary}。`
     : '';
   const detail = `${focusSentence}${supportAdvice}${reviewAdvice}`;
   if (!detail) return undefined;
@@ -2056,7 +2136,7 @@ function buildFortuneMasterJudgment(
   const { bestAnalysis, cautionAnalysis } = chooseJudgmentAnalyses(analyses, primary, caution, isCurrentPeriod);
   const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
   const cautionWindow = cautionAnalysis ? formatAnalysisWindow(cautionAnalysis, period) : '';
-  const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal);
+  const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal, period);
   const primaryReason = periodPrimaryReasons[period][primary.category.key]
     || primary.evaluation.definition.masterReason;
   const periodRiskReason = periodRiskReasons[period][caution.category.key];
