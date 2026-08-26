@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v106');
+      expect(serialized).toContain('2026-08-27-v107');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -596,10 +596,12 @@ describe('今日、月运、年运统一周期算法', () => {
     results.forEach((result) => {
       expect(JSON.stringify(result)).not.toContain('先先');
       expect(result.overview.label).toMatch(/顺势窗口|强弱分化|助力与牵制|连续反馈|条件反复|承载能力|收紧项/);
-      expect(result.summary).toMatch(/顺势窗口|比其他主题更容易|强弱分化|当前最容易验证|助力与牵制|当前没有单一强项|没有持续|多数窗口|连续助力|关键条件|同类问题|可检查条件|承载量|状态波动|牵制多于助力|多项条件/);
-      expect(result.summary).toContain(result.categories[0]!.label);
-      expect(result.categories.slice(1).some((item) => result.summary.includes(item.label))).toBe(true);
+      expect(result.summary).toMatch(/负责|决定|底层条件/);
+      expect(result.summary).toMatch(/可持续进展|多项结果都没有闭合|减少互相等待和返工|连续反馈|后续安排会不断重算条件|遗漏、拖延和返工|连锁返工/);
+      expect(result.summary.split('。').filter(Boolean).length).toBeGreaterThanOrEqual(3);
       expect(result.summary).toMatch(evidenceOpportunityMarkers[result.categories[0]!.key]);
+      const followUp = result.actionTips[1];
+      if (followUp?.tone === 'notice') expect(result.summary).toMatch(evidenceRiskMarkers[followUp.sourceKey]);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
       expect(result.actionTips[0]?.label).toMatch(/^优先(?:工作|学习|钱款|沟通|出行|休息)$/);
       expect(result.categories[0]?.key).toBe(result.actionTips[0]?.sourceKey);

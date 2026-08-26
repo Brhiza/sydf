@@ -938,7 +938,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v106';
+const dailyFortuneCacheVersion = '2026-08-27-v107';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;

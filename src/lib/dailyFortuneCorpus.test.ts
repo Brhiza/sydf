@@ -66,6 +66,19 @@ describe('运势整体语料', () => {
     });
   });
 
+  it('标题给结论，总评开场只解释承接关系与后果', () => {
+    postures.forEach((posture) => {
+      const phraseContext = context(cautionActions[0]);
+      const result = renderFortuneReading(posture, phraseContext, `${posture}-title-summary-role`);
+      const reasonStart = result.summary.indexOf(phraseContext.primaryReason);
+      const opening = reasonStart >= 0 ? result.summary.slice(0, reasonStart) : result.summary;
+      expect(opening).toContain(phraseContext.secondaryRole);
+      expect(opening).not.toContain(phraseContext.primaryLabel);
+      expect(opening).not.toContain(phraseContext.primaryOutcome);
+      expect(opening).toMatch(/承接|持续|闭合|等待|返工|反馈|条件|承载量|新增承诺/);
+    });
+  });
+
   it('标题直接说明周期单位和可验证结果', () => {
     const results = Array.from({ length: 80 }, (_, index) => (
       renderFortuneReading('cultivate', context(cautionActions[index % cautionActions.length]), `cultivate-title-${index}`)
