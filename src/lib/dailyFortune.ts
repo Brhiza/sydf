@@ -938,7 +938,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v108';
+const dailyFortuneCacheVersion = '2026-08-27-v109';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2700,9 +2700,9 @@ function personalDirectionScore(chart: QimenData, gong: number, personal: Person
 }
 
 const directionReasonMeanings: Record<string, string> = {
-  开门: '利启动、会面与公开事务',
-  休门: '利协商、休整与关系维护',
-  生门: '利求财、合作与稳步增长',
+  开门: '启动、会面与公开事务较易展开',
+  休门: '协商、休整与关系维护较顺',
+  生门: '资源与后续承接条件较足',
   伤门: '冲突或损耗风险偏高',
   杜门: '信息闭塞，推进容易受阻',
   死门: '不利新增和主动推进',
@@ -2713,24 +2713,11 @@ const directionReasonMeanings: Record<string, string> = {
   空亡: '计划容易落空或难以落实',
   门迫: '事情受阻，推进费力反复',
   九地: '宜稳健落地，不宜求快',
-  九天: '利主动展开与扩大视野',
-  六合: '利协作、协调与形成共识',
-  太阴: '利周密筹划与隐蔽准备',
+  九天: '主动展开与扩大视野的动力较强',
+  六合: '协作、协调与形成共识的条件较好',
+  太阴: '周密筹划与安静准备较有利',
   值符: '主导性较强，适合抓住主线',
 };
-
-function normalizeDirectionUse(value: string) {
-  const modernUse = value.includes('求官')
-    ? '洽谈职位、面试或推进职责明确的工作'
-    : value.includes('求财')
-      ? '对账、询价、商谈合作或复核投资资料'
-      : value.includes('休养')
-        ? '休息恢复、安排安静事务或关系沟通'
-        : value.replace(/\//g, '、').replace(/宜用于?/g, '').trim();
-  return value.includes('急难见贵')
-    ? `${modernUse}，或在急事中寻求有经验者协助`
-    : modernUse;
-}
 
 function directionReasonText(reason: string) {
   const isFavorablePattern = /^吉格:/.test(reason);
@@ -2782,29 +2769,47 @@ function mostFrequent(values: Map<string, number>, limit = 2) {
     .map(([value]) => value);
 }
 
-function buildSingleDirections(chart: QimenData, personal: PersonalContext | null) {
+const directionFocusUses: Record<string, string> = {
+  career: '见客户、交接或需要现场处理的工作',
+  study: '上课、考试、访学或选择学习地点',
+  wealth: '对账、办款或现场商谈责任明确的合作',
+  relationship: '会面、拜访或当面确认共同约定',
+  travel: '路线、余量和返程方案已经确认的必要行程',
+  wellbeing: '休息、就诊、散步或低强度恢复活动',
+};
+
+function directionFocusUse(focus: TopicDefinition) {
+  return directionFocusUses[focus.key] || `${focus.shortLabel}相关外出`;
+}
+
+function buildSingleDirections(chart: QimenData, personal: PersonalContext | null, focus: TopicDefinition) {
   // 不改写核心库的吉方与避方资格，只在已经成立的候选内部做个人化排序。
+  const focusUse = directionFocusUse(focus);
   const goodDirections = [...(chart.directions?.goodDirections || [])]
     .sort((left, right) => personalDirectionScore(chart, right.gong, personal) - personalDirectionScore(chart, left.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: `今天${item.direction}更适合作为主动行程的第一段方向，尤其用于${normalizeDirectionUse(item.use) || '主动推进'}。只有路线时间、成本和安全条件接近时才优先，不必为了方位绕路；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面信号共同支持'}。`,
+    detail: `今天${item.direction}更适合作为主动行程的第一段方向，当前主线是${focus.shortLabel}，尤其用于${focusUse}。只有路线时间、成本和安全条件接近时才优先，不必为了方位绕路；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面信号共同支持'}。`,
   }));
   const avoidDirections = [...(chart.directions?.avoidDirections || [])]
     .sort((left, right) => personalDirectionScore(chart, left.gong, personal) - personalDirectionScore(chart, right.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: `今天${item.direction}不适合主动安排时间紧、变数多的行程。必须前往时，先确认路线、返程和备选方案；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面限制共同出现'}。`,
+    detail: `今天${item.direction}不适合主动安排与${focus.shortLabel}相关且时间紧、变数多的行程。必须前往时，先确认路线、返程和备选方案；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面限制共同出现'}。`,
   }));
   return { goodDirections, avoidDirections };
 }
 
-function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'year', personal: PersonalContext | null) {
+function buildPeriodDirections(
+  analyses: ChartAnalysis[],
+  period: 'month' | 'year',
+  personal: PersonalContext | null,
+  focus: TopicDefinition,
+) {
   const counts = new Map<string, {
     good: number;
     avoid: number;
     personal: number;
-    uses: Map<string, number>;
     goodReasons: Map<string, number>;
     avoidReasons: Map<string, number>;
   }>();
@@ -2812,7 +2817,6 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     good: 0,
     avoid: 0,
     personal: 0,
-    uses: new Map<string, number>(),
     goodReasons: new Map<string, number>(),
     avoidReasons: new Map<string, number>(),
   });
@@ -2821,7 +2825,6 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
       const value = counts.get(item.direction) || createCount();
       value.good += 1;
       value.personal += personalDirectionScore(chart, item.gong, personal);
-      incrementFrequency(value.uses, normalizeDirectionUse(item.use));
       item.reasons.forEach((reason) => incrementFrequency(value.goodReasons, reason));
       counts.set(item.direction, value);
     });
@@ -2838,6 +2841,7 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
   const periodLabel = period === 'year' ? '今年' : '本月';
   const countUnit = period === 'year' ? '段' : '天';
   const sampleUnit = period === 'year' ? '节气阶段' : '日期';
+  const focusUse = directionFocusUse(focus);
   const goodDirections = [...counts.entries()]
     .filter(([, value]) => value.good >= goodThreshold && value.good > value.avoid)
     .sort((left, right) => right[1].good - left[1].good || right[1].personal - left[1].personal || left[1].avoid - right[1].avoid)
@@ -2845,8 +2849,8 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .map(([direction, value]) => ({
       direction,
       detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.good}${countUnit}得到支持、${value.avoid}${countUnit}需要回避，${directionSignalConclusion(period, value.good, value.avoid, analyses.length, true)}。${period === 'year'
-        ? `当地点的交通、预算和现实机会接近时，可把它作为长期拜访、出差落点或活动地点的辅助筛选，主要用于${mostFrequent(value.uses, 1)[0] || '主动推进'}；不应替代实际机会与成本判断。`
-        : `当路线的时间、成本和安全条件接近时，可优先用于${mostFrequent(value.uses, 1)[0] || '主动推进'}；普通通勤或临时小事不必迁就方位。`}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.goodReasons)) || '多项盘面信号共同支持'}。`,
+        ? `当地点的交通、预算和现实机会接近时，可把它作为全年${focus.shortLabel}相关地点的辅助筛选，主要用于${focusUse}；不应替代实际机会与成本判断。`
+        : `当路线的时间、成本和安全条件接近时，可优先用于本月${focusUse}；普通通勤或临时小事不必迁就方位。`}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.goodReasons)) || '多项盘面信号共同支持'}。`,
     }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
@@ -2855,8 +2859,8 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .map(([direction, value]) => ({
       direction,
       detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.avoid}${countUnit}表现受限、${value.good}${countUnit}得到支持，${directionSignalConclusion(period, value.avoid, value.good, analyses.length, false)}。${period === 'year'
-        ? '不宜把它设为长期出行、拜访或办事的固定偏好；必须前往时，先核对交通、返程和替代地点。'
-        : '不适合主动把时间紧、协调成本高的事项反复安排在该方向；必须前往时，提前确认路线、返程并留出改线余量。'}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.avoidReasons)) || '多项盘面限制共同出现'}。`,
+        ? `不宜把它设为全年${focus.shortLabel}相关地点的固定偏好；必须前往时，先核对交通、返程和替代地点。`
+        : `不适合主动把本月${focus.shortLabel}相关且时间紧、协调成本高的事项反复安排在该方向；必须前往时，提前确认路线、返程并留出改线余量。`}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.avoidReasons)) || '多项盘面限制共同出现'}。`,
     }));
   return { goodDirections, avoidDirections };
 }
@@ -3317,9 +3321,6 @@ function calculateDailyFortune(
     ));
   }
 
-  const directions = period === 'today'
-    ? buildSingleDirections(baseAnalysis.chart, personal)
-    : buildPeriodDirections(sampleAnalyses, period, personal);
   const periodTrend = buildPeriodTrend(period, now, sampleAnalyses, personal, runtimeNow, isCurrentPeriod);
   const preferredCount = aggregates.filter((item) => item.evaluation.tone === 'favorable').length;
   const cautionCount = aggregates.filter((item) => item.evaluation.tone === 'cautious').length;
@@ -3345,6 +3346,9 @@ function calculateDailyFortune(
     personal,
     `${formatDateKey(now)}|${period}|${personal?.referenceSeed || 'general'}`,
   );
+  const directions = period === 'today'
+    ? buildSingleDirections(baseAnalysis.chart, personal, judgment.primary.evaluation.definition)
+    : buildPeriodDirections(sampleAnalyses, period, personal, judgment.primary.evaluation.definition);
   const reference = buildReference(
     period,
     baseAnalysis,

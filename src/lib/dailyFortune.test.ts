@@ -89,6 +89,15 @@ const evidenceOpportunityMarkers: Record<string, RegExp> = {
   wellbeing: /完整休息|睡眠|进食|专注度|注意力|食欲|兴奋/,
 };
 
+const shortTopicLabels: Record<string, string> = {
+  career: '工作',
+  study: '学习',
+  wealth: '钱款',
+  relationship: '沟通',
+  travel: '出行',
+  wellbeing: '休息',
+};
+
 const referenceItemsByTopic: Record<string, string[]> = {
   career: ['金属签字笔', '银色夹子', '暖色笔记本'],
   study: ['木质书签', '暖色笔记本', '银色夹子'],
@@ -193,7 +202,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v108');
+      expect(serialized).toContain('2026-08-27-v109');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -278,14 +287,31 @@ describe('今日、月运、年运统一周期算法', () => {
   it('方位说明保留用途、盘面依据和现实使用边界', () => {
     const date = new Date(2026, 10, 15, 12, 0, 0, 0);
     const today = generateDailyFortune(date, undefined, 'today', date);
+    const todayFocus = shortTopicLabels[today.actionTips[0]?.sourceKey || ''];
     expect(today.goodDirections.length).toBeGreaterThan(0);
-    today.goodDirections.forEach((item) => expect(item.detail).toMatch(/更适合作为.+尤其用于.+。只有.+时才优先.+判断依据：/));
-    today.avoidDirections.forEach((item) => expect(item.detail).toMatch(/不适合主动安排.+。必须前往时.+判断依据：/));
+    today.goodDirections.forEach((item) => {
+      expect(item.detail).toMatch(/更适合作为.+尤其用于.+。只有.+时才优先.+判断依据：/);
+      expect(item.detail).toContain(`当前主线是${todayFocus}`);
+      if (today.actionTips[0]?.sourceKey !== 'wealth') {
+        expect(item.detail).not.toMatch(/求财|投资/);
+      }
+    });
+    today.avoidDirections.forEach((item) => {
+      expect(item.detail).toMatch(/不适合主动安排.+。必须前往时.+判断依据：/);
+      expect(item.detail).toContain(`与${todayFocus}相关`);
+    });
     expect(today.reference.directionNote).toBe(today.goodDirections[0]?.detail);
 
     const month = generateDailyFortune(date, undefined, 'month', date);
-    month.goodDirections.forEach((item) => expect(item.detail).toMatch(/有\d+天得到支持、\d+天需要回避.+当路线的时间、成本和安全条件接近时.+判断依据主要是：/));
-    month.avoidDirections.forEach((item) => expect(item.detail).toMatch(/有\d+天表现受限、\d+天得到支持.+不适合主动把.+判断依据主要是：/));
+    const monthFocus = shortTopicLabels[month.actionTips[0]?.sourceKey || ''];
+    month.goodDirections.forEach((item) => {
+      expect(item.detail).toMatch(/有\d+天得到支持、\d+天需要回避.+当路线的时间、成本和安全条件接近时.+判断依据主要是：/);
+      expect(item.detail).toContain(`本月${monthFocus}`);
+    });
+    month.avoidDirections.forEach((item) => {
+      expect(item.detail).toMatch(/有\d+天表现受限、\d+天得到支持.+不适合主动把.+判断依据主要是：/);
+      expect(item.detail).toContain(`本月${monthFocus}相关`);
+    });
     [...month.goodDirections, ...month.avoidDirections].forEach((item) => {
       expect(item.detail).not.toMatch(/常见用途：|常见依据：|常见限制：|出现\d+次/);
     });
