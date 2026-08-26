@@ -61,6 +61,8 @@ describe('今日运势个案内容审计', () => {
         expect(personalInsight?.detail).toMatch(/个人命盘|个人盘|本期外部节奏/);
         expect(personalInsight?.detail).toMatch(/较稳的一项|更适合投入|更耗精力|停止加量|准备动作|判断主线/);
         expect(personalInsight?.detail).toMatch(/之所以|因为/);
+        expect(personalInsight?.detail).not.toMatch(/会放大.+这些议题更容易牵动后续安排/);
+        expect(personalInsight?.detail).toMatch(/分工|承受量|消化|推迟决定|可见成果|长期安排|稳定来源|持续性|协作边界|资源分配/);
         expect(personalInsight?.detail).not.toMatch(/个人承接|承接较好|更耗承接力|本期个人议题集中/);
         expect(personalInsight?.detail).not.toMatch(/十神|喜用|忌神|相生|相克|天干|地支|宫位/);
         expect(personalInsight?.detail).not.toMatch(/主线卡住时.+恢复进度|可用它配合主线|多分配一档精力/);

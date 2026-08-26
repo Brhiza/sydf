@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v54';
+const dailyFortuneCacheVersion = '2026-08-26-v55';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -426,17 +426,17 @@ const tenGodFocusLabels: Record<string, string> = {
   食神: '产出与分享', 伤官: '表达与变化', 正财: '稳定资源', 偏财: '流动资源',
   比肩: '自主与协作', 劫财: '竞争与分配',
 };
-const personalFocusNarratives: Record<string, string> = {
-  '责任与规则': '责任、流程和长期安排',
-  '压力与突破': '压力应对和关键突破',
-  '支持与吸收': '学习吸收和外部支持',
-  '研究与调整': '研究判断和策略调整',
-  '产出与分享': '稳定产出和经验分享',
-  '表达与变化': '表达方式和临场变化',
-  '稳定资源': '稳定收入和长期资源',
-  '流动资源': '外部机会和流动资源',
-  '自主与协作': '自主决定和协作边界',
-  '竞争与分配': '竞争压力和资源分配',
+const personalFocusImpacts: Record<string, string> = {
+  '责任与规则': '责任与流程会成为判断前提，含糊的分工更容易拖慢后续',
+  '压力与突破': '压力会推动突破，也会让人高估短期承受量',
+  '支持与吸收': '学习与外部支持更容易进入视野，关键在消化而不是继续收集',
+  '研究与调整': '细节与替代方案更容易被看见，但研究过久会推迟决定',
+  '产出与分享': '已有积累更容易转成可见成果，完成一项再扩大分享更有利',
+  '表达与变化': '临场表达和变化都会增加，短期反应不宜直接变成长期安排',
+  '稳定资源': '固定收入、预算与长期资源更值得整理，稳定来源应优先于扩张',
+  '流动资源': '外部机会会更活跃，但持续性仍要单独验证',
+  '自主与协作': '自主决定与协作边界会更突出，能自行决定和需要协商的部分要分开',
+  '竞争与分配': '比较压力会放大资源分配问题，跟随他人节奏更容易偏离主线',
 };
 const flowLayerWeights: Record<QimenScope, Partial<Record<FortuneTriggerLayer['type'], number>>> = {
   year: { dayun: .35, year: .65 },
@@ -1667,9 +1667,6 @@ function buildPersonalJudgmentInsight(
           : personalAlignment >= .22
             ? 'favorable'
             : personalAlignment <= -.22 ? 'cautious' : 'balanced';
-  const focusNarratives = [...new Set(aggregates.flatMap((item) => item.evaluation.personalFocus))]
-    .map((label) => personalFocusNarratives[label] || label)
-    .slice(0, 2);
   const supportedItems = aggregates
     .filter((item) => item.evaluation.personalRelation === 'support')
     .sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation));
@@ -1682,6 +1679,22 @@ function buildPersonalJudgmentInsight(
   const reviewItem = primaryRelation === 'review' || (primaryRelation === 'neutral' && primaryAlignment <= -.18)
     ? primary
     : reviewItems[0];
+  const focusScores = new Map<string, number>();
+  const addFocusScores = (item: CategoryAggregate | undefined, weight: number) => {
+    item?.evaluation.personalFocus.forEach((label) => {
+      focusScores.set(label, (focusScores.get(label) || 0) + weight);
+    });
+  };
+  addFocusScores(primary, 4);
+  addFocusScores(supportItem, 3);
+  addFocusScores(reviewItem, 3);
+  addFocusScores(caution, 2);
+  aggregates.forEach((item) => addFocusScores(item, 1));
+  const focusImpacts = [...focusScores.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([label]) => personalFocusImpacts[label])
+    .filter(Boolean)
+    .slice(0, 2);
   const reasonClauses: Record<PersonalRelationReason, string> = {
     'attention-aligned': '个人盘当前的注意力正好集中在同一类事务上，较容易持续推进',
     'attention-blocked': '这类事务虽然会集中占用注意力，但同时带有阻滞信号，投入越多越容易被牵制',
@@ -1694,8 +1707,8 @@ function buildPersonalJudgmentInsight(
     'period-aligned': '本期外部节奏与个人较能发挥的方向一致，行动更容易接续起来',
     'period-friction': '本期外部节奏更多落在个人相对吃力的方向，同样的投入更容易产生疲惫感',
   };
-  const focusSentence = focusNarratives.length
-    ? `本期个人命盘会放大${focusNarratives.join('、')}，这些议题更容易牵动后续安排。`
+  const focusSentence = focusImpacts.length
+    ? `结合个人命盘，本期${focusImpacts.join('；')}。`
     : '';
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
