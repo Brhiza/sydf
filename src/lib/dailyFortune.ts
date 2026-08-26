@@ -938,7 +938,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v109';
+const dailyFortuneCacheVersion = '2026-08-27-v112';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2526,34 +2526,64 @@ const topicEvidenceChecks: Record<string, string> = {
   wellbeing: '休息后注意力与食欲是否持续回升，而不是短时兴奋',
 };
 
-function primaryComparisonEvidence(judgment: FortuneMasterJudgment) {
+const secondaryInteractionEffects: Record<string, string> = {
+  career: '工作交接若失效，主线形成的结果会停在无人接收或无法验收的环节',
+  study: '学习若不能沉淀成方法，同类问题下一次仍要重新判断，主线经验无法累积',
+  wealth: '钱款边界若不闭合，主线选择会继续变成新增成本、付款压力或合作责任',
+  relationship: '沟通若没有对齐事实，主线下一步会建立在不同前提上，执行越快返工越多',
+  travel: '出行时间链若失守，主线安排会被转场和返程压缩，原有次序也会随之改变',
+  wellbeing: '状态若没有恢复，主线所需的判断力与持续时间会同时下降，可用窗口也会被高估',
+};
+
+function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const primary = judgment.primary;
   const secondary = judgment.secondary;
   const difference = primary.favorableCount - primary.cautiousCount;
   const neutralCount = Math.max(0, primary.sampleCount - primary.favorableCount - primary.cautiousCount);
   const scoreGap = primary.evaluation.score - secondary.evaluation.score;
+  const measure = period === 'month' ? '天' : '段';
+  const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
   const distribution = difference >= 3
-    ? '顺势窗口明显更多，优势不是单点偶发。'
+    ? `${primary.evaluation.definition.shortLabel}的优势跨过多个${windowType}，不是单点偶发，可把真正有利的窗口集中用于本期主线。`
     : difference > 0
-      ? '顺势窗口只略多，优势存在但并不连续。'
+      ? `${primary.evaluation.definition.shortLabel}只在部分${windowType}占优，${neutralCount}${measure}平稳窗口应维持正常负荷，不能跟随顺势窗口一并加量。`
       : difference === 0
-        ? `顺势与收紧相抵，${neutralCount}个平稳窗口更适合按明确标准逐步验证，不适合追求一次突破。`
-        : '收紧窗口多于顺势窗口，这不是加量信号；它的价值在于问题边界清楚，可以先完成一次可验证的修正。';
+        ? `${primary.evaluation.definition.shortLabel}没有净优势，${neutralCount}${measure}平稳窗口更适合维持正常负荷并逐步验证，不适合追求一次突破。`
+        : `${primary.evaluation.definition.shortLabel}当前更适合纠偏而非加量；可用之处是问题边界已经显现，可以先完成一次可验证的修正。`;
   const primaryCheck = topicEvidenceChecks[primary.category.key] || `${primary.category.label}是否形成明确结果`;
   const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
+  const interaction = secondaryInteractionEffects[secondary.category.key]
+    || `${secondary.category.label}一旦失守，${primary.category.label}形成的结果也会失去后续承接`;
   const comparison = scoreGap >= .38
-    ? `${primary.evaluation.definition.shortLabel}的支持更集中，主要看${primaryCheck}；${secondary.evaluation.definition.shortLabel}的信号较分散，只补充观察${secondaryCheck}。`
+    ? `${primary.evaluation.definition.shortLabel}的支持更集中，主要看${primaryCheck}；${secondary.evaluation.definition.shortLabel}的信号较分散，仍要观察${secondaryCheck}。${interaction}。`
     : scoreGap >= .14
-      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}；前者看${primaryCheck}，后者看${secondaryCheck}，两项都成立才适合持续投入。`
-      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}接近；需要同时确认两件事：一是${primaryCheck}，二是${secondaryCheck}。单看一项会高估局面的可用程度。`;
+      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}；前者用${primaryCheck}判断，后者用${secondaryCheck}判断。${interaction}，两项检查都通过后才适合继续加量。`
+      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}接近；前者用${primaryCheck}判断，后者用${secondaryCheck}判断。${interaction}，不能只凭${primary.evaluation.definition.shortLabel}一项顺势就扩大安排。`;
   return `${distribution}${comparison}`;
 }
 
-function cautionDistributionMeaning(aggregate: CategoryAggregate) {
+const topicRiskNodes: Record<string, string> = {
+  career: '责任交接和验收口径',
+  study: '连续注意力和输出检验',
+  wealth: '金额、责任和付款节点',
+  relationship: '共同事实和承诺边界',
+  travel: '路线、转场和返程余量',
+  wellbeing: '睡眠、进食和专注恢复',
+};
+
+function cautionDistributionMeaning(aggregate: CategoryAggregate, period: FortunePeriod) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference > 0) return '整体仍有优势，但风险窗口会直接打断前后衔接，不能用总体偏顺掩盖具体节点。';
-  if (difference === 0) return '顺势与收紧数量相同，结果高度依赖执行条件；单次顺利不能代表后续。';
-  return '同类风险在多个阶段重现，说明关键条件反复失守，而不是一次偶发。';
+  const shortLabel = aggregate.evaluation.definition.shortLabel;
+  const riskNode = topicRiskNodes[aggregate.category.key] || '关键执行条件';
+  const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
+  if (difference > 0) {
+    return `${shortLabel}的风险集中在${riskNode}，这一环节若落在前后衔接处，会直接中断已有进展，不能被总体偏顺抵消。`;
+  }
+  if (difference === 0) {
+    const check = topicEvidenceChecks[aggregate.category.key] || `${aggregate.category.label}是否形成明确结果`;
+    return `${shortLabel}没有稳定优势，${check}需要在每次安排后按实际结果重新验证。`;
+  }
+  return `${riskNode}在多个${windowType}反复失守，应按持续性风险处理，不能归为一次偶发。`;
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
@@ -2569,11 +2599,11 @@ function cautionConsequence(caution: CategoryAggregate) {
 }
 
 function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
-  return `${categoryDistributionEvidence(judgment.primary, period)}${primaryComparisonEvidence(judgment)}`;
+  return `${categoryDistributionEvidence(judgment.primary, period)}${primaryComparisonEvidence(judgment, period)}`;
 }
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
-  return `${categoryDistributionEvidence(judgment.caution, period)}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
+  return `${categoryDistributionEvidence(judgment.caution, period)}${cautionDistributionMeaning(judgment.caution, period)}${cautionConsequence(judgment.caution)}`;
 }
 
 const primaryMilestones: Record<string, string> = {
