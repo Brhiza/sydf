@@ -66,15 +66,19 @@ describe('运势整体语料', () => {
     });
   });
 
-  it('标题给结论，总评开场只解释承接关系与后果', () => {
+  it('标题给结论，总评按主线、承接和牵制组织成一条判断链', () => {
     postures.forEach((posture) => {
       const phraseContext = context(cautionActions[0]);
       const result = renderFortuneReading(posture, phraseContext, `${posture}-title-summary-role`);
-      const reasonStart = result.summary.indexOf(phraseContext.primaryReason);
-      const opening = reasonStart >= 0 ? result.summary.slice(0, reasonStart) : result.summary;
-      expect(opening).toBe(`${phraseContext.secondaryRole}。`);
-      expect(opening).not.toContain(phraseContext.primaryLabel);
-      expect(opening).not.toContain(phraseContext.primaryOutcome);
+      const primaryIndex = result.summary.indexOf(phraseContext.primaryReason);
+      const secondaryIndex = result.summary.indexOf(phraseContext.secondaryRole);
+      const cautionIndex = result.summary.indexOf(phraseContext.cautionReason);
+      expect(primaryIndex).toBe(0);
+      expect(secondaryIndex).toBeGreaterThan(primaryIndex);
+      expect(cautionIndex).toBeGreaterThan(secondaryIndex);
+      expect(result.summary.match(new RegExp(phraseContext.primaryReason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(1);
+      expect(result.summary).toMatch(/要让这条主线真正落地|判断能否继续投入时，还要看承接条件|恢复承载时|保留这条主线的同时/);
+      expect(result.summary).not.toBe(`${phraseContext.secondaryRole}。${phraseContext.primaryReason}${phraseContext.cautionReason}`);
       expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);
     });
   });
