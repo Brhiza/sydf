@@ -80,6 +80,15 @@ const evidenceRiskMarkers: Record<string, RegExp> = {
   wellbeing: /承载条件|所有计划/,
 };
 
+const evidenceOpportunityMarkers: Record<string, RegExp> = {
+  career: /责任|验收|交付/,
+  study: /学习成果|输入|专注|资料/,
+  wealth: /款项|对账|交易|付款/,
+  relationship: /事实|共识|沟通|关系/,
+  travel: /行程|路线|返程/,
+  wellbeing: /完整休息|睡眠|进食|专注度/,
+};
+
 const referenceItemsByTopic: Record<string, string[]> = {
   career: ['金属签字笔', '银色夹子', '暖色笔记本'],
   study: ['木质书签', '暖色笔记本', '银色夹子'],
@@ -112,8 +121,9 @@ function expectEvidenceDistribution(result: DailyFortuneResult) {
   const measure = result.period === 'month' ? '天' : '段';
   result.evidenceInsights.filter((item) => ['opportunity', 'caution', 'secondary'].includes(item.key)).forEach((item) => {
     expect(item.detail).toMatch(new RegExp(`\\d+个${unit}里，.+有\\d+${measure}顺势、\\d+${measure}需要收紧，其余\\d+${measure}平稳`));
+    if (item.key === 'opportunity' && item.sourceKey) expect(item.detail).toMatch(evidenceOpportunityMarkers[item.sourceKey]);
     if (item.key === 'caution' && item.sourceKey) expect(result.summary).toMatch(evidenceRiskMarkers[item.sourceKey]);
-    if (item.key === 'secondary') expect(item.detail).toMatch(/落实为|主线之后|事实基础|已经确定|并行保留/);
+    if (item.key === 'secondary') expect(item.detail).toMatch(/等.+后|完整休息|承载条件/);
     expect(item.detail).not.toMatch(/六项综合排序|六项中相对最需要复核/);
   });
 }
@@ -124,10 +134,11 @@ function expectContentRichTrend(result: DailyFortuneResult) {
     expect(item.focus).not.toMatch(/可优先|日常节奏|接着/);
     expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|验收|边界|复述|学习|任务量|切换|笔记|练习|资料|复盘|输出|款项|金额|付款|交易记录|报价|对账|比价|分歧|对方|事实|共识|意图|推测|信息差|沟通|路线|天气|证件|物品|行程|转场|机动时间|返程|睡眠|精力|疲劳|饮食|活动|承受量|注意力|休息/);
     expect(item.focus.length).toBeGreaterThan(8);
-    const topics = [...item.focus.matchAll(/(?:完成后再做|稳定后再做)?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
+    const topics = [...item.focus.matchAll(/(?:(?:完成后再做|稳定后再做|同时照顾|同步保留))?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
     expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
-    if (item.tone === 'cautious') expect(item.focus).toMatch(/先查：.*；.*保留：.*；稳定后再做/);
-    else expect(item.focus).toContain('完成后再做');
+    if (item.tone === 'cautious') expect(item.focus).toMatch(/先查：.*；.*保留：.*；(?:稳定后再做|同步保留)/);
+    else expect(item.focus).toMatch(/完成后再做|同时照顾/);
+    expect(item.focus).not.toContain('不扩大范围');
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
   expect(result.reference.itemNote.length).toBeGreaterThan(22);
@@ -181,7 +192,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v76');
+      expect(serialized).toContain('2026-08-26-v78');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -446,8 +457,10 @@ describe('今日、月运、年运统一周期算法', () => {
     results.forEach((result) => {
       expect(JSON.stringify(result)).not.toContain('先先');
       expect(result.overview.label).toMatch(/主线|集中发力|次序|状态|基本盘|积累|卡点/);
-      expect(result.summary).toMatch(/整体|局面|当前/);
-      expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|状态|稳住|扩张|失误|积累|蓄势|基础|卡点|牵制|解决/);
+      expect(result.summary).toMatch(/整体|局面|当前|牵制多于助力/);
+      expect(result.summary).toContain(result.categories[0]!.label);
+      expect(result.categories.slice(1).some((item) => result.summary.includes(item.label))).toBe(true);
+      expect(result.summary).toMatch(/明确交付|分段积累|逐项核对|信息差|出发前|其他事情能否持续/);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
       expect(result.actionTips[0]?.label).toMatch(/^优先(?:工作|学习|钱款|沟通|出行|休息)$/);
       expect(result.categories[0]?.key).toBe(result.actionTips[0]?.sourceKey);

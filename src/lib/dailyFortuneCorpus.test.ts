@@ -29,6 +29,7 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     lead: '今天',
     primaryLabel: '工作事业',
     secondaryLabel: '学习成长',
+    secondaryIsWellbeing: false,
     cautionLabel: '金钱合作',
     bestWindow: '上午 09:00—10:59',
     cautionWindow: '下午 15:00—16:59',
@@ -37,7 +38,6 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     cautionAction,
     primaryReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
     cautionReason: '金钱合作同时影响现金流与合作责任，一处误差可能延续到后续结算。',
-    personalClause: '',
     mixed: true,
   };
 }
@@ -70,6 +70,19 @@ describe('运势整体语料', () => {
       const result = renderFortuneReading(posture, parallelContext, `${posture}-parallel-wellbeing`);
       expect(result.opportunity).toContain('先处理目标清楚、能直接推进的工作');
       expect(result.opportunity).not.toMatch(/阅读|写作|复盘|休息|饮食|轻度活动/);
+    });
+  });
+
+  it('身心状态作为第二主题时始终同步照顾，不排在主线完成之后', () => {
+    const wellbeingContext = {
+      ...context(cautionActions[0]),
+      secondaryLabel: '身心状态',
+      secondaryIsWellbeing: true,
+    };
+    postures.forEach((posture) => {
+      const result = renderFortuneReading(posture, wellbeingContext, `${posture}-secondary-wellbeing`);
+      if (result.summary.includes('身心状态')) expect(result.summary).toMatch(/同步|恢复|作息|固定/);
+      expect(result.summary).not.toMatch(/身心状态(?:随后|再承接|适合接在|逐步接上|维持稳定投入|不增加变量|只做必要维护|不再加量)/);
     });
   });
 });

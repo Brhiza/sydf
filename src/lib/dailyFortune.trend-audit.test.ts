@@ -20,8 +20,7 @@ const profiles: Array<DailyFortuneProfile | undefined> = [
 function coreFragments(focus: string) {
   return focus.split('；')
     .map((item) => item
-      .replace(/^(?:(?:完成后再做|稳定后再做)?(?:工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：)/, '')
-      .replace(/，不扩大范围$/, '')
+      .replace(/^(?:(?:完成后再做|稳定后再做|同时照顾|同步保留)?(?:工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：)/, '')
       .trim())
     .filter((item) => item.length >= 6);
 }
@@ -38,9 +37,10 @@ describe('运势趋势内容审计', () => {
       result.periodTrend.forEach((item) => {
         expect(item.status).toMatch(/^(?:先稳|先做)?(?:工作|学习|钱款|沟通|出行|休息)(?:可落地)?$/);
         expect(item.focus).not.toMatch(/随后安排|接着/);
-        const topics = [...item.focus.matchAll(/(?:完成后再做|稳定后再做)?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
+        const topics = [...item.focus.matchAll(/(?:完成后再做|稳定后再做|同时照顾|同步保留)?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
         expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
         expect(coreFragments(item.focus).length).toBeGreaterThanOrEqual(2);
+        expect(item.focus).not.toContain('不扩大范围');
       });
       return {
         profileIndex,

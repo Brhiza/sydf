@@ -45,8 +45,12 @@ describe('今日运势个案内容审计', () => {
       expect(duplicates, JSON.stringify({ profile, period: result.period, duplicates })).toEqual([]);
       expect(sections.join('\n')).not.toMatch(/当前案例没有明显加减|根据真实反馈及时调整|不在信息不足时做最终决定|  {2,}/);
       if (profile !== '通用') {
-        expect(result.summary).toMatch(/个人命盘/);
+        expect(result.summary).not.toMatch(/个人命盘/);
         expect(result.summary).not.toMatch(/可优先留出一段完整时间|先确认.+(?:时间|标准|节点|感受|信息差)|先收窄范围/);
+        const personalInsight = result.evidenceInsights.find((item) => item.key === 'personal');
+        expect(personalInsight?.label).toBe('结合案例');
+        expect(personalInsight?.detail).toMatch(/个人命盘|个人盘|本期外部节奏/);
+        expect(personalInsight?.detail).toMatch(/之所以|因为/);
       }
     });
   }, 60_000);

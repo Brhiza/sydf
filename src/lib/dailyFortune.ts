@@ -268,7 +268,6 @@ interface FortuneMasterJudgment {
   personalInsight?: {
     title: string;
     detail: string;
-    clause: string;
     tone: DailyFortuneTone;
   };
   mixed: boolean;
@@ -373,7 +372,7 @@ const topicDefinitions: TopicDefinition[] = [
     action: '给休息、饮食和轻度活动留出固定时间', prepare: '减少透支并安排规律休息', check: '睡眠、饮食、精力和身体感受',
     completionRule: '完整休息后再看专注是否恢复；仍无法集中时直接减少任务量，不用短时兴奋代替恢复',
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
-    cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
+    cautionAction: '如果睡眠、食欲和注意力中有两项同时偏弱，删去一项非必要安排，并优先补足休息。',
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
     masterReason: '身心状态决定其他事情能否持续，先稳住状态可以减少全局消耗。',
     masterRiskReason: '它是其他安排的承载条件，状态判断失真会让所有计划同时超量。',
@@ -387,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v76';
+const dailyFortuneCacheVersion = '2026-08-26-v78';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1773,9 +1772,6 @@ function buildPersonalJudgmentInsight(
     return {
       tone,
       title: primarySupported ? '个人命盘与主线同向' : '个人支持落在另一项',
-      clause: primarySupported
-        ? `个人命盘与${primary.category.label}主线同向，整体判断的可用性更稳定。`
-        : `个人命盘的额外支持落在${supportItem?.category.label || primary.category.label}，但不改变${primary.category.label}的主线顺序。`,
       detail: `${focusSentence}${supportAdvice}${reviewAdvice}`,
     };
   }
@@ -1784,20 +1780,12 @@ function buildPersonalJudgmentInsight(
     return {
       tone,
       title: primaryNeedsReview ? '主线仍可用，但不宜加量' : '个人命盘另有消耗点',
-      clause: primaryNeedsReview
-        ? `个人命盘显示${primary.category.label}更容易消耗精力，主线结论仍成立，但执行强度需要下调。`
-        : `个人命盘的主要消耗落在${reviewItem?.category.label || caution.category.label}，整体主线不变，但本期可承受的事项数量会减少。`,
       detail: `${focusSentence}${reviewAdvice}${supportAdvice}`,
     };
   }
   return {
     tone,
     title: supportItem || reviewItem ? '个人支持与消耗并存' : '个人命盘没有明显偏移',
-    clause: supportItem
-      ? `个人命盘对${supportItem.category.label}更有支持${reviewItem ? `，${reviewItem.category.label}则更耗精力` : ''}；整体主线顺序不变。`
-      : reviewItem
-        ? `个人命盘的主要消耗落在${reviewItem.category.label}，整体主线顺序不变。`
-        : '个人命盘没有足以改变整体结论的明显偏移。',
     detail: `${focusSentence}${supportAdvice}${reviewAdvice}`,
   };
 }
@@ -1845,6 +1833,7 @@ function buildFortuneMasterJudgment(
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
     secondaryLabel: secondary.category.label,
+    secondaryIsWellbeing: secondary.category.key === 'wellbeing',
     cautionLabel: hasCaution ? caution.category.label : '',
     bestWindow,
     cautionWindow,
@@ -1853,7 +1842,6 @@ function buildFortuneMasterJudgment(
     cautionAction: caution.evaluation.definition.cautionAction,
     primaryReason,
     cautionReason: hasCaution ? cautionReason : '',
-    personalClause: personalInsight?.clause || '',
     mixed,
   }, seed);
   return { posture, primary, secondary, caution, bestAnalysis, cautionAnalysis, personalInsight, mixed, copy };
@@ -1866,12 +1854,49 @@ function categoryDistributionEvidence(aggregate: CategoryAggregate, period: Fort
   return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}里，${aggregate.category.label}有${aggregate.favorableCount}${measure}顺势、${aggregate.cautiousCount}${measure}需要收紧，其余${neutralCount}${measure}平稳。`;
 }
 
+const primaryDistributionMeanings: Record<string, [string, string, string, string]> = {
+  career: [
+    '多个窗口都能把工作推到可验收节点；关键交付放在前面的优先时段，其余时间用于确认责任和补齐资料。',
+    '可推进窗口略多，按“确认责任—执行—验收”拆开安排，比一次铺开多项承诺更稳。',
+    '推进与变动交替出现，每次只锁定一个可验收成果，避免任务跨阶段悬空。',
+    '即使收紧窗口更多，工作仍是相对可控的一项；先守住已有交付，不接责任和标准尚未明确的新任务。',
+  ],
+  study: [
+    '多个窗口有利于形成学习成果；把阅读、输出和检验分开安排，确保每轮输入都留下可复述的结果。',
+    '可用窗口略多，适合一段输入接一次练习或复述，确认掌握后再增加资料。',
+    '专注与分散交替出现，把目标缩成一页笔记、一道练习或一次复述，避免只累积阅读量。',
+    '即使收紧窗口更多，学习仍能通过减量保持连续；先消化现有资料，不新增课程和题量。',
+  ],
+  wealth: [
+    '多个窗口适合处理清楚的款项；把询价、核对和付款分开，只有记录闭合的事项才进入结算。',
+    '可用窗口略多，先完成一次对账或条款确认，再决定是否付款或扩大合作。',
+    '金额与条件容易反复，分阶段保存报价、责任和付款节点，避免口头约定直接进入交易。',
+    '即使收紧窗口更多，钱款仍可通过留痕控制风险；只处理记录完整的事项，其余停在询价阶段。',
+  ],
+  relationship: [
+    '多个窗口有利于把话说清；重要沟通仍按“确认事实—说明分歧—约定下一步”完成，不用一次解决所有情绪。',
+    '可沟通窗口略多，但共识需要逐次验证；每次只确认事实、一个分歧和一个下一步。',
+    '顺畅与误读交替出现，先复述彼此理解，再决定是否进入下一项承诺。',
+    '即使收紧窗口更多，沟通仍是解开其他问题的入口；只确认事实，不在信息不全时给关系定性。',
+  ],
+  travel: [
+    '多个窗口适合落实行程；关键出发放在前面的优先时段，其他时间用于确认路线、物品和返程余量。',
+    '可用窗口略多，先完成路线和备选方案，再逐段加入外出事项，不连续加站。',
+    '交通与时间衔接容易反复，每段行程都要留独立缓冲，避免前一站拖累后续。',
+    '即使收紧窗口更多，出行仍可通过删减路线来控制；只保留必要行程，并先确定返程方案。',
+  ],
+  wellbeing: [
+    '多个窗口有利于恢复；把完整休息放在前面的优先时段，并以休息后的专注度决定后续任务量。',
+    '恢复窗口略多，但承受量仍会波动；只有完整休息后注意力确实回来，才增加安排。',
+    '状态起伏较明显，先固定睡眠、饮食和轻度活动，再按恢复后的真实精力删减任务。',
+    '即使收紧窗口更多，身心状态仍必须先处理；先保住睡眠和进食，再谈其他事项的进度。',
+  ],
+};
+
 function primaryDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference >= 3) return '优势较清楚，但不是整段周期都同样顺，重要事项仍应落在前面的关键窗口。';
-  if (difference > 0) return '顺势窗口略多，适合分段推进，每完成一步再判断是否加量。';
-  if (difference === 0) return '顺势与收紧窗口相当，节奏会有反复，适合把目标拆成能独立完成的小段。';
-  return '收紧窗口更多；它被列为主线，是因为相较其他事项仍较可控，因此先守住完成质量。';
+  const meanings = primaryDistributionMeanings[aggregate.category.key] || primaryDistributionMeanings.career;
+  return meanings[difference >= 3 ? 0 : difference > 0 ? 1 : difference === 0 ? 2 : 3];
 }
 
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
@@ -1901,18 +1926,30 @@ function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: Fort
   return `${categoryDistributionEvidence(judgment.caution, period)}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
 }
 
+const primaryMilestones: Record<string, string> = {
+  career: '负责人、交付标准和下一步已经明确',
+  study: '笔记或练习已经形成可检验的成果',
+  wealth: '金额、责任和付款节点已经对齐',
+  relationship: '事实、分歧和下一步已经形成共识',
+  travel: '路线、时间余量和备选方案已经确定',
+  wellbeing: '完整休息后注意力确实恢复',
+};
+
 function secondaryReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const secondary = judgment.secondary;
-  const primaryShortLabel = judgment.primary.evaluation.definition.shortLabel;
+  const primary = judgment.primary.evaluation.definition;
+  const milestone = primaryMilestones[primary.key] || `${primary.shortLabel}已经得到明确结果`;
   const roles: Record<string, string> = {
-    career: `它适合把${primaryShortLabel}形成的条件落实为负责人、下一步和验收标准，放在主线之后更容易收尾。`,
-    study: `它适合把${primaryShortLabel}中出现的信息整理成可复述、可检验的结果，在主线之后投入会更集中。`,
-    wealth: `它适合把${primaryShortLabel}形成的条件落实为金额、责任和付款节点，先等主线信息稳定更合适。`,
-    relationship: `它能把${primaryShortLabel}形成的结果变成双方共同确认的下一步，先有事实基础再沟通会更有效。`,
-    travel: `它适合承接${primaryShortLabel}已经确定的时间和任务边界，主线未定前贸然出发更容易返工。`,
-    wellbeing: `它为${primaryShortLabel}提供承载条件，应与主线并行保留；休息后的注意力比忙碌时的兴奋感更能判断实际余量。`,
+    career: `等${milestone}后，再把相关任务落实为负责人、下一步和验收标准，能避免做完仍无人接收。`,
+    study: `等${milestone}后，再把相关信息整理成可复述、可检验的成果，注意力会更集中。`,
+    wealth: `等${milestone}后，再核清金额、责任和付款节点，能避免条件变化后重复对账。`,
+    relationship: primary.key === 'wellbeing'
+      ? '先用完整休息确认注意力确实恢复，再进入沟通，更容易听完整、分清事实并约定下一步。'
+      : `等${milestone}后，再确认双方理解和下一步，能减少基于不同前提的反复解释。`,
+    travel: `等${milestone}后，再确定路线、时间和备选方案，能减少临时改线对后续事项的影响。`,
+    wellbeing: `身心状态是${primary.shortLabel}能否持续的承载条件，应同步保留睡眠、进食和轻度活动；用休息后的注意力判断实际余量。`,
   };
-  return `${categoryDistributionEvidence(secondary, period)}${roles[secondary.category.key] || `它适合承接${primaryShortLabel}形成的结果，放在主线之后更容易收尾。`}`;
+  return `${categoryDistributionEvidence(secondary, period)}${roles[secondary.category.key] || `等${milestone}后再处理这项事务，能减少前置条件变化带来的返工。`}`;
 }
 
 function stripPriorityPrefix(value: string) {
@@ -1927,7 +1964,21 @@ function supportActionFromJudgment(judgment: FortuneMasterJudgment) {
     return `与${primary.shortLabel}并行，${action}；用休息后的注意力判断实际承受量。`;
   }
   const preparation = stripPriorityPrefix(secondary.prepare);
-  return `等${primary.shortLabel}形成一个可复核结果后，${action}；开始前先${preparation}。`;
+  if (primary.key === 'wellbeing') {
+    const preparationLead = secondary.key === 'relationship'
+      ? `沟通时${preparation}`
+      : secondary.key === 'travel'
+        ? `出发前${preparation}`
+        : `开始前${preparation}`;
+    return `先留出一段完整休息；注意力恢复后，${action}；${preparationLead}。`;
+  }
+  const milestone = primaryMilestones[primary.key] || `${primary.shortLabel}得到明确结果`;
+  const preparationLead = secondary.key === 'relationship'
+    ? `沟通时${preparation}`
+    : secondary.key === 'travel'
+      ? `出发前${preparation}`
+      : `开始前${preparation}`;
+  return `等${milestone}后，${action}；${preparationLead}。`;
 }
 
 function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortunePeriod): DailyFortuneEvidenceInsight[] {
@@ -2271,17 +2322,22 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const primaryLabel = primary?.shortLabel || '主线';
   const secondaryLabel = secondary?.shortLabel || '后续';
   const weakestLabel = weakest?.shortLabel || '风险';
+  const continuationText = continuation
+    ? secondary?.key === 'wellbeing'
+      ? `${tone === 'cautious' ? '同步保留' : '同时照顾'}${secondaryLabel}：${continuation}`
+      : `${tone === 'cautious' ? '稳定后再做' : '完成后再做'}${secondaryLabel}：${continuation}`
+    : '';
   return {
     tone,
     status: tone === 'favorable' ? `${primaryLabel}可落地` : tone === 'cautious' ? `先稳${weakestLabel}` : `先做${primaryLabel}`,
     focus: tone === 'cautious'
       ? [
           `${weakestLabel}先查：${weakestGuard || '先减少变量，再决定是否继续'}`,
-          primaryAction ? `${primaryLabel}保留：${primaryAction}，不扩大范围` : '',
-          continuation ? `稳定后再做${secondaryLabel}：${continuation}` : '',
+          primaryAction ? `${primaryLabel}保留：${primaryAction}` : '',
+          continuationText,
         ].filter(Boolean).join('；')
       : primary
-        ? `${primaryLabel}：${primaryAction}${continuation ? `；完成后再做${secondaryLabel}：${continuation}` : ''}`
+        ? `${primaryLabel}：${primaryAction}${continuationText ? `；${continuationText}` : ''}`
         : '主线：先完成已经明确的一件事',
   };
 }
@@ -2408,11 +2464,16 @@ function buildReference(
   const elementBasis = usesPersonalElement
     ? `个人命盘较能承接${element}`
     : `本期${focusName}主线所落宫位偏${element}`;
-  const colorUse = period === 'today'
-    ? `可任选一种标记今天的${focusLabel}清单`
-    : period === 'month'
-      ? `可固定一种标记本月${focusLabel}文件或提醒`
-      : `可固定一种用于区分全年${focusLabel}主线与临时事项`;
+  const referenceTargets: Record<string, string> = {
+    career: '交付清单',
+    study: '学习材料',
+    wealth: '账目或付款提醒',
+    relationship: '沟通备忘',
+    travel: '行程与物品清单',
+    wellbeing: '休息与饮食提醒',
+  };
+  const periodUse = period === 'today' ? '今天' : period === 'month' ? '本月' : '今年';
+  const colorUse = `可任选一种标记${periodUse}的${referenceTargets[focus.key] || `${focusLabel}事项`}`;
   return {
     element,
     colors,
@@ -2421,7 +2482,7 @@ function buildReference(
     direction,
     directionNote: goodDirections.length
       ? goodDirections[0].detail
-      : '方位信号不集中，不设优先方向。',
+      : '方位信号分散，不必为此绕路或改动日程；按距离、交通和现实条件选择即可。',
     item: item.name,
     itemSymbol: item.symbol,
     itemNote: `它被选作${focusLabel}提醒物：${item.note}`,
@@ -2671,7 +2732,7 @@ function calculateDailyFortune(
     periodTrend,
     goodDirections: directions.goodDirections,
     avoidDirections: directions.avoidDirections,
-    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}方位信号不集中，不设优先方向。`,
+    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}方位信号分散，不必为此绕路或改动日程。`,
   };
 }
 

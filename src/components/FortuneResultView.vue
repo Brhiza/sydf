@@ -219,7 +219,7 @@ const leadKicker = computed(() => props.result.period === 'today'
           <p v-else class="fortune-empty-copy">没有单独列出的宜项，优先处理已有计划，不必为黄历临时增加事项。</p>
         </UiReadingSection>
 
-        <UiReadingSection kicker="慎" title="多做确认">
+        <UiReadingSection kicker="慎" title="先查清条件">
           <UiReadingRows v-if="cautiousRows.length" :items="cautiousRows" marker-style="soft" />
           <p v-else class="fortune-empty-copy">没有单独列出的慎项，出行、健康和合同仍按现实条件判断。</p>
         </UiReadingSection>

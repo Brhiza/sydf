@@ -5,6 +5,7 @@ import {
   getModernAlmanacForDate,
   getModernAlmanacHours,
   getModernAlmanacPersonalNotes,
+  modernizeAlmanacDay,
 } from './modernAlmanac';
 
 describe('现代黄历时段', () => {
@@ -92,4 +93,28 @@ describe('现代黄历时段', () => {
     }).days.flatMap((day) => [...day.recommends, ...day.avoids]));
     expect(findUnmappedAlmanacTerms(terms)).toEqual([]);
   });
+
+  it('全年现代宜忌不使用只有提醒、没有检查项的空泛句子', () => {
+    const days = [
+      ['2026-01-01', '2026-04-30'],
+      ['2026-05-01', '2026-08-31'],
+      ['2026-09-01', '2026-12-31'],
+    ].flatMap(([startDate, endDate]) => generateLocalAlmanac({
+      mode: 'general',
+      topic: 'custom',
+      startDate,
+      endDate,
+    }).days);
+    const texts = days.flatMap((day) => {
+      const modern = modernizeAlmanacDay(day);
+      return [
+        modern.rhythm.detail,
+        ...modern.recommended.map((item) => item.detail),
+        ...modern.cautious.map((item) => item.detail),
+      ];
+    });
+    const lowInformation = /多确认|多考虑一天|复核条件|确认双方意愿、健康与现实条件|把普通事情做扎实|不建议临时启动重大决定/;
+    expect([...new Set(texts.filter((text) => text.length < 22))]).toEqual([]);
+    expect(texts.join('\n')).not.toMatch(lowInformation);
+  }, 60_000);
 });
