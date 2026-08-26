@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v100');
+      expect(serialized).toContain('2026-08-27-v102');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -277,14 +277,45 @@ describe('今日、月运、年运统一周期算法', () => {
     const date = new Date(2026, 10, 15, 12, 0, 0, 0);
     const today = generateDailyFortune(date, undefined, 'today', date);
     expect(today.goodDirections.length).toBeGreaterThan(0);
-    today.goodDirections.forEach((item) => expect(item.detail).toMatch(/适合.+；盘面依据：.+。仅用于/));
-    today.avoidDirections.forEach((item) => expect(item.detail).toMatch(/盘面限制：.+。必须前往时/));
+    today.goodDirections.forEach((item) => expect(item.detail).toMatch(/更适合作为.+尤其用于.+。只有.+时才优先.+判断依据：/));
+    today.avoidDirections.forEach((item) => expect(item.detail).toMatch(/不适合主动安排.+。必须前往时.+判断依据：/));
     expect(today.reference.directionNote).toBe(today.goodDirections[0]?.detail);
 
     const month = generateDailyFortune(date, undefined, 'month', date);
-    month.goodDirections.forEach((item) => expect(item.detail).toMatch(/出现\d+次支持、\d+次回避；常见用途：.+；常见依据：/));
-    month.avoidDirections.forEach((item) => expect(item.detail).toMatch(/出现\d+次回避、\d+次支持；常见限制：/));
+    month.goodDirections.forEach((item) => expect(item.detail).toMatch(/有\d+天得到支持、\d+天需要回避.+当路线的时间、成本和安全条件接近时.+判断依据主要是：/));
+    month.avoidDirections.forEach((item) => expect(item.detail).toMatch(/有\d+天表现受限、\d+天得到支持.+不适合主动把.+判断依据主要是：/));
+    [...month.goodDirections, ...month.avoidDirections].forEach((item) => {
+      expect(item.detail).not.toMatch(/常见用途：|常见依据：|常见限制：|出现\d+次/);
+    });
   }, 15_000);
+
+  it('月运与年运的方位审计覆盖真实出现的方向，而不是空数组通过', () => {
+    const monthlyResults = Array.from({ length: 12 }, (_, month) => (
+      generateDailyFortune(new Date(2026, month, 15, 12, 0, 0, 0), undefined, 'month')
+    ));
+    const yearlyResults = [2025, 2026, 2027, 2028].map((year) => (
+      generateDailyFortune(new Date(year, 6, 15, 12, 0, 0, 0), undefined, 'year')
+    ));
+    const monthDirections = monthlyResults.flatMap((result) => [...result.goodDirections, ...result.avoidDirections]);
+    const yearDirections = yearlyResults.flatMap((result) => [...result.goodDirections, ...result.avoidDirections]);
+    const monthWithoutPreferredDirection = monthlyResults.find((result) => result.goodDirections.length === 0);
+    const yearWithoutPreferredDirection = yearlyResults.find((result) => result.goodDirections.length === 0);
+    expect(monthDirections.length).toBeGreaterThan(0);
+    expect(yearDirections.length).toBeGreaterThan(0);
+    expect(monthWithoutPreferredDirection?.reference.directionNote).toMatch(/本月各日期.+没有一个方向.+具体出发当天/);
+    expect(yearWithoutPreferredDirection?.reference.directionNote).toMatch(/全年各节气阶段.+没有一个方向.+交通、预算和现实机会/);
+    expect(monthWithoutPreferredDirection?.reference.directionNote).not.toBe(yearWithoutPreferredDirection?.reference.directionNote);
+    monthDirections.forEach((item) => {
+      expect(item.detail).toMatch(/\d+个日期里/);
+      expect(item.detail).toMatch(/路线|返程/);
+      expect(item.detail).toContain('判断依据主要是：');
+    });
+    yearDirections.forEach((item) => {
+      expect(item.detail).toMatch(/\d+个节气阶段里/);
+      expect(item.detail).toMatch(/交通|返程/);
+      expect(item.detail).toContain('判断依据主要是：');
+    });
+  }, 30_000);
 
   it('节气名称只在节气当天显示', () => {
     const beforeChushu = generateDailyFortune(new Date(2026, 7, 22, 12, 0, 0, 0), undefined, 'today');

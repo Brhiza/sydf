@@ -74,7 +74,11 @@ const referenceRows = computed(() => [
   {
     key: 'direction',
     marker: '向',
-    title: props.result.reference.direction === '不固定' ? '方位不限' : `优先${props.result.reference.direction}`,
+    title: props.result.reference.direction === '不固定'
+      ? '方位不限'
+      : props.result.period === 'today'
+        ? `优先${props.result.reference.direction}`
+        : `方位参考：${props.result.reference.direction}`,
     detail: props.result.reference.directionNote,
     tone: 'accent' as const,
   },

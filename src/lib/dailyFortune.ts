@@ -852,7 +852,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v100';
+const dailyFortuneCacheVersion = '2026-08-27-v102';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2664,6 +2664,26 @@ function summarizeDirectionReasons(reasons: string[], limit = 2) {
   return [...new Set(reasons)].slice(0, limit).map(directionReasonText).join('、');
 }
 
+function directionSignalConclusion(
+  period: 'month' | 'year',
+  primaryCount: number,
+  oppositeCount: number,
+  totalCount: number,
+  favorable: boolean,
+) {
+  const unit = period === 'year' ? '阶段' : '日期';
+  const ratio = totalCount ? primaryCount / totalCount : 0;
+  const clearLead = primaryCount - oppositeCount >= Math.max(2, Math.ceil(totalCount * .12));
+  if (ratio >= .48 && clearLead) {
+    return favorable
+      ? `支持明显多于回避，是${period === 'year' ? '全年' : '本月'}较稳定的方向线索`
+      : `限制明显多于支持，是${period === 'year' ? '全年' : '本月'}需要持续留意的方向`;
+  }
+  return favorable
+    ? `支持虽多于回避，但只在部分${unit}成立，不宜当成固定方位`
+    : `限制集中在部分${unit}，其他${unit}仍要结合具体路线与事项判断`;
+}
+
 function incrementFrequency(values: Map<string, number>, key: string) {
   if (!key) return;
   values.set(key, (values.get(key) || 0) + 1);
@@ -2682,13 +2702,13 @@ function buildSingleDirections(chart: QimenData, personal: PersonalContext | nul
     .sort((left, right) => personalDirectionScore(chart, right.gong, personal) - personalDirectionScore(chart, left.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: `适合${normalizeDirectionUse(item.use) || '主动推进'}；盘面依据：${summarizeDirectionReasons(item.reasons)}。仅用于第一段行程、拜访或主动沟通的方向参考，不必为普通行程绕路。`,
+    detail: `今天${item.direction}更适合作为主动行程的第一段方向，尤其用于${normalizeDirectionUse(item.use) || '主动推进'}。只有路线时间、成本和安全条件接近时才优先，不必为了方位绕路；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面信号共同支持'}。`,
   }));
   const avoidDirections = [...(chart.directions?.avoidDirections || [])]
     .sort((left, right) => personalDirectionScore(chart, left.gong, personal) - personalDirectionScore(chart, right.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: `盘面限制：${summarizeDirectionReasons(item.reasons)}。必须前往时提前确认路线、返程与备选方案。`,
+    detail: `今天${item.direction}不适合主动安排时间紧、变数多的行程。必须前往时，先确认路线、返程和备选方案；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面限制共同出现'}。`,
   }));
   return { goodDirections, avoidDirections };
 }
@@ -2730,13 +2750,17 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
   const goodThreshold = Math.max(2, Math.ceil(analyses.length * .28));
   const avoidThreshold = Math.max(2, Math.ceil(analyses.length * .34));
   const periodLabel = period === 'year' ? '今年' : '本月';
+  const countUnit = period === 'year' ? '段' : '天';
+  const sampleUnit = period === 'year' ? '节气阶段' : '日期';
   const goodDirections = [...counts.entries()]
     .filter(([, value]) => value.good >= goodThreshold && value.good > value.avoid)
     .sort((left, right) => right[1].good - left[1].good || right[1].personal - left[1].personal || left[1].avoid - right[1].avoid)
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '节气阶段' : '日期'}中，${direction}出现${value.good}次支持、${value.avoid}次回避；常见用途：${mostFrequent(value.uses, 1)[0] || '主动推进'}；常见依据：${summarizeDirectionReasons(mostFrequent(value.goodReasons))}。`,
+      detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.good}${countUnit}得到支持、${value.avoid}${countUnit}需要回避，${directionSignalConclusion(period, value.good, value.avoid, analyses.length, true)}。${period === 'year'
+        ? `当地点的交通、预算和现实机会接近时，可把它作为长期拜访、出差落点或活动地点的辅助筛选，主要用于${mostFrequent(value.uses, 1)[0] || '主动推进'}；不应替代实际机会与成本判断。`
+        : `当路线的时间、成本和安全条件接近时，可优先用于${mostFrequent(value.uses, 1)[0] || '主动推进'}；普通通勤或临时小事不必迁就方位。`}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.goodReasons)) || '多项盘面信号共同支持'}。`,
     }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
@@ -2744,7 +2768,9 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '节气阶段' : '日期'}中，${direction}出现${value.avoid}次回避、${value.good}次支持；常见限制：${summarizeDirectionReasons(mostFrequent(value.avoidReasons))}。必须前往时先确认路线和返程，并留出改线余量。`,
+      detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.avoid}${countUnit}表现受限、${value.good}${countUnit}得到支持，${directionSignalConclusion(period, value.avoid, value.good, analyses.length, false)}。${period === 'year'
+        ? '不宜把它设为长期出行、拜访或办事的固定偏好；必须前往时，先核对交通、返程和替代地点。'
+        : '不适合主动把时间紧、协调成本高的事项反复安排在该方向；必须前往时，提前确认路线、返程并留出改线余量。'}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.avoidReasons)) || '多项盘面限制共同出现'}。`,
     }));
   return { goodDirections, avoidDirections };
 }
@@ -3020,6 +3046,16 @@ function chooseReferencePalace(analysis: ChartAnalysis, goodDirections: DailyFor
   return bestCategory?.palace || analysis.activePalace;
 }
 
+function directionFallbackNote(period: FortunePeriod) {
+  if (period === 'today') {
+    return '当天各方向的支持与限制互相抵消，没有一个方向值得为它改变路线。按距离、交通和事项条件安排；确需择向时，再结合实际出发时段判断。';
+  }
+  if (period === 'month') {
+    return '本月各日期的方位偏好变化较大，没有一个方向在足够多日期持续占优。行程优先按距离、交通和事项条件安排；确需择向时，再看具体出发当天。';
+  }
+  return '全年各节气阶段的方位偏好变化较大，没有一个方向稳定到适合作为固定偏好。长期出行、拜访或地点选择仍以交通、预算和现实机会为先。';
+}
+
 function buildReference(
   period: FortunePeriod,
   analysis: ChartAnalysis,
@@ -3068,7 +3104,7 @@ function buildReference(
     direction,
     directionNote: goodDirections.length
       ? goodDirections[0].detail
-      : '方位信号分散，不必为此绕路或改动日程；按距离、交通和现实条件选择即可。',
+      : directionFallbackNote(period),
     item: item.name,
     itemSymbol: item.symbol,
     itemNote: `它被选作${focusLabel}提醒物：${itemNote}。`,
@@ -3318,7 +3354,7 @@ function calculateDailyFortune(
     periodTrend,
     goodDirections: directions.goodDirections,
     avoidDirections: directions.avoidDirections,
-    directionFallback: directions.goodDirections.length ? '' : `${periodLabels[period]}方位信号分散，不必为此绕路或改动日程。`,
+    directionFallback: directions.goodDirections.length ? '' : directionFallbackNote(period),
   };
 }
 
