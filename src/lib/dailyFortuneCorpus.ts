@@ -8,7 +8,6 @@ export interface FortuneReadingPhraseContext {
   bestWindow: string;
   cautionWindow: string;
   primaryAction: string;
-  cautionCheck: string;
   cautionAction: string;
   personalClause: string;
   mixed: boolean;
@@ -20,8 +19,6 @@ export interface FortuneReadingCopy {
   overviewLabel: string;
   opportunity: string;
   caution: string;
-  opportunityReason: string;
-  cautionReason: string;
 }
 
 type PhraseTemplate = (context: FortuneReadingPhraseContext) => string;
@@ -58,7 +55,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，把最有把握的一步落到实处。`,
     ],
     cautions: [
-      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}整体顺势只代表有空间，不代表这一项可以省略。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}这一步检查完成前，不进入承诺或不可回退的阶段。`,
     ],
   },
   focus: {
@@ -112,7 +109,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先求稳定完成，再逐步提高强度。`,
     ],
     cautions: [
-      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}局面平稳时也以实际记录为准，不靠主观感觉带过。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}同一偏差连续出现两次，就降低这一项的安排强度。`,
     ],
   },
   resolve: {
@@ -171,40 +168,6 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
   },
 };
 
-const fortuneReasonCorpus: Record<FortuneReadingPosture, {
-  opportunities: PhraseTemplate[];
-  cautions: PhraseTemplate[];
-}> = {
-  advance: {
-    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}与整体节奏同向，也能带动${secondaryLabel}，因此适合作为打开局面的第一步。`],
-    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '其他事项'}不是主要阻力，但涉及${cautionCheck}时仍要守住基本流程。`],
-  },
-  focus: {
-    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}是少数信号较清楚的方向，相比${secondaryLabel}更适合集中资源。`],
-    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '牵制项'}容易让局部反复拖慢全局，关键在先确认${cautionCheck}。`],
-  },
-  cultivate: {
-    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}的稳定性略高于其他方向，适合用来积累基础，再逐步带动${secondaryLabel}。`],
-    cautions: [({ primaryLabel, cautionLabel, cautionCheck }) => `${cautionLabel || '细节环节'}目前不会直接打断主线，但${cautionCheck}一旦出现明显偏差，就会消耗${primaryLabel}的连续性；把这组条件列入阶段复盘。`],
-  },
-  resolve: {
-    opportunities: [({ primaryLabel }) => `${primaryLabel}并非强势突破口，但可控性较高，适合在处理卡点期间维持必要进度。`],
-    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '当前卡点'}是最容易向其他事项传导的环节，先厘清${cautionCheck}比盲目加速更重要。`],
-  },
-  stabilize: {
-    opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}不一定最强，却是当前承接最稳定的落点，适合先用它建立秩序，再衔接${secondaryLabel}。`],
-    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '不稳定环节'}会放大节奏波动，先把${cautionCheck}核实清楚，整体才不容易失衡。`],
-  },
-  restore: {
-    opportunities: [({ primaryLabel }) => `${primaryLabel}是恢复承接能力后仍可保留的轻量主线，重点不在做多，而在不透支。`],
-    cautions: [({ cautionLabel }) => `${cautionLabel || '身心状态'}已经开始牵动其他事项，先恢复睡眠、饮食和精力，比继续加任务更有效。`],
-  },
-  protect: {
-    opportunities: [({ primaryLabel }) => `${primaryLabel}只是相对可控，并非适合扩张；用它守住基本盘，比另开新局更稳妥。`],
-    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '主要风险'}的牵制已高于普通波动，必须先守住${cautionCheck}，避免问题继续扩大。`],
-  },
-};
-
 function stableIndex(seed: string, length: number) {
   const value = [...seed].reduce((total, character) => (total * 33 + character.charCodeAt(0)) >>> 0, 5381);
   return value % length;
@@ -220,7 +183,6 @@ export function renderFortuneReading(
   seed: string,
 ): FortuneReadingCopy {
   const corpus = fortuneReadingCorpus[posture];
-  const reasons = fortuneReasonCorpus[posture];
   const summary = pick(corpus.summaries, context, `${seed}|summary`).trim();
   return {
     title: pick(corpus.titles, context, `${seed}|title`),
@@ -228,7 +190,5 @@ export function renderFortuneReading(
     overviewLabel: corpus.overviewLabel,
     opportunity: pick(corpus.opportunities, context, `${seed}|opportunity`),
     caution: pick(corpus.cautions, context, `${seed}|caution`),
-    opportunityReason: pick(reasons.opportunities, context, `${seed}|opportunity-reason`),
-    cautionReason: pick(reasons.cautions, context, `${seed}|caution-reason`),
   };
 }

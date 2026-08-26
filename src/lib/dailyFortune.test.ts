@@ -76,7 +76,7 @@ function expectContentRichCategories(result: DailyFortuneResult) {
   expect(new Set(bases).size).toBe(bases.length);
   result.categories.forEach((category) => {
     expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
-    if (category.basis) expect(category.basis.length).toBeGreaterThan(45);
+    if (category.basis) expect(category.basis.length).toBeGreaterThan(24);
   });
   expect(result.categories.some((item) => ['本期主线', '守住基本盘'].includes(item.status))).toBe(true);
   expect(result.categories.some((item) => ['随后安排', '重点把关', '暂作维护'].includes(item.status))).toBe(true);
@@ -137,7 +137,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v35');
+      expect(serialized).toContain('2026-08-26-v38');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
