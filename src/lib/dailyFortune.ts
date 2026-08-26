@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v69';
+const dailyFortuneCacheVersion = '2026-08-26-v70';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1354,7 +1354,7 @@ function categoryDetailFromJudgment(
   const isCaution = definition.key === judgment.caution.evaluation.definition.key;
   const displayBestAnalysis = isPrimary ? judgment.bestAnalysis || bestAnalysis : bestAnalysis;
   const bestWindow = displayBestAnalysis ? formatAnalysisWindow(displayBestAnalysis, period) : '';
-  const bestLead = bestWindow ? `${bestWindow}可优先安排；` : '';
+  const bestLead = !isPrimary && bestWindow ? `${bestWindow}可优先安排；` : '';
   const preparation = definition.prepare.replace(/^先/, '');
   // 月内或年内偶有谨慎样本，只用于安排复核日期；只有综合评价本身偏谨慎，
   // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
@@ -1431,6 +1431,18 @@ function categoryBasis(
 ) {
   if (!worstAnalysis || !cautiousCount) return '';
   return `${formatAnalysisWindow(worstAnalysis, period)}：${evaluation.definition.cautionPattern}。`;
+}
+
+function categoryBasisFromJudgment(
+  aggregate: CategoryAggregate,
+  judgment: FortuneMasterJudgment,
+  period: FortunePeriod,
+) {
+  const isOverallCaution = aggregate.evaluation.definition.key === judgment.caution.evaluation.definition.key
+    && judgment.cautionAnalysis
+    && aggregate.worstAnalysis?.date.getTime() === judgment.cautionAnalysis.date.getTime();
+  if (isOverallCaution) return `主要风险：${aggregate.evaluation.definition.cautionPattern}。`;
+  return categoryBasis(aggregate.evaluation, period, aggregate.cautiousCount, aggregate.worstAnalysis);
 }
 
 function categoryFromEvaluation(
@@ -2521,7 +2533,7 @@ function calculateDailyFortune(
       ...aggregate.category,
       status: categoryStatusFromJudgment(aggregate, judgment),
       detail: categoryDetailFromJudgment(aggregate, judgment, period),
-      basis: categoryBasis(aggregate.evaluation, period, aggregate.cautiousCount, aggregate.worstAnalysis),
+      basis: categoryBasisFromJudgment(aggregate, judgment, period),
     };
   });
   const categories = aggregates.map((item) => item.category);

@@ -178,7 +178,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v69');
+      expect(serialized).toContain('2026-08-26-v70');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -225,7 +225,7 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.categories.map((item) => item.key)).toContain('wellbeing');
     expect(result.categories.find((item) => item.key === 'wellbeing')?.detail).toMatch(/休息|作息|睡眠/);
     result.categories.forEach((category) => {
-      expect(category.basis).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
+      expect(category.basis).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}|^主要风险：/);
       expect(category.basis).not.toMatch(/\d+个(?:时辰|较顺|宜缓)/);
     });
     expectContentRichCategories(result);
@@ -310,7 +310,7 @@ describe('今日、月运、年运统一周期算法', () => {
     });
     expectContentRichTrend(result);
     result.categories.forEach((category) => {
-      expect(category.basis).toMatch(/\d+月\d+日/);
+      expect(category.basis).toMatch(/\d+月\d+日|^主要风险：/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
     });
     expectContentRichCategories(result);
@@ -364,7 +364,7 @@ describe('今日、月运、年运统一周期算法', () => {
     expectTrendRepeatsLimited(result);
     expectTrendRepeatsLimited(generateDailyFortune(new Date(2026, 7, 26, 12, 0, 0, 0), profile, 'year'));
     result.categories.forEach((category) => {
-      expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
+      expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日|主要风险：/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);
     });
     expectContentRichCategories(result);
@@ -516,22 +516,21 @@ describe('今日、月运、年运统一周期算法', () => {
       const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
       const primaryCategory = result.categories.find((item) => item.key === primaryAction?.sourceKey);
       const primaryWindow = primaryAction?.text.match(/^(.+?)是较好的落点/)?.[1];
-      if (primaryWindow && primaryCategory?.detail.includes('可优先安排')) {
-        expect(primaryCategory.detail).toContain(`${primaryWindow}可优先安排`);
-      }
+      if (primaryWindow) expect(primaryCategory?.detail).not.toContain(primaryWindow);
       const cautionAction = result.actionTips.find((item) => item.tone === 'notice');
       if (!cautionAction) return;
       const category = result.categories.find((item) => item.key === cautionAction.sourceKey);
-      const categoryWindow = category?.basis.split('：')[0];
-      expect(categoryWindow).toBeTruthy();
-      expect(cautionAction.text.startsWith(categoryWindow || '')).toBe(true);
+      const cautionWindow = cautionAction.text.match(/^(.+?)这段时间尤其要留出复核余地/)?.[1];
+      expect(cautionWindow).toBeTruthy();
+      expect(category?.basis).toMatch(/^主要风险：/);
+      expect(category?.basis).not.toContain(cautionWindow || '');
       const matchingWindow = result.timeWindows.find((item) => {
         const label = period === 'today'
           ? `${item.name} ${item.range}`
           : period === 'month'
             ? `${item.name}（${item.range}）`
             : `公历${item.name}`;
-        return label === categoryWindow;
+        return label === cautionWindow;
       });
       const shortLabels: Record<string, string> = {
         career: '工作',
