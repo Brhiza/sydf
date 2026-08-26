@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v70';
+const dailyFortuneCacheVersion = '2026-08-26-v72';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1342,10 +1342,23 @@ function friendlyCategoryDetail(
       : `${dateLead}${definition.action}，但先确认${definition.check}。`;
 }
 
+function timeWindowSummarizes(
+  timeWindows: DailyFortuneTimeWindow[],
+  analysisWindow: string,
+  coverageText: string,
+) {
+  const normalizeWindow = (value: string) => value.replace(/^公历/, '').replace(/[（）()\s]/g, '');
+  return Boolean(analysisWindow) && timeWindows.some((item) => (
+    normalizeWindow(`${item.name}${item.range}`) === normalizeWindow(analysisWindow)
+    && item.coverage.includes(coverageText)
+  ));
+}
+
 function categoryDetailFromJudgment(
   aggregate: CategoryAggregate,
   judgment: FortuneMasterJudgment,
   period: FortunePeriod,
+  timeWindows: DailyFortuneTimeWindow[] = [],
 ) {
   const { evaluation, bestAnalysis } = aggregate;
   const { definition, tone } = evaluation;
@@ -1354,7 +1367,8 @@ function categoryDetailFromJudgment(
   const isCaution = definition.key === judgment.caution.evaluation.definition.key;
   const displayBestAnalysis = isPrimary ? judgment.bestAnalysis || bestAnalysis : bestAnalysis;
   const bestWindow = displayBestAnalysis ? formatAnalysisWindow(displayBestAnalysis, period) : '';
-  const bestLead = !isPrimary && bestWindow ? `${bestWindow}可优先安排；` : '';
+  const windowAlreadySummarized = timeWindowSummarizes(timeWindows, bestWindow, definition.shortLabel);
+  const bestLead = !isPrimary && bestWindow && !windowAlreadySummarized ? `${bestWindow}可优先安排；` : '';
   const preparation = definition.prepare.replace(/^先/, '');
   // 月内或年内偶有谨慎样本，只用于安排复核日期；只有综合评价本身偏谨慎，
   // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
@@ -1437,11 +1451,19 @@ function categoryBasisFromJudgment(
   aggregate: CategoryAggregate,
   judgment: FortuneMasterJudgment,
   period: FortunePeriod,
+  timeWindows: DailyFortuneTimeWindow[] = [],
 ) {
   const isOverallCaution = aggregate.evaluation.definition.key === judgment.caution.evaluation.definition.key
     && judgment.cautionAnalysis
     && aggregate.worstAnalysis?.date.getTime() === judgment.cautionAnalysis.date.getTime();
   if (isOverallCaution) return `主要风险：${aggregate.evaluation.definition.cautionPattern}。`;
+  const worstWindow = aggregate.worstAnalysis ? formatAnalysisWindow(aggregate.worstAnalysis, period) : '';
+  const cautionAlreadySummarized = timeWindowSummarizes(
+    timeWindows,
+    worstWindow,
+    `${aggregate.evaluation.definition.shortLabel}需复核`,
+  );
+  if (cautionAlreadySummarized) return `注意点：${aggregate.evaluation.definition.cautionPattern}。`;
   return categoryBasis(aggregate.evaluation, period, aggregate.cautiousCount, aggregate.worstAnalysis);
 }
 
@@ -2532,8 +2554,8 @@ function calculateDailyFortune(
     aggregate.category = {
       ...aggregate.category,
       status: categoryStatusFromJudgment(aggregate, judgment),
-      detail: categoryDetailFromJudgment(aggregate, judgment, period),
-      basis: categoryBasisFromJudgment(aggregate, judgment, period),
+      detail: categoryDetailFromJudgment(aggregate, judgment, period, timeWindows),
+      basis: categoryBasisFromJudgment(aggregate, judgment, period, timeWindows),
     };
   });
   const categories = aggregates.map((item) => item.category);
@@ -2549,13 +2571,17 @@ function calculateDailyFortune(
   const actionTips: DailyFortuneActionTip[] = [
     {
       sourceKey: readySource?.key || 'general',
-      label: '优先安排',
+      label: `优先${judgment.primary.evaluation.definition.shortLabel}`,
       text: judgment.copy.opportunity,
       tone: 'positive',
     },
     {
       sourceKey: followUpSource?.key || 'general',
-      label: hasExplicitCaution ? '记得检查' : '配合安排',
+      label: hasExplicitCaution
+        ? `留意${judgment.caution.evaluation.definition.shortLabel}`
+        : judgment.secondary.evaluation.definition.key === 'wellbeing'
+          ? `同时顾好${judgment.secondary.evaluation.definition.shortLabel}`
+          : `随后${judgment.secondary.evaluation.definition.shortLabel}`,
       text: hasExplicitCaution ? judgment.copy.caution : supportActionFromJudgment(judgment),
       tone: hasExplicitCaution ? 'notice' : 'support',
     },

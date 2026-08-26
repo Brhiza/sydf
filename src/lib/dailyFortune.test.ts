@@ -178,7 +178,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v70');
+      expect(serialized).toContain('2026-08-26-v72');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -446,6 +446,7 @@ describe('今日、月运、年运统一周期算法', () => {
       expect(result.summary).toMatch(/整体|局面|当前/);
       expect(result.summary).toMatch(/主线|着力点|先后次序|起点|秩序|承接能力|状态|稳住|扩张|失误|积累|蓄势|基础|卡点|牵制|解决/);
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
+      expect(result.actionTips[0]?.label).toMatch(/^优先(?:工作|学习|钱款|沟通|出行|休息)$/);
       expect(result.actionTips[0]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'opportunity')?.detail);
       const followUpEvidenceKey = result.actionTips[1]?.tone === 'notice' ? 'caution' : 'secondary';
       expect(result.actionTips[1]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === followUpEvidenceKey)?.detail);
@@ -462,9 +463,13 @@ describe('今日、月运、年运统一周期算法', () => {
         || item.detail.includes('眼下没有明显顺势项'))).toBe(true);
     });
     results.filter((result) => result.actionTips[1]?.tone === 'support').forEach((result) => {
-      expect(result.actionTips[1]).toMatchObject({ label: '配合安排', tone: 'support' });
+      expect(result.actionTips[1]?.label).toMatch(/^(?:随后(?:工作|学习|钱款|沟通|出行)|同时顾好休息)$/);
+      expect(result.actionTips[1]?.tone).toBe('support');
       expect(result.evidenceInsights[1]).toMatchObject({ key: 'secondary', label: '配合项' });
       expect(`${result.actionTips[1]?.text}${result.evidenceInsights[1]?.detail}`).not.toMatch(/没有明确风险窗口|相对优势最弱|记得检查/);
+    });
+    results.filter((result) => result.actionTips[1]?.tone === 'notice').forEach((result) => {
+      expect(result.actionTips[1]?.label).toMatch(/^留意(?:工作|学习|钱款|沟通|出行|休息)$/);
     });
     expect(new Set(results.map((result) => result.overview.label)).size).toBeGreaterThan(1);
   }, 15_000);
@@ -541,6 +546,44 @@ describe('今日、月运、年运统一周期算法', () => {
         wellbeing: '休息',
       };
       expect(matchingWindow?.coverage).toContain(`${shortLabels[cautionAction.sourceKey]}需复核`);
+    });
+  }, 15_000);
+
+  it('顶部窗口已概括的主题不在分项中重复同一时间', () => {
+    const shortLabels: Record<string, string> = {
+      career: '工作',
+      study: '学习',
+      wealth: '钱款',
+      relationship: '沟通',
+      travel: '出行',
+      wellbeing: '休息',
+    };
+    const normalizeWindow = (value: string) => value.replace(/^公历/, '').replace(/[（）()\s]/g, '');
+    (['today', 'month', 'year'] as FortunePeriod[]).forEach((period) => {
+      const result = generateDailyFortune(
+        new Date(2026, 7, 26, 12, 0, 0, 0),
+        undefined,
+        period,
+        new Date(2026, 7, 26, 12, 0, 0, 0),
+      );
+      result.timeWindows.forEach((window) => {
+        const windowLabel = period === 'today'
+          ? `${window.name} ${window.range}`
+          : period === 'month'
+            ? `${window.name}（${window.range}）`
+            : `公历${window.name}`;
+        result.categories
+          .filter((category) => window.coverage.includes(shortLabels[category.key]))
+          .forEach((category) => {
+            expect(normalizeWindow(category.detail)).not.toContain(normalizeWindow(windowLabel));
+          });
+        result.categories
+          .filter((category) => window.coverage.includes(`${shortLabels[category.key]}需复核`))
+          .forEach((category) => {
+            expect(normalizeWindow(category.basis)).not.toContain(normalizeWindow(windowLabel));
+            expect(category.basis).toMatch(/^(?:主要风险|注意点)：/);
+          });
+      });
     });
   }, 15_000);
 
