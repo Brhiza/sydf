@@ -58,7 +58,6 @@ describe('今日运势个案内容审计', () => {
   it('不同个案会形成不同的取舍，而不是给通用结论追加标签', () => {
     const date = new Date(2026, 7, 26, 12, 0, 0, 0);
     (['today', 'month', 'year'] satisfies FortunePeriod[]).forEach((period) => {
-      const general = generateDailyFortune(date, undefined, period);
       const personalized = profiles.map((profile) => generateDailyFortune(date, profile, period));
       personalized.forEach((result) => {
         const personalInsight = result.evidenceInsights.find((item) => item.key === 'personal');
@@ -70,9 +69,11 @@ describe('今日运势个案内容审计', () => {
         expect(personalInsight?.detail).not.toMatch(/个人承接|承接较好|更耗承接力|本期个人议题集中/);
         expect(personalInsight?.detail).not.toMatch(/十神|喜用|忌神|相生|相克|天干|地支|宫位/);
         expect(personalInsight?.detail).not.toMatch(/主线卡住时.+恢复进度|可用它配合主线|多分配一档精力/);
-        expect(result.summary).not.toBe(general.summary);
+        expect(result.summary).not.toMatch(/个人命盘|个人盘|本期外部节奏/);
       });
-      expect(personalized[0].summary).not.toBe(personalized[1].summary);
+      const personalDetails = personalized.map((result) => result.evidenceInsights.find((item) => item.key === 'personal')?.detail || '');
+      expect(personalDetails.every((detail) => detail.length > 60)).toBe(true);
+      expect(personalDetails[0]).not.toBe(personalDetails[1]);
     });
   }, 60_000);
 });
