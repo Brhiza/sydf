@@ -106,13 +106,13 @@ function expectContentRichCategories(result: DailyFortuneResult) {
   result.categories.forEach((category) => {
     expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
     if (category.basis) expect(category.basis.length).toBeGreaterThan(24);
-    expect(category.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护/);
+    expect(category.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护|主线后再做|主线后补充|只作维护|维持基本量|暂不加量/);
     const preferredWindow = category.detail.match(/^(.+?)可优先安排；/)?.[1];
     const cautionWindow = category.basis.match(/^(.+)：/)?.[1];
     if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
   });
-  expect(result.categories.some((item) => ['本期主线', '守住基本盘'].includes(item.status))).toBe(true);
-  expect(result.categories.some((item) => ['主线后再做', '重点把关', '只作维护'].includes(item.status))).toBe(true);
+  const specificStatuses = /本期主线|形成交付|收紧承诺|形成输出|减少切换|留下记录|暂停付款|对齐事实|暂停定性|备齐路线|删减行程|同步恢复|先减任务|先定边界|先稳专注|先核条款|先清信息|先定路线|先看精力/;
+  expect(result.categories.every((item) => specificStatuses.test(item.status))).toBe(true);
   expect(new Set(result.categories.map((item) => item.status)).size).toBeGreaterThanOrEqual(3);
 }
 
@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v84');
+      expect(serialized).toContain('2026-08-27-v85');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();

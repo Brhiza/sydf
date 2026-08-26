@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v84';
+const dailyFortuneCacheVersion = '2026-08-27-v85';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1397,18 +1397,27 @@ function categoryDetailFromJudgment(
     return `${definition.completionRule}。`;
   }
   if (isSecondary) {
-    if (definition.key === 'wellbeing') return `${bestLead}保持规律作息和饮食，让状态能够承接后续安排。`;
+    if (definition.key === 'wellbeing') return `${bestLead}完整休息后专注度仍未恢复时，删去一项次要任务；恢复后再承接其他安排。`;
     return `${bestLead}${definition.completionRule}。`;
   }
   if (definition.key === 'wellbeing') {
     return tone === 'favorable'
       ? `${bestLead}状态可以承接日常安排，但仍要给休息、饮食和轻度活动留出固定时间。`
-      : `${definition.prepare}，按睡眠、饮食和真实精力调整任务量。`;
+      : `${bestLead}用睡眠、食欲和注意力三项判断任务量；其中两项偏弱就删去一项非必要安排。`;
   }
   if (tone === 'favorable') return `${bestLead}${definition.completionRule}。`;
   if (tone === 'cautious') return `${definition.personalReviewBoundary}。`;
   return `${bestLead}${definition.completionRule}。`;
 }
+
+const categoryRoleStatuses: Record<string, { support: string; caution: string }> = {
+  career: { support: '形成交付', caution: '收紧承诺' },
+  study: { support: '形成输出', caution: '减少切换' },
+  wealth: { support: '留下记录', caution: '暂停付款' },
+  relationship: { support: '对齐事实', caution: '暂停定性' },
+  travel: { support: '备齐路线', caution: '删减行程' },
+  wellbeing: { support: '同步恢复', caution: '先减任务' },
+};
 
 function categoryStatusFromJudgment(
   aggregate: CategoryAggregate,
@@ -1418,15 +1427,18 @@ function categoryStatusFromJudgment(
   const isPrimary = key === judgment.primary.evaluation.definition.key;
   const isSecondary = key === judgment.secondary.evaluation.definition.key;
   const isCaution = key === judgment.caution.evaluation.definition.key;
-  if (isPrimary) return aggregate.evaluation.tone === 'cautious' ? '守住基本盘' : '本期主线';
-  if (isCaution) return aggregate.evaluation.tone === 'cautious' ? '重点把关' : aggregate.evaluation.definition.statusGuard;
+  const roleStatus = categoryRoleStatuses[key] || {
+    support: aggregate.evaluation.definition.statusGuard,
+    caution: aggregate.evaluation.definition.statusGuard,
+  };
+  if (isPrimary) return aggregate.evaluation.tone === 'cautious' ? roleStatus.caution : '本期主线';
+  if (isCaution) return aggregate.evaluation.tone === 'cautious' ? roleStatus.caution : aggregate.evaluation.definition.statusGuard;
   if (isSecondary) {
-    if (key === 'wellbeing') return '同步照顾';
-    return aggregate.evaluation.tone === 'cautious' ? '只作维护' : '主线后再做';
+    return aggregate.evaluation.tone === 'cautious' ? roleStatus.caution : roleStatus.support;
   }
-  if (aggregate.evaluation.tone === 'favorable') return '主线后补充';
-  if (aggregate.evaluation.tone === 'cautious') return '暂不加量';
-  return aggregate.cautiousCount > 0 ? aggregate.evaluation.definition.statusGuard : '维持基本量';
+  if (aggregate.evaluation.tone === 'favorable') return roleStatus.support;
+  if (aggregate.evaluation.tone === 'cautious') return roleStatus.caution;
+  return aggregate.evaluation.definition.statusGuard;
 }
 
 function formatAnalysisWindow(analysis: ChartAnalysis, period: FortunePeriod) {
@@ -1792,13 +1804,13 @@ function buildPersonalJudgmentInsight(
   };
 }
 
-const secondarySummaryStrategies: Record<string, string> = {
-  career: '后续工作只接责任已经归属、结果有人接收的部分',
-  study: '后续学习只留一个能说清、能练习的目标',
-  wealth: '钱款只处理费用、责任和退出方式已有书面记录的事项',
-  relationship: '沟通只推进双方基于同一事实确认的下一步',
-  travel: '出行只保留有返程余量和替代路线的安排',
-  wellbeing: '睡眠、进食和恢复时间同步保留',
+const secondarySummaryRoles: Record<string, string> = {
+  career: '工作负责把前序判断变成交付，责任边界不清会让主线成果无人接收',
+  study: '学习负责把本期经验沉淀成可复用的方法，输出比继续收集更能检验成果',
+  wealth: '钱款会把选择落实为成本与责任，边界不清会反过来拖慢主线',
+  relationship: '沟通决定相关信息能否对齐，事实一致后下一步才不容易返工',
+  travel: '出行决定安排能否按时落地，路线和返程余量会直接影响执行稳定性',
+  wellbeing: '身心状态是主线能否持续的底层条件，恢复不足会让其他判断同时失真',
 };
 
 function buildFortuneMasterJudgment(
@@ -1843,8 +1855,8 @@ function buildFortuneMasterJudgment(
   const copy = renderFortuneReading(posture, {
     lead: fortunePeriodLead(period, isCurrentPeriod),
     primaryLabel: primary.category.label,
-    secondaryStrategy: secondarySummaryStrategies[secondary.category.key]
-      || `${secondary.category.label}只处理条件已经明确的部分`,
+    secondaryRole: secondarySummaryRoles[secondary.category.key]
+      || `${secondary.category.label}负责承接主线结果，前序条件变化会直接带来返工`,
     cautionLabel: hasCaution ? caution.category.label : '',
     bestWindow,
     cautionWindow,
@@ -2212,41 +2224,43 @@ function buildTimeWindows(
   if (selected.length < 3) usable.forEach((analysis) => {
     if (selected.length < 3) addUnique(analysis);
   });
-  return selected.map((analysis) => {
-    const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
-    const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
-    const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
-    const cautionCategory = rankedCategories.find((item) => item.definition.key === cautionKey && item.tone === 'cautious');
-    const cautiousCategory = cautionCategory || [...rankedCategories].reverse().find((item) => item.tone === 'cautious');
-    const usableCategories = favorableCategories.length ? favorableCategories : balancedCategories;
-    const primaryCategory = usableCategories.find((item) => item.definition.key === primaryKey);
-    const focusCategories = primaryCategory
-      ? [primaryCategory, ...usableCategories.filter((item) => item.definition.key !== primaryKey)].slice(0, 2)
-      : usableCategories.slice(0, 2);
-    const focusLabels = focusCategories.map((item) => item.definition.shortLabel);
-    const coverage = focusLabels.length
-      ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
-      : cautiousCategory
-        ? `只复核${cautiousCategory.definition.shortLabel}，不安排新增`
-        : '只做已有事项的整理与收尾';
-    if (period === 'today') {
-      const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours()) || shichenSlots[0];
-      return { name: dayPartForHour(slot.hour), range: formatTimeRange(slot.range), coverage };
-    }
-    if (period === 'year') {
-      const monthRange = qimenMonthRangeWithinGregorianYear(analysis.date);
+  return selected
+    .sort((left, right) => left.date.getTime() - right.date.getTime())
+    .map((analysis) => {
+      const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
+      const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
+      const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
+      const cautionCategory = rankedCategories.find((item) => item.definition.key === cautionKey && item.tone === 'cautious');
+      const cautiousCategory = cautionCategory || [...rankedCategories].reverse().find((item) => item.tone === 'cautious');
+      const usableCategories = favorableCategories.length ? favorableCategories : balancedCategories;
+      const primaryCategory = usableCategories.find((item) => item.definition.key === primaryKey);
+      const focusCategories = primaryCategory
+        ? [primaryCategory, ...usableCategories.filter((item) => item.definition.key !== primaryKey)].slice(0, 2)
+        : usableCategories.slice(0, 2);
+      const focusLabels = focusCategories.map((item) => item.definition.shortLabel);
+      const coverage = focusLabels.length
+        ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
+        : cautiousCategory
+          ? `只复核${cautiousCategory.definition.shortLabel}，不安排新增`
+          : '只做已有事项的整理与收尾';
+      if (period === 'today') {
+        const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours()) || shichenSlots[0];
+        return { name: dayPartForHour(slot.hour), range: formatTimeRange(slot.range), coverage };
+      }
+      if (period === 'year') {
+        const monthRange = qimenMonthRangeWithinGregorianYear(analysis.date);
+        return {
+          name: monthRange ? formatPeriodStageSpan(monthRange.start, monthRange.end) : `${analysis.date.getMonth() + 1}月`,
+          range: '',
+          coverage,
+        };
+      }
       return {
-        name: monthRange ? formatPeriodStageSpan(monthRange.start, monthRange.end) : `${analysis.date.getMonth() + 1}月`,
-        range: '',
+        name: formatShortDate(analysis.date),
+        range: new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(analysis.date),
         coverage,
       };
-    }
-    return {
-      name: formatShortDate(analysis.date),
-      range: new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(analysis.date),
-      coverage,
-    };
-  });
+    });
 }
 
 interface TrendPhraseUsage {
@@ -2287,21 +2301,6 @@ function continuationAction(action: string) {
   return action.replace(/^先/, '');
 }
 
-const trendStatusLabels: Record<string, Record<DailyFortuneTone, string>> = {
-  career: { favorable: '工作易形成交付', balanced: '工作先定责任', cautious: '先收紧任务边界' },
-  study: { favorable: '学习易留下成果', balanced: '学习先稳专注', cautious: '先减少任务切换' },
-  wealth: { favorable: '钱款条件较清楚', balanced: '钱款先留记录', cautious: '先核清钱款条件' },
-  relationship: { favorable: '沟通较易对齐', balanced: '沟通先对齐事实', cautious: '先停止猜测定性' },
-  travel: { favorable: '出行条件较完整', balanced: '出行先留返程余量', cautious: '先补足返程余量' },
-  wellbeing: { favorable: '状态较易恢复', balanced: '状态先看真实恢复', cautious: '先恢复睡眠进食' },
-};
-
-function trendStatus(definition: TopicDefinition | undefined, tone: DailyFortuneTone) {
-  return definition
-    ? trendStatusLabels[definition.key]?.[tone] || `${definition.shortLabel}先看条件`
-    : '先看当前条件';
-}
-
 function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const averageScore = analyses.reduce((total, item) => total + item.score, 0) / Math.max(1, analyses.length);
   const favorableCount = analyses.filter((item) => item.tone === 'favorable').length;
@@ -2339,9 +2338,14 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
     : weakestGuard
       ? `留意${weakestLabel}：${weakestGuard}`
       : '';
+  const status = tone === 'cautious'
+    ? `${weakestLabel}先收紧，${primaryLabel}仍可保留`
+    : secondary && secondary.key !== primary?.key
+      ? `${primaryLabel}${tone === 'favorable' ? '较顺' : '优先'}，${secondaryLabel}${primaryScore - secondaryScore <= .18 ? '可并行' : '可承接'}`
+      : `${primaryLabel}${tone === 'favorable' ? '较顺' : '优先'}`;
   return {
     tone,
-    status: tone === 'cautious' ? trendStatus(weakest, tone) : trendStatus(primary, tone),
+    status,
     focus: tone === 'cautious'
       ? [
           `${weakestLabel}先查：${weakestGuard || '先减少变量，再决定是否继续'}`,

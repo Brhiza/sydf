@@ -43,13 +43,19 @@ function allText(result: DailyFortuneResult) {
   ].filter(Boolean);
 }
 
+function windowOrderValue(result: DailyFortuneResult, name: string, range: string) {
+  if (result.period === 'today') return Number(range.match(/^(\d{1,2}):/)?.[1] || 0);
+  const match = name.match(/^(\d{1,2})月(\d{1,2})日/);
+  return Number(match?.[1] || 0) * 100 + Number(match?.[2] || 0);
+}
+
 describe('今日运势批量内容质量', () => {
   it('不同案例与周期不再出现错误状态、低信息套话或高频重复', () => {
     const results = profiles.flatMap((profile) => [
       ...dates.flatMap((date) => shortPeriods.map((period) => generateDailyFortune(date, profile, period))),
       generateDailyFortune(dates[0], profile, 'year'),
     ]);
-    const genericPattern = /重大决定宜多留一道复核|其余事项按既定次序跟进即可|保持弹性即可|照常核实|避免小问题累积|条件未齐时保留调整空间|不需要全面回避|确认承载条件|反复打断.+连续性|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度|取决于前置条件|前置条件是否|优势存在，但仍取决|问题集中在部分条件|最需要前置核对|是较好的落点|留出复核余地|六项综合排序|由五行对应数、主线位置和盘面参数合并得出|适合作为配合项|辅助线|辅助推进项|不是(?:当天|本月|全年)主线|形成一个可复核结果|不扩大范围|方位信号不集中|整体判断的可用性更稳定|整体主线(?:顺序)?不变|主线结论仍成立|非紧急健康安排多确认|非紧急项目可复核时间与准备事项|较大的形象改变或复杂安排可多考虑一天|先确认双方意愿、健康与现实条件|把普通事情做扎实|不建议临时启动重大决定|作为配合|完成后再做|稳定后再做|配合项|为何作为第二步|(?:工作事业|学习成长|金钱合作|沟通关系|出行行动|身心状态)保持连续|逐步接上|维持稳定投入|暂作配合|只做必要维护|不增加变量|再承接已有进展|可以承接，但不抢占主线资源|身心状态(?:随后|再承接|适合接在|逐步接上|维持稳定投入|不增加变量|只做必要维护|不再加量)/;
+    const genericPattern = /重大决定宜多留一道复核|其余事项按既定次序跟进即可|保持弹性即可|照常核实|避免小问题累积|条件未齐时保留调整空间|不需要全面回避|确认承载条件|反复打断.+连续性|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度|取决于前置条件|前置条件是否|优势存在，但仍取决|问题集中在部分条件|最需要前置核对|是较好的落点|留出复核余地|六项综合排序|由五行对应数、主线位置和盘面参数合并得出|适合作为配合项|辅助线|辅助推进项|不是(?:当天|本月|全年)主线|形成一个可复核结果|不扩大范围|方位信号不集中|整体判断的可用性更稳定|整体主线(?:顺序)?不变|主线结论仍成立|非紧急健康安排多确认|非紧急项目可复核时间与准备事项|较大的形象改变或复杂安排可多考虑一天|先确认双方意愿、健康与现实条件|把普通事情做扎实|不建议临时启动重大决定|作为配合|完成后再做|稳定后再做|配合项|为何作为第二步|主线后再做|主线后补充|只作维护|维持基本量|暂不加量|后续工作只接|后续学习只留|钱款只处理费用|沟通只推进双方|出行只保留有返程余量|睡眠、进食和恢复时间同步保留|(?:工作事业|学习成长|金钱合作|沟通关系|出行行动|身心状态)保持连续|逐步接上|维持稳定投入|暂作配合|只做必要维护|不增加变量|再承接已有进展|可以承接，但不抢占主线资源|身心状态(?:随后|再承接|适合接在|逐步接上|维持稳定投入|不增加变量|只做必要维护|不再加量)/;
     results.forEach((result) => {
       result.categories.forEach((item) => {
         expect(item.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护/);
@@ -60,6 +66,8 @@ describe('今日运势批量内容质量', () => {
         const cautionWindow = item.basis.match(/^(.+)：/)?.[1];
         if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
       });
+      const windowOrder = result.timeWindows.map((item) => windowOrderValue(result, item.name, item.range));
+      expect(windowOrder).toEqual([...windowOrder].sort((left, right) => left - right));
       const unit = result.period === 'today' ? '双小时时段' : result.period === 'month' ? '日期' : '节气阶段';
       const measure = result.period === 'month' ? '天' : '段';
       result.evidenceInsights.filter((item) => ['opportunity', 'caution', 'secondary'].includes(item.key)).forEach((item) => {
@@ -90,6 +98,8 @@ describe('今日运势批量内容质量', () => {
       }
       const counts = result.periodTrend.reduce((map, item) => map.set(item.focus, (map.get(item.focus) || 0) + 1), new Map<string, number>());
       expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);
+      const statusCounts = result.periodTrend.reduce((map, item) => map.set(item.status, (map.get(item.status) || 0) + 1), new Map<string, number>());
+      expect(Math.max(...statusCounts.values())).toBeLessThanOrEqual(2);
     });
   }, 60_000);
 

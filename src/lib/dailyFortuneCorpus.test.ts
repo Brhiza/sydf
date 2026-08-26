@@ -28,7 +28,7 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
   return {
     lead: '今天',
     primaryLabel: '工作事业',
-    secondaryStrategy: '后续学习只留一个能说清、能练习的目标',
+    secondaryRole: '学习负责把本期经验沉淀成可复用的方法，输出比继续收集更能检验成果',
     cautionLabel: '金钱合作',
     bestWindow: '上午 09:00—10:59',
     cautionWindow: '下午 15:00—16:59',
@@ -75,11 +75,11 @@ describe('运势整体语料', () => {
   it('身心状态作为第二主题时始终同步照顾，不排在主线完成之后', () => {
     const wellbeingContext = {
       ...context(cautionActions[0]),
-      secondaryStrategy: '睡眠、进食和恢复时间同步保留',
+      secondaryRole: '身心状态是主线能否持续的底层条件，恢复不足会让其他判断同时失真',
     };
     postures.forEach((posture) => {
       const results = Array.from({ length: 40 }, (_, index) => renderFortuneReading(posture, wellbeingContext, `${posture}-secondary-wellbeing-${index}`));
-      expect(results.some((result) => result.summary.includes(wellbeingContext.secondaryStrategy))).toBe(true);
+      expect(results.some((result) => result.summary.includes(wellbeingContext.secondaryRole))).toBe(true);
       results.forEach((result) => expect(result.summary).not.toMatch(/身心状态(?:随后|再承接|适合接在|逐步接上|维持稳定投入|不增加变量|只做必要维护|不再加量)/));
     });
   });

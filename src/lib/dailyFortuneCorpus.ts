@@ -3,7 +3,7 @@ export type FortuneReadingPosture = 'advance' | 'focus' | 'cultivate' | 'resolve
 export interface FortuneReadingPhraseContext {
   lead: string;
   primaryLabel: string;
-  secondaryStrategy: string;
+  secondaryRole: string;
   cautionLabel: string;
   bestWindow: string;
   cautionWindow: string;
@@ -53,8 +53,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}可顺势推进，重心放在${primaryLabel}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy }) => `整体主线清楚，${primaryLabel}先形成结果；${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `助力集中在${primaryLabel}，不需要四处试探；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole }) => `整体主线清楚，${primaryLabel}先形成结果；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `助力集中在${primaryLabel}，不需要四处试探；${secondaryRole}。`,
     ],
     overviewLabel: '主线清楚，可顺势推进',
     opportunities: [
@@ -67,8 +67,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}宜择一处发力，以${primaryLabel}为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy }) => `整体信号并不平均，资源应集中在${primaryLabel}；${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `${primaryLabel}是当前最清楚的着力点；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole }) => `整体信号并不平均，资源应集中在${primaryLabel}；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `${primaryLabel}是当前最清楚的着力点；${secondaryRole}。`,
     ],
     overviewLabel: '有进有守，宜集中发力',
     opportunities: [
@@ -81,8 +81,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}宜稳中求进，不必急着求快`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `局面没有明显偏向，以${primaryLabel}作为起点；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `局面没有明显偏向，以${primaryLabel}作为起点；${secondaryRole}。`,
     ],
     overviewLabel: '整体平稳，次序比速度重要',
     opportunities: [
@@ -96,9 +96,9 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}没有明显阻力，适合稳步积累`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy }) => `阻力不强但助力分散，适合围绕${primaryLabel}积累基础；${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `局面平顺而不张扬，${primaryLabel}适合形成可重复的做法；${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `当前更像培土蓄势，以${primaryLabel}校正方向；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole }) => `阻力不强但助力分散，适合围绕${primaryLabel}积累基础；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `局面平顺而不张扬，${primaryLabel}适合形成可重复的做法；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `当前更像培土蓄势，以${primaryLabel}校正方向；${secondaryRole}。`,
     ],
     overviewLabel: '阻力不强，适合稳步积累',
     opportunities: [
@@ -112,7 +112,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}先清理牵制，再恢复主线`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy, cautionLabel }) => `整体并非全面受阻，${cautionLabel ? `${cautionLabel}里的反复` : '待确认事项'}是当前卡点；${primaryLabel}维持一个闭环，${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole, cautionLabel }) => `整体并非全面受阻，${cautionLabel ? `${cautionLabel}里的反复` : '待确认事项'}是当前卡点；${primaryLabel}维持一个闭环，${secondaryRole}。`,
       ({ primaryLabel, cautionLabel }) => `当前不需要全面收缩，但必须先查清${cautionLabel ? `${cautionLabel}的关键条件` : '最容易反复的一环'}，${primaryLabel}只维持能够独立收尾的部分。`,
       ({ primaryLabel, cautionLabel }) => `局面的关键在于处理${cautionLabel ? `${cautionLabel}里的反复` : '一处牵制'}，${primaryLabel}只落地条件确定的部分。`,
     ],
@@ -128,8 +128,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}宜先整顿身心，不以勉强推进为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy }) => `当前承接能力比机会多少更重要，先恢复状态，再处理${primaryLabel}；${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `局面容易受状态起伏牵动，${primaryLabel}只安排能够独立收尾的一步；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole }) => `当前承接能力比机会多少更重要，先恢复状态，再处理${primaryLabel}；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `局面容易受状态起伏牵动，${primaryLabel}只安排能够独立收尾的一步；${secondaryRole}。`,
     ],
     overviewLabel: '先稳住状态，再处理事情',
     opportunities: [
@@ -142,8 +142,8 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}先避开反复，以${primaryLabel}维持节奏`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryStrategy }) => `牵制多于助力，先以${primaryLabel}守住基本盘；${secondaryStrategy}。`,
-      ({ primaryLabel, secondaryStrategy }) => `当前重点是减少失误，以${primaryLabel}维持秩序；${secondaryStrategy}。`,
+      ({ primaryLabel, secondaryRole }) => `牵制多于助力，先以${primaryLabel}守住基本盘；${secondaryRole}。`,
+      ({ primaryLabel, secondaryRole }) => `当前重点是减少失误，以${primaryLabel}维持秩序；${secondaryRole}。`,
     ],
     overviewLabel: '牵制偏多，先守住基本盘',
     opportunities: [
