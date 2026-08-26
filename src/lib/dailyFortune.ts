@@ -622,6 +622,11 @@ interface PeriodReferenceGuidance {
   itemUse: string;
 }
 
+interface PeriodWindowGuidance {
+  use: string[];
+  caution: string[];
+}
+
 const periodActionGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodActionGuidance>> = {
   month: {
     career: {
@@ -799,6 +804,61 @@ const periodReferenceGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<st
   },
 };
 
+const periodWindowGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodWindowGuidance>> = {
+  month: {
+    career: {
+      use: ['完成一次可验收交付', '把一项任务推进到明确验收', '完成一次责任清楚的交接'],
+      caution: ['先核责任变更与返工源头', '先查交付口径是否中途变化', '先确认延期来自责任还是资源'],
+    },
+    study: {
+      use: ['产出一轮可独立应用的成果', '用一个新问题检验真实理解', '完成一轮复述、练习和输出'],
+      caution: ['先查输入是否转成独立输出', '先停新增资料并复测原有要点', '先定位反复出错的同一知识点'],
+    },
+    wealth: {
+      use: ['结清一笔可追溯款项', '完成一次账目与付款节点核对', '把一项合作责任写入完整记录'],
+      caution: ['先查现金去向与持续义务', '先核金额、责任和退出条件', '先停止无法追溯用途的新增支出'],
+    },
+    relationship: {
+      use: ['让一项共识进入后续行动', '把一个信息差谈到事实一致', '用后续行动验证一次沟通结果'],
+      caution: ['先查事实偏差是否重复', '先分清事实、感受与推测', '先暂停没有共同前提的承诺'],
+    },
+    travel: {
+      use: ['验证一条可复用路线', '完成一次留有返程余量的行程', '确认一套转场与备选路线'],
+      caution: ['先查路线和返程余量', '先减少时间链条过紧的行程', '先确认延误后仍有替代方案'],
+    },
+    wellbeing: {
+      use: ['留出完整恢复窗口', '用休息后的专注度校准任务量', '恢复一次稳定的睡眠与进食节奏'],
+      caution: ['先减负并观察恢复速度', '先停用短时兴奋判断承受量', '先把睡眠与进食恢复到基线'],
+    },
+  },
+  year: {
+    career: {
+      use: ['固化跨任务交接规则', '建立能够复用的验收流程', '用一次完整交付检验职责边界'],
+      caution: ['先修反复失效的责任流程', '先处理跨阶段重复的返工源头', '先停止没有稳定承接人的扩张'],
+    },
+    study: {
+      use: ['验证学习方法能否迁移', '把一项能力用到陌生问题', '沉淀能够重复使用的输出方法'],
+      caution: ['先停无法迁移的资料投入', '先淘汰只增加数量的学习安排', '先修长期重复出现的理解缺口'],
+    },
+    wealth: {
+      use: ['校准长期现金流', '建立覆盖固定责任的预算规则', '检验低收入阶段的资金承受力'],
+      caution: ['先收紧没有预算承接的责任', '先修长期重复的现金流缺口', '先停止只靠单笔收益支撑的扩张'],
+    },
+    relationship: {
+      use: ['固化分歧处理约定', '建立跨情境可用的事实确认方式', '用长期行动检验一次共同承诺'],
+      caution: ['先修跨场景重复的误解', '先停止只靠表态维持的共识', '先重建长期失效的沟通边界'],
+    },
+    travel: {
+      use: ['沉淀长期路线备选', '建立能够应对延误的行程方案', '验证复杂行程的时间承载力'],
+      caution: ['先补长期缺失的替代路线', '先减少持续依赖临时补救的行程', '先修反复压缩返程余量的安排'],
+    },
+    wellbeing: {
+      use: ['建立全年恢复基线', '验证忙闲变化后的恢复能力', '固化能够长期维持的作息边界'],
+      caution: ['先修长期透支的任务密度', '先停止依赖临时补觉的节奏', '先处理跨阶段持续下降的恢复力'],
+    },
+  },
+};
+
 function categoryCompletionRule(definition: TopicDefinition, period: FortunePeriod) {
   return period === 'today'
     ? definition.completionRule
@@ -852,7 +912,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v102';
+const dailyFortuneCacheVersion = '2026-08-27-v104';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2775,6 +2835,47 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
   return { goodDirections, avoidDirections };
 }
 
+function buildPeriodWindowCoverage(
+  period: Exclude<FortunePeriod, 'today'>,
+  focusCategories: CategoryEvaluation[],
+  cautiousCategory?: CategoryEvaluation,
+  favorable = false,
+  usage = new Map<string, number[]>(),
+  seed = 0,
+) {
+  const takePhrase = (item: CategoryEvaluation, kind: keyof PeriodWindowGuidance, offset: number) => {
+    const candidates = periodWindowGuidance[period][item.definition.key]?.[kind] || [];
+    if (!candidates.length) return kind === 'use' ? item.definition.action : item.definition.cautionAction;
+    const usageKey = `${period}|${item.definition.key}|${kind}`;
+    const counts = usage.get(usageKey) || candidates.map(() => 0);
+    const leastUsed = Math.min(...counts);
+    let selectedIndex = (seed + offset) % candidates.length;
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidateIndex = (seed + offset + index) % candidates.length;
+      if (counts[candidateIndex] === leastUsed) {
+        selectedIndex = candidateIndex;
+        break;
+      }
+    }
+    counts[selectedIndex] += 1;
+    usage.set(usageKey, counts);
+    return candidates[selectedIndex];
+  };
+  const focusText = focusCategories.map((item, index) => {
+    return `${item.definition.shortLabel}${takePhrase(item, 'use', index)}`;
+  });
+  const cautionText = cautiousCategory
+    ? `${cautiousCategory.definition.shortLabel}需复核：${takePhrase(cautiousCategory, 'caution', focusCategories.length)}`
+    : '';
+  if (focusText.length) {
+    return `${favorable ? '适合' : '可用于'}：${focusText.join('；')}${cautionText ? `；${cautionText}` : ''}`;
+  }
+  if (cautionText) return `只${cautionText}，暂不新增安排`;
+  return period === 'month'
+    ? '只整理本月已有事项：补齐记录、责任与收尾结果'
+    : '只复盘全年已有安排：保留可复用规则，停止长期无结果的投入';
+}
+
 function buildTimeWindows(
   now: Date,
   period: FortunePeriod,
@@ -2814,9 +2915,10 @@ function buildTimeWindows(
   if (selected.length < 3) usable.forEach((analysis) => {
     if (selected.length < 3) addUnique(analysis);
   });
+  const periodWindowUsage = new Map<string, number[]>();
   return selected
     .sort((left, right) => left.date.getTime() - right.date.getTime())
-    .map((analysis) => {
+    .map((analysis, analysisIndex) => {
       const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
       const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
       const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
@@ -2828,11 +2930,20 @@ function buildTimeWindows(
         ? [primaryCategory, ...usableCategories.filter((item) => item.definition.key !== primaryKey)].slice(0, 2)
         : usableCategories.slice(0, 2);
       const focusLabels = focusCategories.map((item) => item.definition.shortLabel);
-      const coverage = focusLabels.length
-        ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
-        : cautiousCategory
-          ? `只复核${cautiousCategory.definition.shortLabel}，不安排新增`
-          : '只做已有事项的整理与收尾';
+      const coverage = period === 'today'
+        ? focusLabels.length
+          ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
+          : cautiousCategory
+            ? `只复核${cautiousCategory.definition.shortLabel}，不安排新增`
+            : '只做已有事项的整理与收尾'
+        : buildPeriodWindowCoverage(
+            period,
+            focusCategories,
+            cautiousCategory,
+            favorableCategories.length > 0,
+            periodWindowUsage,
+            analysis.date.getMonth() * 31 + analysis.date.getDate() + analysisIndex,
+          );
       if (period === 'today') {
         const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours()) || shichenSlots[0];
         return { name: dayPartForHour(slot.hour), range: formatTimeRange(slot.range), coverage };

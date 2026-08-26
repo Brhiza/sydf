@@ -46,6 +46,7 @@ describe('运势区块职责审计', () => {
           { key: `category-${item.key}-basis`, role: 'category-basis', sourceKey: item.key, text: item.basis },
         ]).filter((item) => item.text),
         ...result.periodTrend.map((item, index) => ({ key: `trend-${index}`, role: 'trend', sourceKey: undefined, text: item.focus })),
+        ...result.timeWindows.map((item, index) => ({ key: `window-${index}`, role: 'window', sourceKey: undefined, text: item.coverage })),
         { key: 'reference-symbolic', role: 'reference', sourceKey: undefined, text: result.reference.symbolicNote },
         { key: 'reference-direction', role: 'reference', sourceKey: undefined, text: result.reference.directionNote },
         { key: 'reference-item', role: 'reference', sourceKey: undefined, text: result.reference.itemNote },
@@ -65,6 +66,7 @@ describe('运势区块职责审计', () => {
             && (!left.sourceKey || !right.sourceKey || left.sourceKey === right.sourceKey || left.key === 'evidence-personal' || right.key === 'evidence-personal')
           || roles.has('summary')
           || roles.has('trend') && (roles.has('action') || roles.has('category-detail') || roles.has('category-basis') || roles.has('evidence') || roles.has('reference'))
+          || roles.has('window') && (roles.has('action') || roles.has('category-detail') || roles.has('category-basis') || roles.has('evidence') || roles.has('trend') || roles.has('reference'))
           || roles.has('reference') && (roles.has('action') || roles.has('category-detail') || roles.has('category-basis') || roles.has('evidence'));
         if (!shouldCompare) return [];
         const leftGrams = grams(left.text);

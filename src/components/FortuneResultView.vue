@@ -258,7 +258,7 @@ const leadKicker = computed(() => props.result.period === 'today'
 .fortune-period-list article + article { border-left: 1px solid var(--ds-line); }
 .fortune-period-list strong { color: var(--ds-text-primary); font-size: 13px; }
 .fortune-period-list span,
-.fortune-period-list small { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); }
+.fortune-period-list small { color: var(--ds-text-secondary); font-size: var(--ds-text-xs); line-height: 1.5; }
 
 .fortune-empty-copy { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: 1.6; margin: 0; }
 
@@ -269,9 +269,9 @@ const leadKicker = computed(() => props.result.period === 'today'
   .fortune-date-main > strong.is-long { font-size: 25px; }
   .fortune-date-main > div { gap: 4px; padding-left: 8px; }
   .fortune-period-list { grid-template-columns: 1fr; }
-  .fortune-period-list article { grid-template-columns: auto auto minmax(0, 1fr); padding: 9px 0; }
+  .fortune-period-list article { gap: 8px; grid-template-columns: minmax(72px, auto) auto minmax(0, 1fr); padding: 9px 0; }
   .fortune-period-list article + article { border-left: 0; border-top: 1px solid var(--ds-line); }
-  .fortune-period-list small { text-align: right; }
+  .fortune-period-list small { text-align: left; }
 }
 
 .fortune-trend-list { display: grid; }

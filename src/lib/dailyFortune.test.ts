@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v102');
+      expect(serialized).toContain('2026-08-27-v104');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -654,10 +654,34 @@ describe('今日、月运、年运统一周期算法', () => {
       result.timeWindows[0]?.coverage,
       JSON.stringify({ action: result.actionTips[0], windows: result.timeWindows, mainLine }),
     ).toContain(shortLabels[mainLine?.sourceKey || '']);
+    const expectUniqueWindowUses = (windows: DailyFortuneTimeWindow[]) => {
+      const fragments = windows.flatMap((window) => (
+        window.coverage.match(/(?:工作|学习|钱款|沟通|出行|休息)(?:需复核：)?[^；]+/g) || []
+      ));
+      Object.values(shortLabels).forEach((label) => {
+        const topicFragments = fragments.filter((fragment) => fragment.startsWith(label));
+        expect(new Set(topicFragments).size, JSON.stringify({ label, windows, topicFragments })).toBe(topicFragments.length);
+      });
+    };
     result.timeWindows.forEach((window) => {
-      expect(window.coverage).toMatch(/^(?:优先|可安排).+|只复核.+，不安排新增$|只做已有事项的整理与收尾$/);
-      expect(window.coverage).not.toMatch(/适合.+、.+、.+/);
+      expect(window.coverage).toMatch(/^(?:适合|可用于).+|只.+需复核：.+，暂不新增安排$|只整理本月已有事项：.+$/);
+      expect(window.coverage).toMatch(/完成|验收|交接|产出|检验|复述|结清|核对|记录|共识|信息差|路线|返程|恢复|专注度|睡眠|责任|现金|事实|减负/);
+      expect(window.coverage).not.toMatch(/^(?:优先|可安排)(?:工作|学习|钱款|沟通|出行|休息)(?:、(?:工作|学习|钱款|沟通|出行|休息))?(?:；(?:工作|学习|钱款|沟通|出行|休息)需复核)?$/);
     });
+    expectUniqueWindowUses(result.timeWindows);
+
+    const year = generateDailyFortune(
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+      profile,
+      'year',
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+    );
+    expect(year.timeWindows.length).toBeGreaterThan(0);
+    year.timeWindows.forEach((window) => {
+      expect(window.coverage).toMatch(/^(?:适合|可用于).+|只.+需复核：.+，暂不新增安排$|只复盘全年已有安排：.+$/);
+      expect(window.coverage).toMatch(/交接|验收|职责|迁移|能力|输出方法|现金流|预算|资金|分歧|事实确认|承诺|路线|行程|恢复|作息|责任|返工|承接人|资料|学习|理解|收益|共识|误解|沟通|替代|返程|透支|补觉/);
+    });
+    expectUniqueWindowUses(year.timeWindows);
 
     const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
     if (necessaryCheck?.sourceKey) {
