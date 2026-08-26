@@ -56,10 +56,10 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryShortLabel, primaryOutcome }) => `${lead}多数信号支持${primaryShortLabel}，先形成${primaryOutcome}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole }) => `整体主线清楚，${primaryLabel}先形成结果；${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `助力集中在${primaryLabel}，不需要四处试探；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `${primaryLabel}的顺势窗口和完成条件都更集中，先形成${primaryOutcome}；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `${primaryLabel}比其他主题更容易形成${primaryOutcome}，后续投入先围绕这个结果安排；${secondaryRole}。`,
     ],
-    overviewLabel: '主线清楚，可顺势推进',
+    overviewLabel: '顺势窗口集中，先形成结果',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
@@ -70,10 +70,10 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryShortLabel, primaryOutcome }) => `${lead}重心在${primaryShortLabel}，先确认${primaryOutcome}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole }) => `整体信号并不平均，资源应集中在${primaryLabel}；${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `${primaryLabel}是当前最清楚的着力点；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `强弱分化已经出现，${primaryLabel}先形成${primaryOutcome}，其他主题不占用同一段精力；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `${primaryLabel}是当前最容易验证的一项，先看${primaryOutcome}能否成立；${secondaryRole}。`,
     ],
-    overviewLabel: '有进有守，宜集中发力',
+    overviewLabel: '强弱分化，先完成一项',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
@@ -84,10 +84,10 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryShortLabel, primaryOutcome }) => `${lead}各项信号接近，先看${primaryShortLabel}能否形成${primaryOutcome}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole }) => `助力与牵制相互交错，次序比速度重要；${primaryLabel}先行，${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `局面没有明显偏向，以${primaryLabel}作为起点；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `各主题的助力与牵制接近，先检查${primaryLabel}能否形成${primaryOutcome}；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `当前没有单一强项，${primaryLabel}先完成${primaryOutcome}，再看其他条件能否承接；${secondaryRole}。`,
     ],
-    overviewLabel: '整体平稳，次序比速度重要',
+    overviewLabel: '助力与牵制接近，先看完成条件',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
@@ -103,7 +103,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryLabel, secondaryRole }) => `多数窗口保持平稳，${primaryLabel}要看连续反馈，不把一次顺利当成趋势；${secondaryRole}。`,
       ({ primaryLabel, primaryOutcome, secondaryRole }) => `连续助力不足，${primaryLabel}先形成${primaryOutcome}，再判断投入是否值得继续；${secondaryRole}。`,
     ],
-    overviewLabel: '多数窗口平稳，以积累为主',
+    overviewLabel: '多数窗口平稳，用连续反馈判断',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
@@ -115,11 +115,11 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, cautionLabel, primaryShortLabel }) => `${lead}${cautionLabel || '局部条件'}反复较多，${primaryShortLabel}只做可收尾部分`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole, cautionLabel }) => `整体并非全面受阻，${cautionLabel ? `${cautionLabel}里的反复` : '待确认事项'}是当前卡点；${primaryLabel}维持一个闭环，${secondaryRole}。`,
-      ({ primaryLabel, cautionLabel }) => `当前不需要全面收缩，但必须先查清${cautionLabel ? `${cautionLabel}的关键条件` : '最容易反复的一环'}，${primaryLabel}只维持能够独立收尾的部分。`,
-      ({ primaryLabel, cautionLabel }) => `局面的关键在于处理${cautionLabel ? `${cautionLabel}里的反复` : '一处牵制'}，${primaryLabel}只落地条件确定的部分。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole, cautionLabel }) => `${cautionLabel ? `${cautionLabel}的反复` : '待确认事项'}集中在可检查条件，并非所有主题同时受阻；${primaryLabel}先形成${primaryOutcome}，${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, cautionLabel }) => `${cautionLabel ? `${cautionLabel}的关键条件` : '最容易反复的一环'}尚未闭合，${primaryLabel}只保留能形成${primaryOutcome}的部分。`,
+      ({ primaryLabel, primaryOutcome, cautionLabel }) => `${cautionLabel ? `${cautionLabel}的同类问题` : '一处牵制'}正在重复出现，${primaryLabel}只完成${primaryOutcome}，不承接依赖它的新安排。`,
     ],
-    overviewLabel: '局部受阻，先解决关键卡点',
+    overviewLabel: '局部条件反复，先查清再投入',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只保留当前一条线；${primaryBoundary}。`,
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
@@ -131,10 +131,10 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead }) => `${lead}承载能力不足，先减少任务量`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole }) => `当前承接能力比机会多少更重要，先恢复状态，再处理${primaryLabel}；${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `局面容易受状态起伏牵动，${primaryLabel}只安排能够独立收尾的一步；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `当前承载量偏低，先删去一项非必要安排，${primaryLabel}只保留能形成${primaryOutcome}的一步；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `状态波动会放大返工，${primaryLabel}只安排能独立收尾的一步，以${primaryOutcome}作为停止点；${secondaryRole}。`,
     ],
-    overviewLabel: '先稳住状态，再处理事情',
+    overviewLabel: '承载能力偏弱，先减少任务',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
@@ -145,10 +145,10 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryShortLabel, primaryOutcome }) => `${lead}先避开反复，${primaryShortLabel}只保留${primaryOutcome}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryRole }) => `牵制多于助力，${primaryLabel}只保留条件已经确认的部分；${secondaryRole}。`,
-      ({ primaryLabel, secondaryRole }) => `多项条件同时不稳，先减少新增承诺，${primaryLabel}以能够独立收尾为限；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `牵制多于助力，${primaryLabel}只保留能形成${primaryOutcome}且条件已经确认的部分；${secondaryRole}。`,
+      ({ primaryLabel, primaryOutcome, secondaryRole }) => `多项条件同时不稳，先停止新增承诺，${primaryLabel}只完成${primaryOutcome}；${secondaryRole}。`,
     ],
-    overviewLabel: '牵制偏多，先守住基本盘',
+    overviewLabel: '收紧项偏多，只保留可收尾事项',
     opportunities: [
       ({ primaryAction, primaryBoundary, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}；${primaryBoundary}。`,
     ],
