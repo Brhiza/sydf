@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v55';
+const dailyFortuneCacheVersion = '2026-08-26-v56';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1803,7 +1803,7 @@ function buildFortuneMasterJudgment(
 }
 
 function categoryDistributionEvidence(aggregate: CategoryAggregate, period: FortunePeriod) {
-  const unit = period === 'today' ? '时段盘' : period === 'month' ? '日盘' : '阶段盘';
+  const unit = period === 'today' ? '双小时时段' : period === 'month' ? '日期' : '节气阶段';
   const neutralCount = Math.max(0, aggregate.sampleCount - aggregate.favorableCount - aggregate.cautiousCount);
   return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}中，${aggregate.category.label}有${aggregate.favorableCount}个明确支持、${aggregate.cautiousCount}个需要复核、${neutralCount}个保持平稳。`;
 }
@@ -1820,7 +1820,7 @@ function primaryDistributionMeaning(aggregate: CategoryAggregate) {
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
   const reason = aggregate.evaluation.definition.masterRiskReason;
-  if (difference > 0) return `支持虽比复核多${difference}个，但仍有${aggregate.cautiousCount}个复核窗口；问题只集中在部分窗口，并非整期受阻。${reason}`;
+  if (difference > 0) return `支持窗口虽多${difference}个，${aggregate.cautiousCount}个复核窗口仍需单独处理；它们只集中在部分阶段，不代表整期受阻。${reason}`;
   if (difference === 0) return `支持与复核窗口数量相同，需要逐段安排，不能把局部支持外推到整个周期。${reason}`;
   return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。${reason}`;
 }
@@ -1838,8 +1838,7 @@ function cautionConsequence(caution: CategoryAggregate) {
 }
 
 function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
-  const primaryLabel = judgment.primary.category.label;
-  return `${categoryDistributionEvidence(judgment.primary, period)}在六项主题中，${primaryLabel}的综合信号最高。${primaryDistributionMeaning(judgment.primary)}`;
+  return `${categoryDistributionEvidence(judgment.primary, period)}${primaryDistributionMeaning(judgment.primary)}`;
 }
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
@@ -1847,11 +1846,11 @@ function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: Fort
   const riskReason = judgment.caution.evaluation.definition.masterRiskReason;
   if (judgment.caution.cautiousCount === 0) {
     const check = judgment.caution.evaluation.definition.check;
-    return `${categoryDistributionEvidence(judgment.caution, period)}${cautionLabel}没有明确风险窗口，只是综合信号在六项中最低。${riskReason}这类风险本期没有集中出现；只有${check}发生变化时才需要重新评估。`;
+    return `${categoryDistributionEvidence(judgment.caution, period)}${cautionLabel}没有明确风险窗口；把它列作复核项，只因为在六项中相对优势最弱。${riskReason}这类风险本期没有集中出现；只有${check}发生变化时才需要重新评估。`;
   }
   const role = judgment.caution.evaluation.tone === 'cautious'
     ? `${cautionLabel}已经是本期明确牵制。`
-    : `${cautionLabel}不是全面阻断，但在六项中最需要留意。`;
+    : `${cautionLabel}并非整期受阻，但在六项中相对最需要复核。`;
   return `${categoryDistributionEvidence(judgment.caution, period)}${role}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
 }
 
@@ -2024,7 +2023,7 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.good}次支持、${value.avoid}次回避；常见用途：${mostFrequent(value.uses, 1)[0] || '主动推进'}；常见依据：${summarizeDirectionReasons(mostFrequent(value.goodReasons))}。`,
+      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '节气阶段' : '日期'}中，${direction}出现${value.good}次支持、${value.avoid}次回避；常见用途：${mostFrequent(value.uses, 1)[0] || '主动推进'}；常见依据：${summarizeDirectionReasons(mostFrequent(value.goodReasons))}。`,
     }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
@@ -2032,7 +2031,7 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.avoid}次回避、${value.good}次支持；常见限制：${summarizeDirectionReasons(mostFrequent(value.avoidReasons))}。必须前往时先确认路线和返程，并留出改线余量。`,
+      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '节气阶段' : '日期'}中，${direction}出现${value.avoid}次回避、${value.good}次支持；常见限制：${summarizeDirectionReasons(mostFrequent(value.avoidReasons))}。必须前往时先确认路线和返程，并留出改线余量。`,
     }));
   return { goodDirections, avoidDirections };
 }
@@ -2200,6 +2199,7 @@ function buildMonthTrend(now: Date, analyses: ChartAnalysis[], runtimeNow?: Date
   const availableAnalyses = runtimeNow
     ? analyses.filter((analysis) => analysis.dateKey >= formatDateKey(runtimeNow))
     : analyses;
+  const monthStageLabels = ['月初', '上旬', '月中', '下旬', '月底'];
   availableAnalyses.forEach((analysis) => {
     const week = Math.floor((analysis.date.getDate() - 1) / 7);
     groups.set(week, [...(groups.get(week) || []), analysis]);
@@ -2211,7 +2211,7 @@ function buildMonthTrend(now: Date, analyses: ChartAnalysis[], runtimeNow?: Date
     const endDay = Math.min(monthEnd, weekStartDay + 6);
     return {
       dateKey: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-w${week + 1}`,
-      label: currentWeek ? '本周' : `第${week + 1}周`,
+      label: currentWeek ? '本周' : monthStageLabels[week] || `第${week + 1}段`,
       dateLabel: `${startDay}—${endDay}日`,
       ...trendSummary(items, usage),
     };

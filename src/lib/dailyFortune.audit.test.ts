@@ -54,14 +54,14 @@ describe('今日运势批量内容质量', () => {
         const cautionWindow = item.basis.match(/^(.+)：/)?.[1];
         if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
       });
-      const unit = result.period === 'today' ? '时段盘' : result.period === 'month' ? '日盘' : '阶段盘';
+      const unit = result.period === 'today' ? '双小时时段' : result.period === 'month' ? '日期' : '节气阶段';
       result.evidenceInsights.filter((item) => item.key === 'opportunity' || item.key === 'caution').forEach((item) => {
         expect(item.detail).toMatch(new RegExp(`\\d+个${unit}中，.+有\\d+个明确支持、\\d+个需要复核、\\d+个保持平稳`));
         if (item.key === 'opportunity') {
           expect(item.detail).toMatch(/可执行窗口相对集中|强度差距有限|需要分段安排|只表示六项中相对可控/);
           expect(item.detail).toMatch(/转成明确交付|分段积累|条件可以逐项核对|先消除信息差|出发前被看见|决定其他事情能否持续/);
         } else {
-          expect(item.detail).toMatch(/问题只集中在部分窗口|需要逐段安排|风险已经跨越多个窗口/);
+          expect(item.detail).toMatch(/只集中在部分阶段|需要逐段安排|风险已经跨越多个窗口/);
           expect(item.detail).toMatch(/责任交接|连续注意力|现金流|共同理解|时间链条|承载条件/);
           if (/有\d+个明确支持、0个需要复核/.test(item.detail)) {
             expect(item.detail).toContain('没有明确风险窗口');
@@ -73,11 +73,11 @@ describe('今日运势批量内容质量', () => {
       });
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
       if (result.period !== 'today') {
-        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日盘|阶段盘).*出现\d+次支持、\d+次回避/));
-        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日盘|阶段盘).*出现\d+次回避、\d+次支持/));
+        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段).*出现\d+次支持、\d+次回避/));
+        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段).*出现\d+次回避、\d+次支持/));
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/常见用途：.+；常见依据：/));
         result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/常见限制：/));
-        if (result.reference.direction !== '不固定') expect(result.reference.directionNote).toMatch(/\d+个(?:日盘|阶段盘)/);
+        if (result.reference.direction !== '不固定') expect(result.reference.directionNote).toMatch(/\d+个(?:日期|节气阶段)/);
       } else {
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/适合.+；盘面依据：.+。仅用于/));
         result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/盘面限制：.+。必须前往时/));

@@ -106,7 +106,7 @@ function expectContentRichCategories(result: DailyFortuneResult) {
 }
 
 function expectEvidenceDistribution(result: DailyFortuneResult) {
-  const unit = result.period === 'today' ? '时段盘' : result.period === 'month' ? '日盘' : '阶段盘';
+  const unit = result.period === 'today' ? '双小时时段' : result.period === 'month' ? '日期' : '节气阶段';
   result.evidenceInsights.filter((item) => item.key === 'opportunity' || item.key === 'caution').forEach((item) => {
     expect(item.detail).toMatch(new RegExp(`\\d+个${unit}中，.+有\\d+个明确支持、\\d+个需要复核、\\d+个保持平稳`));
     if (item.key === 'caution' && item.sourceKey) expect(item.detail).toMatch(evidenceRiskMarkers[item.sourceKey]);
@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v55');
+      expect(serialized).toContain('2026-08-26-v56');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -298,12 +298,12 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.periodTrend).toHaveLength(5);
     expect(result.periodTrend[0]).toMatchObject({
       dateKey: '2025-08-w1',
-      label: '第1周',
+      label: '月初',
       dateLabel: '1—7日',
     });
     expect(result.periodTrend[4]).toMatchObject({
       dateKey: '2025-08-w5',
-      label: '第5周',
+      label: '月底',
       dateLabel: '29—31日',
     });
     expectContentRichTrend(result);
@@ -332,7 +332,7 @@ describe('今日、月运、年运统一周期算法', () => {
     });
     expect(month.periodTrend).toHaveLength(2);
     expect(month.periodTrend[0]).toMatchObject({ label: '本周', dateLabel: '26—28日' });
-    expect(month.periodTrend[1]).toMatchObject({ label: '第5周', dateLabel: '29—31日' });
+    expect(month.periodTrend[1]).toMatchObject({ label: '月底', dateLabel: '29—31日' });
 
     const year = generateDailyFortune(runtime, profile, 'year', runtime);
     expect(year.periodTrend).toHaveLength(5);
