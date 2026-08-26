@@ -67,15 +67,15 @@ const referenceRows = computed(() => [
   {
     key: 'colors',
     marker: '色',
-    title: '助运颜色',
-    detail: props.result.reference.colors.map((item) => item.name).join('、'),
+    title: `助运颜色：${props.result.reference.colors.map((item) => item.name).join('、')}`,
+    detail: props.result.reference.colorNote,
     tone: 'accent' as const,
   },
   {
     key: 'numbers',
     marker: '数',
-    title: '助运数字',
-    detail: props.result.reference.numbers.join('、'),
+    title: `助运数字：${props.result.reference.numbers.join('、')}`,
+    detail: props.result.reference.numberNote,
     tone: 'accent' as const,
   },
   {
@@ -130,8 +130,8 @@ const actionTitle = computed(() => props.result.period === 'today'
 const trendTitle = computed(() => props.result.period === 'today'
   ? '未来7天节奏'
   : props.result.period === 'month'
-    ? '本月分周节奏'
-    : '全年逐月节奏');
+    ? (props.currentDate ? '本月后续节奏' : '该月分周节奏')
+    : (props.currentDate ? '今年后续节奏' : '该年逐月节奏'));
 
 const leadKicker = computed(() => props.result.period === 'today'
   ? (props.currentDate ? '今日解读' : '当天解读')

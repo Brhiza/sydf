@@ -73,7 +73,9 @@ export interface DailyFortuneOverview {
 
 export interface DailyFortuneReference {
   colors: DailyFortuneColor[];
+  colorNote: string;
   numbers: number[];
+  numberNote: string;
   direction: string;
   directionNote: string;
   item: string;
@@ -159,7 +161,12 @@ interface ElementReference {
   colors: DailyFortuneColor[];
   numbers: number[];
   direction: string;
-  items: Array<{ name: string; symbol: string; note: string }>;
+}
+
+interface PracticalReferenceItem {
+  name: string;
+  symbol: string;
+  note: string;
 }
 
 interface PersonalContext {
@@ -340,7 +347,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v38';
+const dailyFortuneCacheVersion = '2026-08-26-v39';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -402,48 +409,56 @@ const elementReferences: Record<FiveElement, ElementReference> = {
   木: {
     colors: [{ name: '松柏绿', hex: '#6f8f72' }, { name: '米白', hex: '#f2eadb' }],
     numbers: [3, 8], direction: '正东',
-    items: [
-      { name: '木质书签', symbol: '▤', note: '夹在当前主线的资料里，每次翻到它只确认下一步，不同时展开新任务。' },
-      { name: '小型绿植', symbol: '🌿', note: '放在视线能看到的位置，休息时离开屏幕、看向远处并活动肩颈。' },
-      { name: '帆布袋', symbol: '◫', note: '把当天外出必需品集中收纳，出门前按清单核对，减少临时遗漏。' },
-    ],
   },
   火: {
     colors: [{ name: '暖珊瑚', hex: '#c96f61' }, { name: '杏色', hex: '#e6b67a' }],
     numbers: [2, 7], direction: '正南',
-    items: [
-      { name: '暖色笔记本', symbol: '▥', note: '只写当天必须完成的一件事、完成标准和收尾时间，避免任务越列越多。' },
-      { name: '小夜灯', symbol: '✦', note: '把亮灯当作晚间收尾信号，之后减少新任务和强刺激，让节奏慢下来。' },
-      { name: '红色挂件', symbol: '●', note: '挂在钥匙或常用包上，出门看到它时检查物品、路线和时间余量。' },
-    ],
   },
   土: {
     colors: [{ name: '燕麦色', hex: '#c6ad86' }, { name: '陶土橙', hex: '#b87958' }],
     numbers: [0, 5], direction: '中央',
-    items: [
-      { name: '陶瓷杯', symbol: '◉', note: '固定放在手边，喝水时暂停一分钟，顺便检查自己的真实疲劳程度。' },
-      { name: '方形收纳盒', symbol: '□', note: '只收纳当前项目需要的物品，减少桌面干扰和临时寻找。' },
-      { name: '米色卡套', symbol: '▣', note: '把高频证件或卡片集中放置，出门和付款前逐项确认。' },
-    ],
   },
   金: {
     colors: [{ name: '月白', hex: '#e8e5de' }, { name: '银灰', hex: '#aeb4bd' }],
     numbers: [4, 9], direction: '正西',
-    items: [
-      { name: '金属签字笔', symbol: '⌁', note: '用于签字或确认清单，重要承诺先写清负责人、范围和截止时间。' },
-      { name: '简洁腕表', symbol: '◷', note: '给关键任务设定开始与停止时间，防止投入失去边界。' },
-      { name: '银色夹子', symbol: '◇', note: '夹住当天唯一的主线资料，这一叠没有收尾前不新增第二叠。' },
-    ],
   },
   水: {
     colors: [{ name: '雾蓝', hex: '#718fae' }, { name: '墨蓝', hex: '#344b63' }],
     numbers: [1, 6], direction: '正北',
-    items: [
-      { name: '深色水杯', symbol: '◒', note: '把喝水当作短暂停顿，重新确认精力是否足以继续当前任务。' },
-      { name: '蓝色卡套', symbol: '▣', note: '集中收好证件和常用卡片，涉及出行或付款时少依赖临时记忆。' },
-      { name: '圆润小挂件', symbol: '◌', note: '触碰到它时停一下呼吸，先想清下一步，再决定是否立即回应。' },
-    ],
   },
+};
+
+const topicReferenceItems: Record<string, PracticalReferenceItem[]> = {
+  career: [
+    { name: '金属签字笔', symbol: '⌁', note: '用于确认工作清单；写下负责人、完成标准和截止时间后，再开始投入。' },
+    { name: '银色夹子', symbol: '◇', note: '只夹住当前交付需要的资料，这一项没有收尾前不新增第二叠。' },
+    { name: '暖色笔记本', symbol: '▥', note: '只记录本期必须交付的一件事、完成标准和收尾时间，避免任务越列越多。' },
+  ],
+  study: [
+    { name: '木质书签', symbol: '▤', note: '夹在当前学习材料的停止位置；再次打开时先复述上次要点，再继续增加内容。' },
+    { name: '暖色笔记本', symbol: '▥', note: '每次只留一页写目标、要点和练习结果，用输出检验是否真正掌握。' },
+    { name: '银色夹子', symbol: '◇', note: '把当前学习材料集中成一叠，形成笔记或练习成果前不继续收集新资料。' },
+  ],
+  wealth: [
+    { name: '米色卡套', symbol: '▣', note: '集中收好常用卡片和付款凭证，涉及金额时先核对条款、责任与付款节点。' },
+    { name: '金属签字笔', symbol: '⌁', note: '只用于已经核清金额和责任的确认；口头条件没有落成记录前不签字。' },
+    { name: '方形收纳盒', symbol: '□', note: '把报价、合同和付款记录集中收纳，缺少任何一项时先补资料，不急着付款。' },
+  ],
+  relationship: [
+    { name: '圆润小挂件', symbol: '◌', note: '准备回应前先停一下，分清事实、感受和猜测，再只处理一个分歧。' },
+    { name: '暖色笔记本', symbol: '▥', note: '沟通前写下要确认的事实和希望达成的下一步，避免在情绪里扩大话题。' },
+    { name: '小型绿植', symbol: '🌿', note: '把它放在沟通区域，看到时提醒自己先听完对方重点，再表达判断。' },
+  ],
+  travel: [
+    { name: '帆布袋', symbol: '◫', note: '把外出必需品集中收纳，出门前按证件、路线和返程时间逐项核对。' },
+    { name: '蓝色卡套', symbol: '▣', note: '集中收好证件和常用卡片，路线变化时先确认返程，再决定是否追加行程。' },
+    { name: '红色挂件', symbol: '●', note: '挂在钥匙或常用包上，出门看到它时检查物品、路线和时间余量。' },
+  ],
+  wellbeing: [
+    { name: '陶瓷杯', symbol: '◉', note: '喝水时暂停一分钟，检查睡眠、食欲和注意力是否真的足以继续当前任务。' },
+    { name: '小夜灯', symbol: '✦', note: '把亮灯当作晚间收尾信号，之后减少新任务和强刺激，为睡眠留出缓冲。' },
+    { name: '小型绿植', symbol: '🌿', note: '休息时离开屏幕、看向远处并活动肩颈，用恢复后的专注度判断是否继续。' },
+  ],
 };
 
 const shichenSlots = [
@@ -1773,12 +1788,18 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .filter(([, value]) => value.good >= goodThreshold && value.good > value.avoid)
     .sort((left, right) => right[1].good - left[1].good || right[1].personal - left[1].personal || left[1].avoid - right[1].avoid)
     .slice(0, 2)
-    .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向的支持较稳定，适合安排外出或沟通。` }));
+    .map(([direction, value]) => ({
+      direction,
+      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.good}次支持、${value.avoid}次回避；可优先用于重要拜访或需要主动推进的沟通。`,
+    }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
     .sort((left, right) => right[1].avoid - left[1].avoid || left[1].personal - right[1].personal || left[1].good - right[1].good)
     .slice(0, 2)
-    .map(([direction]) => ({ direction, detail: `${periodLabel}这个方向更容易遇到反复，必须前往时请提前规划并留出余量。` }));
+    .map(([direction, value]) => ({
+      direction,
+      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.avoid}次回避、${value.good}次支持；必须前往时先确认路线和返程，并留出改线余量。`,
+    }));
   return { goodDirections, avoidDirections };
 }
 
@@ -1933,34 +1954,41 @@ function buildSevenDayTrend(now: Date, personal: PersonalContext | null): DailyF
   });
 }
 
-function buildMonthTrend(now: Date, analyses: ChartAnalysis[]): DailyFortuneTrendItem[] {
+function buildMonthTrend(now: Date, analyses: ChartAnalysis[], runtimeNow?: Date): DailyFortuneTrendItem[] {
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const groups = new Map<number, ChartAnalysis[]>();
   const usage = createTrendPhraseUsage();
-  analyses.forEach((analysis) => {
+  const availableAnalyses = runtimeNow
+    ? analyses.filter((analysis) => analysis.dateKey >= formatDateKey(runtimeNow))
+    : analyses;
+  availableAnalyses.forEach((analysis) => {
     const week = Math.floor((analysis.date.getDate() - 1) / 7);
     groups.set(week, [...(groups.get(week) || []), analysis]);
   });
   return [...groups.entries()].sort(([left], [right]) => left - right).map(([week, items]) => {
-    const startDay = week * 7 + 1;
-    const endDay = Math.min(monthEnd, startDay + 6);
+    const weekStartDay = week * 7 + 1;
+    const currentWeek = runtimeNow && week === Math.floor((runtimeNow.getDate() - 1) / 7);
+    const startDay = currentWeek ? runtimeNow.getDate() : weekStartDay;
+    const endDay = Math.min(monthEnd, weekStartDay + 6);
     return {
       dateKey: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-w${week + 1}`,
-      label: `第${week + 1}周`,
+      label: currentWeek ? '本周' : `第${week + 1}周`,
       dateLabel: `${startDay}—${endDay}日`,
       ...trendSummary(items, usage),
     };
   });
 }
 
-function buildYearTrend(now: Date, personal: PersonalContext | null): DailyFortuneTrendItem[] {
+function buildYearTrend(now: Date, personal: PersonalContext | null, runtimeNow?: Date): DailyFortuneTrendItem[] {
   const usage = createTrendPhraseUsage();
-  return Array.from({ length: 12 }, (_, month) => {
+  const startMonth = runtimeNow?.getMonth() || 0;
+  return Array.from({ length: 12 - startMonth }, (_, index) => {
+    const month = startMonth + index;
     const date = new Date(now.getFullYear(), month, 15, 12, 0, 0, 0);
     const trend = trendSummary([analyzeChart(date, 'month', personal)], usage);
     return {
       dateKey: `${now.getFullYear()}-${String(month + 1).padStart(2, '0')}`,
-      label: `${month + 1}月`,
+      label: runtimeNow && month === runtimeNow.getMonth() ? '本月' : `${month + 1}月`,
       dateLabel: '',
       ...trend,
     };
@@ -1972,10 +2000,12 @@ function buildPeriodTrend(
   now: Date,
   sampleAnalyses: ChartAnalysis[],
   personal: PersonalContext | null,
+  runtimeNow: Date,
+  isCurrentPeriod: boolean,
 ) {
   if (period === 'today') return buildSevenDayTrend(now, personal);
-  if (period === 'month') return buildMonthTrend(now, sampleAnalyses);
-  return buildYearTrend(now, personal);
+  if (period === 'month') return buildMonthTrend(now, sampleAnalyses, isCurrentPeriod ? runtimeNow : undefined);
+  return buildYearTrend(now, personal, isCurrentPeriod ? runtimeNow : undefined);
 }
 
 function stableSeed(value: string) {
@@ -2003,6 +2033,7 @@ function buildReference(
   analysis: ChartAnalysis,
   goodDirections: DailyFortuneDirection[],
   personal: PersonalContext | null,
+  focus: TopicDefinition,
 ): DailyFortuneReference {
   const palace = chooseReferencePalace(analysis, goodDirections);
   const palaceElement = isFiveElement(palace.element) ? palace.element : '土';
@@ -2015,18 +2046,28 @@ function buildReference(
   const colors = seed % 2 ? [...elementReference.colors].reverse() : [...elementReference.colors];
   const referenceNumbers = personal && seed % 2 ? [...elementReference.numbers].reverse() : elementReference.numbers;
   const numbers = uniqueNumbers([palace.gong, ...referenceNumbers, analysis.chart.juShu]);
-  const item = elementReference.items[seed % elementReference.items.length];
+  const practicalItems = topicReferenceItems[focus.key] || topicReferenceItems.career;
+  const item = practicalItems[seed % practicalItems.length];
   const direction = goodDirections[0]?.direction || '不固定';
+  const focusLabel = focus.shortLabel;
   return {
     colors,
+    colorNote: period === 'today'
+      ? `可从中选一种标记今天的${focusLabel}清单，看到颜色时回到当前主线，不需要整套穿戴。`
+      : period === 'month'
+        ? `选一种固定用于本月${focusLabel}相关的文件标签或提醒，帮助在多项事务间识别主线。`
+        : `可作为全年${focusLabel}计划的视觉标记，用来区分主线与临时事项，不必长期限定穿着或环境配色。`,
     numbers,
+    numberNote: period === 'today'
+      ? '仅作当天清单排序或提醒符号，不用于金额、投注和结果判断。'
+      : period === 'month'
+        ? '仅作本月清单分组或复盘编号，不替代日期、预算和现实条件。'
+        : '仅作年度目标分组的象征编号，不用于投资、开奖或重要日期推断。',
     direction,
     directionNote: goodDirections.length
       ? period === 'today'
         ? '用于安排第一段外出、拜访或需要主动开口的沟通，不必为普通行程绕路。'
-        : period === 'month'
-          ? '可优先用于本月的重要拜访或需要主动推进的沟通，普通行程仍以便利为先。'
-          : '适合用于规划全年较重要的拜访和外出方向，日常行动不必刻意迁就。'
+        : goodDirections[0].detail
       : '方位信号不集中，不设优先方向。',
     item: item.name,
     itemSymbol: item.symbol,
@@ -2112,8 +2153,7 @@ function calculateDailyFortune(
   const directions = period === 'today'
     ? buildSingleDirections(baseAnalysis.chart, personal)
     : buildPeriodDirections(sampleAnalyses, period, personal);
-  const periodTrend = buildPeriodTrend(period, now, sampleAnalyses, personal);
-  const reference = buildReference(period, baseAnalysis, directions.goodDirections, personal);
+  const periodTrend = buildPeriodTrend(period, now, sampleAnalyses, personal, runtimeNow, isCurrentPeriod);
   const preferredCount = aggregates.filter((item) => item.evaluation.tone === 'favorable').length;
   const cautionCount = aggregates.filter((item) => item.evaluation.tone === 'cautious').length;
   const reviewCount = aggregates.length - preferredCount - cautionCount;
@@ -2137,6 +2177,13 @@ function calculateDailyFortune(
     isCurrentPeriod,
     personal,
     `${formatDateKey(now)}|${period}|${personal?.referenceSeed || 'general'}`,
+  );
+  const reference = buildReference(
+    period,
+    baseAnalysis,
+    directions.goodDirections,
+    personal,
+    judgment.primary.evaluation.definition,
   );
   const timeWindows = buildTimeWindows(
     isCurrentDay ? runtimeNow : now,

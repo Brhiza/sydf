@@ -51,6 +51,11 @@ describe('今日运势批量内容质量', () => {
         if (item.tone === 'favorable') expect(item.status).not.toMatch(/重点把关|暂不主攻/);
       });
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
+      if (result.period !== 'today') {
+        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日盘|阶段盘).*出现\d+次支持、\d+次回避/));
+        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日盘|阶段盘).*出现\d+次回避、\d+次支持/));
+        if (result.reference.direction !== '不固定') expect(result.reference.directionNote).toMatch(/\d+个(?:日盘|阶段盘)/);
+      }
       const counts = result.periodTrend.reduce((map, item) => map.set(item.focus, (map.get(item.focus) || 0) + 1), new Map<string, number>());
       expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);
     });

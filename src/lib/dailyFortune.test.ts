@@ -69,6 +69,15 @@ const categoryValueMarkers: Record<string, RegExp> = {
   wellbeing: /疲劳|睡眠|食欲|注意力|精力/,
 };
 
+const referenceItemsByTopic: Record<string, string[]> = {
+  career: ['金属签字笔', '银色夹子', '暖色笔记本'],
+  study: ['木质书签', '暖色笔记本', '银色夹子'],
+  wealth: ['米色卡套', '金属签字笔', '方形收纳盒'],
+  relationship: ['圆润小挂件', '暖色笔记本', '小型绿植'],
+  travel: ['帆布袋', '蓝色卡套', '红色挂件'],
+  wellbeing: ['陶瓷杯', '小夜灯', '小型绿植'],
+};
+
 function expectContentRichCategories(result: DailyFortuneResult) {
   const text = result.categories.map((item) => `${item.detail}${item.basis}`).join('');
   expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少/);
@@ -92,6 +101,11 @@ function expectContentRichTrend(result: DailyFortuneResult) {
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
   expect(result.reference.itemNote.length).toBeGreaterThan(22);
+  expect(result.reference.colorNote).toMatch(/标记|标签|视觉/);
+  expect(result.reference.numberNote).toMatch(/不用于|不替代/);
+  const primary = result.categories.find((item) => ['本期主线', '守住基本盘'].includes(item.status));
+  expect(primary).toBeTruthy();
+  expect(referenceItemsByTopic[primary!.key]).toContain(result.reference.item);
 }
 
 function expectTrendRepeatsLimited(result: DailyFortuneResult) {
@@ -137,7 +151,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v38');
+      expect(serialized).toContain('2026-08-26-v39');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -274,6 +288,14 @@ describe('今日、月运、年运统一周期算法', () => {
       const days = [...`${category.detail}${category.basis}`.matchAll(/8月(\d{1,2})日/g)].map((match) => Number(match[1]));
       days.forEach((day) => expect(day).toBeGreaterThanOrEqual(26));
     });
+    expect(month.periodTrend).toHaveLength(2);
+    expect(month.periodTrend[0]).toMatchObject({ label: '本周', dateLabel: '26—28日' });
+    expect(month.periodTrend[1]).toMatchObject({ label: '第5周', dateLabel: '29—31日' });
+
+    const year = generateDailyFortune(runtime, profile, 'year', runtime);
+    expect(year.periodTrend).toHaveLength(5);
+    expect(year.periodTrend[0]).toMatchObject({ dateKey: '2026-08', label: '本月' });
+    expect(year.periodTrend.at(-1)).toMatchObject({ dateKey: '2026-12', label: '12月' });
   }, 15_000);
 
   it('年运完整计算全年阶段，并向用户换算为公历范围', () => {
