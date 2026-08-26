@@ -6,16 +6,14 @@ export interface FortuneReadingPhraseContext {
   primaryShortLabel: string;
   primaryOutcome: string;
   periodUnit: string;
-  secondaryRole: string;
   cautionLabel: string;
   bestWindow: string;
   cautionWindow: string;
   primaryAction: string;
   primaryBoundary: string;
   cautionAction: string;
-  primaryReason: string;
-  cautionReason: string;
-  mixed: boolean;
+  structureDiagnosis: string;
+  decisionStatement: string;
 }
 
 export interface FortuneReadingCopy {
@@ -42,20 +40,10 @@ function cautionLead(window: string) {
   return window ? `${window}，` : '';
 }
 
-function reasonedSummary(posture: FortuneReadingPosture, context: FortuneReadingPhraseContext) {
-  const primaryReason = context.primaryReason.trim();
-  const secondaryRole = context.secondaryRole.trim().replace(/[。；]+$/, '');
-  const secondaryBridge = posture === 'advance' || posture === 'focus'
-    ? `要让这条主线真正落地，${secondaryRole}。`
-    : posture === 'stabilize' || posture === 'cultivate'
-      ? `判断能否继续投入时，还要看承接条件：${secondaryRole}。`
-      : posture === 'restore'
-        ? `恢复承载时，${secondaryRole}。`
-        : `保留这条主线的同时，${secondaryRole}。`;
-  const cautionReason = context.cautionLabel
-    ? context.cautionReason.trim().replace(/^但/, '')
-    : '';
-  return `${primaryReason}${secondaryBridge}${cautionReason ? `但${cautionReason}` : ''}`;
+function reasonedSummary(context: FortuneReadingPhraseContext) {
+  const diagnosis = context.structureDiagnosis.trim().replace(/[；]+$/, '。');
+  const decision = context.decisionStatement.trim().replace(/^因此/, '');
+  return `${diagnosis}${diagnosis.endsWith('。') ? '' : '。'}因此${decision}`;
 }
 
 const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEntry> = {
@@ -149,7 +137,7 @@ export function renderFortuneReading(
   seed: string,
 ): FortuneReadingCopy {
   const corpus = fortuneReadingCorpus[posture];
-  const summary = reasonedSummary(posture, context);
+  const summary = reasonedSummary(context);
   return {
     title: pick(corpus.titles, context, `${seed}|title`),
     summary,

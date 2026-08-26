@@ -31,16 +31,14 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     primaryShortLabel: '工作',
     primaryOutcome: '可验收结果',
     periodUnit: '时段',
-    secondaryRole: '学习负责把本期经验沉淀成可复用的方法，输出比继续收集更能检验成果',
     cautionLabel: '金钱合作',
     bestWindow: '上午 09:00—10:59',
     cautionWindow: '下午 15:00—16:59',
     primaryAction: '先处理目标清楚、能直接推进的工作',
     primaryBoundary: '临时插单或责任人发生变化时，先不接新任务',
     cautionAction,
-    primaryReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
-    cautionReason: '金钱合作同时影响现金流与合作责任，一处误差可能延续到后续结算。',
-    mixed: true,
+    structureDiagnosis: '当天的可用信号主要集中在工作，学习仍能承接，但钱款已经形成持续牵制',
+    decisionStatement: '先完成一项责任清楚、有人验收的工作；学习只沉淀主线已经验证过的经验；钱款暂不进入金额、责任或节点未闭合的下一步。',
   };
 }
 
@@ -66,19 +64,15 @@ describe('运势整体语料', () => {
     });
   });
 
-  it('标题给结论，总评按主线、承接和牵制组织成一条判断链', () => {
+  it('标题给结论，总评先诊断整体结构，再给主线、承接和牵制的取舍', () => {
     postures.forEach((posture) => {
       const phraseContext = context(cautionActions[0]);
       const result = renderFortuneReading(posture, phraseContext, `${posture}-title-summary-role`);
-      const primaryIndex = result.summary.indexOf(phraseContext.primaryReason);
-      const secondaryIndex = result.summary.indexOf(phraseContext.secondaryRole);
-      const cautionIndex = result.summary.indexOf(phraseContext.cautionReason);
-      expect(primaryIndex).toBe(0);
-      expect(secondaryIndex).toBeGreaterThan(primaryIndex);
-      expect(cautionIndex).toBeGreaterThan(secondaryIndex);
-      expect(result.summary.match(new RegExp(phraseContext.primaryReason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(1);
-      expect(result.summary).toMatch(/要让这条主线真正落地|判断能否继续投入时，还要看承接条件|恢复承载时|保留这条主线的同时/);
-      expect(result.summary).not.toBe(`${phraseContext.secondaryRole}。${phraseContext.primaryReason}${phraseContext.cautionReason}`);
+      expect(result.summary).toBe(`${phraseContext.structureDiagnosis}。因此${phraseContext.decisionStatement}`);
+      expect(result.summary.indexOf(phraseContext.structureDiagnosis)).toBe(0);
+      expect(result.summary.indexOf(phraseContext.decisionStatement)).toBeGreaterThan(phraseContext.structureDiagnosis.length);
+      expect(result.summary.match(/当天的可用信号主要集中在工作/g)).toHaveLength(1);
+      expect(result.summary).not.toMatch(/要让这条主线真正落地|判断能否继续投入时，还要看承接条件|恢复承载时|保留这条主线的同时/);
       expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);
     });
   });
@@ -104,11 +98,11 @@ describe('运势整体语料', () => {
   it('身心状态作为第二主题时始终同步照顾，不排在主线完成之后', () => {
     const wellbeingContext = {
       ...context(cautionActions[0]),
-      secondaryRole: '身心状态是主线能否持续的底层条件，恢复不足会让其他判断同时失真',
+      decisionStatement: '先完成一项责任清楚、有人验收的工作；休息与进食同步保留，用恢复后的状态校准主线强度；钱款暂不进入金额、责任或节点未闭合的下一步。',
     };
     postures.forEach((posture) => {
       const results = Array.from({ length: 40 }, (_, index) => renderFortuneReading(posture, wellbeingContext, `${posture}-secondary-wellbeing-${index}`));
-      expect(results.some((result) => result.summary.includes(wellbeingContext.secondaryRole))).toBe(true);
+      expect(results.some((result) => result.summary.includes('休息与进食同步保留'))).toBe(true);
       results.forEach((result) => expect(result.summary).not.toMatch(/身心状态(?:随后|再承接|适合接在|逐步接上|维持稳定投入|不增加变量|只做必要维护|不再加量)/));
     });
   });

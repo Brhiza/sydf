@@ -150,8 +150,6 @@ interface TopicDefinition {
   cautionPattern: string;
   cautionAction: string;
   fallback: string;
-  masterReason: string;
-  masterRiskReason: string;
   personalSupportAction: string;
   personalSupportStop: string;
   personalReviewBoundary: string;
@@ -289,8 +287,6 @@ const topicDefinitions: TopicDefinition[] = [
     cautionPattern: '任务边界、负责人或交付标准容易临时变化',
     cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
     fallback: '负责人或截止时间未定时，先整理优先级和待确认事项',
-    masterReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
-    masterRiskReason: '它牵涉多人之间的责任交接，一处变动就会让后续环节重新排队。',
     personalSupportAction: '留出一段不被临时插单打断的执行时间，只完成一个可验收成果',
     personalSupportStop: '临时插单或责任人发生变化时，先不接新任务',
     personalReviewBoundary: '先收完已有任务，不额外接下临时承诺',
@@ -306,8 +302,6 @@ const topicDefinitions: TopicDefinition[] = [
     cautionPattern: '任务切换过多，容易读了很多却没有真正沉淀',
     cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
     fallback: '注意力不稳时，只整理资料并把学习目标拆成一段',
-    masterReason: '学习成长可以分段积累，并用输出检验投入是否真正有效。',
-    masterRiskReason: '它消耗的是连续注意力，切换次数增加后，投入时间并不等于真正掌握。',
     personalSupportAction: '留出一段连续专注时间，并用笔记或练习留下结果',
     personalSupportStop: '连续分心或无法复述要点时，停止增加资料和题量',
     personalReviewBoundary: '只整理现有资料，暂不继续增加课程或题量',
@@ -323,8 +317,6 @@ const topicDefinitions: TopicDefinition[] = [
     cautionPattern: '口头约定与实际金额、责任或付款条件容易出现偏差',
     cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
     fallback: '条款未齐时只保存报价和问题清单，不进入付款',
-    masterReason: '金钱合作的条件可以逐项核对，结果也便于留痕和复盘。',
-    masterRiskReason: '它同时影响现金流与合作责任，一处误差可能延续到后续结算。',
     personalSupportAction: '集中完成一次对账、比价或条款确认，并保存可复核记录',
     personalSupportStop: '报价与实际付款条件出现新差异时，暂停付款和新增承诺',
     personalReviewBoundary: '只保留询价和记录，不付款也不替人担保',
@@ -340,8 +332,6 @@ const topicDefinitions: TopicDefinition[] = [
     cautionPattern: '表达语气与真实意图容易错位，猜测会放大信息差',
     cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
     fallback: '信息不全时只确认事实，不急着表达立场',
-    masterReason: '沟通关系能先消除信息差，减少其他安排里的猜测与返工。',
-    masterRiskReason: '它依赖双方对同一事实的共同理解，误读会让后续行动建立在不同前提上。',
     personalSupportAction: '安排一次不赶时间的沟通，只确认事实、分歧和下一步',
     personalSupportStop: '同一事实出现两种说法时，先暂停定性和新的承诺',
     personalReviewBoundary: '只确认事实，不在情绪高点给关系定性',
@@ -357,8 +347,6 @@ const topicDefinitions: TopicDefinition[] = [
     cautionPattern: '路线、天气或前后事项的衔接时间更容易变化',
     cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
     fallback: '路线或天气未定时，先整理物品并预留转场时间',
-    masterReason: '出行行动的风险大多能在出发前被看见，必要时可以改线或删减行程。',
-    masterRiskReason: '它受外部条件与时间链条共同影响，一处延误会继续挤压后续行程。',
     personalSupportAction: '把同方向事项合并，并为转场和返程保留机动时间',
     personalSupportStop: '路线或返程时间改变时，取消次要行程，不继续加站',
     personalReviewBoundary: '只准备物品和备选路线，不追加新的行程',
@@ -374,8 +362,6 @@ const topicDefinitions: TopicDefinition[] = [
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
     cautionAction: '如果睡眠、食欲和注意力中有两项同时偏弱，删去一项非必要安排，并优先补足休息。',
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
-    masterReason: '身心状态决定其他事情能否持续，先稳住状态可以减少全局消耗。',
-    masterRiskReason: '它是其他安排的承载条件，状态判断失真会让所有计划同时超量。',
     personalSupportAction: '固定一段完整休息、规律进食或轻度活动，以恢复后的专注度判断承受量',
     personalSupportStop: '休息后仍无法集中注意力时，删去一项次要任务',
     personalReviewBoundary: '先恢复一顿饭或一段睡眠，不用兴奋感判断状态',
@@ -938,7 +924,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v113';
+const dailyFortuneCacheVersion = '2026-08-27-v114';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2372,15 +2358,6 @@ function buildPersonalJudgmentInsight(
   };
 }
 
-const secondarySummaryRoles: Record<string, string> = {
-  career: '工作负责把前序判断变成交付，责任边界不清会让主线成果无人接收',
-  study: '学习负责把本期经验沉淀成可复用的方法，输出比继续收集更能检验成果',
-  wealth: '钱款会把选择落实为成本与责任，边界不清会反过来拖慢主线',
-  relationship: '沟通决定相关信息能否对齐，事实一致后下一步才不容易返工',
-  travel: '出行决定安排能否按时落地，路线和返程余量会直接影响执行稳定性',
-  wellbeing: '身心状态是主线能否持续的底层条件，恢复不足会让其他判断同时失真',
-};
-
 const primaryTitleOutcomes: Record<string, string> = {
   career: '可验收结果',
   study: '可检验成果',
@@ -2390,59 +2367,89 @@ const primaryTitleOutcomes: Record<string, string> = {
   wellbeing: '稳定承载',
 };
 
-const periodPrimaryReasons: Record<FortunePeriod, Record<string, string>> = {
-  today: {
-    career: '工作能否顺势，可以由当天任务是否同时具备负责人、交付物和验收口径直接验证，忙碌本身不算成果。',
-    study: '当天学习的有效信号不是阅读时长，而是能否复述、练习并留下一个可检查的输出。',
-    wealth: '当天钱款的可用性取决于金额、责任与付款节点能否一次对齐，记录闭合后才有继续空间。',
-    relationship: '当天沟通的价值在于消除一处信息差，让双方基于同一事实决定下一步。',
-    travel: '当天出行只有在路线、时间余量和返程方案同时成立时才能落地，缺项可以在出发前修正。',
-    wellbeing: '当天身心状态会直接改变判断力与持续时间，睡眠、食欲和专注度比短时兴奋更能说明承受量。',
-  },
-  month: {
-    career: '本月工作要看多次任务能否沿用同一责任与验收口径；口径稳定，阶段投入才会累积成可交付结果。',
-    study: '本月学习适合用多次复述、练习和输出观察知识是否真正连起来，单次高投入不能代表掌握。',
-    wealth: '本月钱款要把多笔收支、合作责任和付款节点放在同一张记录里看，才能判断现金流是否可承受。',
-    relationship: '本月沟通要观察同一分歧是否逐步减少、共识能否在后续行动中保持，单次谈顺不等于问题结束。',
-    travel: '本月出行适合合并同方向安排，并比较多次行程的延误与返程余量，找出真正稳定的路线节奏。',
-    wellbeing: '本月身心状态要看睡眠、进食与专注是否连续恢复；偶尔精神好不能抵消持续透支。',
-  },
-  year: {
-    career: '全年工作价值来自可重复的责任—交付—验收链条，只有多阶段都能闭环，投入才会沉淀成稳定成果。',
-    study: '全年学习要形成可迁移的理解与输出方法，课程数量和资料规模不能替代长期掌握。',
-    wealth: '全年钱款要同时看预算、固定成本与长期承诺，单笔收益不能替代对现金流和责任期限的判断。',
-    relationship: '全年沟通重点是建立可重复的事实确认和分歧处理方式，让长期行动不再反复更换前提。',
-    travel: '全年出行要从多次安排中识别稳定的路线、时间余量和返程条件，减少同类延误反复发生。',
-    wellbeing: '全年身心状态决定其他计划能否持续，稳定作息与恢复规律比短期高强度更能支撑长期安排。',
-  },
+const summaryPrimaryDecisions: Record<string, string> = {
+  career: '先完成一项责任清楚、有人验收的工作',
+  study: '先留下能够复述或应用的一项学习输出',
+  wealth: '先闭合一笔金额与责任都能追溯的记录',
+  relationship: '先消除一处事实分歧，并确认双方下一步',
+  travel: '先保留一条时间链完整、能够按时收尾的行程',
+  wellbeing: '先把状态恢复到注意力能够持续，再判断承受量',
 };
 
-const periodRiskReasons: Record<FortunePeriod, Record<string, string>> = {
-  today: {
-    career: '当天工作风险集中在责任交接与验收口径临时变化，前一步看似完成，后续环节仍可能无人接收。',
-    study: '当天学习最容易被任务切换打断连续注意力，读过内容如果不能复述或应用，就不算真正掌握。',
-    wealth: '当天钱款风险会同时落到现金流和合作责任，金额或节点的一处误差就可能延续到后续结算。',
-    relationship: '当天沟通一旦缺少共同理解，语气和猜测会让双方用不同前提继续行动。',
-    travel: '当天出行受天气、交通和时间链条共同影响，一处延误会直接压缩后续行程。',
-    wellbeing: '当天状态是其他安排的承载条件，判断失真会让所有计划在同一时段同时超量。',
-  },
-  month: {
-    career: '本月若责任交接和验收口径反复变化，多个任务会在后续环节持续排队，返工不再是单次事件。',
-    study: '本月频繁切换会持续消耗连续注意力，资料越积越多，真正掌握的内容反而难以形成。',
-    wealth: '本月金额、责任或付款节点若多次偏差，会累积成现金流压力，并把问题带到后续结算。',
-    relationship: '本月同一信息若反复产生不同理解，双方会持续在不同前提上行动，分歧难以自然消失。',
-    travel: '本月若多次压缩转场与返程余量，时间链条中的小延误会持续挤占后续行程。',
-    wellbeing: '本月恢复不足会逐步削弱承载条件，最终让所有计划一起降速，而不是只影响某一天。',
-  },
-  year: {
-    career: '全年责任交接若没有稳定规则，后续环节会反复等待和返工，单次交付顺利也无法抵消结构问题。',
-    study: '全年若长期缺少连续注意力与输出检验，投入会停留在资料规模，难以形成真正掌握。',
-    wealth: '全年现金流与长期责任相互牵连，一处条款或期限误判可能跨阶段延续到后续结算。',
-    relationship: '全年缺少共同理解时，同类分歧会不断换场景重现，长期行动始终建立在不同前提上。',
-    travel: '全年行程若持续忽略时间链条与返程余量，同类延误会反复挤压后续行程和其他安排。',
-    wellbeing: '全年恢复规律一旦失稳，承载条件会持续下降，使所有计划同时面临减量或中断。',
-  },
+const summarySecondaryDecisions: Record<string, string> = {
+  career: '工作只承接已经确定的责任与交付',
+  study: '学习只沉淀主线已经验证过的经验',
+  wealth: '钱款只落实主线已经明确的成本与责任',
+  relationship: '沟通只对齐主线已经确定的事实与边界',
+  travel: '出行只安排主线已经确定的地点和结束节点',
+  wellbeing: '休息与进食同步保留，用恢复后的状态校准主线强度',
 };
+
+const summaryCautionDecisions: Record<string, string> = {
+  career: '工作不再叠加责任边界仍在变化的新任务',
+  study: '学习先停止增加输入，恢复连续注意力和输出检验',
+  wealth: '钱款暂不进入金额、责任或节点未闭合的下一步',
+  relationship: '沟通在共同事实未确认前不扩大承诺',
+  travel: '出行删去会继续压缩转场与返程余量的次要安排',
+  wellbeing: '状态未恢复前不按短时兴奋继续加量',
+};
+
+function summaryStructureDiagnosis(
+  posture: FortuneReadingPosture,
+  period: FortunePeriod,
+  primary: CategoryAggregate,
+  secondary: CategoryAggregate,
+  caution: CategoryAggregate,
+  cautiousCount: number,
+  hasCaution: boolean,
+) {
+  const scope = period === 'today' ? '当天' : period === 'month' ? '本月' : '全年';
+  const primaryLabel = primary.evaluation.definition.shortLabel;
+  const secondaryLabel = secondary.evaluation.definition.shortLabel;
+  const cautionLabel = caution.evaluation.definition.shortLabel;
+  if (posture === 'advance') {
+    return `${scope}的支持集中在${primaryLabel}，${secondaryLabel}仍有承接余量，六类主题没有形成持续收紧项`;
+  }
+  if (posture === 'focus') {
+    return hasCaution
+      ? `${scope}的可用信号主要集中在${primaryLabel}，${secondaryLabel}仍能承接，但${cautionLabel}已经形成持续牵制`
+      : `${scope}的${primaryLabel}明显高于其他主题，${secondaryLabel}仍有承接余量，其余项目还没有同等强度的支持`;
+  }
+  if (posture === 'stabilize') {
+    return hasCaution
+      ? `${scope}的${primaryLabel}与${secondaryLabel}强度接近，${cautionLabel}的限制使整体暂时不能同时加量`
+      : `${scope}的${primaryLabel}与${secondaryLabel}强度接近，支持与限制尚未拉开，结果更依赖实际承接`;
+  }
+  if (posture === 'cultivate') {
+    return `${scope}六类主题大多处在平稳区，${primaryLabel}只是相对清楚的入口，还没有连续助力`;
+  }
+  if (posture === 'resolve') {
+    return `${scope}只有${cautionLabel}形成持续牵制，${primaryLabel}仍可保留，但不足以抵消这一弱项`;
+  }
+  if (posture === 'restore') {
+    return `${scope}的身心状态处在弱项，恢复不足正在压缩${primaryLabel}与${secondaryLabel}能够持续投入的时间`;
+  }
+  return `${scope}有${cautiousCount}项主题需要收紧，问题已经从单点扩展为多项安排互相挤压`;
+}
+
+function summaryDecisionStatement(
+  primary: CategoryAggregate,
+  secondary: CategoryAggregate,
+  caution: CategoryAggregate,
+  hasCaution: boolean,
+) {
+  const primaryDecision = summaryPrimaryDecisions[primary.category.key]
+    || `先让${primary.category.label}形成一个能够检查的结果`;
+  const secondaryDecision = summarySecondaryDecisions[secondary.category.key]
+    || `${secondary.category.label}只承接主线已经确定的部分`;
+  const decisions = [primaryDecision];
+  if (!hasCaution || secondary.category.key !== caution.category.key) decisions.push(secondaryDecision);
+  if (hasCaution) {
+    decisions.push(summaryCautionDecisions[caution.category.key]
+      || `${caution.category.label}先停止增加新的条件`);
+  }
+  return `${decisions.join('；')}。`;
+}
 
 function buildFortuneMasterJudgment(
   aggregates: CategoryAggregate[],
@@ -2478,12 +2485,6 @@ function buildFortuneMasterJudgment(
   const bestWindow = bestAnalysis ? formatAnalysisWindow(bestAnalysis, period) : '';
   const cautionWindow = cautionAnalysis ? formatAnalysisWindow(cautionAnalysis, period) : '';
   const personalInsight = buildPersonalJudgmentInsight(aggregates, primary, caution, personal, period);
-  const primaryReason = periodPrimaryReasons[period][primary.category.key]
-    || primary.evaluation.definition.masterReason;
-  const periodRiskReason = periodRiskReasons[period][caution.category.key];
-  const cautionReason = periodRiskReason
-    ? `${caution.category.label}方面，${periodRiskReason}`
-    : caution.evaluation.definition.masterRiskReason.replace(/^它/, caution.category.label);
   const hasCaution = caution.cautiousCount > 0
     && caution.category.key !== primary.category.key
     && Boolean(cautionAnalysis);
@@ -2495,17 +2496,22 @@ function buildFortuneMasterJudgment(
     primaryShortLabel: primary.evaluation.definition.shortLabel,
     primaryOutcome: primaryTitleOutcomes[primary.category.key] || '明确结果',
     periodUnit: period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段',
-    secondaryRole: secondarySummaryRoles[secondary.category.key]
-      || `${secondary.category.label}负责承接主线结果，前序条件变化会直接带来返工`,
     cautionLabel: hasCaution ? caution.category.label : '',
     bestWindow,
     cautionWindow,
     primaryAction: primaryGuidance.action,
     primaryBoundary: primaryGuidance.boundary,
     cautionAction: cautionGuidance.cautionAction,
-    primaryReason,
-    cautionReason: hasCaution ? cautionReason : '',
-    mixed,
+    structureDiagnosis: summaryStructureDiagnosis(
+      posture,
+      period,
+      primary,
+      secondary,
+      caution,
+      cautiousCount,
+      hasCaution,
+    ),
+    decisionStatement: summaryDecisionStatement(primary, secondary, caution, hasCaution),
   }, seed);
   return { posture, primary, secondary, caution, bestAnalysis, cautionAnalysis, personalInsight, mixed, copy };
 }

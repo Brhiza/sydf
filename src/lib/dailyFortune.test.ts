@@ -72,18 +72,18 @@ const categoryValueMarkers: Record<string, RegExp> = {
 };
 
 const evidenceRiskMarkers: Record<string, RegExp> = {
-  career: /责任交接|后续环节/,
-  study: /连续注意力|真正掌握/,
-  wealth: /现金流|后续结算/,
-  relationship: /共同理解|不同前提/,
-  travel: /时间链条|后续行程/,
-  wellbeing: /承载条件|所有计划/,
+  career: /责任边界|新任务/,
+  study: /停止增加输入|连续注意力|输出检验/,
+  wealth: /金额|责任|节点未闭合/,
+  relationship: /共同事实|扩大承诺/,
+  travel: /转场|返程余量|次要安排/,
+  wellbeing: /状态未恢复|短时兴奋|继续加量/,
 };
 
 const evidenceOpportunityMarkers: Record<string, RegExp> = {
   career: /责任|验收|交付|任务|接手/,
   study: /学习成果|输入|专注|资料|复述|练习|输出/,
-  wealth: /款项|对账|交易|付款|收支|凭证|义务|结清/,
+  wealth: /款项|对账|交易|付款|收支|凭证|义务|结清|金额|责任|追溯/,
   relationship: /事实|共识|沟通|关系/,
   travel: /行程|路线|返程|出发|转场|回程/,
   wellbeing: /完整休息|睡眠|进食|专注度|注意力|食欲|兴奋/,
@@ -202,7 +202,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v113');
+      expect(serialized).toContain('2026-08-27-v114');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -622,13 +622,14 @@ describe('今日、月运、年运统一周期算法', () => {
     results.forEach((result) => {
       expect(JSON.stringify(result)).not.toContain('先先');
       expect(result.overview.label).toMatch(/顺势窗口|强弱分化|助力与牵制|连续反馈|条件反复|承载能力|收紧项/);
-      expect(result.summary).toMatch(/负责|决定|底层条件/);
+      expect(result.summary.split('。')[0]).toMatch(/支持集中|明显高于|可用信号主要集中|强度接近|平稳区|只有.+持续牵制|身心状态处在弱项|有\d+项主题需要收紧/);
+      expect(result.summary).toContain('因此');
+      expect(result.summary).not.toMatch(/\d+个双小时时段|\d+个日期|\d+个节气阶段|有\d+[天段]顺势/);
       expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);
       expect(result.summary.split('。').filter(Boolean).length).toBeGreaterThanOrEqual(2);
       expect(result.summary).toMatch(evidenceOpportunityMarkers[result.categories[0]!.key]);
       const followUp = result.actionTips[1];
       if (followUp?.tone === 'notice') {
-        expect(result.summary.split('。').filter(Boolean).length).toBeGreaterThanOrEqual(3);
         expect(result.summary).toMatch(evidenceRiskMarkers[followUp.sourceKey]);
       }
       expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
