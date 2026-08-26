@@ -289,14 +289,18 @@ const leadKicker = computed(() => props.result.period === 'today'
   .fortune-trend-list.is-year { grid-template-columns: minmax(0, 1fr); }
   .fortune-trend-list article {
     align-items: start;
-    gap: 8px;
-    grid-template-columns: 58px 62px minmax(0, 1fr);
+    column-gap: 10px;
+    grid-template-areas:
+      'date status'
+      'detail detail';
+    grid-template-columns: max-content minmax(0, 1fr);
+    row-gap: 5px;
     padding: 10px 0;
   }
   .fortune-trend-list article + article { border-left: 0; border-top: 1px solid var(--ds-line); }
   .fortune-trend-list.is-year article:nth-child(7) { border-left: 0; }
-  .fortune-trend-list header { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .fortune-trend-list b { padding-top: 1px; }
-  .fortune-trend-list p { line-height: 1.55; }
+  .fortune-trend-list header { align-items: baseline; flex-direction: row; gap: 5px; grid-area: date; justify-content: flex-start; }
+  .fortune-trend-list b { grid-area: status; line-height: 1.45; padding-top: 1px; }
+  .fortune-trend-list p { grid-area: detail; line-height: 1.55; }
 }
 </style>
