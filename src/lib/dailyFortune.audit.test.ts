@@ -44,7 +44,7 @@ describe('今日运势批量内容质量', () => {
       ...dates.flatMap((date) => shortPeriods.map((period) => generateDailyFortune(date, profile, period))),
       generateDailyFortune(dates[0], profile, 'year'),
     ]);
-    const genericPattern = /重大决定宜多留一道复核|其余事项按既定次序跟进即可|保持弹性即可|照常核实|避免小问题累积|条件未齐时保留调整空间|不需要全面回避|确认承载条件|反复打断.+连续性|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度/;
+    const genericPattern = /重大决定宜多留一道复核|其余事项按既定次序跟进即可|保持弹性即可|照常核实|避免小问题累积|条件未齐时保留调整空间|不需要全面回避|确认承载条件|反复打断.+连续性|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度|取决于前置条件|前置条件是否|优势存在，但仍取决|问题集中在部分条件|最需要前置核对/;
     results.forEach((result) => {
       result.categories.forEach((item) => {
         expect(item.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护/);
@@ -57,7 +57,11 @@ describe('今日运势批量内容质量', () => {
       const unit = result.period === 'today' ? '时段盘' : result.period === 'month' ? '日盘' : '阶段盘';
       result.evidenceInsights.filter((item) => item.key === 'opportunity' || item.key === 'caution').forEach((item) => {
         expect(item.detail).toMatch(new RegExp(`\\d+个${unit}中，.+有\\d+个明确支持、\\d+个需要复核、\\d+个保持平稳`));
-        if (item.key === 'caution') {
+        if (item.key === 'opportunity') {
+          expect(item.detail).toMatch(/可执行窗口相对集中|强度差距有限|需要分段安排|只表示六项中相对可控/);
+          expect(item.detail).toMatch(/转成明确交付|分段积累|条件可以逐项核对|先消除信息差|出发前被看见|决定其他事情能否持续/);
+        } else {
+          expect(item.detail).toMatch(/问题只集中在部分窗口|需要逐段安排|风险已经跨越多个窗口/);
           expect(item.detail).toMatch(/责任交接|连续注意力|现金流|共同理解|时间链条|承载条件/);
           if (/有\d+个明确支持、0个需要复核/.test(item.detail)) {
             expect(item.detail).toContain('没有明确风险窗口');

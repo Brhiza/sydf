@@ -368,7 +368,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v49';
+const dailyFortuneCacheVersion = '2026-08-26-v52';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1709,17 +1709,19 @@ function categoryDistributionEvidence(aggregate: CategoryAggregate, period: Fort
 
 function primaryDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference >= 3) return `明确支持比需要复核多${difference}个，可执行窗口相对集中。`;
-  if (difference > 0) return `明确支持比需要复核多${difference}个，优势存在，但仍取决于前置条件是否落实。`;
-  if (difference === 0) return '明确支持与需要复核数量相同，结果更依赖前置条件是否落实。';
-  return `需要复核比明确支持多${Math.abs(difference)}个；它只是六项中相对可控的落点，不能当作无条件顺势。`;
+  const reason = aggregate.evaluation.definition.masterReason;
+  if (difference >= 3) return `明确支持比需要复核多${difference}个，可执行窗口相对集中。${reason}`;
+  if (difference > 0) return `明确支持比需要复核多${difference}个，支持略占优势，但强度差距有限。${reason}`;
+  if (difference === 0) return `支持与复核窗口数量相同，需要分段安排，不能把整段周期视为同一强度。${reason}`;
+  return `需要复核比明确支持多${Math.abs(difference)}个；这里的“主线”只表示六项中相对可控，不代表整段周期都能顺推。${reason}`;
 }
 
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
   const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  if (difference > 0) return `支持虽比复核多${difference}个，但仍有${aggregate.cautiousCount}个复核窗口；问题集中在部分条件，并非全期受阻。`;
-  if (difference === 0) return '支持与复核数量相同，能否落地取决于前置条件是否先被确认。';
-  return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。`;
+  const reason = aggregate.evaluation.definition.masterRiskReason;
+  if (difference > 0) return `支持虽比复核多${difference}个，但仍有${aggregate.cautiousCount}个复核窗口；问题只集中在部分窗口，并非整期受阻。${reason}`;
+  if (difference === 0) return `支持与复核窗口数量相同，需要逐段安排，不能把局部支持外推到整个周期。${reason}`;
+  return `需要复核比明确支持多${Math.abs(difference)}个，风险已经跨越多个窗口，不是偶发单点。${reason}`;
 }
 
 function cautionConsequence(caution: CategoryAggregate) {
@@ -1735,9 +1737,8 @@ function cautionConsequence(caution: CategoryAggregate) {
 }
 
 function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
-  const reason = judgment.primary.evaluation.definition.masterReason;
   const primaryLabel = judgment.primary.category.label;
-  return `${categoryDistributionEvidence(judgment.primary, period)}在六项主题中，${primaryLabel}的综合信号最高。${primaryDistributionMeaning(judgment.primary)}${reason}`;
+  return `${categoryDistributionEvidence(judgment.primary, period)}在六项主题中，${primaryLabel}的综合信号最高。${primaryDistributionMeaning(judgment.primary)}`;
 }
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
@@ -1749,8 +1750,8 @@ function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: Fort
   }
   const role = judgment.caution.evaluation.tone === 'cautious'
     ? `${cautionLabel}已经是本期明确牵制。`
-    : `${cautionLabel}不是全面阻断，但在六项中最需要前置核对。`;
-  return `${categoryDistributionEvidence(judgment.caution, period)}${role}${cautionDistributionMeaning(judgment.caution)}${riskReason}${cautionConsequence(judgment.caution)}`;
+    : `${cautionLabel}不是全面阻断，但在六项中最需要留意。`;
+  return `${categoryDistributionEvidence(judgment.caution, period)}${role}${cautionDistributionMeaning(judgment.caution)}${cautionConsequence(judgment.caution)}`;
 }
 
 function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortunePeriod): DailyFortuneEvidenceInsight[] {
