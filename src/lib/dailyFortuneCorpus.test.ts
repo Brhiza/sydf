@@ -38,7 +38,7 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     primaryBoundary: '临时插单或责任人发生变化时，先不接新任务',
     cautionAction,
     structureDiagnosis: '当天的可用信号主要集中在工作，学习仍能承接，但钱款已经形成持续牵制',
-    decisionStatement: '先完成一项责任清楚、有人验收的工作；学习只沉淀主线已经验证过的经验；钱款暂不进入金额、责任或节点未闭合的下一步。',
+    decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；学习只沉淀主线已经验证的方法；钱款暂不进入金额、责任或节点未闭合的下一步。',
   };
 }
 
@@ -98,7 +98,7 @@ describe('运势整体语料', () => {
   it('身心状态作为第二主题时始终同步照顾，不排在主线完成之后', () => {
     const wellbeingContext = {
       ...context(cautionActions[0]),
-      decisionStatement: '先完成一项责任清楚、有人验收的工作；休息与进食同步保留，用恢复后的状态校准主线强度；钱款暂不进入金额、责任或节点未闭合的下一步。',
+      decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；休息与进食同步保留，防止高估主线承受量；钱款暂不进入金额、责任或节点未闭合的下一步。',
     };
     postures.forEach((posture) => {
       const results = Array.from({ length: 40 }, (_, index) => renderFortuneReading(posture, wellbeingContext, `${posture}-secondary-wellbeing-${index}`));

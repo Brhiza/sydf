@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v118';
+const dailyFortuneCacheVersion = '2026-08-27-v119';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2347,29 +2347,29 @@ const primaryTitleOutcomes: Record<string, string> = {
 };
 
 const summaryPrimaryDecisions: Record<string, string> = {
-  career: '先完成一项责任清楚、有人验收的工作',
-  study: '先留下能够复述或应用的一项学习输出',
-  wealth: '先闭合一笔金额与责任都能追溯的记录',
-  relationship: '先消除一处事实分歧，并确认双方下一步',
-  travel: '先保留一条时间链完整、能够按时收尾的行程',
-  wellbeing: '先把状态恢复到注意力能够持续，再判断承受量',
+  career: '主要精力用于形成责任清楚、能够验收的工作结果',
+  study: '主要精力用于检验学习能否转化为理解与应用',
+  wealth: '主要精力用于闭合金额、凭证与责任链',
+  relationship: '主要精力用于建立共同事实和一致的下一步',
+  travel: '主要精力用于守住完整时间链和必要行程',
+  wellbeing: '主要精力用于恢复注意力和实际承受量',
 };
 
 const summarySecondaryDecisions: Record<string, string> = {
-  career: '工作只承接已经确定的责任与交付',
-  study: '学习只沉淀主线已经验证过的经验',
-  wealth: '钱款只落实主线已经明确的成本与责任',
+  career: '工作只承担主线已经确定的责任与交付',
+  study: '学习只沉淀主线已经验证的方法',
+  wealth: '钱款只闭合主线已经产生的成本与责任',
   relationship: '沟通只对齐主线已经确定的事实与边界',
   travel: '出行只安排主线已经确定的地点和结束节点',
-  wellbeing: '休息与进食同步保留，用恢复后的状态校准主线强度',
+  wellbeing: '休息与进食同步保留，防止高估主线承受量',
 };
 
 const summaryCautionDecisions: Record<string, string> = {
-  career: '工作不再叠加责任边界仍在变化的新任务',
-  study: '学习先停止增加输入，恢复连续注意力和输出检验',
+  career: '工作暂不增加责任边界仍在变化的新任务',
+  study: '学习暂不增加输入，直到连续注意力和输出检验恢复',
   wealth: '钱款暂不进入金额、责任或节点未闭合的下一步',
   relationship: '沟通在共同事实未确认前不扩大承诺',
-  travel: '出行删去会继续压缩转场与返程余量的次要安排',
+  travel: '出行不增加会压缩转场与返程余量的次要安排',
   wellbeing: '状态未恢复前不按短时兴奋继续加量',
 };
 
@@ -2418,7 +2418,7 @@ function summaryDecisionStatement(
   hasCaution: boolean,
 ) {
   const primaryDecision = summaryPrimaryDecisions[primary.category.key]
-    || `先让${primary.category.label}形成一个能够检查的结果`;
+    || `主要精力用于让${primary.category.label}形成能够检查的结果`;
   const secondaryDecision = summarySecondaryDecisions[secondary.category.key]
     || `${secondary.category.label}只承接主线已经确定的部分`;
   const decisions = [primaryDecision];

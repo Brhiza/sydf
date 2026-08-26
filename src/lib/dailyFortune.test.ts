@@ -82,7 +82,7 @@ const evidenceRiskMarkers: Record<string, RegExp> = {
 
 const evidenceOpportunityMarkers: Record<string, RegExp> = {
   career: /责任|验收|交付|任务|接手/,
-  study: /学习成果|输入|专注|资料|复述|练习|输出/,
+  study: /学习成果|输入|专注|资料|复述|练习|输出|理解|应用/,
   wealth: /款项|对账|交易|付款|收支|凭证|义务|结清|金额|责任|追溯/,
   relationship: /事实|共识|沟通|关系/,
   travel: /行程|路线|返程|出发|转场|回程/,
@@ -206,7 +206,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v118');
+      expect(serialized).toContain('2026-08-27-v119');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();

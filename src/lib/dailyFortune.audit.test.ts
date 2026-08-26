@@ -77,6 +77,7 @@ function expectHolisticSummary(result: DailyFortuneResult) {
   expect(result.summary.split('。').filter(Boolean)).toHaveLength(2);
   expect(result.summary.split('；').length).toBeGreaterThanOrEqual(2);
   expect(result.summary).not.toMatch(/\d+个双小时时段|\d+个日期|\d+个节气阶段|有\d+[天段]顺势|其余\d+[天段]平稳/);
+  expect(result.summary).not.toMatch(/集中完成|逐项确认|复述对方|准备备选路线|出发前逐项|删去一项非必要安排|写清负责人|完成标准写清/);
 }
 
 describe('今日运势批量内容质量', () => {
@@ -117,7 +118,7 @@ describe('今日运势批量内容质量', () => {
             correctionDetails.push(item.detail);
             expect(item.detail).toMatch(/责任与验收缺口|注意力与输出检验的断点|金额、责任或付款节点的缺口|双方事实基础的分歧|路线、转场或返程余量的缺口|睡眠、进食或专注恢复的缺口/);
           }
-          expect(result.summary).toMatch(/责任清楚|有人验收|复述|应用|学习输出|金额|追溯|事实分歧|双方下一步|时间链|按时收尾|注意力|承受量/);
+          expect(result.summary).toMatch(/责任清楚|能够验收|理解与应用|金额、凭证与责任链|共同事实|一致的下一步|完整时间链|必要行程|注意力|承受量/);
         } else if (item.key === 'caution') {
           expect(item.detail).toMatch(/风险(?:仍)?集中在|顺势与收紧相抵|在多个.+反复失守/);
           expect(result.summary).toMatch(/责任边界|连续注意力|节点未闭合|共同事实|转场|返程余量|状态未恢复|短时兴奋/);
