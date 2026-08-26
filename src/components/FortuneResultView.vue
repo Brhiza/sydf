@@ -181,6 +181,10 @@ const leadKicker = computed(() => props.result.period === 'today'
       <UiReadingRows :items="actionRows" marker-style="soft" />
     </UiReadingSection>
 
+    <UiReadingSection class="fortune-arrangement-section" :title="arrangementTitle">
+      <UiReadingRows :items="categoryRows" marker-style="soft" />
+    </UiReadingSection>
+
     <template v-if="result.modernAlmanac">
       <UiReadingSection
         class="fortune-guidance-intro"
@@ -201,10 +205,6 @@ const leadKicker = computed(() => props.result.period === 'today'
         </UiReadingSection>
       </UiReadingGrid>
     </template>
-
-    <UiReadingSection class="fortune-arrangement-section" :title="arrangementTitle">
-      <UiReadingRows :items="categoryRows" marker-style="soft" />
-    </UiReadingSection>
 
     <UiReadingSection v-if="result.periodTrend.length" class="fortune-trend-section" :title="trendTitle">
       <div class="fortune-trend-list" :class="`is-${result.period}`">
