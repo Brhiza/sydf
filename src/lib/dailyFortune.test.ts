@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v48');
+      expect(serialized).toContain('2026-08-26-v49');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -481,8 +481,9 @@ describe('今日、月运、年运统一周期算法', () => {
     const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
     if (necessaryCheck?.sourceKey) {
       const category = result.categories.find((item) => item.key === necessaryCheck.sourceKey);
-      expect(category?.detail).toContain('可以正常安排');
-      expect(category?.detail).toContain('必须先把');
+      expect(category?.detail).toContain('不是本月主线');
+      expect(category?.detail).toContain('作为收尾');
+      expect(category?.detail).not.toMatch(/必须先把|仍有缺口/);
       expect(category?.detail).not.toContain('短板');
     }
   }, 15_000);

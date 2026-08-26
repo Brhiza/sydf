@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalAlmanac } from './almanac';
-import { getModernAlmanacForDate, getModernAlmanacHours, getModernAlmanacPersonalNotes } from './modernAlmanac';
+import {
+  findUnmappedAlmanacTerms,
+  getModernAlmanacForDate,
+  getModernAlmanacHours,
+  getModernAlmanacPersonalNotes,
+} from './modernAlmanac';
 
 describe('现代黄历时段', () => {
   it('只向普通用户推荐可实际使用的日间和晚间时段', () => {
@@ -71,5 +76,20 @@ describe('现代黄历时段', () => {
     const homeItems = result!.cautious.filter((item) => item.key === 'home' || item.key === 'construction');
     expect(homeItems).toHaveLength(1);
     expect(homeItems[0]?.detail).toMatch(/方案、人员、许可和现场安全/);
+  });
+
+  it('全年传统事项都有具体的现代解释，不退回低信息兜底', () => {
+    const ranges = [
+      ['2026-01-01', '2026-04-30'],
+      ['2026-05-01', '2026-08-31'],
+      ['2026-09-01', '2026-12-31'],
+    ] as const;
+    const terms = ranges.flatMap(([startDate, endDate]) => generateLocalAlmanac({
+      mode: 'general',
+      topic: 'custom',
+      startDate,
+      endDate,
+    }).days.flatMap((day) => [...day.recommends, ...day.avoids]));
+    expect(findUnmappedAlmanacTerms(terms)).toEqual([]);
   });
 });

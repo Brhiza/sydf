@@ -241,20 +241,6 @@ function buildToneItems(values: string[], tone: ModernAlmanacTone): RankedModern
     }];
   });
 
-  if (remaining.size) {
-    const traditional = [...remaining];
-    items.push({
-      key: 'other',
-      theme: 'routine',
-      title: tone === 'recommended' ? '其他可安排事项' : '这些事情先多确认',
-      detail: tone === 'recommended'
-        ? `如需处理${traditional.slice(0, 4).join('、')}，可以按计划进行。`
-        : `如需处理${traditional.slice(0, 4).join('、')}，先确认人员、时间和必要条件。`,
-      traditional,
-      priority: 20,
-    });
-  }
-
   return items.sort((left, right) => right.priority - left.priority || left.key.localeCompare(right.key));
 }
 

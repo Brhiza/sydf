@@ -368,7 +368,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v48';
+const dailyFortuneCacheVersion = '2026-08-26-v49';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1319,13 +1319,13 @@ function categoryDetailFromJudgment(
   if (isCaution && tone !== 'favorable') {
     if (!hasActualCaution) {
       return definition.key === 'wellbeing'
-        ? `身心状态不会直接阻断${scopeLabel}安排，但会决定其他事情能持续多久。若休息后仍无法恢复专注，先删去次要任务。`
-        : `${definition.label}可以正常安排，但必须先把${definition.check}确认到能执行的程度。仍有缺口时，先${preparation}，不提前扩大范围。`;
+        ? `身心状态不是${scopeLabel}主线，却决定其他安排能否持续；以完整休息后能否恢复专注作为减量信号，不用一时兴奋判断承受力。`
+        : `${definition.label}不是${scopeLabel}主线，但仍可保留条件已经具备的部分；以${definition.outcome}作为收尾，未达到这一标准的安排不计入本期进度。`;
     }
     if (definition.key === 'wellbeing') {
-      return `这是${scopeLabel}牵动整体节奏的短板。先把任务量降到不影响基本作息，再用一段完整休息后的恢复程度决定是否继续。`;
+      return `这是${scopeLabel}牵动整体节奏的短板。先保住基本作息；只有完整休息后专注度确实恢复，才把其他安排重新加回来。`;
     }
-    return `这是${scopeLabel}最需要把关的一环，不适合边做边补条件。先${preparation}，等${definition.check}明确后再承诺或推进。`;
+    return `这是${scopeLabel}最需要把关的一环。以${definition.outcome}作为是否真正收尾的标准；没有形成这一结果的安排仍视为未完成，不继续扩大投入。`;
   }
   if (isPrimary) {
     if (tone === 'favorable' && definition.key === 'wellbeing') return `这是${scopeLabel}最值得优先照顾的一项。以休息后能稳定恢复的精力作为继续安排其他事情的前提，不用短时兴奋代替真实恢复。`;
