@@ -9,6 +9,7 @@ export interface FortuneReadingPhraseContext {
   cautionWindow: string;
   primaryAction: string;
   cautionCheck: string;
+  cautionAction: string;
   personalClause: string;
   mixed: boolean;
 }
@@ -48,7 +49,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}可顺势推进，重心放在${primaryLabel}`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, bestWindow, cautionLabel, mixed }) => `从整体看，主线清楚，${primaryLabel}最能带动局面，${secondaryLabel}可随之展开。${windowLead(bestWindow)}先完成关键一步，再逐项扩展。${mixed && cautionLabel ? `${cautionLabel}仍要守住边界，不宜因局部顺利而省略确认。` : '其余事项按既定次序跟进即可。'}`,
+      ({ primaryLabel, secondaryLabel, bestWindow, cautionLabel, mixed }) => `从整体看，主线清楚，${primaryLabel}最能带动局面，${secondaryLabel}可随之展开。${windowLead(bestWindow)}先完成关键一步，再逐项扩展。${mixed && cautionLabel ? `${cautionLabel}仍要守住边界，不宜因局部顺利而省略确认。` : '没有被列为主线的事项，只维持已经开始且能按时收尾的部分。'}`,
       ({ primaryLabel, secondaryLabel, bestWindow, cautionLabel, mixed }) => `整体助力较集中，不需要四处试探。先以${primaryLabel}打开局面，再衔接${secondaryLabel}；${windowLead(bestWindow)}动作可以明确，但仍要留有收尾空间。${mixed && cautionLabel ? `${cautionLabel}不宜同步冒进。` : ''}`,
     ],
     overviewLabel: '主线清楚，可顺势推进',
@@ -57,7 +58,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，把最有把握的一步落到实处。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}涉及${cautionCheck}时仍按正常流程确认，不因整体顺势而跳步。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}整体顺势只代表有空间，不代表这一项可以省略。`,
     ],
   },
   focus: {
@@ -66,15 +67,15 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}宜择一处发力，以${primaryLabel}为先`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `这不是全面铺开的局面，而是有一处较清楚的着力点。${primaryLabel}可先行，${secondaryLabel}作为配合；${windowLead(bestWindow)}先做确定性高的部分。${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}不要急着定论。` : '其他事项暂不必同时加码。'}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `整体信号并不平均，真正可用的是${primaryLabel}，${secondaryLabel}次之。${windowLead(bestWindow)}资源应向主线集中。${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}先留后手，避免一处反复拖慢全局。` : '其余方向保持弹性即可。'}`,
+      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `这不是全面铺开的局面，而是有一处较清楚的着力点。${primaryLabel}可先行，${secondaryLabel}作为配合；${windowLead(bestWindow)}先做确定性高的部分。${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}不要急着定论。` : '其他事项只保留必要维护，等主线收尾再接上。'}`,
+      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `整体信号并不平均，真正可用的是${primaryLabel}，${secondaryLabel}次之。${windowLead(bestWindow)}资源应向主线集中。${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}先留后手，避免一处反复拖慢全局。` : '其余方向只做准备，不提前占用主线时间。'}`,
     ],
     overviewLabel: '有进有守，宜集中发力',
     opportunities: [
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只推进最关键的一段，不同时摊开过多任务。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}先核对${cautionCheck}，条件未齐时保留调整空间。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}这些条件没有确认齐全前，只保留可回退的准备动作。`,
     ],
   },
   stabilize: {
@@ -91,7 +92,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，以能确认、能收尾为判断标准。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}涉及${cautionCheck}时先补齐信息，再决定是否继续。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}把确认结果作为是否继续的分界。`,
     ],
   },
   cultivate: {
@@ -111,7 +112,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先求稳定完成，再逐步提高强度。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}涉及${cautionCheck}时照常核实，避免因局面平稳而松掉细节。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}局面平稳时也以实际记录为准，不靠主观感觉带过。`,
     ],
   },
   resolve: {
@@ -131,7 +132,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，先守住确定成果，再处理卡点。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}优先厘清${cautionCheck}，这处确认后再恢复正常节奏。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}卡点没有处理清楚前，不恢复原来的推进强度。`,
     ],
   },
   restore: {
@@ -148,7 +149,7 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，控制任务量，并给休息和收尾留出固定时间。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}先照顾睡眠、饮食和实际精力；涉及${cautionCheck}的安排不要勉强落定。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}同时按睡眠、饮食和实际精力删减任务。`,
     ],
   },
   protect: {
@@ -157,15 +158,15 @@ const fortuneReadingCorpus: Record<FortuneReadingPosture, FortuneReadingCorpusEn
       ({ lead, primaryLabel }) => `${lead}先避开反复，以${primaryLabel}维持节奏`,
     ],
     summaries: [
-      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `从整体看，牵制多于助力，当前不以扩张为要。${primaryLabel}是相对可控的落点，${secondaryLabel}只做必要维护。${windowLead(bestWindow)}先处理能确认、能收尾的部分。${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}宁可延后，也不要在信息不足时定局。` : '重大决定宜多留一道复核。'}`,
-      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `眼下最重要的是减少失误，而不是追求进度。以${primaryLabel}守住日常秩序，${secondaryLabel}避免增加变量。${windowLead(bestWindow)}小步处理即可；${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}先止损、再观察。` : '不确定事项暂缓落定。'}`,
+      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `从整体看，牵制多于助力，当前不以扩张为要。${primaryLabel}是相对可控的落点，${secondaryLabel}只做必要维护。${windowLead(bestWindow)}先处理能确认、能收尾的部分。${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}宁可延后，也不要在信息不足时定局。` : '没有完成资料核对与责任确认的事项，本期不进入承诺阶段。'}`,
+      ({ primaryLabel, secondaryLabel, cautionLabel, bestWindow, cautionWindow }) => `眼下最重要的是减少失误，而不是追求进度。以${primaryLabel}守住日常秩序，${secondaryLabel}避免增加变量。${windowLead(bestWindow)}小步处理即可；${cautionLabel ? `${cautionLead(cautionWindow)}${cautionLabel}先止损、再观察。` : '责任、金额或时间边界仍不清楚的事项，暂不承诺。'}`,
     ],
     overviewLabel: '牵制偏多，先守住基本盘',
     opportunities: [
       ({ primaryAction, bestWindow }) => `${windowLead(bestWindow)}${primaryAction}，只做范围清楚且随时可以收回的部分。`,
     ],
     cautions: [
-      ({ cautionCheck, cautionWindow }) => `${cautionLead(cautionWindow)}先核对${cautionCheck}；没有把握的决定延后，不用勉强推进。`,
+      ({ cautionAction, cautionWindow }) => `${cautionLead(cautionWindow)}${cautionAction}风险没有解除前，不新增承诺或不可回退的动作。`,
     ],
   },
 };
@@ -184,7 +185,7 @@ const fortuneReasonCorpus: Record<FortuneReadingPosture, {
   },
   cultivate: {
     opportunities: [({ primaryLabel, secondaryLabel }) => `${primaryLabel}的稳定性略高于其他方向，适合用来积累基础，再逐步带动${secondaryLabel}。`],
-    cautions: [({ cautionLabel, cautionCheck }) => `${cautionLabel || '细节环节'}暂未形成明显阻力，仍需持续留意${cautionCheck}，避免小问题累积。`],
+    cautions: [({ primaryLabel, cautionLabel, cautionCheck }) => `${cautionLabel || '细节环节'}目前不会直接打断主线，但${cautionCheck}一旦出现明显偏差，就会消耗${primaryLabel}的连续性；把这组条件列入阶段复盘。`],
   },
   resolve: {
     opportunities: [({ primaryLabel }) => `${primaryLabel}并非强势突破口，但可控性较高，适合在处理卡点期间维持必要进度。`],

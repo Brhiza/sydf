@@ -180,7 +180,7 @@ const leadKicker = computed(() => props.result.period === 'today'
         <article v-for="item in result.timeWindows" :key="item.name + item.range">
           <strong>{{ item.name }}</strong><span v-if="item.range">{{ item.range }}</span><small>{{ item.coverage }}</small>
         </article>
-        <p v-if="!result.timeWindows.length">没有需要特别优先的日期，按正常计划推进即可。</p>
+        <p v-if="!result.timeWindows.length">没有明显集中的优先日期，把重要事项拆成可确认的小步骤，按原计划推进。</p>
       </div>
     </UiReadingSection>
 
@@ -199,12 +199,12 @@ const leadKicker = computed(() => props.result.period === 'today'
       <UiReadingGrid ratio="equal" class="fortune-guidance-grid">
         <UiReadingSection kicker="宜" title="可以安排">
           <UiReadingRows v-if="recommendedRows.length" :items="recommendedRows" marker-style="soft" />
-          <p v-else class="fortune-empty-copy">没有单独列出的宜项，按平常计划即可。</p>
+          <p v-else class="fortune-empty-copy">没有单独列出的宜项，优先处理已有计划，不必为黄历临时增加事项。</p>
         </UiReadingSection>
 
         <UiReadingSection kicker="慎" title="多做确认">
           <UiReadingRows v-if="cautiousRows.length" :items="cautiousRows" marker-style="soft" />
-          <p v-else class="fortune-empty-copy">没有单独列出的慎项，照常核对重要细节即可。</p>
+          <p v-else class="fortune-empty-copy">没有单独列出的慎项，出行、健康和合同仍按现实条件判断。</p>
         </UiReadingSection>
       </UiReadingGrid>
     </template>

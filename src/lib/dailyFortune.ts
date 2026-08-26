@@ -147,8 +147,9 @@ interface TopicDefinition {
   outcome: string;
   cautionPattern: string;
   cautionAction: string;
-  trendAction: string;
-  trendGuard: string;
+  fallback: string;
+  trendActions: string[];
+  trendGuards: string[];
 }
 
 interface ElementReference {
@@ -256,7 +257,9 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '一份写明负责人、下一步和完成标准的安排',
     cautionPattern: '任务边界、负责人或交付标准容易临时变化',
     cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
-    trendAction: '先定负责人和交付标准', trendGuard: '先核对分工、截止时间与承诺范围',
+    fallback: '负责人或截止时间未定时，先整理优先级和待确认事项',
+    trendActions: ['先定负责人和交付标准', '把截止时间与承诺范围写清', '只保留一个可验收成果'],
+    trendGuards: ['先核对分工、截止时间与承诺范围', '未写清负责人和验收标准，就不提前承诺', '先收窄任务边界，再决定是否接下'],
   },
   {
     key: 'study', icon: '学', label: '学习成长', shortLabel: '学习', primaryDoor: '景门',
@@ -265,7 +268,9 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '可复述的要点、练习结果或一段可用产出',
     cautionPattern: '任务切换过多，容易读了很多却没有真正沉淀',
     cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
-    trendAction: '留下一段可复述的成果', trendGuard: '减小任务量，避免频繁切换',
+    fallback: '注意力不稳时，只整理资料并把学习目标拆成一段',
+    trendActions: ['留下一段可复述的成果', '用笔记或练习检验掌握', '只完成一个学习目标'],
+    trendGuards: ['减小任务量，避免频繁切换', '只保留一个目标，再用练习检查理解', '未形成笔记或成果前，不继续增加资料'],
   },
   {
     key: 'wealth', icon: '财', label: '金钱合作', shortLabel: '钱款', primaryDoor: '生门',
@@ -274,7 +279,9 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '可复核的金额、责任和付款节点记录',
     cautionPattern: '口头约定与实际金额、责任或付款条件容易出现偏差',
     cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
-    trendAction: '只处理条款清楚的款项', trendGuard: '逐项核对金额、责任与付款节点',
+    fallback: '条款未齐时只保存报价和问题清单，不进入付款',
+    trendActions: ['只处理条款清楚的款项', '逐项写清金额和付款节点', '先保存一份可复核的交易记录'],
+    trendGuards: ['逐项核对金额、责任与付款节点', '口头约定没有落成记录，就不付款或承诺', '条款仍有空白时，只做询价和资料整理'],
   },
   {
     key: 'relationship', icon: '缘', label: '沟通关系', shortLabel: '沟通', primaryDoor: '休门',
@@ -283,7 +290,9 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '双方对事实、分歧和下一步的一致理解',
     cautionPattern: '表达语气与真实意图容易错位，猜测会放大信息差',
     cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
-    trendAction: '一次只谈清一个分歧', trendGuard: '先复述对方意思，再表达自己的判断',
+    fallback: '信息不全时只确认事实，不急着表达立场',
+    trendActions: ['一次只谈清一个分歧', '先确认事实，再商量下一步', '用一次不赶时间的沟通形成共识'],
+    trendGuards: ['先复述对方意思，再表达自己的判断', '语气和意图不一致时，先暂停推测', '信息没有确认前，不用猜测补齐结论'],
   },
   {
     key: 'travel', icon: '行', label: '出行行动', shortLabel: '出行', primaryDoor: '开门',
@@ -292,7 +301,9 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '明确的路线、时间余量和备选方案',
     cautionPattern: '路线、天气或前后事项的衔接时间更容易变化',
     cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
-    trendAction: '预留时间并准备备选路线', trendGuard: '先查路线天气，给临时变化留缓冲',
+    fallback: '路线或天气未定时，先整理物品并预留转场时间',
+    trendActions: ['预留时间并准备备选路线', '把路线、证件和关键物品一次核清', '合并同方向行程，留下转场余量'],
+    trendGuards: ['先查路线天气，给临时变化留缓冲', '证件和关键物品未核对，就不要赶着出发', '前后事项衔接过紧时，主动删减一站'],
   },
   {
     key: 'wellbeing', icon: '养', label: '身心状态', shortLabel: '休息', primaryDoor: '休门',
@@ -301,12 +312,14 @@ const topicDefinitions: TopicDefinition[] = [
     outcome: '休息后稳定恢复的精力，而不是短时兴奋',
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
     cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
-    trendAction: '先保住睡眠与实际精力', trendGuard: '疲劳没有恢复，就主动减量',
+    fallback: '精力不足时先减量，不用靠压缩休息补进度',
+    trendActions: ['先保住睡眠与实际精力', '给饮食、休息和轻度活动留固定时间', '按真实精力删减一项次要任务'],
+    trendGuards: ['疲劳没有恢复，就主动减量', '睡眠、食欲或注意力连续偏弱时，先减任务', '不用短时兴奋高估当天承受量'],
   },
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v27';
+const dailyFortuneCacheVersion = '2026-08-26-v30';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1249,8 +1262,8 @@ function categoryDetailFromJudgment(
   if (isCaution && tone !== 'favorable') {
     if (!hasActualCaution) {
       return definition.key === 'wellbeing'
-        ? `这是${scopeLabel}最需要持续观察的一项，但尚未构成明显阻力。保持规律作息，并根据真实精力调整任务量。`
-        : `这是${scopeLabel}相对需要留意的一项，但尚未构成明显阻力，不需要全面回避。把${definition.check}设为开始前的确认门槛，确认后再安排。`;
+        ? `身心状态不会直接阻断${scopeLabel}安排，但会决定其他事情能持续多久。把睡眠、食欲和注意力作为减量信号，连续偏弱就先删去次要任务。`
+        : `${definition.label}可以正常安排，但必须先把${definition.check}确认到能执行的程度。仍有缺口时，先${preparation}，不提前扩大范围。`;
     }
     if (definition.key === 'wellbeing') {
       return `这是${scopeLabel}牵动整体节奏的短板。${definition.cautionAction}再根据真实恢复情况决定能够承担多少事情。`;
@@ -1278,7 +1291,7 @@ function categoryDetailFromJudgment(
   if (tone === 'favorable') return `${bestLead}${definition.action}，以${definition.outcome}作为收尾；这是${scopeLabel}的辅助推进项，不必抢在主线之前。`;
   if (tone === 'cautious') return `不宜把这里当成突破口。${definition.cautionPattern}；${definition.cautionAction}`;
   return period === 'today'
-    ? `${bestLead}${definition.action}，并留下${definition.outcome}；若条件不齐，${definition.prepare}后再继续。`
+    ? `${bestLead}${definition.action}，并留下${definition.outcome}；${definition.fallback}。`
     : `${bestLead}${definition.action}，以${definition.outcome}作为阶段成果。`;
 }
 
@@ -1290,10 +1303,9 @@ function categoryStatusFromJudgment(
   const isPrimary = key === judgment.primary.evaluation.definition.key;
   const isSecondary = key === judgment.secondary.evaluation.definition.key;
   const isCaution = key === judgment.caution.evaluation.definition.key;
-  if (isPrimary && isCaution && aggregate.evaluation.tone === 'cautious') return '守住底线';
-  if (isPrimary) return '本期主线';
-  if (isSecondary) return '随后安排';
+  if (isPrimary) return aggregate.evaluation.tone === 'cautious' ? '守住基本盘' : '本期主线';
   if (isCaution) return aggregate.evaluation.tone === 'cautious' ? '重点把关' : '持续观察';
+  if (isSecondary) return aggregate.evaluation.tone === 'cautious' ? '暂作维护' : '随后安排';
   if (aggregate.evaluation.tone === 'favorable') return '可作补充';
   if (aggregate.evaluation.tone === 'cautious') return '暂不主攻';
   return '按需安排';
@@ -1571,6 +1583,7 @@ function buildFortuneMasterJudgment(
     cautionWindow,
     primaryAction: primary.evaluation.definition.action,
     cautionCheck: caution.evaluation.definition.check,
+    cautionAction: caution.evaluation.definition.cautionAction,
     personalClause: personalInsight?.clause || '',
     mixed,
   }, seed);
@@ -1754,13 +1767,19 @@ function trendSummary(analyses: ChartAnalysis[]) {
   const primary = rankedTopics[0]?.definition;
   const secondary = rankedTopics[1]?.definition;
   const weakest = rankedTopics[rankedTopics.length - 1]?.definition;
+  const phraseDate = analyses[0]?.date;
+  const phraseIndex = phraseDate
+    ? (phraseDate.getFullYear() * 13 + (phraseDate.getMonth() + 1) * 7 + phraseDate.getDate() + analyses.length) % 3
+    : 0;
+  const primaryAction = primary?.trendActions[phraseIndex % primary.trendActions.length];
+  const weakestGuard = weakest?.trendGuards[phraseIndex % weakest.trendGuards.length];
   return {
     tone,
     status: tone === 'favorable' ? '适合落地' : tone === 'cautious' ? '先降风险' : '先成一事',
     focus: tone === 'cautious'
-      ? `${weakest?.trendGuard || '先减少变量，再决定是否继续'}${primary ? `；${primary.shortLabel}只做已明确部分${secondary ? `，${secondary.shortLabel}随后` : ''}` : ''}`
+      ? `${weakestGuard || '先减少变量，再决定是否继续'}${primaryAction ? `；${primaryAction}，不扩大范围${secondary ? `；随后安排${secondary.shortLabel}` : ''}` : ''}`
       : primary
-        ? `${primary.trendAction}${secondary ? `；${secondary.shortLabel}随后` : ''}`
+        ? `${primaryAction}${secondary ? `；随后安排${secondary.shortLabel}` : ''}`
         : '先完成已经明确的一件事',
   };
 }

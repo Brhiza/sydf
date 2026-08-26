@@ -78,16 +78,16 @@ function expectContentRichCategories(result: DailyFortuneResult) {
     expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
     if (category.basis) expect(category.basis.length).toBeGreaterThan(45);
   });
-  expect(result.categories.map((item) => item.status)).toContain('本期主线');
-  expect(result.categories.map((item) => item.status)).toContain('随后安排');
+  expect(result.categories.some((item) => ['本期主线', '守住基本盘'].includes(item.status))).toBe(true);
+  expect(result.categories.some((item) => ['随后安排', '重点把关', '暂作维护'].includes(item.status))).toBe(true);
   expect(new Set(result.categories.map((item) => item.status)).size).toBeGreaterThanOrEqual(3);
 }
 
 function expectContentRichTrend(result: DailyFortuneResult) {
   result.periodTrend.forEach((item) => {
     expect(item.status).toMatch(/适合落地|先成一事|先降风险/);
-    expect(item.focus).not.toMatch(/可优先|先确认|日常节奏/);
-    expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|复述|学习|任务量|切换|款项|金额|付款|分歧|对方|路线|天气|睡眠|精力|疲劳/);
+    expect(item.focus).not.toMatch(/可优先|日常节奏/);
+    expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|验收|边界|复述|学习|任务量|切换|笔记|练习|资料|款项|金额|付款|交易记录|询价|分歧|对方|事实|共识|意图|推测|路线|天气|证件|物品|行程|转场|睡眠|精力|疲劳|饮食|活动|承受量/);
     expect(item.focus.length).toBeGreaterThan(8);
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
@@ -137,7 +137,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v27');
+      expect(serialized).toContain('2026-08-26-v30');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -394,7 +394,8 @@ describe('今日、月运、年运统一周期算法', () => {
     const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
     if (necessaryCheck?.sourceKey) {
       const category = result.categories.find((item) => item.key === necessaryCheck.sourceKey);
-      expect(category?.detail).toContain('尚未构成明显阻力');
+      expect(category?.detail).toContain('可以正常安排');
+      expect(category?.detail).toContain('必须先把');
       expect(category?.detail).not.toContain('短板');
     }
   }, 15_000);
