@@ -50,12 +50,25 @@ describe('今日运势批量内容质量', () => {
         expect(item.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护/);
         if (item.tone === 'cautious') expect(item.status).not.toMatch(/本期主线|主线后再做/);
         if (item.tone === 'favorable') expect(item.status).not.toMatch(/重点把关|暂不加量/);
+        const preferredWindow = item.detail.match(/^(.+?)可优先安排；/)?.[1];
+        const cautionWindow = item.basis.match(/^(.+)：/)?.[1];
+        if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
+      });
+      const unit = result.period === 'today' ? '时段盘' : result.period === 'month' ? '日盘' : '阶段盘';
+      result.evidenceInsights.filter((item) => item.key === 'opportunity' || item.key === 'caution').forEach((item) => {
+        expect(item.detail).toMatch(new RegExp(`\\d+个${unit}中，.+有\\d+个明确支持、\\d+个需要复核、\\d+个保持平稳`));
+        if (item.key === 'caution') expect(item.detail).toMatch(/责任交接|连续注意力|现金流|共同理解|时间链条|承载条件/);
       });
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
       if (result.period !== 'today') {
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日盘|阶段盘).*出现\d+次支持、\d+次回避/));
         result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日盘|阶段盘).*出现\d+次回避、\d+次支持/));
+        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/常见用途：.+；常见依据：/));
+        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/常见限制：/));
         if (result.reference.direction !== '不固定') expect(result.reference.directionNote).toMatch(/\d+个(?:日盘|阶段盘)/);
+      } else {
+        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/适合.+；盘面依据：.+。仅用于/));
+        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/盘面限制：.+。必须前往时/));
       }
       const counts = result.periodTrend.reduce((map, item) => map.set(item.focus, (map.get(item.focus) || 0) + 1), new Map<string, number>());
       expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);

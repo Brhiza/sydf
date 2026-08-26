@@ -151,6 +151,7 @@ interface TopicDefinition {
   cautionAction: string;
   fallback: string;
   masterReason: string;
+  masterRiskReason: string;
   personalSupportStop: string;
   personalReviewBoundary: string;
   statusGuard: string;
@@ -270,6 +271,7 @@ const topicDefinitions: TopicDefinition[] = [
     cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
     fallback: '负责人或截止时间未定时，先整理优先级和待确认事项',
     masterReason: '工作事业最容易把投入转成明确交付，也能在开始前划清责任。',
+    masterRiskReason: '它牵涉多人之间的责任交接，一处变动就会让后续环节重新排队。',
     personalSupportStop: '临时插单或责任人发生变化时停止加量',
     personalReviewBoundary: '先收完已有任务，不额外接下临时承诺',
     statusGuard: '先定边界',
@@ -285,6 +287,7 @@ const topicDefinitions: TopicDefinition[] = [
     cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
     fallback: '注意力不稳时，只整理资料并把学习目标拆成一段',
     masterReason: '学习成长可以分段积累，并用输出检验投入是否真正有效。',
+    masterRiskReason: '它消耗的是连续注意力，切换次数增加后，投入时间并不等于真正掌握。',
     personalSupportStop: '连续分心或无法复述要点时停止加量',
     personalReviewBoundary: '只整理现有资料，暂不继续增加课程或题量',
     statusGuard: '先稳专注',
@@ -300,6 +303,7 @@ const topicDefinitions: TopicDefinition[] = [
     cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
     fallback: '条款未齐时只保存报价和问题清单，不进入付款',
     masterReason: '金钱合作的条件可以逐项核对，结果也便于留痕和复盘。',
+    masterRiskReason: '它同时影响现金流与合作责任，一处误差可能延续到后续结算。',
     personalSupportStop: '报价与实际付款条件出现新差异时停止加量',
     personalReviewBoundary: '只保留询价和记录，不付款也不替人担保',
     statusGuard: '先核条款',
@@ -315,6 +319,7 @@ const topicDefinitions: TopicDefinition[] = [
     cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
     fallback: '信息不全时只确认事实，不急着表达立场',
     masterReason: '沟通关系能先消除信息差，减少其他安排里的猜测与返工。',
+    masterRiskReason: '它依赖双方对同一事实的共同理解，误读会让后续行动建立在不同前提上。',
     personalSupportStop: '同一事实出现两种说法时停止加量',
     personalReviewBoundary: '只确认事实，不在情绪高点给关系定性',
     statusGuard: '先清信息',
@@ -330,6 +335,7 @@ const topicDefinitions: TopicDefinition[] = [
     cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
     fallback: '路线或天气未定时，先整理物品并预留转场时间',
     masterReason: '出行行动的风险大多能在出发前被看见，必要时可以改线或删减行程。',
+    masterRiskReason: '它受外部条件与时间链条共同影响，一处延误会继续挤压后续行程。',
     personalSupportStop: '路线或返程时间改变时停止加量',
     personalReviewBoundary: '只准备物品和备选路线，不追加新的行程',
     statusGuard: '先定路线',
@@ -345,6 +351,7 @@ const topicDefinitions: TopicDefinition[] = [
     cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
     masterReason: '身心状态决定其他事情能否持续，先稳住状态可以减少全局消耗。',
+    masterRiskReason: '它是其他安排的承载条件，状态判断失真会让所有计划同时超量。',
     personalSupportStop: '休息后仍无法集中注意力时停止加量',
     personalReviewBoundary: '先恢复一顿饭或一段睡眠，不用兴奋感判断状态',
     statusGuard: '先看精力',
@@ -354,7 +361,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v40';
+const dailyFortuneCacheVersion = '2026-08-26-v43';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1454,7 +1461,8 @@ function aggregatePeriodCategories(
     const displaySamples = period === 'today'
       ? samples.filter((item) => isPracticalHourAnalysis(item.analysis))
       : samples;
-    const best = [...(displaySamples.length ? displaySamples : samples)].sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation)
+    const displayCandidates = displaySamples.length ? displaySamples : samples;
+    const best = [...displayCandidates].filter((item) => item.evaluation.tone !== 'cautious').sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation)
       || left.analysis.date.getTime() - right.analysis.date.getTime())[0];
     const worst = [...(displaySamples.length ? displaySamples : samples)].sort((left, right) => categorySignalScore(left.evaluation) - categorySignalScore(right.evaluation)
       || left.analysis.date.getTime() - right.analysis.date.getTime())[0];
@@ -1498,7 +1506,7 @@ function updateAggregateWindowsForRemainingPeriod(
       analysis,
       evaluation: analysis.categories.find((item) => item.definition.key === aggregate.evaluation.definition.key),
     })).filter((item): item is { analysis: ChartAnalysis; evaluation: CategoryEvaluation } => Boolean(item.evaluation));
-    aggregate.bestAnalysis = [...candidates]
+    aggregate.bestAnalysis = [...candidates].filter((item) => item.evaluation.tone !== 'cautious')
       .sort((left, right) => categorySignalScore(right.evaluation) - categorySignalScore(left.evaluation) || compareAnalyses(left.analysis, right.analysis))[0]?.analysis;
     const worst = [...candidates]
       .sort((left, right) => categorySignalScore(left.evaluation) - categorySignalScore(right.evaluation) || left.analysis.date.getTime() - right.analysis.date.getTime())[0];
@@ -1685,7 +1693,13 @@ function buildFortuneMasterJudgment(
   return { posture, primary, secondary, caution, bestAnalysis, cautionAnalysis, personalInsight, mixed, copy };
 }
 
-function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment) {
+function categoryDistributionEvidence(aggregate: CategoryAggregate, period: FortunePeriod) {
+  const unit = period === 'today' ? '时段盘' : period === 'month' ? '日盘' : '阶段盘';
+  const neutralCount = Math.max(0, aggregate.sampleCount - aggregate.favorableCount - aggregate.cautiousCount);
+  return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}中，${aggregate.category.label}有${aggregate.favorableCount}个明确支持、${aggregate.cautiousCount}个需要复核、${neutralCount}个保持平稳。`;
+}
+
+function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const reason = judgment.primary.evaluation.definition.masterReason;
   const primaryLabel = judgment.primary.category.label;
   const secondaryLabel = judgment.secondary.category.label;
@@ -1698,18 +1712,20 @@ function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment) {
     restore: `因此控制任务量后，${primaryLabel}仍可保留。`,
     protect: `因此在不新增承诺的前提下，${primaryLabel}是相对可控的落点。`,
   };
-  return `${reason}${conclusion[judgment.posture]}`;
+  return `${categoryDistributionEvidence(judgment.primary, period)}${reason}${conclusion[judgment.posture]}`;
 }
 
-function cautionReasonFromJudgment(judgment: FortuneMasterJudgment) {
+function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const cautionLabel = judgment.caution.category.label;
   const primaryLabel = judgment.primary.category.label;
-  return judgment.caution.evaluation.tone === 'cautious'
-    ? `${cautionLabel}的波动最容易向其他安排传导。把它列为牵制项，是为了先隔离返工和误判，不让局部问题占用${primaryLabel}的资源。`
-    : `${cautionLabel}没有形成明确阻断，但在本期各项安排中最容易受临时变化影响。把它列为检查项，是为了防止局部反复打断${primaryLabel}的连续性。`;
+  const riskReason = judgment.caution.evaluation.definition.masterRiskReason;
+  const reason = judgment.caution.evaluation.tone === 'cautious'
+    ? `${riskReason}当前这项牵制已经足以带来返工或误判，应先隔离它，不让局部问题占用${primaryLabel}的资源。`
+    : `${riskReason}${cautionLabel}尚未形成阻断，但要先确认承载条件，避免它反复打断${primaryLabel}的连续性。`;
+  return `${categoryDistributionEvidence(judgment.caution, period)}${reason}`;
 }
 
-function buildEvidenceInsights(judgment: FortuneMasterJudgment): DailyFortuneEvidenceInsight[] {
+function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortunePeriod): DailyFortuneEvidenceInsight[] {
   const insights: DailyFortuneEvidenceInsight[] = [];
 
   insights.push({
@@ -1717,7 +1733,7 @@ function buildEvidenceInsights(judgment: FortuneMasterJudgment): DailyFortuneEvi
     sourceKey: judgment.primary.category.key,
     label: '判断主线',
     title: `${judgment.primary.category.label}为何是主线`,
-    detail: opportunityReasonFromJudgment(judgment),
+    detail: opportunityReasonFromJudgment(judgment, period),
     tone: judgment.primary.category.tone,
   });
 
@@ -1727,7 +1743,7 @@ function buildEvidenceInsights(judgment: FortuneMasterJudgment): DailyFortuneEvi
       sourceKey: judgment.caution.category.key,
       label: judgment.caution.evaluation.tone === 'cautious' ? '牵制所在' : '必要检查',
       title: `${judgment.caution.category.label}为何需要留意`,
-      detail: cautionReasonFromJudgment(judgment),
+      detail: cautionReasonFromJudgment(judgment, period),
       tone: judgment.caution.evaluation.tone === 'cautious' ? 'cautious' : 'balanced',
     });
   }
@@ -1755,36 +1771,117 @@ function personalDirectionScore(chart: QimenData, gong: number, personal: Person
   return relationScore + usefulScore * .45;
 }
 
+const directionReasonMeanings: Record<string, string> = {
+  开门: '利启动、会面与公开事务',
+  休门: '利协商、休整与关系维护',
+  生门: '利求财、合作与稳步增长',
+  伤门: '冲突或损耗风险偏高',
+  杜门: '信息闭塞，推进容易受阻',
+  死门: '不利新增和主动推进',
+  惊门: '突发、口舌或焦虑增多',
+  玄武: '需防信息不实或关键遗漏',
+  白虎: '冲突和损耗风险偏高',
+  螣蛇: '反复、疑虑和误判增多',
+  空亡: '计划容易落空或难以落实',
+  门迫: '事情受阻，推进费力反复',
+  九地: '宜稳健落地，不宜求快',
+  九天: '利主动展开与扩大视野',
+  六合: '利协作、协调与形成共识',
+  太阴: '利周密筹划与隐蔽准备',
+  值符: '主导性较强，适合抓住主线',
+};
+
+function normalizeDirectionUse(value: string) {
+  const modernUse = value.includes('求官')
+    ? '洽谈职位、面试或推进职责明确的工作'
+    : value.includes('求财')
+      ? '对账、询价、商谈合作或复核投资资料'
+      : value.includes('休养')
+        ? '休息恢复、安排安静事务或关系沟通'
+        : value.replace(/\//g, '、').replace(/宜用于?/g, '').trim();
+  return value.includes('急难见贵')
+    ? `${modernUse}，或在急事中寻求有经验者协助`
+    : modernUse;
+}
+
+function directionReasonText(reason: string) {
+  const isFavorablePattern = /^吉格:/.test(reason);
+  const isCautiousPattern = /^凶格:/.test(reason);
+  const normalized = reason.replace(/^(?:吉格|凶格):/, '').replace(/^值(?=九地|九天|六合|太阴|值符)/, '');
+  const directMeaning = directionReasonMeanings[normalized];
+  const matchedKey = Object.keys(directionReasonMeanings).find((key) => normalized.includes(key));
+  const meaning = directMeaning || (matchedKey
+    ? directionReasonMeanings[matchedKey]
+    : isFavorablePattern
+      ? '形成有利格局'
+      : isCautiousPattern ? '形成受限格局' : '构成盘面判断依据');
+  return `${normalized}（${meaning}）`;
+}
+
+function summarizeDirectionReasons(reasons: string[], limit = 2) {
+  return [...new Set(reasons)].slice(0, limit).map(directionReasonText).join('、');
+}
+
+function incrementFrequency(values: Map<string, number>, key: string) {
+  if (!key) return;
+  values.set(key, (values.get(key) || 0) + 1);
+}
+
+function mostFrequent(values: Map<string, number>, limit = 2) {
+  return [...values.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
+    .slice(0, limit)
+    .map(([value]) => value);
+}
+
 function buildSingleDirections(chart: QimenData, personal: PersonalContext | null) {
   // 不改写核心库的吉方与避方资格，只在已经成立的候选内部做个人化排序。
   const goodDirections = [...(chart.directions?.goodDirections || [])]
     .sort((left, right) => personalDirectionScore(chart, right.gong, personal) - personalDirectionScore(chart, left.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: '适合安排外出、沟通或需要主动推进的事情。',
+    detail: `适合${normalizeDirectionUse(item.use) || '主动推进'}；盘面依据：${summarizeDirectionReasons(item.reasons)}。仅用于第一段行程、拜访或主动沟通的方向参考，不必为普通行程绕路。`,
   }));
   const avoidDirections = [...(chart.directions?.avoidDirections || [])]
     .sort((left, right) => personalDirectionScore(chart, left.gong, personal) - personalDirectionScore(chart, right.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: '这边的安排更容易反复，必须前往时请提前确认路线并多留时间。',
+    detail: `盘面限制：${summarizeDirectionReasons(item.reasons)}。必须前往时提前确认路线、返程与备选方案。`,
   }));
   return { goodDirections, avoidDirections };
 }
 
 function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'year', personal: PersonalContext | null) {
-  const counts = new Map<string, { good: number; avoid: number; personal: number }>();
+  const counts = new Map<string, {
+    good: number;
+    avoid: number;
+    personal: number;
+    uses: Map<string, number>;
+    goodReasons: Map<string, number>;
+    avoidReasons: Map<string, number>;
+  }>();
+  const createCount = () => ({
+    good: 0,
+    avoid: 0,
+    personal: 0,
+    uses: new Map<string, number>(),
+    goodReasons: new Map<string, number>(),
+    avoidReasons: new Map<string, number>(),
+  });
   analyses.forEach(({ chart }) => {
     chart.directions?.goodDirections.forEach((item) => {
-      const value = counts.get(item.direction) || { good: 0, avoid: 0, personal: 0 };
+      const value = counts.get(item.direction) || createCount();
       value.good += 1;
       value.personal += personalDirectionScore(chart, item.gong, personal);
+      incrementFrequency(value.uses, normalizeDirectionUse(item.use));
+      item.reasons.forEach((reason) => incrementFrequency(value.goodReasons, reason));
       counts.set(item.direction, value);
     });
     chart.directions?.avoidDirections.forEach((item) => {
-      const value = counts.get(item.direction) || { good: 0, avoid: 0, personal: 0 };
+      const value = counts.get(item.direction) || createCount();
       value.avoid += 1;
       value.personal += personalDirectionScore(chart, item.gong, personal);
+      item.reasons.forEach((reason) => incrementFrequency(value.avoidReasons, reason));
       counts.set(item.direction, value);
     });
   });
@@ -1797,7 +1894,7 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.good}次支持、${value.avoid}次回避；可优先用于重要拜访或需要主动推进的沟通。`,
+      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.good}次支持、${value.avoid}次回避；常见用途：${mostFrequent(value.uses, 1)[0] || '主动推进'}；常见依据：${summarizeDirectionReasons(mostFrequent(value.goodReasons))}。`,
     }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
@@ -1805,7 +1902,7 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.avoid}次回避、${value.good}次支持；必须前往时先确认路线和返程，并留出改线余量。`,
+      detail: `${periodLabel}${analyses.length}个${period === 'year' ? '阶段盘' : '日盘'}中，${direction}出现${value.avoid}次回避、${value.good}次支持；常见限制：${summarizeDirectionReasons(mostFrequent(value.avoidReasons))}。必须前往时先确认路线和返程，并留出改线余量。`,
     }));
   return { goodDirections, avoidDirections };
 }
@@ -2079,9 +2176,7 @@ function buildReference(
         : '仅作年度目标分组的象征编号，不用于投资、开奖或重要日期推断。',
     direction,
     directionNote: goodDirections.length
-      ? period === 'today'
-        ? '用于安排第一段外出、拜访或需要主动开口的沟通，不必为普通行程绕路。'
-        : goodDirections[0].detail
+      ? goodDirections[0].detail
       : '方位信号不集中，不设优先方向。',
     item: item.name,
     itemSymbol: item.symbol,
@@ -2216,7 +2311,7 @@ function calculateDailyFortune(
   });
   const categories = aggregates.map((item) => item.category);
   const title = judgment.copy.title;
-  const evidenceInsights = buildEvidenceInsights(judgment);
+  const evidenceInsights = buildEvidenceInsights(judgment, period);
   const summary = judgment.copy.summary;
   const readyAggregate = judgment.primary;
   const slowAggregate = judgment.caution;
