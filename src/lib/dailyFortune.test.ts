@@ -64,7 +64,7 @@ const categoryValueMarkers: Record<string, RegExp> = {
   career: /负责人|交付标准/,
   study: /学习目标|笔记|练习|沉淀/,
   wealth: /金额|付款节点|付款记录/,
-  relationship: /语气|真实意图|对方重点|信息差/,
+  relationship: /语气|真实意图|对方重点|信息差|事实基础|推断立场/,
   travel: /路线|天气|时间余量|关键物品/,
   wellbeing: /疲劳|睡眠|食欲|注意力|精力/,
 };
@@ -89,7 +89,7 @@ const referenceItemsByTopic: Record<string, string[]> = {
 
 function expectContentRichCategories(result: DailyFortuneResult) {
   const text = result.categories.map((item) => `${item.detail}${item.basis}`).join('');
-  expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少|确认承载条件|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度/);
+  expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少|确认承载条件|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度|作为阶段成果|作为收尾|未达到这一标准的安排不计入本期进度|没有形成这一结果的安排仍视为未完成/);
   const bases = result.categories.map((item) => item.basis).filter(Boolean);
   expect(new Set(bases).size).toBe(bases.length);
   result.categories.forEach((category) => {
@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v57');
+      expect(serialized).toContain('2026-08-26-v58');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -486,7 +486,7 @@ describe('今日、月运、年运统一周期算法', () => {
     if (necessaryCheck?.sourceKey) {
       const category = result.categories.find((item) => item.key === necessaryCheck.sourceKey);
       expect(category?.detail).toContain('不是本月主线');
-      expect(category?.detail).toContain('作为收尾');
+      expect(category?.detail).toMatch(categoryValueMarkers[necessaryCheck.sourceKey]);
       expect(category?.detail).not.toMatch(/必须先把|仍有缺口/);
       expect(category?.detail).not.toContain('短板');
     }

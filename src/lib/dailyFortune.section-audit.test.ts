@@ -49,7 +49,7 @@ describe('运势区块职责审计', () => {
       const cautionCategory = result.categories.find((item) => item.key === cautionSourceKey && item.tone !== 'favorable');
       if (cautionCategory) {
         expect(cautionCategory.detail).not.toMatch(/必须先把|仍有缺口时|等.+明确后再承诺或推进/);
-        expect(cautionCategory.detail).toMatch(/收尾|进度|恢复|作息/);
+        expect(cautionCategory.detail).toMatch(/排期|资料|付款|承诺|出发|恢复|作息/);
       }
       const overlaps = sections.flatMap((left, leftIndex) => sections.slice(leftIndex + 1).flatMap((right) => {
         const roles = new Set([left.role, right.role]);

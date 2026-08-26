@@ -146,7 +146,7 @@ interface TopicDefinition {
   action: string;
   prepare: string;
   check: string;
-  outcome: string;
+  completionRule: string;
   cautionPattern: string;
   cautionAction: string;
   fallback: string;
@@ -286,7 +286,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'career', icon: '业', label: '工作事业', shortLabel: '工作', primaryDoor: '开门',
     supportStars: ['天心', '天辅', '天任'], supportGods: ['值符', '九天', '九地'],
     action: '先处理目标清楚、能直接推进的工作', prepare: '整理优先级和待确认事项', check: '截止时间、分工和交付标准',
-    outcome: '一份写明负责人、下一步和完成标准的安排',
+    completionRule: '负责人、下一步或验收标准仍有空白时，这件事只留在待确认清单，不占正式排期',
     cautionPattern: '任务边界、负责人或交付标准容易临时变化',
     cautionAction: '先把负责人与完成标准写清，未确认的部分不要提前承诺。',
     fallback: '负责人或截止时间未定时，先整理优先级和待确认事项',
@@ -303,7 +303,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'study', icon: '学', label: '学习成长', shortLabel: '学习', primaryDoor: '景门',
     supportStars: ['天辅', '天心', '天任'], supportGods: ['太阴', '九地', '值符'],
     action: '集中完成一段阅读、写作或复盘', prepare: '整理资料并拆小学习目标', check: '任务量、专注时段和休息间隔',
-    outcome: '可复述的要点、练习结果或一段可用产出',
+    completionRule: '还不能复述要点或用练习验证时，说明仍在输入阶段，不继续增加资料',
     cautionPattern: '任务切换过多，容易读了很多却没有真正沉淀',
     cautionAction: '只保留一个学习目标，并用笔记或练习检验是否真正掌握。',
     fallback: '注意力不稳时，只整理资料并把学习目标拆成一段',
@@ -320,7 +320,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'wealth', icon: '财', label: '金钱合作', shortLabel: '钱款', primaryDoor: '生门',
     supportStars: ['天任', '天心', '天辅'], supportGods: ['值符', '六合', '太阴'],
     action: '优先处理金额和条件已经明确的事项', prepare: '对账、比价并梳理必要支出', check: '金额、条款和付款节点',
-    outcome: '可复核的金额、责任和付款节点记录',
+    completionRule: '金额、责任与付款节点没有形成可复核记录时，不进入付款或合作承诺',
     cautionPattern: '口头约定与实际金额、责任或付款条件容易出现偏差',
     cautionAction: '保存报价和付款记录，逐项确认金额、责任人及付款节点。',
     fallback: '条款未齐时只保存报价和问题清单，不进入付款',
@@ -337,7 +337,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'relationship', icon: '缘', label: '沟通关系', shortLabel: '沟通', primaryDoor: '休门',
     supportStars: ['天辅', '天心', '天任'], supportGods: ['六合', '太阴', '值符'],
     action: '安排一次不赶时间的沟通', prepare: '先听完对方的重点，再整理自己的表达', check: '语气、对方感受和信息差',
-    outcome: '双方对事实、分歧和下一步的一致理解',
+    completionRule: '双方尚未确认同一事实基础时，不继续推断立场，也不增加新的承诺',
     cautionPattern: '表达语气与真实意图容易错位，猜测会放大信息差',
     cautionAction: '先复述对方重点，再只处理一个分歧，不用猜测补齐信息。',
     fallback: '信息不全时只确认事实，不急着表达立场',
@@ -354,7 +354,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'travel', icon: '行', label: '出行行动', shortLabel: '出行', primaryDoor: '开门',
     supportStars: ['天冲', '天辅', '天心'], supportGods: ['九天', '六合', '九地'],
     action: '把需要外出的事情按路线集中处理', prepare: '提前整理路线、物品和时间余量', check: '路线、天气和临时变动',
-    outcome: '明确的路线、时间余量和备选方案',
+    completionRule: '路线、时间余量与备选方案未确定时，只做物品准备，不进入出发安排',
     cautionPattern: '路线、天气或前后事项的衔接时间更容易变化',
     cautionAction: '预留缓冲并准备备选路线，证件和关键物品出发前逐项确认。',
     fallback: '路线或天气未定时，先整理物品并预留转场时间',
@@ -371,7 +371,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'wellbeing', icon: '养', label: '身心状态', shortLabel: '休息', primaryDoor: '休门',
     supportStars: ['天心', '天任'], supportGods: ['太阴', '九地'],
     action: '给休息、饮食和轻度活动留出固定时间', prepare: '减少透支并安排规律休息', check: '睡眠、饮食、精力和身体感受',
-    outcome: '休息后稳定恢复的精力，而不是短时兴奋',
+    completionRule: '完整休息后仍无法恢复专注时，直接减少任务量，不用短时兴奋代替恢复',
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
     cautionAction: '观察睡眠、食欲和注意力，连续偏弱时主动减量。',
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v57';
+const dailyFortuneCacheVersion = '2026-08-26-v58';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1359,44 +1359,39 @@ function categoryDetailFromJudgment(
   // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
   const hasActualCaution = tone === 'cautious';
   const scopeLabel = period === 'today' ? '当天' : period === 'month' ? '本月' : '全年';
-  const controlledGoal = period === 'today'
-    ? '以能确认、能收尾为准'
-    : period === 'month' ? '在条件较齐的日期推进一段' : '放在支持较集中的阶段逐步经营';
 
   if (isCaution && tone !== 'favorable') {
     if (!hasActualCaution) {
       return definition.key === 'wellbeing'
         ? `身心状态不是${scopeLabel}主线，却决定其他安排能否持续；以完整休息后能否恢复专注作为减量信号，不用一时兴奋判断承受力。`
-        : `${definition.label}不是${scopeLabel}主线，但仍可保留条件已经具备的部分；以${definition.outcome}作为收尾，未达到这一标准的安排不计入本期进度。`;
+        : `${definition.label}不是${scopeLabel}主线，只保留条件已经具备的部分。${definition.completionRule}。`;
     }
     if (definition.key === 'wellbeing') {
       return `这是${scopeLabel}牵动整体节奏的短板。先保住基本作息；只有完整休息后专注度确实恢复，才把其他安排重新加回来。`;
     }
-    return `这是${scopeLabel}最需要把关的一环。以${definition.outcome}作为是否真正收尾的标准；没有形成这一结果的安排仍视为未完成，不继续扩大投入。`;
+    return `这是${scopeLabel}最需要把关的一环。${definition.completionRule}。`;
   }
   if (isPrimary) {
     if (tone === 'favorable' && definition.key === 'wellbeing') return `这是${scopeLabel}最值得优先照顾的一项。以休息后能稳定恢复的精力作为继续安排其他事情的前提，不用短时兴奋代替真实恢复。`;
-    if (tone === 'favorable') return `这是${scopeLabel}整体判断中的主线。以${definition.outcome}作为实际成果，完成后再决定是否扩展。`;
-    if (tone === 'balanced') return `这是${scopeLabel}相对稳定的主线。以${definition.outcome}作为本阶段成果；${controlledGoal}。`;
+    if (tone === 'favorable') return `这是${scopeLabel}整体判断中的主线。${bestLead}${definition.completionRule}。`;
+    if (tone === 'balanced') return `这是${scopeLabel}相对稳定的主线。${bestLead}${definition.completionRule}。`;
     return `眼下没有明显顺势项，这一项只是相对可控。先${preparation}，不以扩大进度为目标。`;
   }
   if (isSecondary) {
-    if (tone === 'favorable') return `可作为${scopeLabel}主线之后的第二步。${bestLead}${definition.action}，形成${definition.outcome}即可收尾，不必与主线同时铺开。`;
+    if (tone === 'favorable') return `可作为${scopeLabel}主线之后的第二步。${bestLead}${definition.completionRule}。`;
     if (definition.key === 'wellbeing') return `${bestLead}保持规律作息和饮食，让状态能够承接后续安排。`;
     return period === 'today'
-      ? `适合作为配合项，等主线稳定后再处理。先${preparation}，形成${definition.outcome}后便转回主线。`
-      : `这是${scopeLabel}的辅助线，不必与主线同时用力。放在条件较齐的阶段处理，并以${definition.outcome}作为收尾。`;
+      ? `适合作为配合项，等主线稳定后再处理。先${preparation}；${definition.completionRule}。`
+      : `这是${scopeLabel}的辅助线，不与主线同时用力。${bestLead}${definition.completionRule}。`;
   }
   if (definition.key === 'wellbeing') {
     return tone === 'favorable'
       ? `${bestLead}状态可以承接日常安排，但仍要给休息、饮食和轻度活动留出固定时间。`
       : `${definition.prepare}，按睡眠、饮食和真实精力调整任务量。`;
   }
-  if (tone === 'favorable') return `${bestLead}${definition.action}，以${definition.outcome}作为收尾；这是${scopeLabel}的辅助推进项，不必抢在主线之前。`;
+  if (tone === 'favorable') return `这是${scopeLabel}的辅助推进项，不抢在主线之前。${bestLead}${definition.completionRule}。`;
   if (tone === 'cautious') return `${definition.fallback}；等${definition.check}重新明确后再评估。`;
-  return period === 'today'
-    ? `${bestLead}${definition.action}，并留下${definition.outcome}；${definition.fallback}。`
-    : `${bestLead}${definition.action}，以${definition.outcome}作为阶段成果。`;
+  return `${bestLead}${definition.completionRule}。`;
 }
 
 function categoryStatusFromJudgment(
