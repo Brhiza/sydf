@@ -386,7 +386,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v80';
+const dailyFortuneCacheVersion = '2026-08-26-v82';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1863,49 +1863,34 @@ function categoryDistributionEvidence(aggregate: CategoryAggregate, period: Fort
   return `${period === 'today' ? '当天' : period === 'month' ? '整月' : '全年'}${aggregate.sampleCount}个${unit}里，${aggregate.category.label}有${aggregate.favorableCount}${measure}顺势、${aggregate.cautiousCount}${measure}需要收紧，其余${neutralCount}${measure}平稳。`;
 }
 
-const primaryDistributionMeanings: Record<string, [string, string, string, string]> = {
-  career: [
-    '多个窗口都能把工作推到可验收节点；关键交付放在前面的优先时段，其余时间用于确认责任和补齐资料。',
-    '可推进窗口略多，按“确认责任—执行—验收”拆开安排，比一次铺开多项承诺更稳。',
-    '推进与变动交替出现，每次只锁定一个可验收成果，避免任务跨阶段悬空。',
-    '即使收紧窗口更多，工作仍是相对可控的一项；先守住已有交付，不接责任和标准尚未明确的新任务。',
-  ],
-  study: [
-    '多个窗口有利于形成学习成果；把阅读、输出和检验分开安排，确保每轮输入都留下可复述的结果。',
-    '可用窗口略多，适合一段输入接一次练习或复述，确认掌握后再增加资料。',
-    '专注与分散交替出现，把目标缩成一页笔记、一道练习或一次复述，避免只累积阅读量。',
-    '即使收紧窗口更多，学习仍能通过减量保持连续；先消化现有资料，不新增课程和题量。',
-  ],
-  wealth: [
-    '多个窗口适合处理清楚的款项；把询价、核对和付款分开，只有记录闭合的事项才进入结算。',
-    '可用窗口略多，先完成一次对账或条款确认，再决定是否付款或扩大合作。',
-    '金额与条件容易反复，分阶段保存报价、责任和付款节点，避免口头约定直接进入交易。',
-    '即使收紧窗口更多，钱款仍可通过留痕控制风险；只处理记录完整的事项，其余停在询价阶段。',
-  ],
-  relationship: [
-    '多个窗口有利于把话说清；重要沟通仍按“确认事实—说明分歧—约定下一步”完成，不用一次解决所有情绪。',
-    '可沟通窗口略多，但共识需要逐次验证；每次只确认事实、一个分歧和一个下一步。',
-    '顺畅与误读交替出现，先复述彼此理解，再决定是否进入下一项承诺。',
-    '即使收紧窗口更多，沟通仍是解开其他问题的入口；只确认事实，不在信息不全时给关系定性。',
-  ],
-  travel: [
-    '多个窗口适合落实行程；关键出发放在前面的优先时段，其他时间用于确认路线、物品和返程余量。',
-    '可用窗口略多，先完成路线和备选方案，再逐段加入外出事项，不连续加站。',
-    '交通与时间衔接容易反复，每段行程都要留独立缓冲，避免前一站拖累后续。',
-    '即使收紧窗口更多，出行仍可通过删减路线来控制；只保留必要行程，并先确定返程方案。',
-  ],
-  wellbeing: [
-    '多个窗口有利于恢复；把完整休息放在前面的优先时段，并以休息后的专注度决定后续任务量。',
-    '恢复窗口略多，但承受量仍会波动；只有完整休息后注意力确实回来，才增加安排。',
-    '状态起伏较明显，先固定睡眠、饮食和轻度活动，再按恢复后的真实精力删减任务。',
-    '即使收紧窗口更多，身心状态仍必须先处理；先保住睡眠和进食，再谈其他事项的进度。',
-  ],
+const primaryEvidenceReasons: Record<string, string> = {
+  career: '工作优势可以通过负责人、交付标准和验收节点交叉验证，不只依赖某一个顺势窗口。',
+  study: '学习是否有效可以通过复述、练习和输出检验，阅读时长本身不等于掌握。',
+  wealth: '钱款是否可处理，可以由金额、责任、付款节点和记录完整度共同判断。',
+  relationship: '沟通是否有效，可以从双方对事实、分歧和下一步是否一致直接看见。',
+  travel: '行程能否落地，取决于路线、返程余量和备选方案是否同时成立。',
+  wellbeing: '恢复是否有效，可以由完整休息后的睡眠感受、食欲和专注度连续验证。',
 };
 
-function primaryDistributionMeaning(aggregate: CategoryAggregate) {
-  const difference = aggregate.favorableCount - aggregate.cautiousCount;
-  const meanings = primaryDistributionMeanings[aggregate.category.key] || primaryDistributionMeanings.career;
-  return meanings[difference >= 3 ? 0 : difference > 0 ? 1 : difference === 0 ? 2 : 3];
+function primaryComparisonEvidence(judgment: FortuneMasterJudgment) {
+  const primary = judgment.primary;
+  const secondary = judgment.secondary;
+  const difference = primary.favorableCount - primary.cautiousCount;
+  const neutralCount = Math.max(0, primary.sampleCount - primary.favorableCount - primary.cautiousCount);
+  const scoreGap = primary.evaluation.score - secondary.evaluation.score;
+  const distribution = difference >= 3
+    ? '顺势窗口明显更多，优势不是单点偶发。'
+    : difference > 0
+      ? '顺势窗口只略多，优势存在但并不连续。'
+      : difference === 0
+        ? `顺势与收紧相抵，主要可用空间来自${neutralCount}个平稳窗口。`
+        : '收紧窗口反而更多，它成为主线是因为相较其他主题仍更容易判断和控制。';
+  const comparison = scoreGap >= .38
+    ? `综合基础盘与各阶段强度后，${primary.evaluation.definition.shortLabel}和${secondary.evaluation.definition.shortLabel}之间仍有清楚差距，资源不必平均分配。`
+    : scoreGap >= .14
+      ? `综合基础盘与各阶段强度后，${primary.evaluation.definition.shortLabel}只比${secondary.evaluation.definition.shortLabel}略稳，主线代表先分配注意力，第二主题仍需保留。`
+      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}非常接近，列为主线只用于排定先后，不代表第二主题失效。`;
+  return `${distribution}${comparison}${primaryEvidenceReasons[primary.category.key] || ''}`;
 }
 
 function cautionDistributionMeaning(aggregate: CategoryAggregate) {
@@ -1928,7 +1913,7 @@ function cautionConsequence(caution: CategoryAggregate) {
 }
 
 function opportunityReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
-  return `${categoryDistributionEvidence(judgment.primary, period)}${primaryDistributionMeaning(judgment.primary)}`;
+  return `${categoryDistributionEvidence(judgment.primary, period)}${primaryComparisonEvidence(judgment)}`;
 }
 
 function cautionReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
@@ -1947,18 +1932,17 @@ const primaryMilestones: Record<string, string> = {
 function secondaryReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const secondary = judgment.secondary;
   const primary = judgment.primary.evaluation.definition;
-  const milestone = primaryMilestones[primary.key] || `${primary.shortLabel}已经得到明确结果`;
   const roles: Record<string, string> = {
-    career: `等${milestone}后，再把相关任务落实为负责人、下一步和验收标准，能避免做完仍无人接收。`,
-    study: `等${milestone}后，再把相关信息整理成可复述、可检验的成果，注意力会更集中。`,
-    wealth: `等${milestone}后，再核清金额、责任和付款节点，能避免条件变化后重复对账。`,
+    career: `工作需要把${primary.shortLabel}产生的结果转成责任与交付；主线结果仍在变化时提前排期，负责人和验收口径都可能重写。`,
+    study: `学习依赖连续注意力；${primary.shortLabel}尚未闭环时频繁切换，会让阅读和练习难以形成同一条理解链。`,
+    wealth: `钱款条件通常承接${primary.shortLabel}形成的费用与责任；前序结果未定，报价和付款节点也容易随之失效。`,
     relationship: primary.key === 'wellbeing'
-      ? '先用完整休息确认注意力确实恢复，再进入沟通，更容易听完整、分清事实并约定下一步。'
-      : `等${milestone}后，再确认双方理解和下一步，能减少基于不同前提的反复解释。`,
-    travel: `等${milestone}后，再确定路线、时间和备选方案，能减少临时改线对后续事项的影响。`,
-    wellbeing: `身心状态是${primary.shortLabel}能否持续的承载条件，应同步保留睡眠、进食和轻度活动；用休息后的注意力判断实际余量。`,
+      ? '沟通同时依赖倾听、判断和情绪余量；状态没有恢复时，更容易漏听事实并把疲劳误当成立场。'
+      : `沟通用于消除${primary.shortLabel}推进后留下的信息差；主线事实尚未确定时开口，容易把暂时判断说成最终结论。`,
+    travel: `路线与时间要承接${primary.shortLabel}的地点和结束节点；前序安排仍在变化时排程，转场与返程都要重复计算。`,
+    wellbeing: `身心状态不是${primary.shortLabel}之后才处理的第二项，而是决定注意力、判断力和持续时间的同步基础。`,
   };
-  return `${categoryDistributionEvidence(secondary, period)}${roles[secondary.category.key] || `等${milestone}后再处理这项事务，能减少前置条件变化带来的返工。`}`;
+  return `${categoryDistributionEvidence(secondary, period)}${roles[secondary.category.key] || `${secondary.category.label}承接${primary.shortLabel}的实际结果，前序条件变化会直接造成返工。`}`;
 }
 
 function stripPriorityPrefix(value: string) {
@@ -2015,11 +1999,14 @@ function buildEvidenceInsights(judgment: FortuneMasterJudgment, period: FortuneP
       tone: judgment.caution.evaluation.tone === 'cautious' ? 'cautious' : 'balanced',
     });
   } else if (judgment.secondary.category.key !== judgment.primary.category.key) {
+    const secondaryIsWellbeing = judgment.secondary.category.key === 'wellbeing';
     insights.push({
       key: 'secondary',
       sourceKey: judgment.secondary.category.key,
-      label: '配合项',
-      title: `${judgment.secondary.category.label}为何作为第二步`,
+      label: secondaryIsWellbeing ? '同步基础' : '承接关系',
+      title: secondaryIsWellbeing
+        ? '身心状态为何需要同步照顾'
+        : `${judgment.secondary.category.label}为何排在主线之后`,
       detail: secondaryReasonFromJudgment(judgment, period),
       tone: judgment.secondary.category.tone,
     });
@@ -2298,6 +2285,21 @@ function continuationAction(action: string) {
   return action.replace(/^先/, '');
 }
 
+const trendStatusLabels: Record<string, Record<DailyFortuneTone, string>> = {
+  career: { favorable: '工作易形成交付', balanced: '工作先定责任', cautious: '先收紧任务边界' },
+  study: { favorable: '学习易留下成果', balanced: '学习先稳专注', cautious: '先减少任务切换' },
+  wealth: { favorable: '钱款条件较清楚', balanced: '钱款先留记录', cautious: '先核清钱款条件' },
+  relationship: { favorable: '沟通较易对齐', balanced: '沟通先对齐事实', cautious: '先停止猜测定性' },
+  travel: { favorable: '出行条件较完整', balanced: '出行先留返程余量', cautious: '先补足返程余量' },
+  wellbeing: { favorable: '状态较易恢复', balanced: '状态先看真实恢复', cautious: '先恢复睡眠进食' },
+};
+
+function trendStatus(definition: TopicDefinition | undefined, tone: DailyFortuneTone) {
+  return definition
+    ? trendStatusLabels[definition.key]?.[tone] || `${definition.shortLabel}先看条件`
+    : '先看当前条件';
+}
+
 function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const averageScore = analyses.reduce((total, item) => total + item.score, 0) / Math.max(1, analyses.length);
   const favorableCount = analyses.filter((item) => item.tone === 'favorable').length;
@@ -2317,13 +2319,9 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const phraseIndex = phraseDate
     ? (phraseDate.getFullYear() * 13 + (phraseDate.getMonth() + 1) * 7 + phraseDate.getDate() + analyses.length) % 3
     : 0;
-  const primaryUsedCount = primary
-    ? (usage.actions.get(primary.key) || []).reduce((total, count) => total + count, 0)
-    : 0;
-  const secondaryCandidates = rankedTopics.slice(1, Math.min(4, rankedTopics.length));
-  const secondary = secondaryCandidates.length
-    ? secondaryCandidates[primaryUsedCount % secondaryCandidates.length]?.definition
-    : undefined;
+  const primaryScore = rankedTopics[0]?.score || 0;
+  const secondaryScore = rankedTopics[1]?.score || 0;
+  const secondary = rankedTopics[1]?.definition;
   const primaryAction = takeTrendPhrase(primary, 'trendActions', usage.actions, phraseIndex);
   const secondaryAction = takeTrendPhrase(secondary, 'trendActions', usage.actions, phraseIndex + 1);
   const weakestGuard = takeTrendPhrase(weakest, 'trendGuards', usage.guards, phraseIndex);
@@ -2331,19 +2329,21 @@ function trendSummary(analyses: ChartAnalysis[], usage: TrendPhraseUsage) {
   const primaryLabel = primary?.shortLabel || '主线';
   const secondaryLabel = secondary?.shortLabel || '后续';
   const weakestLabel = weakest?.shortLabel || '风险';
-  const continuationText = continuation
+  const useSecondary = Boolean(continuation) && secondaryScore >= -.05;
+  const continuationText = useSecondary
     ? secondary?.key === 'wellbeing'
-      ? `${tone === 'cautious' ? '同步保留' : '同时照顾'}${secondaryLabel}：${continuation}`
-      : `${tone === 'cautious' ? '稳定后再做' : '完成后再做'}${secondaryLabel}：${continuation}`
-    : '';
+      ? `同步照顾${secondaryLabel}：${continuation}`
+      : `${primaryScore - secondaryScore <= .18 ? '同时推进' : '有余量再处理'}${secondaryLabel}：${continuation}`
+    : weakestGuard
+      ? `留意${weakestLabel}：${weakestGuard}`
+      : '';
   return {
     tone,
-    status: tone === 'favorable' ? `${primaryLabel}可落地` : tone === 'cautious' ? `先稳${weakestLabel}` : `先做${primaryLabel}`,
+    status: tone === 'cautious' ? trendStatus(weakest, tone) : trendStatus(primary, tone),
     focus: tone === 'cautious'
       ? [
           `${weakestLabel}先查：${weakestGuard || '先减少变量，再决定是否继续'}`,
           primaryAction ? `${primaryLabel}保留：${primaryAction}` : '',
-          continuationText,
         ].filter(Boolean).join('；')
       : primary
         ? `${primaryLabel}：${primaryAction}${continuationText ? `；${continuationText}` : ''}`

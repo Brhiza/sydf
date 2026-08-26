@@ -123,21 +123,22 @@ function expectEvidenceDistribution(result: DailyFortuneResult) {
     expect(item.detail).toMatch(new RegExp(`\\d+个${unit}里，.+有\\d+${measure}顺势、\\d+${measure}需要收紧，其余\\d+${measure}平稳`));
     if (item.key === 'opportunity' && item.sourceKey) expect(item.detail).toMatch(evidenceOpportunityMarkers[item.sourceKey]);
     if (item.key === 'caution' && item.sourceKey) expect(result.summary).toMatch(evidenceRiskMarkers[item.sourceKey]);
-    if (item.key === 'secondary') expect(item.detail).toMatch(/等.+后|完整休息|承载条件/);
+    if (item.key === 'secondary') expect(item.detail).toMatch(/承接|尚未闭环|前序|信息差|状态|同步基础/);
     expect(item.detail).not.toMatch(/六项综合排序|六项中相对最需要复核/);
   });
 }
 
 function expectContentRichTrend(result: DailyFortuneResult) {
   result.periodTrend.forEach((item) => {
-    expect(item.status).toMatch(/^(?:先稳|先做)?(?:工作|学习|钱款|沟通|出行|休息)(?:可落地)?$/);
-    expect(item.focus).not.toMatch(/可优先|日常节奏|接着/);
+    expect(item.status).toMatch(/工作|学习|钱款|沟通|出行|返程|状态|睡眠|任务|猜测/);
+    expect(item.status).not.toMatch(/^(?:先做|先稳)(?:工作|学习|钱款|沟通|出行|休息)$|可落地/);
+    expect(item.focus).not.toMatch(/可优先|日常节奏|接着|完成后再做|稳定后再做/);
     expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|验收|边界|复述|学习|任务量|切换|笔记|练习|资料|复盘|输出|款项|金额|付款|交易记录|报价|对账|比价|分歧|对方|事实|共识|意图|推测|信息差|沟通|路线|天气|证件|物品|行程|转场|机动时间|返程|睡眠|精力|疲劳|饮食|活动|承受量|注意力|休息/);
     expect(item.focus.length).toBeGreaterThan(8);
-    const topics = [...item.focus.matchAll(/(?:(?:完成后再做|稳定后再做|同时照顾|同步保留))?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
+    const topics = [...item.focus.matchAll(/(?:(?:同时推进|有余量再处理|同步照顾|留意))?(工作|学习|钱款|沟通|出行|休息)(?:先查|保留)?：/g)].map((match) => match[1]);
     expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
-    if (item.tone === 'cautious') expect(item.focus).toMatch(/先查：.*；.*保留：.*；(?:稳定后再做|同步保留)/);
-    else expect(item.focus).toMatch(/完成后再做|同时照顾/);
+    if (item.tone === 'cautious') expect(item.focus).toMatch(/先查：.*；.*保留：/);
+    else expect(item.focus).toMatch(/同时推进|有余量再处理|同步照顾|留意/);
     expect(item.focus).not.toContain('不扩大范围');
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
@@ -192,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v80');
+      expect(serialized).toContain('2026-08-26-v82');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -484,7 +485,10 @@ describe('今日、月运、年运统一周期算法', () => {
     results.filter((result) => result.actionTips[1]?.tone === 'support').forEach((result) => {
       expect(result.actionTips[1]?.label).toMatch(/^(?:随后(?:工作|学习|钱款|沟通|出行)|同时顾好休息)$/);
       expect(result.actionTips[1]?.tone).toBe('support');
-      expect(result.evidenceInsights[1]).toMatchObject({ key: 'secondary', label: '配合项' });
+      expect(result.evidenceInsights[1]).toMatchObject({
+        key: 'secondary',
+        label: result.evidenceInsights[1]?.sourceKey === 'wellbeing' ? '同步基础' : '承接关系',
+      });
       expect(`${result.actionTips[1]?.text}${result.evidenceInsights[1]?.detail}`).not.toMatch(/没有明确风险窗口|相对优势最弱|记得检查/);
     });
     results.filter((result) => result.actionTips[1]?.tone === 'notice').forEach((result) => {
