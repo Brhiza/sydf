@@ -125,16 +125,18 @@ describe('今日运势批量内容质量', () => {
       if (result.period !== 'today') {
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段)里.+有\d+(?:天|段)得到支持、\d+(?:天|段)需要回避/));
         result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段)里.+有\d+(?:天|段)表现受限、\d+(?:天|段)得到支持/));
-        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/当(?:路线|地点)的.+接近时.+判断依据主要是：/));
-        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/不(?:适合主动把|宜把它设为).+判断依据主要是：/));
+        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/若候选(?:路线|地点)的现实条件接近.+作为本期.+次级筛选.+判断依据主要是：/));
+        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/本期不把.+作为.+相关外出的首选.+判断依据主要是：/));
         [...result.goodDirections, ...result.avoidDirections].forEach((item) => {
           expect(item.detail).not.toMatch(/常见用途：|常见依据：|常见限制：|出现\d+次/);
         });
         if (result.reference.direction !== '不固定') expect(result.reference.directionNote).toMatch(/\d+个(?:日期|节气阶段)/);
       } else {
-        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/更适合作为.+尤其用于.+。只有.+时才优先.+判断依据：/));
-        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/不适合主动安排.+。必须前往时.+判断依据：/));
+        result.goodDirections.forEach((item) => expect(item.detail).toMatch(/若候选地点的距离、成本和安全条件接近.+现实差异明显时不为方位绕路。盘面依据：/));
+        result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/不作为本期.+相关外出的首选。必须前往时.+盘面依据：/));
       }
+      expect(result.reference.symbolicNote).not.toMatch(/看到标记时|检查/);
+      expect(result.reference.itemNote).toContain(result.reference.item);
       const counts = result.periodTrend.reduce((map, item) => map.set(item.focus, (map.get(item.focus) || 0) + 1), new Map<string, number>());
       expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);
       const statusCounts = result.periodTrend.reduce((map, item) => map.set(item.status, (map.get(item.status) || 0) + 1), new Map<string, number>());

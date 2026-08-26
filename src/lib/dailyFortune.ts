@@ -604,7 +604,6 @@ interface PeriodPersonalGuidance {
 }
 
 interface PeriodReferenceGuidance {
-  check: string;
   itemUse: string;
 }
 
@@ -738,53 +737,41 @@ const periodPersonalGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<str
 const periodReferenceGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodReferenceGuidance>> = {
   month: {
     career: {
-      check: '本月任务中哪些已有稳定交接，哪些仍在重复改动',
       itemUse: '让它作为更新本月任务表的固定提示，只补充责任变化、实际完成和未闭环事项',
     },
     study: {
-      check: '本月多轮输出是否反复卡在同一要点，学习范围是否需要收拢',
       itemUse: '让它提示你把本月每次复述、练习和成品结果记在同一处，月末据此判断真实掌握',
     },
     wealth: {
-      check: '本月现金余量、待付款和合作义务是否仍在预算内',
       itemUse: '让它提醒你更新本月资金表，只记录会改变余额或责任期限的事项',
     },
     relationship: {
-      check: '本月共识在后续行动中是否仍成立，同一信息差是否再次出现',
       itemUse: '让它提醒你保留本月关键沟通的事实、共识和执行结果，用后续行动验证',
     },
     travel: {
-      check: '本月多次行程在哪个转场或返程环节反复失去余量',
       itemUse: '让它提示你汇总本月延误位置与替代路线，下次优先修正重复出现的节点',
     },
     wellbeing: {
-      check: '本月睡眠、进食和注意力是否持续恢复，哪类安排最容易造成透支',
       itemUse: '让它提醒你记录本月恢复速度而非单日情绪，据此调整后续任务密度',
     },
   },
   year: {
     career: {
-      check: '全年哪些职责已经形成可重复交接，哪些仍依赖临时救火',
       itemUse: '让它提示你保留一份全年工作方法，只沉淀经过不同任务验证的交接与验收规则',
     },
     study: {
-      check: '全年学习方法能否迁移到陌生问题，还是只增加了课程与资料',
       itemUse: '让它提示你维护一份全年能力记录，用新问题、成品和复盘结果证明方法确实可迁移',
     },
     wealth: {
-      check: '全年现金流能否覆盖低收入月份、固定成本与长期付款',
       itemUse: '让它提示你持续更新全年资金底表，把固定责任、可调支出和预留资金分开记录',
     },
     relationship: {
-      check: '全年同类误解是否逐步减少，沟通约定能否在不同情境继续使用',
       itemUse: '让它提示你记录全年关键关系中的事实确认、共同约定和执行偏差，只修正反复出现的环节',
     },
     travel: {
-      check: '全年哪些路线与时段能够稳定复用，哪些延误仍在重复发生',
       itemUse: '让它提示你维护全年出行方案，保留可靠路线、常见延误点和真正可用的替代选择',
     },
     wellbeing: {
-      check: '全年恢复基线能否经过忙闲变化，还是持续依赖临时补觉与停工',
       itemUse: '让它提示你维护全年恢复记录，比较忙闲阶段的睡眠、进食、活动与注意力变化',
     },
   },
@@ -911,20 +898,12 @@ function personalActionGuidance(definition: TopicDefinition, period: FortunePeri
   };
 }
 
-function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): PeriodReferenceGuidance {
-  if (period === 'today') {
-    return {
-      check: definition.check,
-      itemUse: '',
-    };
-  }
-  return periodReferenceGuidance[period][definition.key] || {
-    check: definition.check,
-    itemUse: '',
-  };
+function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
+  if (period === 'today') return '';
+  return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v114';
+const dailyFortuneCacheVersion = '2026-08-27-v115';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2825,13 +2804,13 @@ function buildSingleDirections(chart: QimenData, personal: PersonalContext | nul
     .sort((left, right) => personalDirectionScore(chart, right.gong, personal) - personalDirectionScore(chart, left.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: `今天${item.direction}更适合作为主动行程的第一段方向，当前主线是${focus.shortLabel}，尤其用于${focusUse}。只有路线时间、成本和安全条件接近时才优先，不必为了方位绕路；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面信号共同支持'}。`,
+    detail: `若候选地点的距离、成本和安全条件接近，今天可优先${item.direction}，用于本期${focus.shortLabel}：${focusUse}；现实差异明显时不为方位绕路。盘面依据：${summarizeDirectionReasons(item.reasons) || '多项盘面信号共同支持'}。`,
   }));
   const avoidDirections = [...(chart.directions?.avoidDirections || [])]
     .sort((left, right) => personalDirectionScore(chart, left.gong, personal) - personalDirectionScore(chart, right.gong, personal))
     .slice(0, 2).map((item) => ({
     direction: item.direction,
-    detail: `今天${item.direction}不适合主动安排与${focus.shortLabel}相关且时间紧、变数多的行程。必须前往时，先确认路线、返程和备选方案；判断依据：${summarizeDirectionReasons(item.reasons) || '多项盘面限制共同出现'}。`,
+    detail: `今天${item.direction}不作为本期${focus.shortLabel}相关外出的首选。必须前往时，优先调整出发时间或地点，并保留替代安排；盘面依据：${summarizeDirectionReasons(item.reasons) || '多项盘面限制共同出现'}。`,
   }));
   return { goodDirections, avoidDirections };
 }
@@ -2884,9 +2863,7 @@ function buildPeriodDirections(
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.good}${countUnit}得到支持、${value.avoid}${countUnit}需要回避，${directionSignalConclusion(period, value.good, value.avoid, analyses.length, true)}。${period === 'year'
-        ? `当地点的交通、预算和现实机会接近时，可把它作为全年${focus.shortLabel}相关地点的辅助筛选，主要用于${focusUse}；不应替代实际机会与成本判断。`
-        : `当路线的时间、成本和安全条件接近时，可优先用于本月${focusUse}；普通通勤或临时小事不必迁就方位。`}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.goodReasons)) || '多项盘面信号共同支持'}。`,
+      detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.good}${countUnit}得到支持、${value.avoid}${countUnit}需要回避，${directionSignalConclusion(period, value.good, value.avoid, analyses.length, true)}。若候选${period === 'year' ? '地点' : '路线'}的现实条件接近，可把${direction}作为本期${focus.shortLabel}的次级筛选，主要用于${focusUse}；差异明显时不用迁就。判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.goodReasons)) || '多项盘面信号共同支持'}。`,
     }));
   const avoidDirections = [...counts.entries()]
     .filter(([, value]) => value.avoid >= avoidThreshold && value.avoid > value.good)
@@ -2894,9 +2871,7 @@ function buildPeriodDirections(
     .slice(0, 2)
     .map(([direction, value]) => ({
       direction,
-      detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.avoid}${countUnit}表现受限、${value.good}${countUnit}得到支持，${directionSignalConclusion(period, value.avoid, value.good, analyses.length, false)}。${period === 'year'
-        ? `不宜把它设为全年${focus.shortLabel}相关地点的固定偏好；必须前往时，先核对交通、返程和替代地点。`
-        : `不适合主动把本月${focus.shortLabel}相关且时间紧、协调成本高的事项反复安排在该方向；必须前往时，提前确认路线、返程并留出改线余量。`}判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.avoidReasons)) || '多项盘面限制共同出现'}。`,
+      detail: `${periodLabel}${analyses.length}个${sampleUnit}里，${direction}有${value.avoid}${countUnit}表现受限、${value.good}${countUnit}得到支持，${directionSignalConclusion(period, value.avoid, value.good, analyses.length, false)}。本期不把${direction}作为${focus.shortLabel}相关外出的首选；必须前往时优先调整时间、地点或执行方式，不因方位取消必要事项。判断依据主要是：${summarizeDirectionReasons(mostFrequent(value.avoidReasons)) || '多项盘面限制共同出现'}。`,
     }));
   return { goodDirections, avoidDirections };
 }
@@ -3265,20 +3240,20 @@ function buildReference(
   };
   const periodUse = period === 'today' ? '今天' : period === 'month' ? '本月' : '今年';
   const colorUse = `可任选一种标记${periodUse}的${referenceTargets[focus.key] || `${focusLabel}事项`}`;
-  const guidance = referenceGuidance(focus, period);
-  const itemNote = (period === 'today' ? item.note : guidance.itemUse).replace(/[。；]+$/, '');
+  const itemUse = period === 'today' ? item.note : referenceItemUse(focus, period) || item.note;
+  const normalizedItemUse = itemUse.replace(/[。；]+$/, '');
   return {
     element,
     colors,
     numbers,
-    symbolicNote: `${elementBasis}，偏向${elementMeanings[element]}。${colorNames}${colorUse}；看到标记时，检查${guidance.check}。`,
+    symbolicNote: `${elementBasis}，偏向${elementMeanings[element]}。${colorNames}${colorUse}。`,
     direction,
     directionNote: goodDirections.length
       ? goodDirections[0].detail
       : directionFallbackNote(period),
     item: item.name,
     itemSymbol: item.symbol,
-    itemNote: `它被选作${focusLabel}提醒物：${itemNote}。`,
+    itemNote: `${item.name}用于${focusLabel}执行：${normalizedItemUse}。`,
   };
 }
 

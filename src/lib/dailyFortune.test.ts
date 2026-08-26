@@ -152,7 +152,10 @@ function expectContentRichTrend(result: DailyFortuneResult) {
   });
   expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
   expect(result.reference.itemNote.length).toBeGreaterThan(22);
-  expect(result.reference.symbolicNote).toMatch(/偏向.+。.+可.+；看到标记时，检查/);
+  expect(result.reference.itemNote).toContain(result.reference.item);
+  expect(result.reference.itemNote).toMatch(/用于.+执行：/);
+  expect(result.reference.symbolicNote).toMatch(/偏向.+。.+可任选一种标记/);
+  expect(result.reference.symbolicNote).not.toMatch(/看到标记时|检查|提醒/);
   expect(result.reference.symbolicNote).not.toMatch(/数字|编号|投注|开奖/);
   const primary = result.categories.find((item) => ['本期主线', '守住基本盘'].includes(item.status));
   expect(primary).toBeTruthy();
@@ -202,7 +205,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v114');
+      expect(serialized).toContain('2026-08-27-v115');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -290,27 +293,27 @@ describe('今日、月运、年运统一周期算法', () => {
     const todayFocus = shortTopicLabels[today.actionTips[0]?.sourceKey || ''];
     expect(today.goodDirections.length).toBeGreaterThan(0);
     today.goodDirections.forEach((item) => {
-      expect(item.detail).toMatch(/更适合作为.+尤其用于.+。只有.+时才优先.+判断依据：/);
-      expect(item.detail).toContain(`当前主线是${todayFocus}`);
+      expect(item.detail).toMatch(/若候选地点的距离、成本和安全条件接近.+用于本期.+现实差异明显时不为方位绕路。盘面依据：/);
+      expect(item.detail).toContain(`本期${todayFocus}`);
       if (today.actionTips[0]?.sourceKey !== 'wealth') {
         expect(item.detail).not.toMatch(/求财|投资/);
       }
     });
     today.avoidDirections.forEach((item) => {
-      expect(item.detail).toMatch(/不适合主动安排.+。必须前往时.+判断依据：/);
-      expect(item.detail).toContain(`与${todayFocus}相关`);
+      expect(item.detail).toMatch(/不作为本期.+相关外出的首选。必须前往时.+盘面依据：/);
+      expect(item.detail).toContain(`本期${todayFocus}相关`);
     });
     expect(today.reference.directionNote).toBe(today.goodDirections[0]?.detail);
 
     const month = generateDailyFortune(date, undefined, 'month', date);
     const monthFocus = shortTopicLabels[month.actionTips[0]?.sourceKey || ''];
     month.goodDirections.forEach((item) => {
-      expect(item.detail).toMatch(/有\d+天得到支持、\d+天需要回避.+当路线的时间、成本和安全条件接近时.+判断依据主要是：/);
-      expect(item.detail).toContain(`本月${monthFocus}`);
+      expect(item.detail).toMatch(/有\d+天得到支持、\d+天需要回避.+若候选路线的现实条件接近.+作为本期.+次级筛选.+判断依据主要是：/);
+      expect(item.detail).toContain(`本期${monthFocus}`);
     });
     month.avoidDirections.forEach((item) => {
-      expect(item.detail).toMatch(/有\d+天表现受限、\d+天得到支持.+不适合主动把.+判断依据主要是：/);
-      expect(item.detail).toContain(`本月${monthFocus}相关`);
+      expect(item.detail).toMatch(/有\d+天表现受限、\d+天得到支持.+本期不把.+作为.+相关外出的首选.+判断依据主要是：/);
+      expect(item.detail).toContain(`${monthFocus}相关外出`);
     });
     [...month.goodDirections, ...month.avoidDirections].forEach((item) => {
       expect(item.detail).not.toMatch(/常见用途：|常见依据：|常见限制：|出现\d+次/);
@@ -335,12 +338,12 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(monthWithoutPreferredDirection?.reference.directionNote).not.toBe(yearWithoutPreferredDirection?.reference.directionNote);
     monthDirections.forEach((item) => {
       expect(item.detail).toMatch(/\d+个日期里/);
-      expect(item.detail).toMatch(/路线|返程/);
+      expect(item.detail).toMatch(/候选路线|相关外出的首选|调整时间|地点|执行方式/);
       expect(item.detail).toContain('判断依据主要是：');
     });
     yearDirections.forEach((item) => {
       expect(item.detail).toMatch(/\d+个节气阶段里/);
-      expect(item.detail).toMatch(/交通|返程/);
+      expect(item.detail).toMatch(/候选地点|相关外出的首选|调整时间|地点|执行方式/);
       expect(item.detail).toContain('判断依据主要是：');
     });
   }, 30_000);
@@ -462,9 +465,13 @@ describe('今日、月运、年运统一周期算法', () => {
     const month = generateDailyFortune(date, profile, 'month', date);
     const year = generateDailyFortune(date, profile, 'year', date);
 
-    expect(month.reference.symbolicNote).toMatch(/检查本月/);
+    expect(month.reference.symbolicNote).toMatch(/标记本月/);
+    expect(month.reference.symbolicNote).not.toContain('检查');
+    expect(month.reference.itemNote).toContain(month.reference.item);
     expect(month.reference.itemNote).toContain('本月');
-    expect(year.reference.symbolicNote).toMatch(/检查全年/);
+    expect(year.reference.symbolicNote).toMatch(/标记今年/);
+    expect(year.reference.symbolicNote).not.toContain('检查');
+    expect(year.reference.itemNote).toContain(year.reference.item);
     expect(year.reference.itemNote).toContain('全年');
     [month, year].forEach((result) => {
       expect(`${result.reference.symbolicNote}${result.reference.itemNote}`).not.toMatch(/每次只留一页|再次打开时先复述|出门前按证件|准备回应前先停一下|喝水时暂停一分钟|放在手边，提醒自己/);

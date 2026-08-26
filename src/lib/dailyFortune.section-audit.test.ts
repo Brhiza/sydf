@@ -47,9 +47,8 @@ describe('运势区块职责审计', () => {
         ]).filter((item) => item.text),
         ...result.periodTrend.map((item, index) => ({ key: `trend-${index}`, role: 'trend', sourceKey: undefined, text: item.focus })),
         ...result.timeWindows.map((item, index) => ({ key: `window-${index}`, role: 'window', sourceKey: undefined, text: item.coverage })),
-        { key: 'reference-symbolic', role: 'reference', sourceKey: undefined, text: result.reference.symbolicNote },
+        { key: 'reference-marker', role: 'reference', sourceKey: undefined, text: `${result.reference.symbolicNote}${result.reference.itemNote}` },
         { key: 'reference-direction', role: 'reference', sourceKey: undefined, text: result.reference.directionNote },
-        { key: 'reference-item', role: 'reference', sourceKey: undefined, text: result.reference.itemNote },
       ];
       const cautionSourceKey = result.evidenceInsights.find((item) => item.key === 'caution')?.sourceKey;
       const cautionCategory = result.categories.find((item) => item.key === cautionSourceKey && item.tone !== 'favorable');

@@ -65,10 +65,10 @@ const insightRows = computed(() => props.result.evidenceInsights.map((item) => (
 
 const referenceRows = computed(() => [
   {
-    key: 'element',
-    marker: '五',
-    title: `五行参考：${props.result.reference.element}`,
-    detail: props.result.reference.symbolicNote,
+    key: 'marker',
+    marker: props.result.reference.itemSymbol,
+    title: `五行与执行标记：${props.result.reference.element} · ${props.result.reference.item}`,
+    detail: `${props.result.reference.symbolicNote}${props.result.reference.itemNote}`,
     tone: 'accent' as const,
   },
   {
@@ -80,13 +80,6 @@ const referenceRows = computed(() => [
         ? `优先${props.result.reference.direction}`
         : `方位参考：${props.result.reference.direction}`,
     detail: props.result.reference.directionNote,
-    tone: 'accent' as const,
-  },
-  {
-    key: 'item',
-    marker: props.result.reference.itemSymbol,
-    title: props.result.reference.item,
-    detail: props.result.reference.itemNote,
     tone: 'accent' as const,
   },
 ]);
