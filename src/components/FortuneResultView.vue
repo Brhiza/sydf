@@ -185,6 +185,26 @@ const leadKicker = computed(() => props.result.period === 'today'
       <UiReadingRows :items="categoryRows" marker-style="soft" />
     </UiReadingSection>
 
+    <UiReadingSection v-if="result.periodTrend.length" class="fortune-trend-section" :title="trendTitle">
+      <div class="fortune-trend-list" :class="`is-${result.period}`">
+        <article v-for="item in result.periodTrend" :key="item.dateKey" :class="`tone-${item.tone}`">
+          <header><strong>{{ item.label }}</strong><small v-if="item.dateLabel">{{ item.dateLabel }}</small></header>
+          <b>{{ item.status }}</b>
+          <p>{{ item.focus }}</p>
+        </article>
+      </div>
+    </UiReadingSection>
+
+    <UiReadingGrid ratio="equal">
+      <UiReadingSection :title="insightTitle">
+        <UiReadingRows :items="insightRows" marker-style="soft" />
+      </UiReadingSection>
+
+      <UiReadingSection :title="referenceTitle">
+        <UiReadingRows :items="referenceRows" marker-style="soft" />
+      </UiReadingSection>
+    </UiReadingGrid>
+
     <template v-if="result.modernAlmanac">
       <UiReadingSection
         class="fortune-guidance-intro"
@@ -205,26 +225,6 @@ const leadKicker = computed(() => props.result.period === 'today'
         </UiReadingSection>
       </UiReadingGrid>
     </template>
-
-    <UiReadingSection v-if="result.periodTrend.length" class="fortune-trend-section" :title="trendTitle">
-      <div class="fortune-trend-list" :class="`is-${result.period}`">
-        <article v-for="item in result.periodTrend" :key="item.dateKey" :class="`tone-${item.tone}`">
-          <header><strong>{{ item.label }}</strong><small v-if="item.dateLabel">{{ item.dateLabel }}</small></header>
-          <b>{{ item.status }}</b>
-          <p>{{ item.focus }}</p>
-        </article>
-      </div>
-    </UiReadingSection>
-
-    <UiReadingGrid ratio="equal">
-      <UiReadingSection :title="insightTitle">
-        <UiReadingRows :items="insightRows" marker-style="soft" />
-      </UiReadingSection>
-
-      <UiReadingSection :title="referenceTitle">
-        <UiReadingRows :items="referenceRows" marker-style="soft" />
-      </UiReadingSection>
-    </UiReadingGrid>
 
   </UiReadingWorkspace>
 </template>
