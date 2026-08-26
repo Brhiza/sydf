@@ -370,7 +370,7 @@ const topicDefinitions: TopicDefinition[] = [
     key: 'wellbeing', icon: '养', label: '身心状态', shortLabel: '休息', primaryDoor: '休门',
     supportStars: ['天心', '天任'], supportGods: ['太阴', '九地'],
     action: '给休息、饮食和轻度活动留出固定时间', prepare: '减少透支并安排规律休息', check: '睡眠、饮食、精力和身体感受',
-    completionRule: '完整休息后再看专注是否恢复；仍无法集中时直接减少任务量，不用短时兴奋代替恢复',
+    completionRule: '完整休息后再看注意力是否恢复；仍无法集中时直接减少任务量，不用短时兴奋代替恢复',
     cautionPattern: '疲劳可能在忙碌结束后才显现，主观状态会高估承受量',
     cautionAction: '如果睡眠、食欲和注意力中有两项同时偏弱，删去一项非必要安排，并优先补足休息。',
     fallback: '精力不足时先减量，不用靠压缩休息补进度',
@@ -436,7 +436,7 @@ function categoryCautionPattern(definition: TopicDefinition, period: FortunePeri
     : periodCategoryCautionPatterns[period][definition.key] || definition.cautionPattern;
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v93';
+const dailyFortuneCacheVersion = '2026-08-27-v94';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
