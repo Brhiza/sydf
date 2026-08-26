@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v92');
+      expect(serialized).toContain('2026-08-27-v93');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -333,6 +333,37 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
     expectToneAndGradeConsistent(result);
   });
+
+  it('日、月、年分项使用与周期匹配的完成标准', () => {
+    const date = new Date(2025, 7, 15, 12, 0, 0, 0);
+    const today = generateDailyFortune(date, profile, 'today');
+    const month = generateDailyFortune(date, profile, 'month');
+    const year = generateDailyFortune(date, profile, 'year');
+    const details = (result: DailyFortuneResult) => Object.fromEntries(
+      result.categories.map((category) => [category.key, category.detail]),
+    );
+    const todayDetails = details(today);
+    const monthDetails = details(month);
+    const yearDetails = details(year);
+
+    expect(todayDetails.study).toMatch(/一道题或一段输出/);
+    expect(monthDetails.career).toMatch(/本月反复出现的任务|本月多次/);
+    expect(monthDetails.study).toMatch(/本月多次复述、练习或输出/);
+    expect(monthDetails.wealth).toMatch(/本月多笔收支/);
+    expect(monthDetails.relationship).toMatch(/后续沟通和行动/);
+    expect(monthDetails.travel).toMatch(/本月多次外出/);
+    expect(monthDetails.wellbeing).toMatch(/本月睡眠、饮食和专注度/);
+    expect(yearDetails.career).toMatch(/跨阶段沿用/);
+    expect(yearDetails.study).toMatch(/迁移到新问题/);
+    expect(yearDetails.wealth).toMatch(/全年现金流/);
+    expect(yearDetails.relationship).toMatch(/可重复使用/);
+    expect(yearDetails.travel).toMatch(/全年多次出行/);
+    expect(yearDetails.wellbeing).toMatch(/支撑全年安排/);
+    Object.keys(todayDetails).forEach((key) => {
+      expect(monthDetails[key]).not.toBe(todayDetails[key]);
+      expect(yearDetails[key]).not.toBe(monthDetails[key]);
+    });
+  }, 15_000);
 
   it('查看当前日月时，分项不再推荐已经过去的时段或日期', () => {
     const runtime = new Date(2026, 7, 26, 12, 20, 0, 0);

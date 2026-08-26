@@ -386,7 +386,57 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-27-v92';
+const periodCategoryCompletionRules: Record<Exclude<FortunePeriod, 'today'>, Record<string, string>> = {
+  month: {
+    career: '把本月反复出现的任务归到同一套责任与验收清单；负责人、下一步和完成口径能够沿用，才进入本月正式排期',
+    study: '用本月多次复述、练习或输出检验理解；同一要点能够在不同问题中正确应用，才继续扩展资料和学习范围',
+    wealth: '把本月多笔收支、付款义务和合作条件汇总核对；现金去向、责任人与后续节点都能追溯，才安排新的支出或承诺',
+    relationship: '观察同一分歧在后续沟通和行动中是否减少；事实基础与真实意图都已对齐，形成的共识还能落实为双方共同遵守的承诺，才把问题视为真正谈清',
+    travel: '把本月多次外出的路线、延误和返程余量放在一起复盘；能找到可复用的出发条件与备选方案，才继续增加行程',
+    wellbeing: '以本月睡眠、饮食和专注度能否持续恢复判断负荷；只有多数安排后仍能回到稳定状态，才维持当前任务量',
+  },
+  year: {
+    career: '建立可以跨阶段沿用的负责人、交付标准与验收规则；换一项任务仍能按同一流程排期并收尾，才算形成可复用的工作能力',
+    study: '把知识整理成能迁移到新问题的理解与输出方法；课程或资料数量不能代替掌握，实际应用稳定后再扩大方向',
+    wealth: '用全年现金流、固定支出和长期义务判断承受力；预算规则能覆盖金额、付款节点及不同月份的波动，才增加长期投入或合作责任',
+    relationship: '形成可重复使用的事实确认、信息差处理和承诺边界；换到不同情境仍能减少误解，才说明关系基础稳定',
+    travel: '从全年多次出行中沉淀可靠路线、时间缓冲和返程条件；外部变化出现时仍有替代方案，才承担更复杂的行程',
+    wellbeing: '建立能够支撑全年安排的睡眠、饮食与恢复基线；忙闲变化后仍能恢复专注和体力，才把当前节奏视为可持续',
+  },
+};
+
+const periodCategoryCautionPatterns: Record<Exclude<FortunePeriod, 'today'>, Record<string, string>> = {
+  month: {
+    career: '同类任务持续出现交接空白时，先暂停新增排期，补齐负责人和验收口径',
+    study: '资料持续增加但复述与应用没有改善时，先停止扩充范围，回到尚未掌握的要点',
+    wealth: '月内账目无法串起金额、责任或付款节点时，先冻结新增支出与合作承诺',
+    relationship: '同一分歧在后续行动中反复出现时，先核对事实和原有共识，不把短暂和解当成解决',
+    travel: '多次行程都在转场或返程处失去余量时，先合并路线并删去低优先级安排',
+    wellbeing: '睡眠、食欲或专注度持续未恢复时，先下调本月任务密度，不用个别状态好的日子抵消透支',
+  },
+  year: {
+    career: '责任或验收规则每到新阶段都要重写时，先修正流程，不把一次顺利交付当成稳定能力',
+    study: '学习内容不断增加却不能迁移到新问题时，先收拢方向，不用课程数量代替真实掌握',
+    wealth: '固定支出、长期义务或现金流缺口没有进入预算时，先停止扩大投入，不用单笔收益判断承受力',
+    relationship: '相同误解在不同情境持续重现时，先重建沟通规则和承诺边界，不用一次表态掩盖结构性分歧',
+    travel: '路线、时间缓冲和返程安排始终依赖临时补救时，先减少复杂行程，补足稳定的替代方案',
+    wellbeing: '忙碌阶段反复挤占睡眠和恢复时间时，先调整全年节奏，不把短期硬撑视为可持续状态',
+  },
+};
+
+function categoryCompletionRule(definition: TopicDefinition, period: FortunePeriod) {
+  return period === 'today'
+    ? definition.completionRule
+    : periodCategoryCompletionRules[period][definition.key] || definition.completionRule;
+}
+
+function categoryCautionPattern(definition: TopicDefinition, period: FortunePeriod) {
+  return period === 'today'
+    ? definition.cautionPattern
+    : periodCategoryCautionPatterns[period][definition.key] || definition.cautionPattern;
+}
+
+const dailyFortuneCacheVersion = '2026-08-27-v93';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -1376,38 +1426,22 @@ function categoryDetailFromJudgment(
   const bestWindow = displayBestAnalysis ? formatAnalysisWindow(displayBestAnalysis, period) : '';
   const windowAlreadySummarized = timeWindowSummarizes(timeWindows, bestWindow, definition.shortLabel);
   const bestLead = !isPrimary && bestWindow && !windowAlreadySummarized ? `${bestWindow}可优先安排；` : '';
-  // 月内或年内偶有谨慎样本，只用于安排复核日期；只有综合评价本身偏谨慎，
-  // 才把它上升为整段周期的牵制，避免把局部波动误写成整体短板。
-  const hasActualCaution = tone === 'cautious';
-
+  const completionRule = categoryCompletionRule(definition, period);
   if (isCaution && tone !== 'favorable') {
-    if (!hasActualCaution) {
-      return definition.key === 'wellbeing'
-        ? '以完整休息后能否恢复专注作为减量信号，不用一时兴奋判断承受力。'
-        : `${definition.completionRule}。`;
-    }
-    if (definition.key === 'wellbeing') {
-      return '先保住基本作息；只有完整休息后专注度确实恢复，才把其他安排重新加回来。';
-    }
-    return `${definition.completionRule}。`;
+    return `${completionRule}。`;
   }
   if (isPrimary) {
-    if (definition.key === 'wellbeing' && tone !== 'cautious') return '以休息后能稳定恢复的精力作为继续安排其他事情的前提，不用短时兴奋代替真实恢复。';
-    if (tone !== 'cautious') return `${bestLead}${definition.completionRule}。`;
-    return `${definition.completionRule}。`;
+    if (tone !== 'cautious') return `${bestLead}${completionRule}。`;
+    return `${completionRule}。`;
   }
   if (isSecondary) {
-    if (definition.key === 'wellbeing') return `${bestLead}完整休息后专注度仍未恢复时，删去一项次要任务；恢复后再承接其他安排。`;
-    return `${bestLead}${definition.completionRule}。`;
+    return `${bestLead}${completionRule}。`;
   }
-  if (definition.key === 'wellbeing') {
-    return tone === 'favorable'
-      ? `${bestLead}状态可以承接日常安排，但仍要给休息、饮食和轻度活动留出固定时间。`
-      : `${bestLead}用睡眠、食欲和注意力三项判断任务量；其中两项偏弱就删去一项非必要安排。`;
+  if (tone === 'favorable') return `${bestLead}${completionRule}。`;
+  if (tone === 'cautious') {
+    return period === 'today' ? `${definition.personalReviewBoundary}。` : `${completionRule}。`;
   }
-  if (tone === 'favorable') return `${bestLead}${definition.completionRule}。`;
-  if (tone === 'cautious') return `${definition.personalReviewBoundary}。`;
-  return `${bestLead}${definition.completionRule}。`;
+  return `${bestLead}${completionRule}。`;
 }
 
 const categoryRoleStatuses: Record<string, { support: string; caution: string }> = {
@@ -1460,7 +1494,7 @@ function categoryBasis(
   worstAnalysis?: ChartAnalysis,
 ) {
   if (!worstAnalysis || !cautiousCount) return '';
-  return `${formatAnalysisWindow(worstAnalysis, period)}：${evaluation.definition.cautionPattern}。`;
+  return `${formatAnalysisWindow(worstAnalysis, period)}：${categoryCautionPattern(evaluation.definition, period)}。`;
 }
 
 function categoryBasisFromJudgment(
@@ -1472,14 +1506,14 @@ function categoryBasisFromJudgment(
   const isOverallCaution = aggregate.evaluation.definition.key === judgment.caution.evaluation.definition.key
     && judgment.cautionAnalysis
     && aggregate.worstAnalysis?.date.getTime() === judgment.cautionAnalysis.date.getTime();
-  if (isOverallCaution) return `主要风险：${aggregate.evaluation.definition.cautionPattern}。`;
+  if (isOverallCaution) return `主要风险：${categoryCautionPattern(aggregate.evaluation.definition, period)}。`;
   const worstWindow = aggregate.worstAnalysis ? formatAnalysisWindow(aggregate.worstAnalysis, period) : '';
   const cautionAlreadySummarized = timeWindowSummarizes(
     timeWindows,
     worstWindow,
     `${aggregate.evaluation.definition.shortLabel}需复核`,
   );
-  if (cautionAlreadySummarized) return `注意点：${aggregate.evaluation.definition.cautionPattern}。`;
+  if (cautionAlreadySummarized) return `注意点：${categoryCautionPattern(aggregate.evaluation.definition, period)}。`;
   return categoryBasis(aggregate.evaluation, period, aggregate.cautiousCount, aggregate.worstAnalysis);
 }
 
