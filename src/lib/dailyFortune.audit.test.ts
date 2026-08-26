@@ -92,4 +92,27 @@ describe('今日运势批量内容质量', () => {
       expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);
     });
   }, 60_000);
+
+  it('不同日期与剩余时段下，主线行动不会引用主线需复核窗口', () => {
+    const runtimes = dates.flatMap((date) => [8, 12, 16, 20, 22].map((hour) => (
+      new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 20, 0, 0)
+    )));
+    runtimes.forEach((runtime) => {
+      const result = generateDailyFortune(runtime, undefined, 'today', runtime);
+      const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
+      const primaryShortLabel = primaryAction?.label.replace(/^优先/, '') || '';
+      const primaryCategory = result.categories.find((item) => item.key === primaryAction?.sourceKey);
+      result.timeWindows.forEach((window) => {
+        const label = `${window.name} ${window.range}`;
+        const referencedByPrimary = primaryAction?.text.includes(label) || primaryCategory?.detail.includes(label);
+        if (!referencedByPrimary) return;
+        expect(
+          window.coverage,
+          JSON.stringify({ runtime, primaryAction, primaryCategory, window }),
+        ).toMatch(/^(?:优先|可安排)/);
+        expect(window.coverage).toContain(primaryShortLabel);
+        expect(window.coverage).not.toContain(`${primaryShortLabel}需复核`);
+      });
+    });
+  }, 60_000);
 });
