@@ -804,7 +804,33 @@ const periodReferenceGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<st
   },
 };
 
-const periodWindowGuidance: Record<Exclude<FortunePeriod, 'today'>, Record<string, PeriodWindowGuidance>> = {
+const periodWindowGuidance: Record<FortunePeriod, Record<string, PeriodWindowGuidance>> = {
+  today: {
+    career: {
+      use: ['交付一个可验收结果', '确认一项任务的责任与验收', '完成一次责任清楚的交接'],
+      caution: ['先核责任、交付物与验收口径', '先停下边界仍在变化的承诺', '先查临时事项会替换哪项任务'],
+    },
+    study: {
+      use: ['留下一个可复述的小结', '用一道练习检验真实理解', '完成一段可检查的输出'],
+      caution: ['先停新增资料并复述已有要点', '先减少任务切换再继续输入', '先定位一道反复出错的练习'],
+    },
+    wealth: {
+      use: ['闭合一笔金额与付款记录', '核对一项付款责任和节点', '留下一份可追溯的资金记录'],
+      caution: ['先核金额、责任与付款节点', '先停无法说明去向的付款', '先查合作责任是否已经写清'],
+    },
+    relationship: {
+      use: ['核对一处事实差异', '把一个分歧谈到下一步明确', '用一次后续行动验证共识'],
+      caution: ['先分清事实、感受与推测', '先停没有共同前提的承诺', '先查双方是否在谈同一件事'],
+    },
+    travel: {
+      use: ['确认一条出发与返程路线', '完成一次留有余量的行程', '备齐路线、物品与替代方案'],
+      caution: ['先核路线、天气与返程余量', '先删时间链条过紧的一站', '先确认延误后仍有替代路线'],
+    },
+    wellbeing: {
+      use: ['留出一段完整休息', '用休息后的专注度校准任务量', '恢复一次稳定进食与注意力'],
+      caution: ['先减任务并观察恢复速度', '先停用短时兴奋判断承受量', '先把睡眠与进食恢复到基线'],
+    },
+  },
   month: {
     career: {
       use: ['完成一次可验收交付', '把一项任务推进到明确验收', '完成一次责任清楚的交接'],
@@ -912,7 +938,7 @@ function referenceGuidance(definition: TopicDefinition, period: FortunePeriod): 
   };
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v104';
+const dailyFortuneCacheVersion = '2026-08-27-v106';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2835,8 +2861,8 @@ function buildPeriodDirections(analyses: ChartAnalysis[], period: 'month' | 'yea
   return { goodDirections, avoidDirections };
 }
 
-function buildPeriodWindowCoverage(
-  period: Exclude<FortunePeriod, 'today'>,
+function buildWindowCoverage(
+  period: FortunePeriod,
   focusCategories: CategoryEvaluation[],
   cautiousCategory?: CategoryEvaluation,
   favorable = false,
@@ -2862,7 +2888,7 @@ function buildPeriodWindowCoverage(
     return candidates[selectedIndex];
   };
   const focusText = focusCategories.map((item, index) => {
-    return `${item.definition.shortLabel}${takePhrase(item, 'use', index)}`;
+    return `${item.definition.shortLabel}·${takePhrase(item, 'use', index)}`;
   });
   const cautionText = cautiousCategory
     ? `${cautiousCategory.definition.shortLabel}需复核：${takePhrase(cautiousCategory, 'caution', focusCategories.length)}`
@@ -2871,6 +2897,7 @@ function buildPeriodWindowCoverage(
     return `${favorable ? '适合' : '可用于'}：${focusText.join('；')}${cautionText ? `；${cautionText}` : ''}`;
   }
   if (cautionText) return `只${cautionText}，暂不新增安排`;
+  if (period === 'today') return '只整理当前已有事项：补齐记录与收尾结果';
   return period === 'month'
     ? '只整理本月已有事项：补齐记录、责任与收尾结果'
     : '只复盘全年已有安排：保留可复用规则，停止长期无结果的投入';
@@ -2929,21 +2956,14 @@ function buildTimeWindows(
       const focusCategories = primaryCategory
         ? [primaryCategory, ...usableCategories.filter((item) => item.definition.key !== primaryKey)].slice(0, 2)
         : usableCategories.slice(0, 2);
-      const focusLabels = focusCategories.map((item) => item.definition.shortLabel);
-      const coverage = period === 'today'
-        ? focusLabels.length
-          ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
-          : cautiousCategory
-            ? `只复核${cautiousCategory.definition.shortLabel}，不安排新增`
-            : '只做已有事项的整理与收尾'
-        : buildPeriodWindowCoverage(
-            period,
-            focusCategories,
-            cautiousCategory,
-            favorableCategories.length > 0,
-            periodWindowUsage,
-            analysis.date.getMonth() * 31 + analysis.date.getDate() + analysisIndex,
-          );
+      const coverage = buildWindowCoverage(
+        period,
+        focusCategories,
+        cautiousCategory,
+        favorableCategories.length > 0,
+        periodWindowUsage,
+        analysis.date.getMonth() * 31 + analysis.date.getDate() + analysisIndex,
+      );
       if (period === 'today') {
         const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours()) || shichenSlots[0];
         return { name: dayPartForHour(slot.hour), range: formatTimeRange(slot.range), coverage };

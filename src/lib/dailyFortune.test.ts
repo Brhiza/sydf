@@ -193,7 +193,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v104');
+      expect(serialized).toContain('2026-08-27-v106');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -261,7 +261,9 @@ describe('今日、月运、年运统一周期算法', () => {
     result.timeWindows.forEach((window) => {
       expect(window.range).toMatch(/^\d{2}:\d{2}—\d{2}:\d{2}$/);
       expect(Number(window.range.slice(0, 2))).toBeGreaterThanOrEqual(7);
-      expect(window.coverage).toMatch(/优先|可安排|整理|复核/);
+      expect(window.coverage).toMatch(/适合|可用于|整理|复核/);
+      expect(window.coverage).toMatch(/交付|责任|验收|交接|复述|练习|输出|金额|付款|记录|事实|分歧|共识|路线|返程|余量|物品|休息|专注度|睡眠|进食|恢复/);
+      expect(window.coverage).not.toMatch(/^(?:优先|可安排)(?:工作|学习|钱款|沟通|出行|休息)(?:、(?:工作|学习|钱款|沟通|出行|休息))?(?:；(?:工作|学习|钱款|沟通|出行|休息)需复核)?$/);
     });
     expect(result.periodTrend).toHaveLength(7);
     expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-09', label: '明天', dateLabel: '8/9' });
@@ -656,7 +658,7 @@ describe('今日、月运、年运统一周期算法', () => {
     ).toContain(shortLabels[mainLine?.sourceKey || '']);
     const expectUniqueWindowUses = (windows: DailyFortuneTimeWindow[]) => {
       const fragments = windows.flatMap((window) => (
-        window.coverage.match(/(?:工作|学习|钱款|沟通|出行|休息)(?:需复核：)?[^；]+/g) || []
+        window.coverage.match(/(?:工作|学习|钱款|沟通|出行|休息)(?:·|需复核：)[^；]+/g) || []
       ));
       Object.values(shortLabels).forEach((label) => {
         const topicFragments = fragments.filter((fragment) => fragment.startsWith(label));

@@ -123,7 +123,7 @@ describe('今日运势批量内容质量', () => {
         expect(
           window.coverage,
           JSON.stringify({ runtime, primaryAction, primaryCategory, window }),
-        ).toMatch(/^(?:优先|可安排)/);
+        ).toMatch(/^(?:适合|可用于)/);
         expect(window.coverage).toContain(primaryShortLabel);
         expect(window.coverage).not.toContain(`${primaryShortLabel}需复核`);
       });
