@@ -176,7 +176,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-26-v56');
+      expect(serialized).toContain('2026-08-26-v57');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -244,7 +244,7 @@ describe('今日、月运、年运统一周期算法', () => {
     result.timeWindows.forEach((window) => {
       expect(window.range).toMatch(/^\d{2}:\d{2}—\d{2}:\d{2}$/);
       expect(Number(window.range.slice(0, 2))).toBeGreaterThanOrEqual(7);
-      expect(window.coverage).toMatch(/适合|可安排|整理|复核/);
+      expect(window.coverage).toMatch(/优先|可安排|整理|复核/);
     });
     expect(result.periodTrend).toHaveLength(7);
     expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-09', label: '明天', dateLabel: '8/9' });
@@ -477,6 +477,10 @@ describe('今日、月运、年运统一周期算法', () => {
     const mainLine = result.evidenceInsights.find((item) => item.key === 'opportunity');
     expect(mainLine?.sourceKey).toBeTruthy();
     expect(result.timeWindows[0]?.coverage).toContain(shortLabels[mainLine?.sourceKey || '']);
+    result.timeWindows.forEach((window) => {
+      expect(window.coverage).toMatch(/^(?:优先|可安排).+|只宜整理、复核$/);
+      expect(window.coverage).not.toMatch(/适合.+、.+、.+/);
+    });
 
     const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
     if (necessaryCheck?.sourceKey) {

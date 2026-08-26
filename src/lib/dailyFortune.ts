@@ -387,7 +387,7 @@ const topicDefinitions: TopicDefinition[] = [
 ];
 
 const periodLabels: Record<FortunePeriod, string> = { today: '今日', month: '月运', year: '年运' };
-const dailyFortuneCacheVersion = '2026-08-26-v56';
+const dailyFortuneCacheVersion = '2026-08-26-v57';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2042,6 +2042,7 @@ function buildTimeWindows(
   analyses: ChartAnalysis[],
   restrictTodayHours = true,
   preferredAnalysis?: ChartAnalysis,
+  primaryKey?: string,
 ) {
   const practicalAnalyses = period === 'today' ? analyses.filter(isPracticalHourAnalysis) : analyses;
   const candidates = period === 'today'
@@ -2062,10 +2063,15 @@ function buildTimeWindows(
     const rankedCategories = [...analysis.categories].sort((left, right) => categorySignalScore(right) - categorySignalScore(left));
     const favorableCategories = rankedCategories.filter((item) => item.tone === 'favorable');
     const balancedCategories = rankedCategories.filter((item) => item.tone === 'balanced');
-    const focusCategories = (favorableCategories.length ? favorableCategories : balancedCategories).slice(0, 3);
+    const cautiousCategory = [...rankedCategories].reverse().find((item) => item.tone === 'cautious');
+    const usableCategories = favorableCategories.length ? favorableCategories : balancedCategories;
+    const primaryCategory = usableCategories.find((item) => item.definition.key === primaryKey);
+    const focusCategories = primaryCategory
+      ? [primaryCategory, ...usableCategories.filter((item) => item.definition.key !== primaryKey)].slice(0, 2)
+      : usableCategories.slice(0, 2);
     const focusLabels = focusCategories.map((item) => item.definition.shortLabel);
     const coverage = focusLabels.length
-      ? `${favorableCategories.length ? '适合' : '可安排'}${focusLabels.join('、')}`
+      ? `${favorableCategories.length ? '优先' : '可安排'}${focusLabels.join('、')}${cautiousCategory ? `；${cautiousCategory.definition.shortLabel}需复核` : ''}`
       : '只宜整理、复核';
     if (period === 'today') {
       const slot = shichenSlots.find((item) => item.hour === analysis.date.getHours()) || shichenSlots[0];
@@ -2428,6 +2434,7 @@ function calculateDailyFortune(
     period === 'today' ? sampleAnalyses : windowAnalyses,
     isCurrentDay,
     judgment.bestAnalysis,
+    judgment.primary.evaluation.definition.key,
   );
   aggregates.forEach((aggregate) => {
     aggregate.category = {
@@ -2510,8 +2517,8 @@ function calculateDailyFortune(
     windowTitle: period === 'today'
       ? isCurrentDay ? '今天优先时段' : '当天优先时段'
       : period === 'month'
-        ? isCurrentMonth ? '本月优先日期' : '该月优先日期'
-        : isCurrentYear ? '今年重点阶段' : '该年重点阶段',
+        ? isCurrentMonth ? '本月关键日期' : '该月关键日期'
+        : isCurrentYear ? '今年关键阶段' : '该年关键阶段',
     weekday,
     lunarDate: calendar.lunarDate,
     ganzhi,

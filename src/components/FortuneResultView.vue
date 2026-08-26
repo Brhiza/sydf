@@ -175,12 +175,11 @@ const leadKicker = computed(() => props.result.period === 'today'
       />
     </template>
 
-    <UiReadingSection v-if="result.period !== 'today'" class="fortune-period-section" :title="result.windowTitle">
+    <UiReadingSection v-if="result.period !== 'today' && result.timeWindows.length" class="fortune-period-section" :title="result.windowTitle">
       <div class="fortune-period-list">
         <article v-for="item in result.timeWindows" :key="item.name + item.range">
           <strong>{{ item.name }}</strong><span v-if="item.range">{{ item.range }}</span><small>{{ item.coverage }}</small>
         </article>
-        <p v-if="!result.timeWindows.length">没有明显集中的优先日期，把重要事项拆成可确认的小步骤，按原计划推进。</p>
       </div>
     </UiReadingSection>
 
