@@ -126,7 +126,10 @@ describe('今日运势批量内容质量', () => {
           expect(result.summary).toMatch(/责任清楚|能够验收|理解与应用|金额、凭证与责任链|共同事实|一致的下一步|完整时间链|必要行程|注意力|承受量/);
         } else if (item.key === 'caution') {
           expect(item.detail).toMatch(/风险(?:仍)?集中在|顺势与收紧相抵|在多个.+反复失守/);
-          expect(result.summary).toMatch(/责任边界|连续注意力|节点未闭合|共同事实|转场|返程余量|状态未恢复|短时兴奋/);
+          expect(result.summary).toMatch(/责任交接变化|连续注意力中断|付款节点缺口|共同事实未对齐|转场与返程余量不足|恢复不足/);
+          const primaryLabel = shortTopicLabels[result.actionTips[0]?.sourceKey || ''];
+          expect(result.summary).toContain(primaryLabel);
+          expect(result.summary).not.toMatch(/可执行行程停在输入|闭合记录停在输入|一致结论停在输入|稳定承载停在输入|可检验成果停在无人接手|可执行行程停在无人接手/);
           expect(item.detail).toMatch(/前序任务|注意力被切碎|金额或责任未闭合|共同事实没有建立|时间余量被压缩|承受量被高估/);
         } else {
           expect(item.detail).toMatch(/承接|依赖|前序|信息差|状态|同步基础|主线事实/);
@@ -136,6 +139,7 @@ describe('今日运势批量内容质量', () => {
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
       expect(allText(result).join('\n')).not.toMatch(/有利窗口可集中用于本期主线|其他安排保持原定负荷|先按实际结果验证|不随单个窗口加量/);
       expect(allText(result).join('\n')).not.toMatch(/没有明确风险窗口|相对优势最弱/);
+      expect(result.summary).not.toMatch(/只承担主线|只沉淀主线|只闭合主线|只对齐主线|只安排主线|暂不增加|暂不进入|不扩大承诺|不增加会压缩|不按短时兴奋继续加量/);
       if (result.period !== 'today') {
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段)里.+有\d+(?:天|段)得到支持、\d+(?:天|段)需要回避/));
         result.avoidDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段)里.+有\d+(?:天|段)表现受限、\d+(?:天|段)得到支持/));

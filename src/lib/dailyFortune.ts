@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v122';
+const dailyFortuneCacheVersion = '2026-08-27-v125';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2399,22 +2399,22 @@ const summaryPrimaryDecisions: Record<string, string> = {
   wellbeing: '主要精力用于恢复注意力和实际承受量',
 };
 
-const summarySecondaryDecisions: Record<string, string> = {
-  career: '工作只承担主线已经确定的责任与交付',
-  study: '学习只沉淀主线已经验证的方法',
-  wealth: '钱款只闭合主线已经产生的成本与责任',
-  relationship: '沟通只对齐主线已经确定的事实与边界',
-  travel: '出行只安排主线已经确定的地点和结束节点',
-  wellbeing: '休息与进食同步保留，防止高估主线承受量',
+const summarySecondaryRelations: Record<string, string> = {
+  career: '工作负责让主线结果获得明确承接与验收',
+  study: '学习负责把主线方法沉淀成可复用步骤',
+  wealth: '钱款负责闭合主线产生的成本与责任',
+  relationship: '沟通负责让主线事实与边界得到共同确认',
+  travel: '出行负责为主线保留地点、转场和结束时间',
+  wellbeing: '身心状态决定主线判断力与持续时间',
 };
 
-const summaryCautionDecisions: Record<string, string> = {
-  career: '工作暂不增加责任边界仍在变化的新任务',
-  study: '学习暂不增加输入，直到连续注意力和输出检验恢复',
-  wealth: '钱款暂不进入金额、责任或节点未闭合的下一步',
-  relationship: '沟通在共同事实未确认前不扩大承诺',
-  travel: '出行不增加会压缩转场与返程余量的次要安排',
-  wellbeing: '状态未恢复前不按短时兴奋继续加量',
+const summaryCautionInterruptions: Record<string, (primaryLabel: string) => string> = {
+  career: (primaryLabel) => `责任交接变化会持续占用确认与返工时间，使${primaryLabel}的收尾时间反复后移`,
+  study: (primaryLabel) => `连续注意力中断会把精力耗在反复输入上，${primaryLabel}所需的检查与收尾会被延后`,
+  wealth: (primaryLabel) => `金额或付款节点缺口会持续占用资金与确认时间，使${primaryLabel}增加额外成本或责任`,
+  relationship: (primaryLabel) => `共同事实未对齐会让${primaryLabel}所依据的条件出现两套版本`,
+  travel: (primaryLabel) => `转场与返程余量不足会挤占${primaryLabel}能够连续处理的时间`,
+  wellbeing: (primaryLabel) => `恢复不足会同时降低${primaryLabel}所需的判断准确度和持续时间`,
 };
 
 function summaryStructureDiagnosis(
@@ -2463,13 +2463,14 @@ function summaryDecisionStatement(
 ) {
   const primaryDecision = summaryPrimaryDecisions[primary.category.key]
     || `主要精力用于让${primary.category.label}形成能够检查的结果`;
-  const secondaryDecision = summarySecondaryDecisions[secondary.category.key]
-    || `${secondary.category.label}只承接主线已经确定的部分`;
+  const secondaryRelation = summarySecondaryRelations[secondary.category.key]
+    || `${secondary.category.label}负责承接主线已经确定的结果`;
+  const primaryLabel = primary.evaluation.definition.shortLabel;
   const decisions = [primaryDecision];
-  if (!hasCaution || secondary.category.key !== caution.category.key) decisions.push(secondaryDecision);
+  if (!hasCaution || secondary.category.key !== caution.category.key) decisions.push(secondaryRelation);
   if (hasCaution) {
-    decisions.push(summaryCautionDecisions[caution.category.key]
-      || `${caution.category.label}先停止增加新的条件`);
+    decisions.push(summaryCautionInterruptions[caution.category.key]?.(primaryLabel)
+      || `${caution.category.label}会截断${primaryLabel}形成结果的条件`);
   }
   return `${decisions.join('；')}。`;
 }

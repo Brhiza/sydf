@@ -72,12 +72,12 @@ const categoryValueMarkers: Record<string, RegExp> = {
 };
 
 const evidenceRiskMarkers: Record<string, RegExp> = {
-  career: /责任边界|新任务/,
-  study: /停止增加输入|连续注意力|输出检验/,
-  wealth: /金额|责任|节点未闭合/,
-  relationship: /共同事实|扩大承诺/,
-  travel: /转场|返程余量|次要安排/,
-  wellbeing: /状态未恢复|短时兴奋|继续加量/,
+  career: /责任交接变化|确认与返工时间|收尾时间反复后移/,
+  study: /连续注意力中断|反复输入|检查与收尾/,
+  wealth: /金额|付款节点缺口|额外成本或责任/,
+  relationship: /共同事实未对齐|两套版本/,
+  travel: /转场|返程余量不足|连续处理的时间/,
+  wellbeing: /恢复不足|判断准确度和持续时间/,
 };
 
 const evidenceOpportunityMarkers: Record<string, RegExp> = {
@@ -206,7 +206,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v122');
+      expect(serialized).toContain('2026-08-27-v125');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
