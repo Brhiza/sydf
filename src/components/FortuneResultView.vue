@@ -55,11 +55,29 @@ const timeRows = computed(() => props.result.timeWindows.map((item) => ({
   tone: 'accent' as const,
 })));
 
+function splitReadingDetail(detail: string) {
+  const parts = detail.match(/[^。！？]+[。！？]?/g)
+    ?.map((part) => part.trim())
+    .filter(Boolean) || [];
+  return parts.length > 1 ? parts : undefined;
+}
+
+function splitInsightDetail(key: string, detail: string) {
+  const parts = splitReadingDetail(detail);
+  if (key !== 'opportunity' || !parts || parts.length < 5) return parts;
+  return [
+    parts.slice(0, 2).join(''),
+    parts.slice(2, -1).join(''),
+    parts.at(-1)!,
+  ];
+}
+
 const insightRows = computed(() => props.result.evidenceInsights.map((item) => ({
   key: item.key,
   marker: item.label.slice(0, 1),
   title: item.title,
   detail: item.detail,
+  details: splitInsightDetail(item.key, item.detail),
   tone: readingTone(item.tone),
 })));
 
@@ -69,6 +87,7 @@ const referenceRows = computed(() => [
     marker: props.result.reference.itemSymbol,
     title: `五行与执行标记：${props.result.reference.element} · ${props.result.reference.item}`,
     detail: `${props.result.reference.symbolicNote}${props.result.reference.itemNote}`,
+    details: splitReadingDetail(`${props.result.reference.symbolicNote}${props.result.reference.itemNote}`),
     tone: 'accent' as const,
   },
   {
@@ -80,6 +99,7 @@ const referenceRows = computed(() => [
         ? `优先${props.result.reference.direction}`
         : `方位参考：${props.result.reference.direction}`,
     detail: props.result.reference.directionNote,
+    details: splitReadingDetail(props.result.reference.directionNote),
     tone: 'accent' as const,
   },
 ]);
