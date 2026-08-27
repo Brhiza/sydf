@@ -2311,6 +2311,7 @@ body { background: var(--canvas); }
 .case-switcher-list small { color: var(--muted); font-size: var(--type-caption); margin-top: 2px; }
 .case-switcher-list svg { color: var(--sage); }
 .case-switcher-avatar { align-items: center; background: var(--sage-soft); border-radius: 9px; color: var(--sage); display: inline-flex; font-size: var(--type-control); font-weight: 600; height: 32px; justify-content: center; width: 32px; }
+.case-switcher-avatar.is-none { background: var(--surface-muted); color: var(--muted); }
 .case-switcher-manage { align-items: center; background: var(--surface-muted); border-top: 1px solid var(--line); color: var(--muted); display: flex; font-size: var(--type-small); gap: 7px; padding: 11px 13px; text-align: left; width: 100%; }
 .case-switcher-manage:hover { color: var(--accent-strong); }
 .case-switcher-manage svg:last-child { margin-left: auto; }

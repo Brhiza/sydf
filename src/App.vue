@@ -196,7 +196,7 @@ import {
   type InstantTimeStandard,
 } from './lib/instantChart';
 import { getCalendarEvents } from './lib/calendarEvents';
-import type { SelectableCaseProfile } from './lib/caseSelection';
+import { normalizeSelectedCaseId, type SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import {
@@ -517,6 +517,7 @@ type AlmanacMonthFilter = 'all' | AlmanacPurpose;
 
 const ONBOARDING_STORAGE_KEY = 'shiyue-onboarding-v1';
 const BAZI_FORTUNE_COLUMN_STORAGE_KEY = 'shiyue-bazi-fortune-columns-v1';
+const ACTIVE_CASE_STORAGE_KEY = 'shiyue-active-case-v1';
 const onboardingSteps = ['偏好', '须知'] as const;
 const answerPreferenceOptions: Array<{ value: AiAnswerPreference; label: string; summary: string; description: string }> = [
   { value: 'chat', label: '日常聊天', summary: '自然直说', description: '像熟悉你的朋友，用白话直接回答' },
@@ -807,6 +808,7 @@ function createNewCaseDraft(): CaseProfile {
     name: '',
     date: '',
     time: '',
+    timeBasis: 'clock',
   };
 }
 
@@ -871,7 +873,7 @@ const instantObserverDraft = ref<CaseProfile>({
   longitude: '',
 });
 const chartKind = ref<ChartKind>('bazi');
-const selectedCaseId = ref('draft-case');
+const selectedCaseId = ref('');
 const question = ref('');
 const isReading = ref(false);
 const chartLoading = ref(false);
@@ -1309,10 +1311,10 @@ const commonBaziShensha = [
   '孤辰', '寡宿', '孤虚', '劫煞', '亡神', '灾煞', '血刃', '血光', '飞刃', '元辰', '勾绞', '童子',
 ];
 const selectedMeta = computed(() => kindMeta[selectedKind.value]);
-const currentCase = computed(() => cases.value.find((item) => item.id === selectedCaseId.value) || cases.value[0] || draftCase.value);
+const activeCase = computed(() => cases.value.find((item) => item.id === selectedCaseId.value) || null);
+const currentCase = computed(() => activeCase.value || draftCase.value);
 const editableCase = computed(() => caseEditorDraft.value || currentCase.value);
-const defaultCase = computed(() => cases.value.find((item) => item.isDefault) || cases.value[0] || draftCase.value);
-const activeGlobalCaseId = computed(() => cases.value.some((item) => item.id === currentCase.value.id) && isAlmanacProfileComplete(currentCase.value) ? currentCase.value.id : '');
+const activeGlobalCaseId = computed(() => activeCase.value && isAlmanacProfileComplete(activeCase.value) ? activeCase.value.id : '');
 const sortedCases = computed(() => [...cases.value].sort((left, right) => (
   Number(right.isDefault) - Number(left.isDefault)
   || left.label.localeCompare(right.label, 'zh-CN')
@@ -2097,7 +2099,11 @@ async function restoreCases() {
   } catch {
     cases.value = [];
   }
-  selectedCaseId.value = defaultCase.value.id;
+  try {
+    selectedCaseId.value = normalizeSelectedCaseId(localStorage.getItem(ACTIVE_CASE_STORAGE_KEY), cases.value);
+  } catch {
+    selectedCaseId.value = '';
+  }
 }
 
 function restoreHistory() {
@@ -2290,6 +2296,14 @@ function persistCases() {
   } catch {
     showToast('案例无法保存，请检查浏览器存储空间或隐私设置。');
     return false;
+  }
+}
+
+function persistSelectedCaseId() {
+  try {
+    localStorage.setItem(ACTIVE_CASE_STORAGE_KEY, selectedCaseId.value);
+  } catch {
+    // 浏览器禁用本地存储时，选择仍在当前页面内生效。
   }
 }
 
@@ -2915,7 +2929,7 @@ async function resolveAgentSelection(questionText: string) {
       : homeMode.value === 'chart' ? homeChartKind.value : homeMode.value === 'instant' ? instantChartKind.value : selectedKind.value;
     const selectionPayload = {
       question: questionText,
-      hasProfile: Boolean(cases.value.length && currentCase.value?.date && currentCase.value?.time),
+      hasProfile: Boolean(activeCase.value?.date && activeCase.value?.time),
       inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
       previousTool,
       activeTool,
@@ -3642,7 +3656,7 @@ async function chooseChart(kind: ChartKind) {
     }
   }
   chartKind.value = kind;
-  const cached = currentCase.value?.date && currentCase.value?.time ? getCachedChart(kind, currentCase.value) : null;
+  const cached = activeCase.value?.date && activeCase.value?.time ? getCachedChart(kind, activeCase.value) : null;
   if (cached) {
     applyChartResult(kind, cached.result, cached.createdAt);
   } else {
@@ -3687,13 +3701,15 @@ function toggleCaseSwitcher() {
   showCaseSwitcher.value = !showCaseSwitcher.value;
   caseSwitcherSearch.value = '';
   showAiPicker.value = false;
+  showToolPicker.value = false;
   showHistory.value = false;
   showMobileNav.value = false;
 }
 
 function selectCase(id: string) {
-  if (!cases.value.some((profile) => profile.id === id)) return;
+  if (id && !cases.value.some((profile) => profile.id === id)) return;
   selectedCaseId.value = id;
+  persistSelectedCaseId();
   showCaseSwitcher.value = false;
   caseSwitcherSearch.value = '';
   formError.value = '';
@@ -4217,7 +4233,7 @@ function caseValidationMessage(profile: CaseProfile) {
   } catch {
     return '出生日期或时间无效，请重新选择。';
   }
-  if (!profile.regionId || !profile.locationName) return '请选择出生地区。';
+  if (profile.timeBasis === 'trueSolar' && (!profile.regionId || !profile.locationName)) return '请选择出生地区。';
   return '';
 }
 
@@ -4241,18 +4257,16 @@ function saveNewCase() {
     setNewCaseError(validationError, validationError.includes('地区') ? 'new-case-region' : 'new-case-date');
     return;
   }
-  if (!newCaseRegionConfirmed.value) {
-    setNewCaseError('请选择出生地区。', 'new-case-region');
-    return;
-  }
   const isFirstCase = cases.value.length === 0;
   profile.id = `case-${Date.now()}`;
   profile.label = profile.label.trim() || profile.name.trim() || `案例 ${cases.value.length + 1}`;
   profile.name = profile.name.trim() || profile.label;
   profile.isDefault = isFirstCase;
-  applyRegion(profile);
   cases.value = [...cases.value, profile];
-  if (isFirstCase) selectedCaseId.value = profile.id;
+  if (isFirstCase) {
+    selectedCaseId.value = profile.id;
+    persistSelectedCaseId();
+  }
   persistCases();
   resetNewCaseDraft();
   caseSearch.value = '';
@@ -4283,7 +4297,10 @@ function deleteCase() {
   const remaining = cases.value.filter((item) => item.id !== deletedCaseId);
   if (profile.isDefault && remaining[0]) remaining[0] = { ...remaining[0], isDefault: true };
   cases.value = remaining;
-  if (selectedCaseId.value === deletedCaseId) selectedCaseId.value = defaultCase.value.id;
+  if (selectedCaseId.value === deletedCaseId) {
+    selectedCaseId.value = '';
+    persistSelectedCaseId();
+  }
   caseEditorDraft.value = null;
   showCaseEditor.value = false;
   persistCases();
@@ -4303,7 +4320,6 @@ function saveCurrentCase() {
   if (cases.value.length === 1) {
     profile.isDefault = true;
   }
-  applyRegion(profile);
   cases.value = cases.value.map((item) => item.id === profile.id ? profile : item);
   clearCaseChartCache(profile.id, chartSignature(profile));
   caseEditorDraft.value = null;
@@ -4638,10 +4654,11 @@ async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
 
 async function beginReading() {
   if (isReading.value || isInterpreting.value || chartLoading.value) return;
-  if (homeMode.value === 'chart' && !cases.value.length) {
+  if (homeMode.value === 'chart' && !activeCase.value) {
     forcedBasicAgentSelection.value = null;
-    formError.value = '';
+    formError.value = cases.value.length ? '请先在顶部选择一个案例。' : '请先添加案例。';
     showToolPicker.value = false;
+    if (!cases.value.length) openCases();
     return;
   }
   formError.value = '';
@@ -4720,9 +4737,10 @@ async function beginReading() {
     return;
   }
   if (homeMode.value === 'chart') {
-    if (!cases.value.length || !currentCase.value?.date || !currentCase.value?.time) {
-      formError.value = '请先完善案例资料。';
-      openCases();
+    if (!activeCase.value?.date || !activeCase.value?.time) {
+      formError.value = activeCase.value ? '请先完善案例资料。' : '请先在顶部选择一个案例。';
+      if (!activeCase.value && cases.value.length) toggleCaseSwitcher();
+      else openCases();
       return;
     }
     if (usingBasicFallbackSelection) forcedBasicAgentSelection.value = null;
@@ -4865,9 +4883,10 @@ async function beginReading() {
     return;
   }
 
-  if (selectedMeta.value.needsBirth && !currentCase.value?.date) {
-    formError.value = '请先完善案例资料。';
-    openCases();
+  if (selectedMeta.value.needsBirth && !activeCase.value?.date) {
+    formError.value = activeCase.value ? '请先完善案例资料。' : '请先在顶部选择一个案例。';
+    if (!activeCase.value && cases.value.length) toggleCaseSwitcher();
+    else openCases();
     return;
   }
   homeState.value = 'chat';
@@ -4877,7 +4896,7 @@ async function beginReading() {
   await new Promise((resolve) => window.setTimeout(resolve, 320));
   if (sessionId !== chatSessionId) return;
   try {
-    const result = await runDivination(selectedKind.value, new Date(), currentCase.value, {
+    const result = await runDivination(selectedKind.value, new Date(), activeCase.value || undefined, {
       qimenScope: settings.qimenScope,
       qimenLayout: settings.qimenLayout,
       qimenJuMethod: settings.qimenJuMethod,
@@ -5151,11 +5170,11 @@ async function runChart(shouldRecord = true) {
   chartError.value = '';
   aiError.value = '';
   aiAnswer.value = '';
-  if (!cases.value.length || !currentCase.value?.date || !currentCase.value?.time) {
+  if (!activeCase.value?.date || !activeCase.value?.time) {
     chartResult.value = null;
     chartRecord.value = null;
     chartLoading.value = false;
-    chartError.value = '请先添加并完善案例资料。';
+    chartError.value = cases.value.length ? '请先在顶部选择一个案例。' : '请先添加并完善案例资料。';
     return;
   }
   const kind = chartKind.value as ChartKind;
@@ -5207,8 +5226,8 @@ let fortuneRequestId = 0;
 let homeFortuneRequestId = 0;
 
 function activeFortuneProfile() {
-  const profile = currentCase.value;
-  if (!cases.value.length || !/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return undefined;
+  const profile = activeCase.value;
+  if (!profile || !/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return undefined;
   const [year, month, day] = profile.date.split('-').map(Number);
   const [hour, minute] = profile.time.split(':').map(Number);
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
@@ -5748,13 +5767,14 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <h1 v-else class="topbar-page-title">{{ activePageTitle }}</h1>
         <div class="topbar-actions">
           <div ref="topbarCasePickerRef" class="topbar-case-picker">
-            <button class="case-trigger" type="button" :aria-expanded="showCaseSwitcher" aria-haspopup="menu" :aria-label="cases.length ? `快速切换案例，当前为${currentCase.label}` : '添加案例'" :title="cases.length ? `当前案例：${currentCase.label}` : '添加案例'" @click="toggleCaseSwitcher"><UserRound :size="16" /><span>{{ cases.length ? currentCase.label : '添加案例' }}</span><ChevronDown :size="13" /></button>
+            <button class="case-trigger" type="button" :aria-expanded="showCaseSwitcher" aria-haspopup="menu" :aria-label="cases.length ? `快速切换案例，当前为${activeCase?.label || '不使用案例'}` : '添加案例'" :title="cases.length ? `当前案例：${activeCase?.label || '不使用案例'}` : '添加案例'" @click="toggleCaseSwitcher"><UserRound :size="16" /><span>{{ cases.length ? activeCase?.label || '不使用案例' : '添加案例' }}</span><ChevronDown :size="13" /></button>
             <div v-if="showCaseSwitcher" class="case-switcher-menu" role="menu">
-              <div class="case-switcher-heading"><strong>快速切换</strong><small v-if="cases.length">当前使用：{{ currentCase.label }}</small><small v-else>还没有可用案例</small></div>
+              <div class="case-switcher-heading"><strong>全局案例</strong><small v-if="cases.length">当前使用：{{ activeCase?.label || '不使用案例' }}</small><small v-else>还没有可用案例</small></div>
               <label v-if="cases.length > 6" class="case-switcher-search"><Search :size="14" /><input v-model="caseSwitcherSearch" type="search" autocomplete="off" placeholder="搜索案例" aria-label="搜索可切换案例" /></label>
-              <div v-if="cases.length" class="case-switcher-list">
-                <button v-for="profile in filteredCaseSwitcherCases" :key="profile.id" type="button" role="menuitemradio" :aria-checked="currentCase.id === profile.id" :class="{ active: currentCase.id === profile.id }" @click="selectCase(profile.id)"><span class="case-switcher-avatar">{{ profile.label.slice(0, 1) }}</span><span><strong>{{ profile.label }}</strong><small>{{ formatCaseDate(profile) }} · {{ profile.time || '时间待补充' }}</small></span><Check v-if="currentCase.id === profile.id" :size="15" /></button>
-                <p v-if="!filteredCaseSwitcherCases.length" class="case-switcher-empty">没有找到案例</p>
+              <div class="case-switcher-list">
+                <button type="button" role="menuitemradio" :aria-checked="!activeCase" :class="{ active: !activeCase }" @click="selectCase('')"><span class="case-switcher-avatar is-none">无</span><span><strong>不使用案例</strong><small>占卜与通用内容不关联人物</small></span><Check v-if="!activeCase" :size="15" /></button>
+                <button v-for="profile in filteredCaseSwitcherCases" :key="profile.id" type="button" role="menuitemradio" :aria-checked="activeCase?.id === profile.id" :class="{ active: activeCase?.id === profile.id }" @click="selectCase(profile.id)"><span class="case-switcher-avatar">{{ profile.label.slice(0, 1) }}</span><span><strong>{{ profile.label }}</strong><small>{{ formatCaseDate(profile) }} · {{ profile.time || '时间待补充' }}</small></span><Check v-if="activeCase?.id === profile.id" :size="15" /></button>
+                <p v-if="cases.length && !filteredCaseSwitcherCases.length" class="case-switcher-empty">没有找到案例</p>
               </div>
               <button type="button" class="case-switcher-manage" @click="openCasesSection(cases.length ? 'records' : 'input')"><BookOpen :size="14" />{{ cases.length ? '管理案例' : '添加案例' }}<ChevronRight :size="14" /></button>
             </div>
@@ -5888,7 +5908,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                     </section>
                     <section v-if="basicAiFallbackPickerMode !== 'divination'" class="tool-panel-section chart-tool-panel-section">
                       <div class="tool-panel-section-head"><strong>本命盘</strong><small>{{ basicAiFallbackPickerMode ? '会读取当前案例' : '读取案例，星标设为默认' }}</small></div>
-                      <div class="chart-tool-grid-wrap"><div class="tool-panel-grid chart-tools"><div v-for="item in homeChartOptions" :key="item.kind" class="tool-panel-entry"><button type="button" class="tool-panel-item" :class="{ 'is-selected': homeMode === 'chart' && homeChartKind === item.kind }" :disabled="!cases.length" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button><button v-if="!basicAiFallbackPickerMode && cases.length" type="button" class="tool-panel-default-button" :class="{ active: isDefaultChartTool(item.kind) }" :aria-label="isDefaultChartTool(item.kind) ? `${item.label}已是默认工具` : `将${item.label}设为默认工具`" :aria-pressed="isDefaultChartTool(item.kind)" @click.stop="setDefaultHomeTool({ mode: 'chart', kind: item.kind })"><Star :size="13" :fill="isDefaultChartTool(item.kind) ? 'currentColor' : 'none'" /></button></div></div><div v-if="!cases.length" class="tool-panel-case-overlay"><button type="button" @click="openCases"><Plus :size="16" />添加案例</button></div></div>
+                      <div class="chart-tool-grid-wrap"><div class="tool-panel-grid chart-tools"><div v-for="item in homeChartOptions" :key="item.kind" class="tool-panel-entry"><button type="button" class="tool-panel-item" :class="{ 'is-selected': homeMode === 'chart' && homeChartKind === item.kind }" :disabled="!activeCase" @click="chooseHomeChart(item.kind)"><span class="tool-panel-icon">{{ item.icon }}</span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span></button><button v-if="!basicAiFallbackPickerMode && activeCase" type="button" class="tool-panel-default-button" :class="{ active: isDefaultChartTool(item.kind) }" :aria-label="isDefaultChartTool(item.kind) ? `${item.label}已是默认工具` : `将${item.label}设为默认工具`" :aria-pressed="isDefaultChartTool(item.kind)" @click.stop="setDefaultHomeTool({ mode: 'chart', kind: item.kind })"><Star :size="13" :fill="isDefaultChartTool(item.kind) ? 'currentColor' : 'none'" /></button></div></div><div v-if="!activeCase" class="tool-panel-case-overlay"><button type="button" @click="cases.length ? toggleCaseSwitcher() : openCases()"><Plus :size="16" />{{ cases.length ? '选择案例' : '添加案例' }}</button></div></div>
                     </section>
                   </div>
                 </div>
@@ -6108,11 +6128,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         </UiToolPage>
 
         <template v-else-if="activeView === 'charts'">
-          <UiPageShell v-if="!cases.length" class="screen charts-screen">
+          <UiPageShell v-if="!activeCase" class="screen charts-screen">
             <UiWorkspaceSurface padding="standard">
-              <UiEmptyState title="需要一份案例" description="请先在案例中保存出生资料。" compact>
+              <UiEmptyState :title="cases.length ? '请选择案例' : '需要一份案例'" :description="cases.length ? '本命盘需要先从顶部选择一个案例。' : '请先在案例中保存出生资料。'" compact>
                 <template #icon><UserRound :size="24" /></template>
-                <template #action><UiButton @click="openCases"><BookOpen :size="15" />前往案例</UiButton></template>
+                <template #action><UiButton @click="cases.length ? toggleCaseSwitcher() : openCases()"><BookOpen :size="15" />{{ cases.length ? '选择案例' : '前往案例' }}</UiButton></template>
               </UiEmptyState>
             </UiWorkspaceSurface>
           </UiPageShell>
@@ -6138,7 +6158,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         <CompatibilityView
           v-else-if="activeView === 'compatibility'"
           :cases="cases"
-          :active-case-id="currentCase.id"
+          :active-case-id="activeCase?.id || ''"
           :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel, promptSchoolChoices: appPreferences.promptSchoolChoices }"
           :ai-config="activeAiRequestConfig"
           :history-record="compatibilityHistoryRecord"
@@ -6163,7 +6183,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 </div>
                 <div class="birth-picker-control"><span>出生日期</span><button id="new-case-date" type="button" class="birth-picker-trigger" aria-label="选择出生日期" :aria-invalid="caseError.includes('日期') || caseError.includes('时间') || undefined" :aria-describedby="caseError.includes('日期') || caseError.includes('时间') ? 'new-case-error' : undefined" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'create')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
-                <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button id="new-case-region" type="button" class="birth-picker-trigger" aria-label="选择出生地区" :aria-invalid="caseError.includes('地区') || undefined" :aria-describedby="caseError.includes('地区') ? 'new-case-error' : undefined" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '请选择' }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="birth-picker-control birth-picker-region"><span>出生地区（选填）</span><button id="new-case-region" type="button" class="birth-picker-trigger" aria-label="选择出生地区，不选则按北京时间" :aria-invalid="caseError.includes('地区') || undefined" :aria-describedby="caseError.includes('地区') ? 'new-case-error' : undefined" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '不选则按北京时间' }}</strong><ChevronRight :size="15" /></button></div>
               </div>
               <div v-if="newCaseCalendar" class="birth-calendar"><div><small>公历</small><strong>{{ newCaseCalendar.solar }}</strong></div><div><small>农历</small><strong>{{ newCaseCalendar.lunar }}</strong></div><div><small>干支</small><strong>{{ newCaseCalendar.ganzhi }}</strong></div><div><small>节气 / 时辰</small><strong>{{ newCaseCalendar.jieqi }} · {{ newCaseCalendar.shichen }}</strong></div></div>
               <div v-if="newCaseCalendar?.trueSolar" class="solar-details"><div><small>真太阳时</small><strong>{{ newCaseCalendar.trueSolar.correctedDateTime }}</strong></div><div><small>校正时辰</small><strong>{{ newCaseCalendar.trueSolar.shichen }}</strong></div><div><small>总修正</small><strong>{{ newCaseCalendar.trueSolar.totalCorrectionMinutes.toFixed(1) }} 分钟</strong></div></div>
