@@ -14,7 +14,7 @@ export const appRouteViews = [
 ] as const;
 
 export type AppRouteView = typeof appRouteViews[number];
-export type AppRouteSettingsSection = 'preferences' | 'ai';
+export type AppRouteSettingsSection = 'preferences' | 'theme' | 'ai';
 export type AppRouteCasesSection = 'input' | 'records';
 
 export interface AppRouteState {
@@ -34,7 +34,7 @@ export function parseAppRoute(hash: string): AppRouteState {
 
   return {
     view,
-    settingsSection: view === 'settings' && section === 'ai' ? 'ai' : 'preferences',
+    settingsSection: view === 'settings' && (section === 'theme' || section === 'ai') ? section : 'preferences',
     casesSection: view === 'cases' && section === 'records' ? 'records' : 'input',
     history: parts.includes('history'),
   };

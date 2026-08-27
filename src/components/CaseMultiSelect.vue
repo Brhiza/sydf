@@ -149,7 +149,7 @@ function manageCases() {
 .case-multi-copy strong em { background: var(--surface-raised); border-radius: 99px; color: var(--accent-strong); font-size: 9px; font-style: normal; font-weight: 600; margin-left: 6px; padding: 2px 5px; vertical-align: 1px; }
 .case-multi-copy small { color: var(--muted); font-size: var(--type-micro); line-height: 1.45; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .case-multi-check { align-items: center; border: 1px solid var(--line); border-radius: 6px; color: white; display: inline-flex; height: 20px; justify-content: center; width: 20px; }
-.selected .case-multi-check { background: var(--accent); border-color: var(--accent); }
+.selected .case-multi-check { background: var(--accent-strong); border-color: var(--accent-strong); }
 .case-multi-empty { min-height: 150px; }
 .case-multi-confirm { min-width: 76px; }
 .case-multi-confirm:disabled { cursor: not-allowed; opacity: .45; }

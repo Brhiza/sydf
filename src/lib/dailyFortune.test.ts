@@ -6,6 +6,8 @@ import {
   isDailyFortuneProfileComplete,
   type DailyFortuneProfile,
   type DailyFortuneResult,
+  type DailyFortuneTimeWindow,
+  type FortunePeriod,
 } from './dailyFortune';
 
 const profile: DailyFortuneProfile = {
@@ -53,10 +55,119 @@ function periodEvaluation(result: DailyFortuneResult) {
     categories: result.categories,
     actionTips: result.actionTips,
     evidenceInsights: result.evidenceInsights,
+    periodTrend: result.periodTrend,
     reference: result.reference,
     goodDirections: result.goodDirections,
     avoidDirections: result.avoidDirections,
   };
+}
+
+const categoryValueMarkers: Record<string, RegExp> = {
+  career: /负责人|交付标准/,
+  study: /学习目标|笔记|练习|沉淀|输出|应用|掌握/,
+  wealth: /金额|付款节点|付款记录/,
+  relationship: /语气|真实意图|对方重点|信息差|事实基础|推断立场/,
+  travel: /路线|天气|时间余量|关键物品/,
+  wellbeing: /疲劳|睡眠|食欲|注意力|精力/,
+};
+
+const evidenceRiskMarkers: Record<string, RegExp> = {
+  career: /临时工作|工作交付|工作分工|工作插单|责任变化|责任交接/,
+  study: /资料|学习|信息输入|条款与成本信息/,
+  wealth: /金额|付款|费用|预算/,
+  relationship: /共同事实|沟通|同行人|接待方|分歧/,
+  travel: /转场|返程|路线|行程|会面迟到/,
+  wellbeing: /恢复不足/,
+};
+
+const evidenceOpportunityMarkers: Record<string, RegExp> = {
+  career: /责任|验收|交付|任务|接手/,
+  study: /学习成果|输入|专注|资料|复述|练习|输出|理解|应用/,
+  wealth: /款项|对账|交易|付款|收支|凭证|义务|结清|金额|责任|追溯/,
+  relationship: /事实|共识|沟通|关系/,
+  travel: /行程|路线|返程|出发|转场|回程/,
+  wellbeing: /完整休息|睡眠|进食|专注度|注意力|食欲|兴奋/,
+};
+
+const shortTopicLabels: Record<string, string> = {
+  career: '工作',
+  study: '学习',
+  wealth: '钱款',
+  relationship: '沟通',
+  travel: '出行',
+  wellbeing: '休息',
+};
+
+const referenceItemsByTopic: Record<string, string[]> = {
+  career: ['金属签字笔', '银色夹子', '暖色笔记本'],
+  study: ['木质书签', '暖色笔记本', '银色夹子'],
+  wealth: ['米色卡套', '金属签字笔', '方形收纳盒'],
+  relationship: ['圆润小挂件', '暖色笔记本', '小型绿植'],
+  travel: ['帆布袋', '蓝色卡套', '红色挂件'],
+  wellbeing: ['陶瓷杯', '小夜灯', '小型绿植'],
+};
+
+function expectContentRichCategories(result: DailyFortuneResult) {
+  const text = result.categories.map((item) => `${item.detail}${item.basis}`).join('');
+  expect(text).not.toMatch(/的重要决定多核对一次|条件明确就做，条件不齐就保留弹性|只在条件明确的阶段推进，其余时间保持弹性|不用只看一次完成了多少|确认承载条件|多分配一档精力|可用它配合主线|主线卡住时.+恢复进度|作为阶段成果|作为收尾|未达到这一标准的安排不计入本期进度|没有形成这一结果的安排仍视为未完成/);
+  const bases = result.categories.map((item) => item.basis).filter(Boolean);
+  expect(new Set(bases).size).toBe(bases.length);
+  result.categories.forEach((category) => {
+    expect(`${category.detail}${category.basis}`).toMatch(categoryValueMarkers[category.key]);
+    if (category.basis) expect(category.basis.length).toBeGreaterThan(24);
+    expect(category.status).not.toMatch(/按需安排|持续观察|随后安排|可作补充|暂不主攻|暂作维护|主线后再做|主线后补充|只作维护|维持基本量|暂不加量/);
+    const preferredWindow = category.detail.match(/^(.+?)可优先安排；/)?.[1];
+    const cautionWindow = category.basis.match(/^(.+)：/)?.[1];
+    if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
+  });
+  const specificStatuses = /本期主线|形成交付|收紧承诺|形成输出|减少切换|留下记录|暂停付款|对齐事实|暂停定性|备齐路线|删减行程|同步恢复|先减任务|先定边界|先稳专注|先核条款|先清信息|先定路线|先看精力/;
+  expect(result.categories.every((item) => specificStatuses.test(item.status))).toBe(true);
+  expect(new Set(result.categories.map((item) => item.status)).size).toBeGreaterThanOrEqual(3);
+}
+
+function expectEvidenceDistribution(result: DailyFortuneResult) {
+  const unit = result.period === 'today' ? '双小时时段' : result.period === 'month' ? '日期' : '节气阶段';
+  const measure = result.period === 'month' ? '天' : '段';
+  result.evidenceInsights.filter((item) => ['opportunity', 'caution', 'secondary'].includes(item.key)).forEach((item) => {
+    expect(item.detail).toMatch(new RegExp(`\\d+个${unit}里，.+有\\d+${measure}顺势、\\d+${measure}需要收紧，其余\\d+${measure}平稳`));
+    if (item.key === 'opportunity' && item.sourceKey) expect(item.detail).toMatch(evidenceOpportunityMarkers[item.sourceKey]);
+    if (item.key === 'caution' && item.sourceKey) expect(result.summary).toMatch(evidenceRiskMarkers[item.sourceKey]);
+    if (item.key === 'secondary') expect(item.detail).toMatch(/是否接得上|要同时看/);
+    expect(item.detail).not.toMatch(/六项综合排序|六项中相对最需要复核/);
+  });
+}
+
+function expectContentRichTrend(result: DailyFortuneResult) {
+  result.periodTrend.forEach((item) => {
+    expect(item.status).toMatch(/工作|学习|钱款|沟通|出行|返程|状态|睡眠|任务|猜测/);
+    expect(item.status).not.toMatch(/^(?:先做|先稳)(?:工作|学习|钱款|沟通|出行|休息)$|可落地/);
+    expect(item.focus).not.toMatch(/可优先|日常节奏|接着|完成后再做|稳定后再做/);
+    expect(item.focus).toMatch(/负责人|交付|分工|截止时间|承诺|验收|边界|复述|学习|任务量|切换|笔记|练习|资料|复盘|输出|款项|金额|付款|交易记录|报价|对账|比价|分歧|对方|事实|共识|意图|推测|信息差|沟通|路线|天气|证件|物品|行程|转场|机动时间|返程|睡眠|精力|疲劳|饮食|活动|承受量|注意力|休息/);
+    expect(item.focus.length).toBeGreaterThan(8);
+    const topics = [...item.focus.matchAll(/(工作|学习|钱款|沟通|出行|休息)：/g)].map((match) => match[1]);
+    const statusTopics = [...item.status.matchAll(/工作|学习|钱款|沟通|出行|休息/g)].map((match) => match[0]);
+    expect(new Set(topics).size).toBeGreaterThanOrEqual(2);
+    expect(new Set(statusTopics)).toEqual(new Set(topics));
+    expect(item.focus).not.toMatch(/同时推进|有余量再处理|同步照顾|留意|先查：|保留：/);
+    expect(item.focus).not.toContain('不扩大范围');
+  });
+  expect(result.reference.itemNote).not.toBe('放在手边，提醒自己按计划做事、及时收尾。');
+  expect(result.reference.itemNote.length).toBeGreaterThan(22);
+  expect(result.reference.itemNote).toContain(result.reference.item);
+  expect(result.reference.itemNote).toMatch(/用于.+执行：/);
+  expect(result.reference.symbolicNote).toMatch(/偏向.+。.+可任选一种标记/);
+  expect(result.reference.symbolicNote).not.toMatch(/看到标记时|检查|提醒/);
+  expect(result.reference.symbolicNote).not.toMatch(/数字|编号|投注|开奖/);
+  const primary = result.categories.find((item) => ['本期主线', '守住基本盘'].includes(item.status));
+  expect(primary).toBeTruthy();
+  expect(referenceItemsByTopic[primary!.key]).toContain(result.reference.item);
+}
+
+function expectTrendRepeatsLimited(result: DailyFortuneResult) {
+  const repeatedTrendCounts = [...result.periodTrend.reduce((counts, item) => (
+    counts.set(item.focus, (counts.get(item.focus) || 0) + 1)
+  ), new Map<string, number>()).values()];
+  expect(Math.max(...repeatedTrendCounts)).toBeLessThanOrEqual(2);
 }
 
 describe('今日、月运、年运统一周期算法', () => {
@@ -95,7 +206,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-08-v9');
+      expect(serialized).toContain('2026-08-27-v129');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();
@@ -142,25 +253,107 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.categories.map((item) => item.key)).toContain('wellbeing');
     expect(result.categories.find((item) => item.key === 'wellbeing')?.detail).toMatch(/休息|作息|睡眠/);
     result.categories.forEach((category) => {
-      expect(category.basis).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
+      expect(category.basis).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}|^主要风险：/);
       expect(category.basis).not.toMatch(/\d+个(?:时辰|较顺|宜缓)/);
     });
-    expect(result.evidenceInsights).toHaveLength(4);
-    expect(result.evidenceInsights[0]?.title).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}.*优先/);
-    expect(result.evidenceInsights[0]?.title).not.toMatch(/\d+顺|\d+平|\d+缓/);
+    expectContentRichCategories(result);
+    expectEvidenceDistribution(result);
+    expect(result.evidenceInsights).toHaveLength(3);
+    expect(result.evidenceInsights[0]?.key).toBe('opportunity');
+    expect(result.evidenceInsights[0]?.title).toMatch(/为何是主线/);
+    expect(result.evidenceInsights[0]?.title).not.toMatch(/\d{2}:\d{2}|\d+顺|\d+平|\d+缓/);
+    expect(result.actionTips[0]?.text).toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
     result.evidenceInsights.forEach((insight) => {
       expect(insight.title.length).toBeGreaterThan(4);
       expect(insight.detail.length).toBeGreaterThan(12);
     });
+    expectEvidenceDistribution(result);
     expect(result.actionTips[0]?.sourceKey).toBe(result.evidenceInsights.find((item) => item.key === 'opportunity')?.sourceKey);
-    expect(result.actionTips[1]?.sourceKey).toBe(result.evidenceInsights.find((item) => item.key === 'caution')?.sourceKey);
+    expect(result.actionTips[1]?.sourceKey).toBe(result.evidenceInsights.find((item) => item.key === (result.actionTips[1]?.tone === 'notice' ? 'caution' : 'secondary'))?.sourceKey);
     expect(result.timeWindows.length).toBeLessThanOrEqual(3);
     result.timeWindows.forEach((window) => {
       expect(window.range).toMatch(/^\d{2}:\d{2}—\d{2}:\d{2}$/);
       expect(Number(window.range.slice(0, 2))).toBeGreaterThanOrEqual(7);
-      expect(window.coverage).toMatch(/适合|可安排|整理|复核/);
+      expect(window.coverage).toMatch(/适合|可用于|整理|复核/);
+      expect(window.coverage).toMatch(/交付|责任|验收|交接|复述|练习|输出|金额|付款|记录|事实|分歧|共识|路线|返程|余量|物品|休息|专注度|睡眠|进食|恢复/);
+      expect(window.coverage).not.toMatch(/^(?:优先|可安排)(?:工作|学习|钱款|沟通|出行|休息)(?:、(?:工作|学习|钱款|沟通|出行|休息))?(?:；(?:工作|学习|钱款|沟通|出行|休息)需复核)?$/);
     });
+    expect(result.periodTrend).toHaveLength(7);
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-08-09', label: '明天', dateLabel: '8/9' });
+    expect(result.periodTrend[1]).toMatchObject({ dateKey: '2025-08-10', label: '周日', dateLabel: '8/10' });
+    expect(result.periodTrend.at(-1)).toMatchObject({ dateKey: '2025-08-15', dateLabel: '8/15' });
+    expect(result.periodTrend.every((item) => item.dateKey > result.dateKey)).toBe(true);
+    expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(7);
+    expectContentRichTrend(result);
     expectToneAndGradeConsistent(result);
+  });
+
+  it('方位说明保留用途、盘面依据和现实使用边界', () => {
+    const date = new Date(2026, 10, 15, 12, 0, 0, 0);
+    const today = generateDailyFortune(date, undefined, 'today', date);
+    const todayFocus = shortTopicLabels[today.actionTips[0]?.sourceKey || ''];
+    expect(today.goodDirections.length).toBeGreaterThan(0);
+    today.goodDirections.forEach((item) => {
+      expect(item.detail).toMatch(/若候选地点的距离、成本和安全条件接近.+用于本期.+现实差异明显时不为方位绕路。盘面依据：/);
+      expect(item.detail).toContain(`本期${todayFocus}`);
+      if (today.actionTips[0]?.sourceKey !== 'wealth') {
+        expect(item.detail).not.toMatch(/求财|投资/);
+      }
+    });
+    today.avoidDirections.forEach((item) => {
+      expect(item.detail).toMatch(/不作为本期.+相关外出的首选。必须前往时.+盘面依据：/);
+      expect(item.detail).toContain(`本期${todayFocus}相关`);
+    });
+    expect(today.reference.directionNote).toBe(today.goodDirections[0]?.detail);
+
+    const month = generateDailyFortune(date, undefined, 'month', date);
+    const monthFocus = shortTopicLabels[month.actionTips[0]?.sourceKey || ''];
+    month.goodDirections.forEach((item) => {
+      expect(item.detail).toMatch(/有\d+天得到支持、\d+天需要回避.+若候选路线的现实条件接近.+作为本期.+次级筛选.+判断依据主要是：/);
+      expect(item.detail).toContain(`本期${monthFocus}`);
+    });
+    month.avoidDirections.forEach((item) => {
+      expect(item.detail).toMatch(/有\d+天表现受限、\d+天得到支持.+本期不把.+作为.+相关外出的首选.+判断依据主要是：/);
+      expect(item.detail).toContain(`${monthFocus}相关外出`);
+    });
+    [...month.goodDirections, ...month.avoidDirections].forEach((item) => {
+      expect(item.detail).not.toMatch(/常见用途：|常见依据：|常见限制：|出现\d+次/);
+    });
+  }, 15_000);
+
+  it('月运与年运的方位审计覆盖真实出现的方向，而不是空数组通过', () => {
+    const monthlyResults = Array.from({ length: 12 }, (_, month) => (
+      generateDailyFortune(new Date(2026, month, 15, 12, 0, 0, 0), undefined, 'month')
+    ));
+    const yearlyResults = [2025, 2026, 2027, 2028].map((year) => (
+      generateDailyFortune(new Date(year, 6, 15, 12, 0, 0, 0), undefined, 'year')
+    ));
+    const monthDirections = monthlyResults.flatMap((result) => [...result.goodDirections, ...result.avoidDirections]);
+    const yearDirections = yearlyResults.flatMap((result) => [...result.goodDirections, ...result.avoidDirections]);
+    const monthWithoutPreferredDirection = monthlyResults.find((result) => result.goodDirections.length === 0);
+    const yearWithoutPreferredDirection = yearlyResults.find((result) => result.goodDirections.length === 0);
+    expect(monthDirections.length).toBeGreaterThan(0);
+    expect(yearDirections.length).toBeGreaterThan(0);
+    expect(monthWithoutPreferredDirection?.reference.directionNote).toMatch(/本月各日期.+没有一个方向.+具体出发当天/);
+    expect(yearWithoutPreferredDirection?.reference.directionNote).toMatch(/全年各节气阶段.+没有一个方向.+交通、预算和现实机会/);
+    expect(monthWithoutPreferredDirection?.reference.directionNote).not.toBe(yearWithoutPreferredDirection?.reference.directionNote);
+    monthDirections.forEach((item) => {
+      expect(item.detail).toMatch(/\d+个日期里/);
+      expect(item.detail).toMatch(/候选路线|相关外出的首选|调整时间|地点|执行方式/);
+      expect(item.detail).toContain('判断依据主要是：');
+    });
+    yearDirections.forEach((item) => {
+      expect(item.detail).toMatch(/\d+个节气阶段里/);
+      expect(item.detail).toMatch(/候选地点|相关外出的首选|调整时间|地点|执行方式/);
+      expect(item.detail).toContain('判断依据主要是：');
+    });
+  }, 30_000);
+
+  it('节气名称只在节气当天显示', () => {
+    const beforeChushu = generateDailyFortune(new Date(2026, 7, 22, 12, 0, 0, 0), undefined, 'today');
+    const chushu = generateDailyFortune(new Date(2026, 7, 23, 12, 0, 0, 0), undefined, 'today');
+    expect(beforeChushu.jieqi).toBe('');
+    expect(chushu.jieqi).toBe('处暑');
   });
 
   it('当前时段按真实时辰更新，同一时辰复用缓存，跨时辰重新计算', () => {
@@ -171,6 +364,8 @@ describe('今日、月运、年运统一周期算法', () => {
     const nextShichen = generateDailyFortune(date, profile, 'today', new Date(2026, 7, 8, 23, 5, 0, 0));
     expect(nextShichen).not.toBe(first);
     expect(nextShichen.timeWindows).toHaveLength(0);
+    expect(`${nextShichen.summary}${nextShichen.actionTips.map((item) => item.text).join('')}`)
+      .not.toMatch(/\d{2}:\d{2}—\d{2}:\d{2}/);
   });
 
   it('月运完整计算周期内每天，并直接显示公历日期', () => {
@@ -180,12 +375,166 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.calendarRangeLabel).toBe('2025年8月1日 — 2025年8月31日');
     expect(result.weekday).toMatch(/^\d+月\d+日—\d+月\d+日$/);
     expect(result.coverageLabel).toBe('综合本月每天的变化');
+    expect(result.periodTrend).toHaveLength(5);
+    expect(result.periodTrend[0]).toMatchObject({
+      dateKey: '2025-08-w1',
+      label: '月初',
+      dateLabel: '1—7日',
+    });
+    expect(result.periodTrend[4]).toMatchObject({
+      dateKey: '2025-08-w5',
+      label: '月底',
+      dateLabel: '29—31日',
+    });
+    expectContentRichTrend(result);
     result.categories.forEach((category) => {
-      expect(category.basis).toMatch(/\d+月\d+日/);
+      expect(category.basis).toMatch(/\d+月\d+日|^主要风险：/);
       expect(category.basis).not.toMatch(/完整日期|日家盘|较顺|宜缓/);
     });
+    expectContentRichCategories(result);
+    expect(result.categories.map((category) => category.detail).join('\n')).not.toMatch(/这是本月|不是本月主线|本月的辅助线/);
+    expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
     expectToneAndGradeConsistent(result);
   });
+
+  it('日、月、年分项使用与周期匹配的完成标准', () => {
+    const date = new Date(2025, 7, 15, 12, 0, 0, 0);
+    const today = generateDailyFortune(date, profile, 'today');
+    const month = generateDailyFortune(date, profile, 'month');
+    const year = generateDailyFortune(date, profile, 'year');
+    const details = (result: DailyFortuneResult) => Object.fromEntries(
+      result.categories.map((category) => [category.key, category.detail]),
+    );
+    const todayDetails = details(today);
+    const monthDetails = details(month);
+    const yearDetails = details(year);
+
+    expect(todayDetails.study).toMatch(/一道题或一段输出/);
+    expect(monthDetails.career).toMatch(/本月反复出现的任务|本月多次/);
+    expect(monthDetails.study).toMatch(/本月多次复述、练习或输出/);
+    expect(monthDetails.wealth).toMatch(/本月多笔收支/);
+    expect(monthDetails.relationship).toMatch(/后续沟通和行动/);
+    expect(monthDetails.travel).toMatch(/本月多次外出/);
+    expect(monthDetails.wellbeing).toMatch(/本月睡眠、饮食和专注度/);
+    expect(yearDetails.career).toMatch(/跨阶段沿用/);
+    expect(yearDetails.study).toMatch(/迁移到新问题/);
+    expect(yearDetails.wealth).toMatch(/全年现金流/);
+    expect(yearDetails.relationship).toMatch(/可重复使用/);
+    expect(yearDetails.travel).toMatch(/全年多次出行/);
+    expect(yearDetails.wellbeing).toMatch(/支撑全年安排/);
+    Object.keys(todayDetails).forEach((key) => {
+      expect(monthDetails[key]).not.toBe(todayDetails[key]);
+      expect(yearDetails[key]).not.toBe(monthDetails[key]);
+    });
+  }, 15_000);
+
+  it('月运和年运的两张行动卡都使用对应周期的动作', () => {
+    const date = new Date(2026, 7, 27, 12, 0, 0, 0);
+    const results = [
+      generateDailyFortune(date, profile, 'month', date),
+      generateDailyFortune(date, profile, 'year', date),
+    ];
+    const actionMarkers: Record<'month' | 'year', Record<string, RegExp>> = {
+      month: {
+        career: /本月在手任务|本月任务表/,
+        study: /本月核心主题|本月练习与输出/,
+        wealth: /本月资金表|资金表中的金额/,
+        relationship: /本月反复出现|先前共识与最近行动/,
+        travel: /本月已确定的外出|近期行程/,
+        wellbeing: /本月睡眠、进食和注意力|近期睡眠、食欲与注意力/,
+      },
+      year: {
+        career: /全年重复承担的职责|各阶段的接手人/,
+        study: /年度核心能力|新问题检验既有方法/,
+        wealth: /全年资金底表|低收入月份重算预算/,
+        relationship: /长期沟通约定|不同阶段的同类争议/,
+        travel: /全年常用路线|反复延误的路线与时段/,
+        wellbeing: /全年最低恢复基线|忙闲阶段的睡眠和注意力/,
+      },
+    };
+
+    results.forEach((result) => {
+      result.actionTips.forEach((tip) => {
+        expect(tip.text).toMatch(actionMarkers[result.period as 'month' | 'year'][tip.sourceKey]);
+      });
+      expect(result.actionTips.map((tip) => tip.text).join('')).not.toMatch(/集中完成一段阅读|安排一次不赶时间的沟通|集中完成一次对账|只完成一个可验收成果/);
+    });
+  }, 15_000);
+
+  it('月运和年运的五行标记与提醒物用于观察整个周期', () => {
+    const date = new Date(2026, 7, 27, 12, 0, 0, 0);
+    const month = generateDailyFortune(date, profile, 'month', date);
+    const year = generateDailyFortune(date, profile, 'year', date);
+
+    expect(month.reference.symbolicNote).toMatch(/标记本月/);
+    expect(month.reference.symbolicNote).not.toContain('检查');
+    expect(month.reference.itemNote).toContain(month.reference.item);
+    expect(month.reference.itemNote).toContain('本月');
+    expect(year.reference.symbolicNote).toMatch(/标记今年/);
+    expect(year.reference.symbolicNote).not.toContain('检查');
+    expect(year.reference.itemNote).toContain(year.reference.item);
+    expect(year.reference.itemNote).toContain('全年');
+    [month, year].forEach((result) => {
+      expect(`${result.reference.symbolicNote}${result.reference.itemNote}`).not.toMatch(/每次只留一页|再次打开时先复述|出门前按证件|准备回应前先停一下|喝水时暂停一分钟|放在手边，提醒自己/);
+      expect(`${result.reference.symbolicNote}${result.reference.itemNote}`).not.toContain('。。');
+    });
+  }, 15_000);
+
+  it('查看当前日月时，分项不再推荐已经过去的时段或日期', () => {
+    const runtime = new Date(2026, 7, 26, 12, 20, 0, 0);
+    const today = generateDailyFortune(runtime, profile, 'today', runtime);
+    today.categories.forEach((category) => {
+      const hours = [...`${category.detail}${category.basis}`.matchAll(/(\d{2}):\d{2}—/g)].map((match) => Number(match[1]));
+      hours.forEach((hour) => expect(hour).toBeGreaterThanOrEqual(11));
+    });
+
+    const month = generateDailyFortune(runtime, profile, 'month', runtime);
+    month.categories.forEach((category) => {
+      const days = [...`${category.detail}${category.basis}`.matchAll(/8月(\d{1,2})日/g)].map((match) => Number(match[1]));
+      days.forEach((day) => expect(day).toBeGreaterThanOrEqual(26));
+    });
+    expect(month.periodTrend).toHaveLength(2);
+    expect(month.periodTrend[0]).toMatchObject({ label: '本周', dateLabel: '26—28日' });
+    expect(month.periodTrend[1]).toMatchObject({ label: '月底', dateLabel: '29—31日' });
+
+    const year = generateDailyFortune(runtime, profile, 'year', runtime);
+    expect(year.periodTrend).toHaveLength(5);
+    expect(year.periodTrend[0]).toMatchObject({ dateKey: '2026-08', label: '本月' });
+    expect(year.periodTrend.at(-1)).toMatchObject({ dateKey: '2026-12', label: '12月' });
+    const generalYear = generateDailyFortune(runtime, undefined, 'year', runtime);
+    expect(generalYear.actionTips[0]?.text).toMatch(/^公历8月7日—9月7日，/);
+    [today, month, year].flatMap((result) => result.categories).forEach((category) => {
+      const preferredWindow = category.detail.match(/^(.+?)可优先安排；/)?.[1];
+      const cautionWindow = category.basis.match(/^(.+)：/)?.[1];
+      if (preferredWindow && cautionWindow) expect(preferredWindow).not.toBe(cautionWindow);
+    });
+  }, 15_000);
+
+  it('不同运行时只要出现主线需复核窗口，就不把它反写成主线优先窗口', () => {
+    let scenario: {
+      result: DailyFortuneResult;
+      primaryAction: DailyFortuneResult['actionTips'][number];
+      cautionWindow: DailyFortuneResult['timeWindows'][number];
+    } | undefined;
+    for (let day = 1; day <= 31 && !scenario; day += 1) {
+      for (const hour of [18, 20, 22]) {
+        const runtime = new Date(2026, 7, day, hour, 20, 0, 0);
+        const result = generateDailyFortune(runtime, undefined, 'today', runtime);
+        const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
+        const primaryShortLabel = primaryAction?.label.replace(/^优先/, '') || '';
+        const cautionWindow = result.timeWindows.find((item) => item.coverage.includes(`${primaryShortLabel}需复核`));
+        if (primaryAction && cautionWindow) {
+          scenario = { result, primaryAction, cautionWindow };
+          break;
+        }
+      }
+    }
+    expect(scenario).toBeTruthy();
+    if (!scenario) return;
+    const cautionLabel = `${scenario.cautionWindow.name} ${scenario.cautionWindow.range}`;
+    expect(scenario.primaryAction.text).not.toContain(cautionLabel);
+    expect(scenario.result.categories.find((item) => item.key === scenario.primaryAction.sourceKey)?.detail).not.toContain(cautionLabel);
+  }, 60_000);
 
   it('年运完整计算全年阶段，并向用户换算为公历范围', () => {
     const result = generateDailyFortune(new Date(2025, 6, 1, 12, 0, 0, 0), profile, 'year');
@@ -194,12 +543,22 @@ describe('今日、月运、年运统一周期算法', () => {
     expect(result.calendarRangeLabel).toBe('2025年1月1日 — 2025年12月31日');
     expect(result.weekday).toMatch(/\d+月\d+日.*\d+月\d+日/);
     expect(result.coverageLabel).toBe('综合全年各阶段变化');
+    expect(result.periodTrend).toHaveLength(12);
+    expect(result.periodTrend[0]).toMatchObject({ dateKey: '2025-01', label: '1月', dateLabel: '' });
+    expect(result.periodTrend[11]).toMatchObject({ dateKey: '2025-12', label: '12月', dateLabel: '' });
+    expect(new Set(result.periodTrend.map((item) => item.dateKey)).size).toBe(12);
+    expectContentRichTrend(result);
+    expectTrendRepeatsLimited(result);
+    expectTrendRepeatsLimited(generateDailyFortune(new Date(2026, 7, 26, 12, 0, 0, 0), profile, 'year'));
     result.categories.forEach((category) => {
-      expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日/);
+      expect(`${category.detail}${category.basis}`).toMatch(/公历(?:\d{4}年)?\d+月\d+日|主要风险：/);
       expect(category.basis).not.toMatch(/干支月|月家盘|较顺|宜缓/);
     });
+    expectContentRichCategories(result);
+    expectEvidenceDistribution(result);
+    expect(result.categories.map((category) => category.detail).join('\n')).not.toMatch(/这是全年|不是全年主线|全年的辅助线/);
     result.timeWindows.forEach((window) => {
-      expect(window.name).toMatch(/^(?:\d+月\d+—\d+日|\d+月\d+日—\d+月\d+日)$/);
+      expect(window.name).toMatch(/^(?:\d+月\d+日—\d+日|\d+月\d+日—\d+月\d+日)$/);
       expect(window.range).toBe('');
       expect(window.name).not.toContain('2024年');
       expect(window.name).not.toContain('2026年');
@@ -213,9 +572,250 @@ describe('今日、月运、年运统一周期算法', () => {
     const date = new Date(2025, 7, 8, 12, 0, 0, 0);
     const general = generateDailyFortune(date, undefined, 'today');
     const personal = generateDailyFortune(date, profile, 'today');
+    expect(general.personalized).toBe(false);
+    expect(personal.personalized).toBe(true);
     expect(personal.categories.map((item) => [item.tone, item.detail, item.basis]))
       .not.toEqual(general.categories.map((item) => [item.tone, item.detail, item.basis]));
   });
+
+  it('同一天的不同命盘会形成稳定且可区分的个人结果', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const profiles: DailyFortuneProfile[] = [
+      profile,
+      { ...profile, id: 'profile-b', gender: 'male', date: '1984-01-01', time: '23:30' },
+      { ...profile, id: 'profile-c', date: '1998-11-20', time: '16:45' },
+    ];
+    const results = profiles.map((item) => generateDailyFortune(date, item, 'today'));
+    const signatures = results.map((result) => JSON.stringify({
+      tone: result.tone,
+      grade: result.grade,
+      categories: result.categories.map((item) => [item.key, item.tone, item.detail]),
+      reference: result.reference,
+      goodDirections: result.goodDirections,
+    }));
+    expect(results.every((result) => result.personalized)).toBe(true);
+    expect(new Set(signatures).size).toBe(results.length);
+    expect(new Set(results.map((result) => JSON.stringify(result.reference))).size).toBeGreaterThan(1);
+  });
+
+  it('多项明显风险不会被普通项目平均成整体顺势', () => {
+    const results = Array.from({ length: 12 }, (_, index) => (
+      generateDailyFortune(new Date(2025, 7, index + 1, 12, 0, 0, 0), profile, 'today')
+    ));
+    const riskDays = results.filter((result) => result.categories.filter((item) => item.tone === 'cautious').length >= 2);
+    expect(new Set(results.map((result) => result.grade)).size).toBeGreaterThan(1);
+    expect(riskDays.length).toBeGreaterThan(0);
+    expect(riskDays.every((result) => result.tone !== 'favorable')).toBe(true);
+  }, 15_000);
+
+  it('个人排盘不可用时无感降级为通用今日运势', () => {
+    const date = new Date(2025, 7, 8, 12, 0, 0, 0);
+    const invalidProfile = { ...profile, date: '2025-02-29' };
+    const fallback = generateDailyFortune(date, invalidProfile, 'today');
+    const general = generateDailyFortune(date, undefined, 'today');
+    expect(fallback.personalized).toBe(false);
+    expect(fallback).toEqual(general);
+  });
+
+  it('结果文案直接给出结论，不重复免责声明式提醒', () => {
+    const result = generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
+    const text = JSON.stringify(result);
+    expect(text).not.toMatch(/仅供参考|仍以实际|不构成|寻求专业帮助|不必只看时间/);
+  });
+
+  it('先形成整体判断，再用主线与牵制组织本地解读', () => {
+    const results = Array.from({ length: 12 }, (_, index) => (
+      generateDailyFortune(new Date(2025, 7, index + 1, 12, 0, 0, 0), profile, 'today')
+    ));
+    results.forEach((result) => {
+      expect(JSON.stringify(result)).not.toContain('先先');
+      expect(result.overview.label).toMatch(/顺势窗口|强弱分化|助力与牵制|连续反馈|条件反复|承载能力|收紧项/);
+      expect(result.summary.split('。')[0]).toMatch(/支持集中|优势主要在|明显顺于|势头相当|走势平缓|主要波折落在|身心状态明显偏弱|多方条件受到制约/);
+      expect(result.summary).not.toMatch(/六类主题|可用信号|平稳区|相对清楚的入口|连续助力|强度接近|尚未拉开|持续牵制|收紧项/);
+      expect(result.summary).toContain('因此');
+      expect(result.summary).not.toMatch(/\d+个双小时时段|\d+个日期|\d+个节气阶段|有\d+[天段]顺势/);
+      expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);
+      expect(result.summary.split('。').filter(Boolean).length).toBeGreaterThanOrEqual(2);
+      expect(result.summary).toMatch(evidenceOpportunityMarkers[result.categories[0]!.key]);
+      const followUp = result.actionTips[1];
+      if (followUp?.tone === 'notice') {
+        expect(result.summary).toMatch(evidenceRiskMarkers[followUp.sourceKey]);
+      }
+      expect(result.evidenceInsights.find((item) => item.key === 'opportunity')?.label).toBe('判断主线');
+      expect(result.actionTips[0]?.label).toMatch(/^优先(?:工作|学习|钱款|沟通|出行|休息)$/);
+      expect(result.categories[0]?.key).toBe(result.actionTips[0]?.sourceKey);
+      expect(result.categories[1]?.key).toBe(result.actionTips[1]?.sourceKey);
+      expect(result.actionTips[0]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === 'opportunity')?.detail);
+      const followUpEvidenceKey = result.actionTips[1]?.tone === 'notice' ? 'caution' : 'secondary';
+      expect(result.actionTips[1]?.text).not.toBe(result.evidenceInsights.find((item) => item.key === followUpEvidenceKey)?.detail);
+      expect(JSON.stringify(result)).not.toMatch(/近期重点：|压力与突破|责任与规则|支持与吸收|研究与调整|产出与分享|表达与变化|自主与协作|竞争与分配/);
+      const summaryWindow = result.summary.match(/(?:早晨|上午|中午|下午|傍晚|晚上) \d{2}:\d{2}—\d{2}:\d{2}/)?.[0];
+      if (summaryWindow) {
+        expect(result.evidenceInsights[0]?.title).toContain(summaryWindow);
+        expect(result.actionTips[0]?.text).toContain(summaryWindow);
+        expect(`${result.timeWindows[0]?.name} ${result.timeWindows[0]?.range}`).toContain(summaryWindow);
+      }
+      const primaryCategory = result.categories.find((item) => item.key === result.actionTips[0]?.sourceKey);
+      expect(primaryCategory?.status).toMatch(/本期主线|守住基本盘/);
+      expect(primaryCategory?.detail).toMatch(categoryValueMarkers[primaryCategory?.key || 'career']);
+      expect(result.categories.map((item) => item.detail).join('\n')).not.toMatch(/这是(?:当天|本月|全年).*(?:主线|一环|一项)|适合作为配合项|辅助线|辅助推进项|不是(?:当天|本月|全年)主线/);
+      expect(result.categories.find((item) => item.key === 'wellbeing')?.status).not.toBe('主线后再做');
+    });
+    results.filter((result) => result.actionTips[1]?.tone === 'support').forEach((result) => {
+      expect(result.actionTips[1]?.label).toMatch(/^(?:随后(?:工作|学习|钱款|沟通|出行)|同时顾好休息)$/);
+      expect(result.actionTips[1]?.tone).toBe('support');
+      expect(result.evidenceInsights[1]).toMatchObject({
+        key: 'secondary',
+        label: result.evidenceInsights[1]?.sourceKey === 'wellbeing' ? '同步基础' : '承接关系',
+      });
+      expect(`${result.actionTips[1]?.text}${result.evidenceInsights[1]?.detail}`).not.toMatch(/没有明确风险窗口|相对优势最弱|记得检查/);
+    });
+    results.filter((result) => result.actionTips[1]?.tone === 'notice').forEach((result) => {
+      expect(result.actionTips[1]?.label).toMatch(/^留意(?:工作|学习|钱款|沟通|出行|休息)$/);
+    });
+    expect(new Set(results.map((result) => result.overview.label)).size).toBeGreaterThan(1);
+  }, 15_000);
+
+  it('月运主线、优先日期与牵制结论保持一致', () => {
+    const result = generateDailyFortune(
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+      profile,
+      'month',
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+    );
+    const shortLabels: Record<string, string> = {
+      career: '工作',
+      study: '学习',
+      wealth: '钱款',
+      relationship: '沟通',
+      travel: '出行',
+      wellbeing: '休息',
+    };
+    const mainLine = result.evidenceInsights.find((item) => item.key === 'opportunity');
+    expect(mainLine?.sourceKey).toBeTruthy();
+    expect(
+      result.timeWindows[0]?.coverage,
+      JSON.stringify({ action: result.actionTips[0], windows: result.timeWindows, mainLine }),
+    ).toContain(shortLabels[mainLine?.sourceKey || '']);
+    const expectUniqueWindowUses = (windows: DailyFortuneTimeWindow[]) => {
+      const fragments = windows.flatMap((window) => (
+        window.coverage.match(/(?:工作|学习|钱款|沟通|出行|休息)(?:·|需复核：)[^；]+/g) || []
+      ));
+      Object.values(shortLabels).forEach((label) => {
+        const topicFragments = fragments.filter((fragment) => fragment.startsWith(label));
+        expect(new Set(topicFragments).size, JSON.stringify({ label, windows, topicFragments })).toBe(topicFragments.length);
+      });
+    };
+    result.timeWindows.forEach((window) => {
+      expect(window.coverage).toMatch(/^(?:适合|可用于).+|只.+需复核：.+，暂不新增安排$|只整理本月已有事项：.+$/);
+      expect(window.coverage).toMatch(/完成|验收|交接|产出|检验|复述|结清|核对|记录|共识|信息差|路线|返程|恢复|专注度|睡眠|责任|现金|事实|减负/);
+      expect(window.coverage).not.toMatch(/^(?:优先|可安排)(?:工作|学习|钱款|沟通|出行|休息)(?:、(?:工作|学习|钱款|沟通|出行|休息))?(?:；(?:工作|学习|钱款|沟通|出行|休息)需复核)?$/);
+    });
+    expectUniqueWindowUses(result.timeWindows);
+
+    const year = generateDailyFortune(
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+      profile,
+      'year',
+      new Date(2026, 7, 23, 12, 0, 0, 0),
+    );
+    expect(year.timeWindows.length).toBeGreaterThan(0);
+    year.timeWindows.forEach((window) => {
+      expect(window.coverage).toMatch(/^(?:适合|可用于).+|只.+需复核：.+，暂不新增安排$|只复盘全年已有安排：.+$/);
+      expect(window.coverage).toMatch(/交接|验收|职责|迁移|能力|输出方法|现金流|预算|资金|分歧|事实确认|承诺|路线|行程|恢复|作息|责任|返工|承接人|资料|学习|理解|收益|共识|误解|沟通|替代|返程|透支|补觉/);
+    });
+    expectUniqueWindowUses(year.timeWindows);
+
+    const necessaryCheck = result.evidenceInsights.find((item) => item.label === '必要检查');
+    if (necessaryCheck?.sourceKey) {
+      const category = result.categories.find((item) => item.key === necessaryCheck.sourceKey);
+      expect(category?.detail).toMatch(categoryValueMarkers[necessaryCheck.sourceKey]);
+      expect(category?.detail).not.toContain('不是本月主线');
+      expect(category?.detail).not.toMatch(/必须先把|仍有缺口/);
+      expect(category?.detail).not.toContain('短板');
+    }
+  }, 15_000);
+
+  it('复核行动与对应主题卡片使用同一个风险时段', () => {
+    (['today', 'month', 'year'] as FortunePeriod[]).forEach((period) => {
+      const result = generateDailyFortune(
+        new Date(2026, 7, 26, 12, 0, 0, 0),
+        undefined,
+        period,
+        new Date(2026, 7, 26, 12, 0, 0, 0),
+      );
+      const primaryAction = result.actionTips.find((item) => item.tone === 'positive');
+      const primaryCategory = result.categories.find((item) => item.key === primaryAction?.sourceKey);
+      const formatWindow = (item: DailyFortuneTimeWindow) => period === 'today'
+        ? `${item.name} ${item.range}`
+        : period === 'month'
+          ? `${item.name}（${item.range}）`
+          : `公历${item.name}`;
+      const primaryWindow = result.timeWindows.map(formatWindow).find((label) => primaryAction?.text.startsWith(`${label}，`));
+      if (primaryWindow) expect(primaryCategory?.detail).not.toContain(primaryWindow);
+      const cautionAction = result.actionTips.find((item) => item.tone === 'notice');
+      if (!cautionAction) return;
+      const category = result.categories.find((item) => item.key === cautionAction.sourceKey);
+      const cautionWindow = result.timeWindows.map(formatWindow).find((label) => cautionAction.text.startsWith(`${label}，`));
+      expect(cautionWindow).toBeTruthy();
+      expect(category?.basis).toMatch(/^主要风险：/);
+      expect(category?.basis).not.toContain(cautionWindow || '');
+      const matchingWindow = result.timeWindows.find((item) => {
+        const label = formatWindow(item);
+        return label === cautionWindow;
+      });
+      const shortLabels: Record<string, string> = {
+        career: '工作',
+        study: '学习',
+        wealth: '钱款',
+        relationship: '沟通',
+        travel: '出行',
+        wellbeing: '休息',
+      };
+      expect(matchingWindow?.coverage).toContain(`${shortLabels[cautionAction.sourceKey]}需复核`);
+    });
+  }, 15_000);
+
+  it('顶部窗口已概括的主题不再复述时间，其他共享时间也只在一张分项卡出现', () => {
+    const shortLabels: Record<string, string> = {
+      career: '工作',
+      study: '学习',
+      wealth: '钱款',
+      relationship: '沟通',
+      travel: '出行',
+      wellbeing: '休息',
+    };
+    const normalizeWindow = (value: string) => value.replace(/^公历/, '').replace(/[（）()\s]/g, '');
+    (['today', 'month', 'year'] as FortunePeriod[]).forEach((period) => {
+      const result = generateDailyFortune(
+        new Date(2026, 7, 26, 12, 0, 0, 0),
+        undefined,
+        period,
+        new Date(2026, 7, 26, 12, 0, 0, 0),
+      );
+      result.timeWindows.forEach((window) => {
+        const windowLabel = period === 'today'
+          ? `${window.name} ${window.range}`
+          : period === 'month'
+            ? `${window.name}（${window.range}）`
+            : `公历${window.name}`;
+        result.categories
+          .filter((category) => window.coverage.includes(shortLabels[category.key]))
+          .forEach((category) => {
+            expect(normalizeWindow(category.detail)).not.toContain(normalizeWindow(windowLabel));
+          });
+        result.categories
+          .filter((category) => window.coverage.includes(`${shortLabels[category.key]}需复核`))
+          .forEach((category) => {
+            expect(normalizeWindow(category.basis)).not.toContain(normalizeWindow(windowLabel));
+          });
+      });
+      const standaloneWindows = result.categories
+        .map((category) => category.detail.match(/^(.+?)可优先安排；/)?.[1])
+        .filter((window): window is string => Boolean(window));
+      expect(new Set(standaloneWindows).size).toBe(standaloneWindows.length);
+    });
+  }, 15_000);
 
   it('查询出生日前的历史周期时真正降级为通用盘', () => {
     const date = new Date(1980, 6, 1, 12, 0, 0, 0);

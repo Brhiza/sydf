@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue';
+import { packageIdForDeck, packageIdForTheme, runtimeThemeAssetUrl } from './themeAssetDownload';
 
 export type DivinationThemeGroup =
   | 'brand'
@@ -155,6 +156,52 @@ export const DIVINATION_THEMES = [
     }),
   },
   {
+    id: 'xian',
+    label: '仙',
+    description: '清雅仙山画风',
+    groups: allGroups,
+    visual: visualTheme('50% 46%', { light: '#477c7b', dark: '#17201f' }, {
+      canvas: ['#f5f1e8', '#171e1d'], surface: ['#fbf8f1', '#1e2725'],
+      surfaceRaised: ['#fffdf8', '#25302e'], surfaceMuted: ['#eee9df', '#2c3734'],
+      surfaceOverlay: ['rgba(255,253,248,.96)', 'rgba(30,39,37,.97)'],
+      sidebar: ['#ebe6dc', '#192220'], topbar: ['rgba(249,246,239,.92)', 'rgba(23,30,29,.94)'],
+      textPrimary: ['#2f3533', '#eef2ef'], textSecondary: ['#53615e', '#bdc9c5'], textTertiary: ['#626f6b', '#92a29d'],
+      line: ['#dcd5c7', '#3b4844'], lineStrong: ['#c7bda9', '#52605b'],
+      accent: ['#477c7b', '#77aaa7'], accentStrong: ['#2f6263', '#a2ceca'], accentSoft: ['#dcebea', '#29403e'], accentContrast: ['#ffffff', '#14201f'],
+      blue: ['#557888', '#8fb7c4'], blueSoft: ['#e1eaed', '#283a40'],
+      plum: ['#806582', '#bba1bd'], plumSoft: ['#ebe3ec', '#3b303e'],
+      sage: ['#5f786c', '#94b7a6'], sageSoft: ['#e1e9e4', '#2c3d35'], gold: ['#a17c49', '#d4b47f'],
+      themeGlow: ['rgba(71,124,123,.14)', 'rgba(119,170,167,.14)'],
+      themeCanvasStart: ['#faf7ef', '#1a2321'], themeCanvasEnd: ['#ece8df', '#111716'],
+      themeDot: ['rgba(71,124,123,.14)', 'rgba(162,206,202,.13)'],
+      themeHeroStart: ['#2f6263', '#87b8b4'], themeHeroMiddle: ['#597c7c', '#a696bd'], themeHeroEnd: ['#a9858e', '#d0a8b4'],
+      themeShadow: ['rgba(47,98,99,.22)', 'rgba(0,0,0,.36)'],
+    }),
+  },
+  {
+    id: 'shanhaijing',
+    label: '山海经',
+    description: '古籍异兽画风',
+    groups: allGroups,
+    visual: visualTheme('50% 46%', { light: '#3f7470', dark: '#191d1b' }, {
+      canvas: ['#f4eedf', '#191d1b'], surface: ['#fbf7ec', '#212824'],
+      surfaceRaised: ['#fffdf6', '#28312d'], surfaceMuted: ['#ece4d4', '#303a35'],
+      surfaceOverlay: ['rgba(255,253,246,.96)', 'rgba(33,40,36,.97)'],
+      sidebar: ['#eee7da', '#1c2420'], topbar: ['rgba(249,245,235,.92)', 'rgba(25,29,27,.94)'],
+      textPrimary: ['#30362f', '#f0f1eb'], textSecondary: ['#556057', '#bec8c1'], textTertiary: ['#606a62', '#93a29a'],
+      line: ['#ddd2bb', '#3d4943'], lineStrong: ['#c5b699', '#526159'],
+      accent: ['#3f7470', '#79a8a1'], accentStrong: ['#295d5a', '#a6cdc5'], accentSoft: ['#dbe8e2', '#293e3a'], accentContrast: ['#ffffff', '#15201d'],
+      blue: ['#527681', '#91b5bd'], blueSoft: ['#e0e9e8', '#293b3d'],
+      plum: ['#885f53', '#c99a8d'], plumSoft: ['#eee1da', '#40302d'],
+      sage: ['#637661', '#9ab394'], sageSoft: ['#e2e8dc', '#303b2e'], gold: ['#a88349', '#d7b477'],
+      themeGlow: ['rgba(63,116,112,.13)', 'rgba(121,168,161,.14)'],
+      themeCanvasStart: ['#faf6ea', '#1d2521'], themeCanvasEnd: ['#eee6d5', '#131815'],
+      themeDot: ['rgba(63,116,112,.14)', 'rgba(166,205,197,.13)'],
+      themeHeroStart: ['#365f5d', '#87b3ac'], themeHeroMiddle: ['#a56b48', '#c19178'], themeHeroEnd: ['#d7ad68', '#e2bf82'],
+      themeShadow: ['rgba(54,95,93,.22)', 'rgba(0,0,0,.37)'],
+    }),
+  },
+  {
     id: 'lan-yu',
     label: '吃白饭的蓝色大肥鱼',
     description: '清透亮蓝画风',
@@ -197,6 +244,7 @@ const CUSTOM_TAROT_DECKS = [
   { id: 'gg-bond', label: '猪猪侠', root: '/card-decks/tarot/gg-bond' },
   { id: 'sacred-milk-dragon', label: '神圣奶龙', root: '/card-decks/tarot/sacred-milk-dragon' },
   { id: 'danjie-leopard', label: '蛋姐的豹', root: '/card-decks/tarot/danjie-leopard' },
+  { id: 'doubao', label: '豆包塔罗', root: '/card-decks/tarot/doubao' },
 ] as const;
 
 export type CustomTarotDeckId = (typeof CUSTOM_TAROT_DECKS)[number]['id'];
@@ -212,7 +260,7 @@ const DECK_STORAGE_KEY = 'shiyue-divination-decks-v1';
 const THEME_ROOT = '/divination-themes';
 const SHARED_ASSET_ROOT = '/divination-assets';
 // 仅在替换已有主题图片时递增，避免普通代码更新导致整套牌图重新下载。
-export const DIVINATION_THEME_ASSET_VERSION = '20260820-card-decks-v3';
+export const DIVINATION_THEME_ASSET_VERSION = '20260824-shanhaijing-doubao-v5';
 
 function isThemeId(value: unknown): value is DivinationThemeId {
   return DIVINATION_THEMES.some(theme => theme.id === value);
@@ -291,6 +339,12 @@ export function setDivinationDeckSelection(group: DivinationCardGroup, selection
   window.dispatchEvent(new CustomEvent('shiyue:divination-theme-change', { detail: { group, selection } }));
 }
 
+export function getDivinationDeckAssetPackageId(group: DivinationCardGroup, selection: DivinationDeckSelection) {
+  if (selection === 'theme') return packageIdForTheme(activeDivinationThemeId.value);
+  if (isThemeId(selection)) return packageIdForTheme(selection);
+  return group === 'tarot' ? packageIdForDeck(selection) : null;
+}
+
 function syncDocumentTheme(themeId: DivinationThemeId) {
   if (typeof document === 'undefined') return;
   const definition = DIVINATION_THEMES.find(theme => theme.id === themeId) || DIVINATION_THEMES[0]!;
@@ -340,7 +394,12 @@ export function resolveDivinationThemeId(
 export function divinationThemeAssetUrl(group: DivinationThemeGroup, relativePath: string) {
   const themeId = resolveDivinationThemeId(group);
   const path = `${THEME_ROOT}/${themeId}/${relativePath.replace(/^\/+/, '')}`;
-  return `${path}?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+  return versionedRuntimeAssetUrl(path);
+}
+
+function versionedRuntimeAssetUrl(path: string) {
+  const runtimeUrl = runtimeThemeAssetUrl(path);
+  return runtimeUrl.includes('?asset=') ? runtimeUrl : `${runtimeUrl}?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
 }
 
 export function getDivinationBannerUrl() {
@@ -374,7 +433,8 @@ export function getTarotThemeImageUrl(traditionalNumber: number) {
   const selection = activeDivinationDeckSelections.value.tarot;
   const customDeck = CUSTOM_TAROT_DECKS.find(deck => deck.id === selection);
   if (customDeck) {
-    return `${customDeck.root}/${String(normalized).padStart(3, '0')}.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+    const path = `${customDeck.root}/${String(normalized).padStart(3, '0')}.webp`;
+    return versionedRuntimeAssetUrl(path);
   }
   return divinationThemeAssetUrl('tarot', `cards/tarot/${String(normalized).padStart(3, '0')}.webp`);
 }
@@ -382,7 +442,10 @@ export function getTarotThemeImageUrl(traditionalNumber: number) {
 export function getTarotCardBackUrl() {
   const selection = activeDivinationDeckSelections.value.tarot;
   const customDeck = CUSTOM_TAROT_DECKS.find(deck => deck.id === selection);
-  if (customDeck) return `${customDeck.root}/back.webp?v=${encodeURIComponent(DIVINATION_THEME_ASSET_VERSION)}`;
+  if (customDeck) {
+    const path = `${customDeck.root}/back.webp`;
+    return versionedRuntimeAssetUrl(path);
+  }
   return divinationThemeAssetUrl('tarot', 'cards/tarot/back.webp');
 }
 

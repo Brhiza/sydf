@@ -10,6 +10,7 @@ describe('app route', () => {
       history: true,
     });
     expect(parseAppRoute('#/cases/records')).toMatchObject({ view: 'cases', casesSection: 'records', history: false });
+    expect(parseAppRoute('#/settings/theme')).toMatchObject({ view: 'settings', settingsSection: 'theme', history: false });
   });
 
   it('falls back safely when a shared link is invalid', () => {

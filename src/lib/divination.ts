@@ -125,10 +125,17 @@ export interface DivinationOptions {
   almanacTopic?: AlmanacTopic;
   almanacStartDate?: string;
   almanacEndDate?: string;
+  almanacWeekendPreference?: 'any' | 'prefer' | 'avoid';
+  almanacTimePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
   qimenScope?: 'hour' | 'day' | 'month' | 'year';
+  qimenLayout?: 'zhuanpan' | 'feipan';
+  qimenJuMethod?: 'chaibu' | 'zhirun';
+  taiyiScope?: 'year' | 'month' | 'day' | 'hour';
   taiyiYear?: number;
   wuyunYear?: number;
+  huangjiMode?: 'year' | 'date';
   huangjiYear?: number;
+  huangjiDate?: Date;
 }
 
 export interface LiuyaoCoinThrow {
@@ -197,9 +204,9 @@ export const kindMeta: Record<DivinationKind, ToolMeta> = {
   jinkoujue: { label: '金口诀', eyebrow: '四位起课', description: '以人元、贵神、将神、地分取象。', icon: '金', accent: 'amber', group: '古法' },
   qimen: { label: '奇门遁甲', eyebrow: '九宫排盘', description: '看时势、方位和行动节奏。', icon: '奇', accent: 'blue', group: '古法' },
   liuren: { label: '大六壬', eyebrow: '四课三传', description: '从四课三传观察事情如何推进。', icon: '壬', accent: 'teal', group: '古法' },
-  taiyi: { label: '太乙神数', eyebrow: '年计七十二局', description: '以太乙、主客定算观察年度大势。', icon: '乙', accent: 'plum', group: '古法' },
+  taiyi: { label: '太乙神数', eyebrow: '年 · 月 · 日 · 时四计', description: '以太乙、主客定算观察不同时间层次。', icon: '乙', accent: 'plum', group: '古法' },
   'wuyun-liuqi': { label: '五运六气', eyebrow: '年度气运', description: '查看一年的中运、司天在泉与六步气候节奏。', icon: '气', accent: 'teal', group: '古法' },
-  'huangji-jingshi': { label: '皇极经世', eyebrow: '公元值年卦', description: '从值年卦与十年、六十年周期观察一年的时代节奏。', icon: '皇', accent: 'gold', group: '古法' },
+  'huangji-jingshi': { label: '皇极经世', eyebrow: '值年与年月日时', description: '从值年卦及月、日、时卦观察时势层次。', icon: '皇', accent: 'gold', group: '古法' },
   almanac: { label: '黄历择日', eyebrow: '日期筛选', description: '比较未来几天适合做什么事。', icon: '历', accent: 'orange', group: '择日' },
   bazi: { label: '八字排盘', eyebrow: '出生资料', description: '查看四柱、日主和五行结构。', icon: '命', accent: 'plum', group: '命盘', needsBirth: true },
   astrolabe: { label: '西洋星盘', eyebrow: '出生资料', description: '查看星体、上升与主要相位。', icon: '星', accent: 'sky', group: '命盘', needsBirth: true },
@@ -280,16 +287,33 @@ export async function runDivination(
     case 'ssgw': return (await import('mingyu-core/divination/ssgw')).drawRandomSign(now);
     case 'xiaoliuren': return (await import('mingyu-core/divination/xiaoliuren')).generateXiaoliuren({ method: 'time', customDate: now });
     case 'jinkoujue': return (await import('mingyu-core/divination/jinkoujue')).generateJinkoujue({ method: 'time', customDate: now });
-    case 'qimen': return (await import('mingyu-core/divination/qimen')).generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
+    case 'qimen': return (await import('mingyu-core/divination/qimen')).generateQimen(now, options.qimenLayout ?? 'zhuanpan', options.qimenScope ?? 'hour', options.qimenJuMethod ?? 'chaibu');
     case 'liuren': return (await import('mingyu-core/divination/liuren')).generateLiuren(now);
-    case 'taiyi': return (await import('mingyu-core/taiyi')).generateTaiyi({ year: options.taiyiYear ?? now.getFullYear(), scope: 'year' });
+    case 'taiyi': {
+      const scope = options.taiyiScope ?? 'year';
+      const { generateTaiyi } = await import('mingyu-core/taiyi');
+      return scope === 'year'
+        ? generateTaiyi({ year: options.taiyiYear ?? now.getFullYear(), scope })
+        : generateTaiyi({ date: now, scope });
+    }
     case 'wuyun-liuqi': return (await import('mingyu-core/wuyun-liuqi')).calculateWuyunLiuqi({ year: options.wuyunYear ?? now.getFullYear() });
-    case 'huangji-jingshi': return (await import('mingyu-core/huangji-jingshi')).calculateHuangjiJingshi({ year: options.huangjiYear ?? now.getFullYear() });
+    case 'huangji-jingshi': {
+      const { calculateHuangjiJingshi } = await import('mingyu-core/huangji-jingshi');
+      return options.huangjiMode === 'date'
+        ? calculateHuangjiJingshi({ date: options.huangjiDate ?? now })
+        : calculateHuangjiJingshi({ year: options.huangjiYear ?? now.getFullYear() });
+    }
     case 'almanac': {
       const startDate = options.almanacStartDate ?? toDateOnly(now);
       const endDate = options.almanacEndDate ?? toDateOnly(addDays(new Date(`${startDate}T12:00:00`), 6));
       const { generateAlmanacSelection } = await import('mingyu-core/divination/almanac');
-      return generateAlmanacSelection({ topic: options.almanacTopic ?? 'study', startDate, endDate });
+      return generateAlmanacSelection({
+        topic: options.almanacTopic ?? 'study',
+        startDate,
+        endDate,
+        weekendPreference: options.almanacWeekendPreference,
+        timePreferences: options.almanacTimePreferences,
+      });
     }
     case 'bazi': {
       const { baziCalculator } = await import('mingyu-core/bazi');
@@ -480,13 +504,14 @@ export async function runConfiguredMeihua(
 }
 
 export async function runConfiguredJinkoujue(
-  method: 'time' | 'number' | 'random',
-  number?: number,
+  method: 'time' | 'branch' | 'number' | 'random',
+  value?: number | string,
   now = new Date(),
 ): Promise<JinkoujueData> {
-  return (await import('mingyu-core/divination/jinkoujue')).generateJinkoujue(method === 'number'
-    ? { method, number, customDate: now }
-    : { method, customDate: now });
+  const { generateJinkoujue } = await import('mingyu-core/divination/jinkoujue');
+  if (method === 'number') return generateJinkoujue({ method, number: Number(value), customDate: now });
+  if (method === 'branch') return generateJinkoujue({ method, branch: String(value || ''), customDate: now });
+  return generateJinkoujue({ method, customDate: now });
 }
 
 export async function runAutomaticCasting(
@@ -504,12 +529,21 @@ export async function runTimeCasting(
   options: DivinationOptions = {},
 ): Promise<XiaoliurenData | QimenData | LiurenData> {
   if (kind === 'xiaoliuren') return (await import('mingyu-core/divination/xiaoliuren')).generateXiaoliuren({ method: 'time', customDate: now });
-  if (kind === 'qimen') return (await import('mingyu-core/divination/qimen')).generateQimen(now, 'zhuanpan', options.qimenScope ?? 'hour', 'chaibu');
+  if (kind === 'qimen') return (await import('mingyu-core/divination/qimen')).generateQimen(now, options.qimenLayout ?? 'zhuanpan', options.qimenScope ?? 'hour', options.qimenJuMethod ?? 'chaibu');
   return (await import('mingyu-core/divination/liuren')).generateLiuren(now);
 }
 
 export async function runTaiyiYear(year: number): Promise<TaiyiResult> {
   return (await import('mingyu-core/taiyi')).generateTaiyi({ year, scope: 'year' });
+}
+
+export async function runTaiyi(
+  scope: 'year' | 'month' | 'day' | 'hour',
+  date: Date,
+  year = date.getFullYear(),
+): Promise<TaiyiResult> {
+  const { generateTaiyi } = await import('mingyu-core/taiyi');
+  return scope === 'year' ? generateTaiyi({ year, scope }) : generateTaiyi({ date, scope });
 }
 
 export async function runSpecifiedSsgw(number: number, now = new Date()): Promise<SsgwData> {
@@ -646,7 +680,8 @@ export function formatReadingSummary(kind: DivinationKind, result: ReadingResult
   if (kind === 'taiyi') {
     const reading = result as TaiyiResult;
     const conditions = reading.judgments.slice(0, 2).map((item) => item.split('；')[0]).join('；');
-    return `${reading.ganZhi}年太乙${reading.yinYang}第${reading.bureau}局，太乙在${reading.taiyiPosition}，文昌在${reading.wenChangPosition}，始击在${reading.shiJiPosition}。主算${reading.lordCount}、客算${reading.guestCount}、定算${reading.setCount}${conditions ? `；${conditions}` : ''}。`;
+    const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[reading.scope];
+    return `${reading.ganZhi}${scopeLabel}太乙${reading.yinYang}第${reading.bureau}局，太乙在${reading.taiyiPosition}，文昌在${reading.wenChangPosition}，始击在${reading.shiJiPosition}。主算${reading.lordCount}、客算${reading.guestCount}、定算${reading.setCount}${conditions ? `；${conditions}` : ''}。`;
   }
   if (kind === 'wuyun-liuqi') {
     const reading = result as WuyunLiuqiResult;
@@ -657,6 +692,10 @@ export function formatReadingSummary(kind: DivinationKind, result: ReadingResult
     const reading = result as HuangjiJingshiResult;
     const forecast = reading.forecast;
     if (!forecast) return `${reading.input.year} 年位于本元第 ${reading.position.hui.indexInYuan} 会、第 ${reading.position.yun.indexInYuan} 运、第 ${reading.position.shi.indexInYuan} 世。`;
+    if (reading.dateTimeForecast) {
+      const dateTime = reading.dateTimeForecast;
+      return `${dateTime.civilTime.dateTime}以${dateTime.hexagrams.annual.name}为值年卦，月经卦${dateTime.hexagrams.monthJing.name}、日卦${dateTime.hexagrams.daily.name}、时经卦${dateTime.hexagrams.hourJing.name}。`;
+    }
     return `${reading.input.year}年（${forecast.hexagrams.annual.ganzhi}）值年卦为${forecast.hexagrams.annual.name}，当前处于${forecast.hexagrams.decade.hexagram.shortName}十年卦、${forecast.hexagrams.sixtyYear.hexagram.shortName}六十年统卦与${forecast.hexagrams.yun.hexagram.shortName}运卦周期。`;
   }
   if (kind === 'almanac') {

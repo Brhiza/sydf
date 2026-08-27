@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import UIPickerView from './UIPickerView.vue';
-import { UiDateNavigator, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows, UiReadingSection, UiReadingWorkspace, UiToolPage } from './ui';
+import { UiBadge, UiDateNavigator, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows, UiReadingSection, UiReadingWorkspace, UiToolPage } from './ui';
 import {
   calculateLocalXiaoliuren,
   formatXiaoliurenInput,
@@ -144,7 +144,7 @@ function confirmPicker(values: string[]) {
 </script>
 
 <template>
-  <UiToolPage width="standard" class="screen xlr-screen" toolbar-label="起课日期和时间">
+  <UiToolPage class="screen xlr-screen" toolbar-label="起课日期和时间">
     <template #toolbar-primary>
       <UiDateNavigator
         :label="`${reading.dateLabel} · ${selectedShichen.range}`"
@@ -192,7 +192,7 @@ function confirmPicker(values: string[]) {
           :subtitle="reading.presentation.verdict"
           :summary="reading.presentation.summary"
         >
-          <template #title-addon><span class="xlr-title-tag">{{ reading.presentation.tagline }}</span></template>
+          <template #title-addon><UiBadge tone="accent">{{ reading.presentation.tagline }}</UiBadge></template>
           <p class="xlr-ganzhi">{{ reading.ganzhiLabel }}</p>
         </UiReadingLead>
       </template>
@@ -294,24 +294,12 @@ function confirmPicker(values: string[]) {
 /* Result-page content styles. Page structure and responsive columns are owned
  * by the shared reading components. */
 .xlr-hero-image {
-  aspect-ratio: 424 / 528;
-  border: 1px solid var(--ds-line);
-  border-radius: var(--ds-radius-md);
   margin: 0;
-  overflow: hidden;
   width: 100%;
 }
 
 .xlr-hero-image img { display: block; height: 100%; object-fit: cover; width: 100%; }
-.xlr-title-tag {
-  background: var(--ds-accent-soft);
-  border-radius: var(--ds-radius-round);
-  color: var(--ds-accent-strong);
-  font-size: var(--ds-text-xs);
-  padding: 5px 9px;
-}
 @media (max-width: 720px) {
-  .xlr-title-tag { padding: 4px 7px; }
   .xlr-hero-sequence { gap: var(--ds-space-2); }
   .xlr-hero-sequence > div { gap: 5px; }
   .xlr-hero-sequence i { width: 10px; }

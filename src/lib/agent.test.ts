@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getImmediateActiveDivinationSelection, getLocalAgentSelection, requestAgentToolSelection } from './agent';
+import { getImmediateActiveDivinationSelection, getLocalAgentSelection, requestAgentToolSelection, shouldContinueExistingDivination } from './agent';
 
 const baseRequest = {
   question: '请继续看岁运',
@@ -33,6 +33,15 @@ describe('Agent 工具结果前端校验', () => {
     expect(getImmediateActiveDivinationSelection('你好', 'meihua', false)).toEqual({ mode: 'divination', divinationKind: 'meihua' });
   });
 
+  it('同一卦象的普通追问沿用原卦，明确重起时才重新起卦', () => {
+    const selection = { mode: 'divination', divinationKind: 'meihua' } as const;
+    expect(shouldContinueExistingDivination('那他现在是什么想法？', 'meihua', selection)).toBe(true);
+    expect(shouldContinueExistingDivination('从梅花易数再解释一下动爻', 'meihua', selection)).toBe(true);
+    expect(shouldContinueExistingDivination('请重新起一卦看看', 'meihua', selection)).toBe(false);
+    expect(shouldContinueExistingDivination('换一个卦再问', 'meihua', selection)).toBe(false);
+    expect(shouldContinueExistingDivination('再看看', 'liuyao', selection)).toBe(false);
+  });
+
   it('问题明确点名其他术式时仍交给 Agent 切换', () => {
     expect(getImmediateActiveDivinationSelection('改用紫微看看', 'meihua', false)).toBeNull();
   });
@@ -61,6 +70,18 @@ describe('Agent 工具结果前端校验', () => {
       mode: 'chart', chartKind: 'bazi', baziFortune: { scope: 'year', year: new Date().getFullYear() + 1 },
     });
     expect(getLocalAgentSelection({ question: '为什么会这样', hasProfile: true, previousTool: 'bazi', conversation: [{ role: 'user', content: '今年财运' }] })).toBeNull();
+  });
+
+  it('识别奇门排法、太乙四计与皇极年月日时入口', () => {
+    expect(getLocalAgentSelection({ question: '用日家奇门飞盘置闰看看', hasProfile: false })).toEqual({
+      mode: 'divination', divinationKind: 'qimen', qimenScope: 'day', qimenLayout: 'feipan', qimenJuMethod: 'zhirun',
+    });
+    expect(getLocalAgentSelection({ question: '起一个太乙时计', hasProfile: false })).toEqual({
+      mode: 'divination', divinationKind: 'taiyi', taiyiScope: 'hour',
+    });
+    expect(getLocalAgentSelection({ question: '用皇极经世看此刻的年月日时卦', hasProfile: false })).toEqual({
+      mode: 'divination', divinationKind: 'huangji-jingshi', huangjiMode: 'date', huangjiYear: undefined,
+    });
   });
 
   it('识别小六壬工具调用结果', async () => {
@@ -115,6 +136,8 @@ describe('Agent 工具结果前端校验', () => {
       mode: 'divination',
       divinationKind: 'qimen',
       qimenScope: 'day',
+      qimenLayout: 'zhuanpan',
+      qimenJuMethod: 'chaibu',
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

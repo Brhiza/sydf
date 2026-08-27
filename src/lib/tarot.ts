@@ -1,6 +1,18 @@
 import type { AiInterpretationRequest } from './ai';
+import { tarotSpreads } from 'mingyu-core/divination/tarot';
+import type { TarotSpreadType as CoreTarotSpreadType } from 'mingyu-core/types';
 
-export type TarotSpreadType = 'single' | 'three' | 'love' | 'career' | 'decision' | 'celtic' | 'chakra' | 'year' | 'mindBodySpirit' | 'horseshoe';
+export type TarotSpreadType = CoreTarotSpreadType;
+
+export const tarotSpreadOptions = (Object.entries(tarotSpreads) as Array<[
+  TarotSpreadType,
+  (typeof tarotSpreads)[TarotSpreadType],
+]>).map(([value, spread]) => ({
+  value,
+  label: spread.name,
+  count: spread.cardCount,
+  description: spread.description,
+}));
 
 export interface TarotCardResult {
   id: number;

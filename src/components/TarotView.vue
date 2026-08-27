@@ -4,7 +4,7 @@ import { Hash, Hand, RotateCcw, Sparkles } from 'lucide-vue-next';
 import { buildDivinationPrompt } from 'mingyu-core/prompt/divination';
 import { drawTarotSpread, getCardEvidence, tarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
-import type { TarotInterpretationPayload, TarotReadingResult, TarotSpreadType } from '../lib/tarot';
+import { tarotSpreadOptions, type TarotInterpretationPayload, type TarotReadingResult, type TarotSpreadType } from '../lib/tarot';
 import { getShiyueTarotName, tarotCardBackUrl } from '../lib/tarotDeck';
 import { resolvePromptSchoolIds } from '../lib/promptSchools';
 import TarotSpreadBoard from './TarotSpreadBoard.vue';
@@ -31,19 +31,8 @@ const emit = defineEmits<{
 const TOTAL_CARDS = 78;
 const DRAW_THRESHOLD = 44;
 const cardNumbers = Array.from({ length: TOTAL_CARDS }, (_, index) => index + 1);
-const spreadOptions: Array<{ value: SpreadType; label: string; count: number; description: string }> = [
-  { value: 'single', label: '单牌指引', count: 1, description: '聚焦当下最重要的提醒' },
-  { value: 'three', label: '时间流牌阵', count: 3, description: '过去、现在与未来' },
-  { value: 'mindBodySpirit', label: '身心灵牌阵', count: 3, description: '思想、行动与内在状态' },
-  { value: 'love', label: '爱情牌阵', count: 5, description: '双方内心与关系走向' },
-  { value: 'career', label: '事业牌阵', count: 6, description: '优势、挑战、机会与建议' },
-  { value: 'decision', label: '选择牌阵', count: 6, description: '比较两种选择及其结果' },
-  { value: 'chakra', label: '七脉轮牌阵', count: 7, description: '观察七个层面的平衡' },
-  { value: 'horseshoe', label: '马蹄铁牌阵', count: 7, description: '梳理影响、建议和结果' },
-  { value: 'celtic', label: '凯尔特十字', count: 10, description: '完整分析现状与发展' },
-  { value: 'year', label: '年运牌阵', count: 12, description: '全年节奏与重点领域' },
-];
-const spreadSelectOptions = spreadOptions.map(item => ({ value: item.value, label: `${item.label} · ${item.count} 张` }));
+const spreadOptions = tarotSpreadOptions;
+const spreadSelectOptions = tarotSpreadOptions.map(item => ({ value: item.value, label: `${item.label} · ${item.count} 张` }));
 const question = ref(props.initialQuestion || '');
 const spreadType = ref<SpreadType>(props.initialSpread || 'single');
 const drawMode = ref<DrawMode | null>(props.castingPreference === 'manual' ? 'manual' : null);
@@ -436,7 +425,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UiToolPage width="wide" class="screen tarot-screen" :class="{ 'is-drawing': phase === 'drawing' }">
+  <UiToolPage class="screen tarot-screen" :class="{ 'is-drawing': phase === 'drawing' }">
     <UiWorkspaceSurface as="article" class="tarot-workspace" :class="{ 'is-drawing': phase === 'drawing' }" padding="standard">
       <UiSectionHeading
         v-if="phase !== 'drawing'"
@@ -562,7 +551,7 @@ onBeforeUnmount(() => {
 .tarot-setup label > span { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; }
 .tarot-setup textarea, .tarot-setup select, .tarot-setup-numbers input { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); color: var(--ds-text-primary); font: inherit; outline: none; transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease; width: 100%; }
 .tarot-setup textarea { min-height: 84px; padding: 12px 13px; resize: vertical; }
-.tarot-setup select, .tarot-setup-numbers input { height: 44px; padding: 0 12px; }
+.tarot-setup select, .tarot-setup-numbers input { height: var(--ds-control-md); padding: 0 12px; }
 .tarot-setup textarea:focus, .tarot-setup select:focus, .tarot-setup-numbers input:focus { background: var(--ds-surface-raised); border-color: var(--ds-accent); box-shadow: var(--ds-focus-ring); }
 .tarot-setup textarea:disabled, .tarot-setup select:disabled { opacity: .66; }
 .tarot-setup small, .tarot-setup-numbers small { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }

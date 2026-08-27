@@ -614,7 +614,7 @@ function genderLabel(profile: CompatibilityCase) {
 </script>
 
 <template>
-  <UiPageShell :width="page === 'chat' ? 'reading' : 'standard'" class="compatibility-screen" :class="{ 'is-chat': page === 'chat' }">
+  <UiPageShell class="compatibility-screen" :class="{ 'is-chat': page === 'chat' }">
     <UiWorkspaceSurface v-if="!hasEnoughCases" class="compatibility-onboarding" padding="standard">
       <UiEmptyState title="需要两份案例" description="请先在案例中保存两个人的出生资料。" compact>
         <template #icon><HeartHandshake :size="24" /></template>
@@ -752,9 +752,6 @@ function genderLabel(profile: CompatibilityCase) {
 </template>
 
 <style scoped>
-.compatibility-screen { width: 100%; }
-.compatibility-onboarding { margin: 0 auto; max-width: 720px; }
-
 .compatibility-selection-card { background: var(--ds-surface-raised); }
 .compatibility-selection-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: var(--ds-space-5); min-width: 0; }
 .compatibility-selection-header > div { align-items: baseline; display: flex; gap: var(--ds-space-3); min-width: 0; }

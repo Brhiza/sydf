@@ -2,14 +2,12 @@
 import { computed, ref } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
 import type { AiCustomConfig, AiPreferences } from '../lib/ai';
-import type { TarotSpreadType, WesternDeckType, WesternInterpretationPayload, WesternSpreadType } from '../lib/tarot';
+import { tarotSpreadOptions, type TarotSpreadType, type WesternDeckType, type WesternInterpretationPayload, type WesternSpreadType } from '../lib/tarot';
 import { getWesternSpreadOptions } from '../lib/westernDecks';
 import { getDivinationBannerUrl } from '../lib/divinationTheme';
-import { getPromptSchoolChoiceOptions, type PromptSchoolChoice } from '../lib/promptSchools';
-import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import TarotView from './TarotView.vue';
 import WesternDeckDrawView from './WesternDeckDrawView.vue';
-import { UiActionBar, UiButton, UiPageShell, UiSelect, UiTextField, UiWorkspaceSurface } from './ui';
+import { UiActionBar, UiButton, UiPageShell, UiSegmentedControl, UiSelect, UiTextField, UiWorkspaceSurface } from './ui';
 
 const props = defineProps<{
   preferences?: AiPreferences;
@@ -19,7 +17,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   interpret: [payload: WesternInterpretationPayload];
-  'update:prompt-school-choice': [method: PromptSchoolMethod, choice: PromptSchoolChoice];
 }>();
 
 const deckOptions: Array<{ value: WesternDeckType; label: string; description: string }> = [
@@ -27,19 +24,7 @@ const deckOptions: Array<{ value: WesternDeckType; label: string; description: s
   { value: 'lenormand', label: '雷诺曼', description: '以三张牌串联事件的起因、现状与走向' },
   { value: 'shiyue-oracle', label: '时月神谕', description: '抽取一张六十甲子神谕，获得当下提示' },
 ];
-const tarotSpreadOptions: Array<{ value: TarotSpreadType; label: string; count: number; description: string }> = [
-  { value: 'single', label: '单牌指引', count: 1, description: '聚焦当下最重要的提醒' },
-  { value: 'three', label: '时间流牌阵', count: 3, description: '过去、现在与未来' },
-  { value: 'mindBodySpirit', label: '身心灵牌阵', count: 3, description: '思想、行动与内在状态' },
-  { value: 'love', label: '爱情牌阵', count: 5, description: '双方内心与关系走向' },
-  { value: 'career', label: '事业牌阵', count: 6, description: '优势、挑战、机会与建议' },
-  { value: 'decision', label: '选择牌阵', count: 6, description: '比较两种选择及其结果' },
-  { value: 'chakra', label: '七脉轮牌阵', count: 7, description: '观察七个层面的平衡' },
-  { value: 'horseshoe', label: '马蹄铁牌阵', count: 7, description: '梳理影响、建议和结果' },
-  { value: 'celtic', label: '凯尔特十字', count: 10, description: '完整分析现状与发展' },
-  { value: 'year', label: '年运牌阵', count: 12, description: '全年节奏与重点领域' },
-];
-
+const deckTabs = deckOptions.map(({ value, label }) => ({ value, label }));
 const phase = ref<'entry' | 'draw'>('entry');
 const deckType = ref<WesternDeckType>('tarot');
 const tarotSpread = ref<TarotSpreadType>('single');
@@ -65,17 +50,6 @@ const selectedSpreadSummary = computed(() => {
   }
   return { name: `${selectedTarotSpread.value.label} · ${selectedTarotSpread.value.count} 张`, detail: selectedTarotSpread.value.description };
 });
-const promptSchoolMethod = computed<PromptSchoolMethod | null>(() => deckType.value === 'tarot'
-  ? 'tarot'
-  : deckType.value === 'lenormand' ? 'lenormand' : null);
-const promptSchoolOptions = computed(() => promptSchoolMethod.value ? getPromptSchoolChoiceOptions(promptSchoolMethod.value) : []);
-const promptSchoolChoice = computed({
-  get: () => promptSchoolMethod.value ? props.preferences?.promptSchoolChoices?.[promptSchoolMethod.value] ?? 'all' : 'all',
-  set: (choice: PromptSchoolChoice) => {
-    if (promptSchoolMethod.value) emit('update:prompt-school-choice', promptSchoolMethod.value, choice);
-  },
-});
-
 function begin() {
   const asked = question.value.trim();
   if (!asked) {
@@ -124,7 +98,7 @@ function reset() {
     @interpret="emit('interpret', $event)"
   />
 
-  <UiPageShell v-else width="reading" class="screen western-screen">
+  <UiPageShell v-else class="screen western-screen">
     <UiWorkspaceSurface v-if="phase === 'entry'" class="western-workspace western-entry" padding="standard">
       <header class="western-intro">
         <div class="western-portrait"><img :src="getDivinationBannerUrl()" alt="西方占卜" /></div>
@@ -134,14 +108,9 @@ function reset() {
       <section class="western-form">
         <fieldset class="western-deck-spread">
           <legend>牌卡与牌阵</legend>
-          <div class="western-decks" role="radiogroup" aria-label="选择牌卡">
-            <button v-for="item in deckOptions" :key="item.value" type="button" role="radio" :aria-checked="deckType === item.value" :class="{ active: deckType === item.value }" @click="deckType = item.value; errorMessage = ''">
-              {{ item.label }}
-            </button>
-          </div>
+          <UiSegmentedControl class="western-decks ui-tool-tabs" :model-value="deckType" :items="deckTabs" label="选择牌卡" @update:model-value="deckType = $event as WesternDeckType; errorMessage = ''" />
           <UiSelect v-if="deckType === 'tarot'" v-model="tarotSpread" class="western-spread" label="牌阵" :options="visibleSpreadOptions" :hint="selectedSpreadSummary.detail" />
           <UiSelect v-else v-model="selectedWesternSpread" class="western-spread" label="牌阵" :options="visibleSpreadOptions" :hint="selectedSpreadSummary.detail" />
-          <UiSelect v-if="preferences?.displayLevel === 'master' && promptSchoolMethod" v-model="promptSchoolChoice" class="western-school" label="解读流派" :options="promptSchoolOptions" />
         </fieldset>
         <UiTextField id="western-question" v-model="question" label="所问之事" multiline :rows="3" :maxlength="10000" :error="errorMessage" placeholder="写下此刻想问的事" @keydown="handleQuestionKeydown" @update:model-value="errorMessage = ''" />
         <UiActionBar align="center"><UiButton @click="begin"><Sparkles :size="16" />开始{{ selectedDeck.label }}</UiButton></UiActionBar>
@@ -155,16 +124,14 @@ function reset() {
 .western-screen { min-height: calc(100dvh - 188px); }
 .western-workspace { min-width: 0; }
 .western-intro { align-items: center; display: flex; flex-direction: column; text-align: center; }
-.western-portrait { background: #171216; border-radius: 18px; box-shadow: 0 16px 38px rgba(46,31,57,.14); overflow: hidden; width: min(100%, 680px); }
+.western-portrait { background: #171216; border-radius: 18px; box-shadow: 0 16px 38px rgba(46,31,57,.14); overflow: hidden; width: min(100%, var(--ds-feature-banner-width)); }
 .western-portrait img { aspect-ratio: 16 / 9; display: block; object-fit: cover; width: 100%; }
-.western-intro > span { color: var(--ds-accent); font-size: 11px; font-weight: 600; letter-spacing: .18em; margin-top: 22px; }
+.western-intro > span { color: var(--ds-accent-strong); font-size: 11px; font-weight: 600; letter-spacing: .18em; margin-top: 22px; }
 .western-form { margin: 24px auto 0; max-width: 680px; }
 .western-deck-spread { border: 0; margin: 0 0 20px; padding: 0; }
 .western-deck-spread > legend { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; margin-bottom: 9px; }
-.western-decks { background: var(--ds-surface-muted); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); display: grid; gap: 4px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 4px; width: 100%; }
-.western-decks button { align-items: center; background: transparent; border: 0; border-radius: calc(var(--ds-radius-md) - 3px); color: var(--ds-text-secondary); cursor: pointer; display: flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 600; height: 48px; justify-content: center; min-width: 0; padding: 0 12px; text-align: center; transition: color .18s, background .18s, box-shadow .18s; white-space: nowrap; }
-.western-decks button.active { background: var(--ds-surface-raised); box-shadow: 0 1px 5px rgba(41,33,52,.1); color: var(--ds-accent-strong); }
-.western-decks button:focus-visible { box-shadow: var(--ds-focus-ring); outline: none; }
+.western-decks { max-width: 100%; width: fit-content; }
+.western-decks.ui-tool-tabs :deep(button) { flex: 0 0 auto; min-width: 0; }
 .western-spread { margin-top: 14px; }
 .western-school { margin-top: 14px; }
 .western-result { margin-inline: auto; }
@@ -176,8 +143,6 @@ function reset() {
   .western-portrait { border-radius: 13px; width: min(100%, 440px); }
   .western-intro > span { margin-top: 17px; }
   .western-form { margin-top: 19px; }
-  .western-decks { max-width: 100%; }
-  .western-decks button { font-size: 12px; height: 38px; padding-inline: 5px; }
   .western-spread { margin-top: 12px; }
   .western-result-head h2 { font-size: var(--ds-text-md); }
 }

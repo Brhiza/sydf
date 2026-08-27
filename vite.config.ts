@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { pagesApiPlugin } from './functions/viteApiPlugin';
+import { themeAssetPackagesPlugin } from './build/themeAssetPackages';
 
 function appVersionPlugin(version: string): Plugin {
   return {
@@ -26,6 +27,7 @@ export default defineConfig(({ mode }) => {
     pagesApiPlugin(loadEnv(mode, process.cwd(), '')),
     vue(),
     appVersionPlugin(version),
+    themeAssetPackagesPlugin(mode === 'android'),
   ],
   build: {
     // 保留旧版 Android WebView 的 JavaScript 语法兼容；CSS 不做全局降级改写。

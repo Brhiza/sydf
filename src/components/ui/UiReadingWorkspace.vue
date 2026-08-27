@@ -24,3 +24,11 @@ withDefaults(defineProps<{
     <slot />
   </UiWorkspaceSurface>
 </template>
+
+<style scoped>
+/* On framed desktop heroes, the frame itself already separates the next block. */
+@media (min-width: 721px) {
+  .ui-reading-workspace :deep(.ui-reading-hero + .ui-reading-section),
+  .ui-reading-workspace :deep(.ui-reading-hero + .ui-reading-grid) { border-top: 0; }
+}
+</style>

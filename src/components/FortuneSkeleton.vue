@@ -15,7 +15,7 @@ const props = defineProps<{
   <UiReadingWorkspace
     class="fortune-reading fortune-skeleton"
     aria-busy="true"
-    aria-label="正在整理运势"
+    aria-label="正在加载"
   >
     <template #hero-media>
       <span class="fortune-skeleton__block fortune-skeleton__image" aria-hidden="true"></span>
@@ -85,7 +85,7 @@ const props = defineProps<{
   display: block;
   height: 10px;
 }
-.fortune-skeleton__image { aspect-ratio: 330 / 518; height: auto; width: 100%; }
+.fortune-skeleton__image { height: auto; width: 100%; }
 .fortune-skeleton__date,
 .fortune-skeleton__overview { width: 100%; }
 .fortune-skeleton__date > .is-label { margin-bottom: var(--ds-space-3); width: 64px; }

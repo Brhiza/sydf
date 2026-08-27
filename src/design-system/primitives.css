@@ -95,19 +95,15 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 
-/* Semantic page widths. Different information densities may use different
- * widths, but every page now uses one of these four intentional sizes. */
+/* Regular pages share one content width. Business components should constrain
+ * dense inner content instead of changing the page shell itself. */
 .ui-page {
-  animation: screen-in .25s ease-out;
+  animation: screen-in var(--ds-motion-base) var(--ds-ease-enter);
   margin-inline: auto;
+  max-width: var(--ds-page-content);
   min-width: 0;
   width: 100%;
 }
-
-.ui-page.ui-page--reading { max-width: var(--ds-page-reading); }
-.ui-page.ui-page--standard { max-width: var(--ds-page-standard); }
-.ui-page.ui-page--wide { max-width: var(--ds-page-wide); }
-.ui-page.ui-page--immersive { max-width: var(--ds-page-immersive); }
 
 .content { padding: var(--ds-space-7) var(--ds-page-gutter) var(--ds-space-8); }
 .topbar { flex-basis: var(--ds-topbar-height); height: var(--ds-topbar-height); padding-inline: var(--ds-page-gutter); }
@@ -136,7 +132,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   line-height: 1;
   min-height: var(--ds-control-md);
   padding: 0 var(--ds-space-4);
-  transition: background-color .18s ease, border-color .18s ease, color .18s ease, opacity .18s ease, transform .18s ease;
+  transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), border-color var(--ds-motion-fast) var(--ds-ease-standard), color var(--ds-motion-fast) var(--ds-ease-standard), opacity var(--ds-motion-fast) var(--ds-ease-standard), transform var(--ds-motion-fast) var(--ds-ease-standard), box-shadow var(--ds-motion-fast) var(--ds-ease-standard);
 }
 
 .ui-button--primary {
@@ -152,7 +148,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 }
 
 .ui-button--secondary {
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   color: var(--ds-text-secondary);
 }
@@ -167,6 +163,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-button--ghost:hover:not(:disabled) { background: var(--ds-surface-muted); border-color: var(--ds-line); color: var(--ds-text-primary); }
 .ui-button--danger { background: var(--ds-danger-soft); border: 1px solid color-mix(in srgb, var(--ds-danger) 28%, var(--ds-line)); color: var(--ds-danger); }
 .ui-button--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--ds-danger-soft) 72%, var(--ds-danger)); border-color: color-mix(in srgb, var(--ds-danger) 48%, var(--ds-line)); }
+.ui-button:active:not(:disabled) { transform: translateY(0) scale(.98); transition-duration: var(--ds-motion-instant); }
 .ui-button--icon-only { padding: 0; width: var(--ds-control-md); }
 .ui-button--small { font-size: var(--ds-text-xs); min-height: var(--ds-control-sm); padding-inline: var(--ds-space-3); }
 .ui-button--large { font-size: var(--ds-text-md); min-height: var(--ds-control-lg); padding-inline: var(--ds-space-5); }
@@ -200,14 +197,14 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-page :where(.form-grid, .settings-field, .case-records-search, .compatibility-person-picker) :where(input, select, textarea),
 .ui-field,
 .ui-text-field__control {
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-sm);
   color: var(--ds-text-primary);
   font-size: var(--ds-text-md);
   min-height: var(--ds-control-md);
   padding: 9px 11px;
-  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+  transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), border-color var(--ds-motion-fast) var(--ds-ease-standard), box-shadow var(--ds-motion-fast) var(--ds-ease-standard);
 }
 
 .ui-page :where(.form-grid, .settings-field, .case-records-search, .compatibility-person-picker) :where(input, select, textarea):focus,
@@ -225,6 +222,10 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-text-field__label { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); font-weight: 550; line-height: var(--ds-line-tight); }
 .ui-text-field__label span { color: var(--ds-danger); }
 .ui-text-field__control { box-sizing: border-box; display: block; width: 100%; }
+.ui-text-field:not(.ui-text-field--multiline) .ui-text-field__control {
+  height: var(--ds-control-md);
+  padding-block: 0;
+}
 .ui-text-field--multiline .ui-text-field__control { line-height: var(--ds-line-normal); min-height: 96px; resize: vertical; }
 .ui-text-field__control::placeholder { color: var(--ds-text-tertiary); }
 .ui-text-field__message { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); line-height: var(--ds-line-normal); margin: 0; }
@@ -236,7 +237,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-select__label span { color: var(--ds-danger); }
 .ui-select__control {
   align-items: center;
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-sm);
   color: var(--ds-text-primary);
@@ -244,11 +245,12 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   display: flex;
   font: inherit;
   font-size: var(--ds-text-md);
+  height: var(--ds-control-md);
   min-height: var(--ds-control-md);
   justify-content: space-between;
-  padding: 9px 11px;
+  padding: 0 11px;
   text-align: left;
-  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+  transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), border-color var(--ds-motion-fast) var(--ds-ease-standard), box-shadow var(--ds-motion-fast) var(--ds-ease-standard), transform var(--ds-motion-fast) var(--ds-ease-standard);
   width: 100%;
 }
 .ui-select__control > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -256,7 +258,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-select__control:hover:not(:disabled) { border-color: var(--ds-line-strong); }
 .ui-select__control:focus-visible { background: var(--ds-surface-raised); border-color: var(--ds-accent); box-shadow: var(--ds-focus-ring); outline: none; }
 .ui-select__control:disabled { cursor: not-allowed; opacity: .55; }
-.ui-select__icon { color: var(--ds-text-tertiary); flex: 0 0 auto; margin-left: var(--ds-space-2); pointer-events: none; transition: color .18s ease, transform .18s ease; }
+.ui-select__icon { color: var(--ds-text-tertiary); flex: 0 0 auto; margin-left: var(--ds-space-2); pointer-events: none; transition: color var(--ds-motion-fast) var(--ds-ease-standard), transform var(--ds-motion-base) var(--ds-ease-enter); }
 .ui-select:focus-within .ui-select__icon { color: var(--ds-accent); }
 .ui-select.is-open .ui-select__icon { color: var(--ds-accent); transform: rotate(180deg); }
 .ui-select__message { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); line-height: var(--ds-line-normal); margin: 0; }
@@ -265,6 +267,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-select--disabled .ui-select__icon { opacity: .45; }
 
 .ui-select-menu {
+  animation: ds-menu-enter var(--ds-motion-fast) var(--ds-ease-enter);
   background: var(--ds-surface-overlay);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-md);
@@ -276,6 +279,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   position: fixed;
   scrollbar-color: var(--ds-line-strong) transparent;
   scrollbar-width: thin;
+  transform-origin: top center;
   z-index: 1000;
 }
 .ui-select-menu__group { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); font-weight: 600; padding: 9px 10px 5px; }
@@ -294,6 +298,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   min-height: 38px;
   padding: 8px 10px;
   text-align: left;
+  transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), color var(--ds-motion-fast) var(--ds-ease-standard);
   width: 100%;
 }
 .ui-select-menu__option > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -303,7 +308,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-select-menu__option:disabled { color: var(--ds-text-tertiary); cursor: not-allowed; opacity: .55; }
 
 .birth-picker-trigger {
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border-color: var(--ds-line);
   border-radius: var(--ds-radius-sm);
   min-height: var(--ds-control-md);
@@ -320,7 +325,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 }
 
 .ui-segmented-control--pill {
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-md);
   padding: 3px;
@@ -341,10 +346,12 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   min-height: 34px;
   padding: 0 13px;
   position: relative;
+  transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), box-shadow var(--ds-motion-fast) var(--ds-ease-standard), color var(--ds-motion-fast) var(--ds-ease-standard), transform var(--ds-motion-fast) var(--ds-ease-standard);
   white-space: nowrap;
 }
 
 .ui-segmented-control > button:hover:not(:disabled) { color: var(--ds-text-primary); }
+.ui-segmented-control > button:active:not(:disabled) { transform: scale(.98); transition-duration: var(--ds-motion-instant); }
 .ui-segmented-control__icon { align-items: center; background: var(--ds-accent-soft); border-radius: 6px; color: var(--ds-accent-strong); display: inline-flex; font-size: var(--ds-text-xs); height: 24px; justify-content: center; margin-right: 6px; width: 24px; }
 .ui-segmented-control__copy { display: grid; gap: 3px; min-width: 0; text-align: left; }
 .ui-segmented-control__copy strong { color: inherit; font-size: inherit; font-weight: 600; line-height: 1.2; }
@@ -354,9 +361,9 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-segmented-control--underline { border-bottom: 1px solid var(--ds-line); gap: var(--ds-space-6); overflow-x: auto; scrollbar-width: none; }
 .ui-segmented-control--underline::-webkit-scrollbar { display: none; }
 .ui-segmented-control--underline > button { border-radius: 0; min-height: 42px; padding: 0 1px; }
-.ui-segmented-control--underline > button::after { background: transparent; border-radius: 99px; bottom: -1px; content: ''; height: 2px; left: 0; position: absolute; right: 0; }
+.ui-segmented-control--underline > button::after { background: transparent; border-radius: 99px; bottom: -1px; content: ''; height: 2px; left: 0; position: absolute; right: 0; transform: scaleX(.45); transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), transform var(--ds-motion-base) var(--ds-ease-enter); }
 .ui-segmented-control--underline > button.active { color: var(--ds-text-primary); }
-.ui-segmented-control--underline > button.active::after { background: var(--ds-accent); }
+.ui-segmented-control--underline > button.active::after { background: var(--ds-accent); transform: scaleX(1); }
 .ui-segmented-control--compact > button { min-height: 32px; padding-inline: 11px; }
 .ui-segmented-control--equal > button { flex: 1 1 0; min-width: 0; }
 .ui-segmented-control--wrap { flex-wrap: wrap; }
@@ -387,7 +394,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 
 .ui-date-navigator {
   align-items: center;
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-md);
   display: inline-flex;
@@ -417,11 +424,11 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   height: 32px;
   justify-content: center;
   line-height: 1;
-  min-height: 32px;
+  min-height: var(--ds-control-sm);
 }
 
 .ui-date-navigator > button:hover { background: var(--ds-surface-raised); color: var(--ds-accent-strong); }
-.ui-date-navigator__step { padding: 0; width: 32px; }
+.ui-date-navigator__step { padding: 0; width: var(--ds-control-sm); }
 .ui-date-navigator__trigger { gap: 6px; min-width: 0; padding: 0 8px; }
 .ui-date-navigator__trigger svg { color: var(--ds-accent); flex: 0 0 auto; }
 .ui-date-navigator__trigger strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -430,7 +437,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-date-navigator__reset { border-left: 1px solid var(--ds-line) !important; border-radius: 0 var(--ds-radius-sm) var(--ds-radius-sm) 0 !important; padding: 0 9px; }
 
 .ui-tool-tabs.ui-segmented-control {
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-md);
   box-shadow: none;
@@ -447,7 +454,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
   border-radius: var(--ds-radius-sm);
   box-shadow: none;
   color: var(--ds-text-secondary);
-  min-height: 32px;
+  min-height: var(--ds-control-sm);
   min-width: 56px;
   padding: 0 12px;
 }
@@ -473,6 +480,23 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 
 .ui-workspace-surface--compact { padding: var(--ds-space-4); }
 .ui-workspace-surface--standard { padding: var(--ds-space-6); }
+
+/* The page itself is the primary canvas. Keep card treatment for nested
+ * objects that carry their own meaning, not for the outer page wrapper. */
+.ui-page > .ui-workspace-surface.ui-workspace-surface,
+.ui-page > :is(.case-input-page, .case-records-page) > .ui-workspace-surface.ui-workspace-surface {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.ui-page > .ui-workspace-surface.ui-workspace-surface--compact,
+.ui-page > .ui-workspace-surface.ui-workspace-surface--standard,
+.ui-page > :is(.case-input-page, .case-records-page) > .ui-workspace-surface.ui-workspace-surface--compact,
+.ui-page > :is(.case-input-page, .case-records-page) > .ui-workspace-surface.ui-workspace-surface--standard {
+  padding: 0;
+}
 
 /* Shared section anatomy. Business pages supply the content, while heading
  * hierarchy and feedback use one predictable rhythm everywhere. */
@@ -515,6 +539,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 /* Shared modal shell. Modal contents keep their own business layout, while
  * overlay, surface, sizing and mobile presentation stay consistent. */
 .ui-dialog-layer {
+  animation: ds-overlay-enter var(--ds-motion-fast) var(--ds-ease-standard);
   align-items: center;
   background: color-mix(in srgb, #17131d 48%, transparent);
   display: flex;
@@ -530,7 +555,7 @@ textarea:focus-visible { outline: none; box-shadow: var(--ds-focus-ring); }
 .ui-dialog-layer::-webkit-scrollbar,
 .ui-dialog::-webkit-scrollbar { display: none; }
 .ui-dialog {
-  animation: editor-in .2s ease-out;
+  animation: editor-in var(--ds-motion-base) var(--ds-ease-enter);
   background: var(--ds-surface-overlay);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-xl);
@@ -597,9 +622,11 @@ html.joytouch-compat .ui-dialog {
   height: 34px;
   justify-content: center;
   padding: 0;
+  transition: background-color var(--ds-motion-fast) var(--ds-ease-standard), border-color var(--ds-motion-fast) var(--ds-ease-standard), color var(--ds-motion-fast) var(--ds-ease-standard), transform var(--ds-motion-fast) var(--ds-ease-standard);
   width: 34px;
 }
 .ui-dialog-header__close:hover { background: var(--ds-accent-soft); color: var(--ds-accent-strong); }
+.ui-dialog-header__close:active { transform: scale(.94); transition-duration: var(--ds-motion-instant); }
 
 /* A tool page always consists of one compact toolbar and one primary surface.
  * Business content may divide the surface with simple borders, but should not
@@ -617,9 +644,10 @@ html.joytouch-compat .ui-dialog {
 .almanac-screen .almanac-immersive-card > .almanac-calendar-panel {
   background: transparent;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--ds-radius-md);
   box-shadow: none;
   margin: 0;
+  overflow: hidden;
 }
 
 .almanac-screen .almanac-immersive-card > .almanac-detail-panel {
@@ -629,7 +657,7 @@ html.joytouch-compat .ui-dialog {
 
 /* Existing tabs map onto the same visual primitive. */
 .ui-segmented-control.almanac-mode-tabs {
-  background: var(--ds-surface-muted);
+  background: var(--ds-control-surface);
   border: 1px solid var(--ds-line);
   border-radius: var(--ds-radius-md);
   box-shadow: none;
@@ -685,14 +713,7 @@ html.joytouch-compat .ui-dialog {
 .ui-empty-state--busy .ui-empty-state__icon { animation: ds-pulse 1.5s ease-in-out infinite; }
 
 /* Page-family convergence */
-.charts-screen,
-.charts-screen + .result-area,
-.cases-screen,
-.settings-screen,
-.fortune-screen,
-.almanac-screen { width: 100%; }
-
-.charts-screen + .result-area { margin-inline: auto; max-width: var(--ds-page-wide); }
+.charts-screen + .result-area { margin-inline: auto; }
 .case-input-page,
 .case-records-page,
 .settings-workspace,
@@ -700,8 +721,6 @@ html.joytouch-compat .ui-dialog {
 .preference-section { background: transparent; border: 0; border-bottom: 1px solid var(--ds-line); border-radius: 0; box-shadow: none; padding: var(--ds-space-5) 0 var(--ds-space-6); }
 .preference-section:first-child { padding-top: 0; }
 .preference-section + .preference-section { margin-top: 0; }
-.settings-screen .settings-workspace { margin-top: var(--ds-space-5); }
-
 /* Component pages use global color variables rather than private palettes. */
 .daily-hexagram-screen,
 .daily-result-screen,
@@ -719,6 +738,16 @@ html.joytouch-compat .ui-dialog {
   50% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes ds-menu-enter {
+  from { opacity: 0; transform: translateY(-4px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ds-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 720px) {
   .content { padding: var(--ds-space-3) var(--ds-page-gutter) calc(var(--ds-space-7) + env(safe-area-inset-bottom)); }
   .ui-page { max-width: none; }
@@ -728,7 +757,7 @@ html.joytouch-compat .ui-dialog {
     width: calc(100% + var(--ds-page-gutter) + var(--ds-page-gutter));
   }
   .ui-segmented-control--underline { gap: var(--ds-space-5); }
-  .ui-segmented-control--underline > button { min-height: 44px; }
+  .ui-segmented-control--underline > button { min-height: var(--ds-control-md); }
   .ui-segmented-control--pill { width: 100%; }
   .ui-segmented-control--pill > button { flex: 1 1 0; min-width: 0; padding-inline: 8px; }
   .ui-segmented-control.almanac-mode-tabs { width: auto; }
@@ -737,7 +766,7 @@ html.joytouch-compat .ui-dialog {
   .ui-date-navigator { max-width: 100%; }
   .ui-date-navigator__trigger { flex: 0 1 auto; padding-inline: 6px; }
   .ui-date-navigator__trigger svg { display: none; }
-  .ui-date-navigator__step { width: 30px; }
+  .ui-date-navigator__step { width: var(--ds-control-sm); }
   .ui-date-navigator__reset { padding-inline: 7px; }
   .ui-tool-tabs.ui-segmented-control { flex: 0 0 auto; width: auto; }
   .ui-tool-tabs.ui-segmented-control > button { flex: 0 1 auto; min-width: 46px; padding-inline: 8px; }
@@ -745,10 +774,21 @@ html.joytouch-compat .ui-dialog {
   .ui-select__control,
   .ui-select-menu__option,
   .ui-segmented-control > button,
-  .birth-picker-trigger { min-height: 44px; }
-  .ui-button--icon-only { min-width: 44px; width: 44px; }
+  .birth-picker-trigger { min-height: var(--ds-control-md); }
+  .ui-button--icon-only { min-width: var(--ds-control-md); width: var(--ds-control-md); }
   .ui-tool-surface,
   .ui-workspace-surface { border-radius: var(--ds-radius-md); }
+  .ui-page > .ui-workspace-surface.ui-workspace-surface,
+  .ui-page > :is(.case-input-page, .case-records-page) > .ui-workspace-surface.ui-workspace-surface {
+    margin-inline: calc(0px - var(--ds-page-gutter));
+    width: calc(100% + var(--ds-page-gutter) + var(--ds-page-gutter));
+  }
+  .ui-page > .ui-workspace-surface.ui-workspace-surface--compact,
+  .ui-page > .ui-workspace-surface.ui-workspace-surface--standard,
+  .ui-page > :is(.case-input-page, .case-records-page) > .ui-workspace-surface.ui-workspace-surface--compact,
+  .ui-page > :is(.case-input-page, .case-records-page) > .ui-workspace-surface.ui-workspace-surface--standard {
+    padding: 0 var(--ds-page-gutter);
+  }
   .ui-workspace-surface--standard { padding: var(--ds-space-4); }
   .ui-workspace-surface--compact { padding: var(--ds-space-3); }
   .ui-section-heading { gap: var(--ds-space-3); }
@@ -787,6 +827,11 @@ html.joytouch-compat .ui-dialog {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-page { animation: none; }
-  .ui-empty-state--busy .ui-empty-state__icon { animation: none; }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
 }

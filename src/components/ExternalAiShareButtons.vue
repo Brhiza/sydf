@@ -234,5 +234,5 @@ async function shareFromIosDialog() {
 .ios-share-dialog > div { display: grid; gap: 8px; margin-top: 18px; }
 .ios-share-dialog > div > button { align-items: center; border: 1px solid var(--line); border-radius: var(--ds-radius-md); display: inline-flex; font: inherit; font-size: var(--ds-text-sm); font-weight: 650; gap: 8px; justify-content: center; min-height: 42px; padding: 10px 14px; }
 .ios-share-copy { background: var(--surface-muted); color: var(--ink); }
-.ios-share-open { background: var(--accent); color: var(--ds-accent-contrast); }
+.ios-share-open { background: var(--accent-strong); color: var(--ds-accent-contrast); }
 </style>

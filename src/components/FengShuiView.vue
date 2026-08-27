@@ -878,7 +878,7 @@ async function interpretPlan() {
 </script>
 
 <template>
-  <UiToolPage width="wide" class="screen feng-shui-screen" toolbar-label="居家风水使用方式">
+  <UiToolPage class="screen feng-shui-screen" toolbar-label="居家风水使用方式">
     <template #toolbar-primary>
       <UiSegmentedControl
         class="feng-workspace-tabs ui-tool-tabs"
@@ -1105,7 +1105,7 @@ async function interpretPlan() {
 .feng-workspace-surface { min-width: 0; }
 .feng-plan-settings { align-items: end; border-bottom: 1px solid var(--feng-line); display: grid; gap: 12px; grid-template-columns: minmax(150px, 1.2fr) minmax(120px, .7fr) minmax(120px, .7fr); padding: 4px 0 18px; }
 .feng-plan-settings label, .feng-inspector label, .feng-ai-form label { color: var(--muted); display: grid; font-size: var(--type-caption); gap: 6px; min-width: 0; }
-.feng-plan-settings input, .feng-plan-settings select, .feng-inspector input, .feng-inspector select, .feng-inspector textarea, .feng-ai-form textarea { background: var(--feng-soft); border: 1px solid var(--feng-line); border-radius: 9px; color: var(--ink); font-size: var(--type-small); min-height: 40px; padding: 8px 10px; width: 100%; }
+.feng-plan-settings input, .feng-plan-settings select, .feng-inspector input, .feng-inspector select, .feng-inspector textarea, .feng-ai-form textarea { background: var(--feng-soft); border: 1px solid var(--feng-line); border-radius: var(--ds-radius-sm); color: var(--ink); font-size: var(--type-small); min-height: var(--ds-control-md); padding: 8px 10px; width: 100%; }
 .feng-editor { display: grid; gap: 16px; grid-template-columns: minmax(170px, .58fr) minmax(390px, 1.6fr) minmax(190px, .68fr); margin-top: 18px; }
 .feng-palette, .feng-canvas-panel, .feng-inspector { min-width: 0; }
 .feng-palette { align-content: start; border-right: 1px solid var(--feng-line); display: grid; gap: 18px; padding: 0 16px 0 0; }

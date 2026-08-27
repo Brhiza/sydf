@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { ArrowRight, Coins, RotateCcw, Sparkles } from 'lucide-vue-next';
-import { UiButton, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows, UiReadingSection, UiReadingWorkspace, UiToolPage, UiWorkspaceSurface } from './ui';
+import { UiBadge, UiButton, UiNotice, UiReadingGrid, UiReadingLead, UiReadingRows, UiReadingSection, UiReadingWorkspace, UiToolPage, UiWorkspaceSurface } from './ui';
 import type { AiInterpretationRequest } from '../lib/ai';
 import { getHexagramCardImageUrl } from '../lib/divinationCardAssets';
 import { getLiuyaoRitualImageUrl } from '../lib/divinationTheme';
@@ -297,7 +297,6 @@ function requestAiReading() {
     <UiToolPage
       v-if="result"
       key="result"
-      width="standard"
       class="screen daily-result-screen"
     >
       <UiReadingWorkspace
@@ -358,7 +357,7 @@ function requestAiReading() {
 
         <UiReadingGrid ratio="wide-left">
           <UiReadingSection class="interpretation-panel" title="卦象解读" :description="hexagramReadingDescription">
-            <template #meta><span class="section-meta-pill">{{ changeSummary }} · {{ changeTone }}</span></template>
+            <template #meta><UiBadge tone="accent">{{ changeSummary }} · {{ changeTone }}</UiBadge></template>
             <UiReadingRows :items="interpretationRows" />
           </UiReadingSection>
 
@@ -405,7 +404,6 @@ function requestAiReading() {
     <UiToolPage
       v-else
       key="casting"
-      width="standard"
       class="screen daily-hexagram-screen"
     >
       <UiWorkspaceSurface as="article" class="casting-board">
@@ -522,8 +520,8 @@ function requestAiReading() {
 .yao-line.moving::after { align-items: center; border: 1px solid var(--ds-plum); border-radius: 50%; color: var(--ds-plum); content: '动'; display: flex; font-size: 7px; height: 17px; justify-content: center; position: absolute; right: 0; top: -5px; width: 17px; }
 
 .casting-board { background: var(--ds-surface-raised); overflow: hidden; }
-.casting-intro { align-items: center; background: linear-gradient(110deg, color-mix(in srgb, var(--ds-accent-soft) 32%, var(--ds-surface-raised)), var(--ds-surface-raised) 52%); border-bottom: 1px solid var(--ds-line); display: flex; gap: var(--ds-space-7); justify-content: space-between; padding: 27px clamp(24px, 4vw, 42px) 25px; }
-.casting-date { color: var(--ds-accent); display: block; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .04em; margin-bottom: 7px; }
+.casting-intro { align-items: center; background: transparent; border-bottom: 1px solid var(--ds-line); display: flex; gap: var(--ds-space-7); justify-content: space-between; padding: 27px clamp(24px, 4vw, 42px) 25px; }
+.casting-date { color: var(--ds-accent-strong); display: block; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .04em; margin-bottom: 7px; }
 .casting-intro h2 { color: var(--ds-text-primary); font-size: clamp(21px, 2.6vw, 28px); font-weight: 700; letter-spacing: -.025em; line-height: 1.2; margin: 0; }
 .casting-intro p { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: 1.6; margin: 7px 0 0; }
 .casting-progress { background: color-mix(in srgb, var(--ds-surface-muted) 86%, var(--ds-surface-raised)); border: 1px solid color-mix(in srgb, var(--ds-accent) 16%, var(--ds-line)); border-radius: var(--ds-radius-md); display: flex; flex: 0 0 auto; flex-direction: column; gap: var(--ds-space-2); min-width: 128px; padding: 12px 14px 11px; }
@@ -549,7 +547,7 @@ function requestAiReading() {
 .yao-placeholder i { border-top: 1px dashed var(--ds-line-strong); width: 100%; }
 .daily-hexagram-screen .yao-line.yin { gap: 22px; }
 .daily-hexagram-screen .yao-line.yin b { width: calc(50% - 11px); }
-.casting-stage { align-items: stretch; background: radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--ds-accent-soft) 74%, transparent) 0, transparent 48%), var(--ds-surface-muted); border-left: 1px solid var(--ds-line); display: flex; flex-direction: column; min-width: 0; padding: 28px clamp(24px, 4vw, 42px) 30px; }
+.casting-stage { align-items: stretch; background: radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--ds-accent-soft) 22%, transparent) 0, transparent 48%), var(--ds-layout-muted); border-left: 1px solid var(--ds-line); display: flex; flex-direction: column; min-width: 0; padding: 28px clamp(24px, 4vw, 42px) 30px; }
 .stage-heading { align-items: baseline; display: flex; justify-content: space-between; }
 .stage-heading span { color: var(--ds-text-tertiary); font-size: var(--ds-text-xs); }
 .stage-heading strong { color: var(--ds-text-primary); font-size: var(--ds-text-sm); font-weight: 650; }
@@ -557,7 +555,7 @@ function requestAiReading() {
 .shell-animation, .coin-result, .empty-result { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: 206px; width: 100%; }
 .shell-animation img, .empty-result img { display: block; filter: drop-shadow(0 12px 18px color-mix(in srgb, var(--ds-accent) 18%, transparent)); height: 142px; object-fit: contain; width: 132px; }
 .shell-animation img { animation: shell-shake .68s ease-in-out infinite; }
-.shell-animation span { color: var(--ds-accent); font-size: var(--ds-text-xs); letter-spacing: .12em; margin-top: 9px; }
+.shell-animation span { color: var(--ds-accent-strong); font-size: var(--ds-text-xs); letter-spacing: .12em; margin-top: 9px; }
 @keyframes shell-shake { 0%, 100% { transform: rotate(-3deg) translateX(-2px); } 35% { transform: rotate(4deg) translateX(3px); } 70% { transform: rotate(-2deg) translateX(1px); } }
 .coin-result > div { align-items: center; display: flex; gap: 15px; justify-content: center; }
 .coin-result img { display: block; filter: drop-shadow(0 3px 5px rgba(77, 55, 111, .12)); height: 88px; object-fit: contain; width: 88px; }
@@ -579,7 +577,7 @@ function requestAiReading() {
 .casting-controls .daily-hexagram-error { margin-top: var(--ds-space-2); width: 100%; }
 
 .result-hexagram { width: min(100%, 280px); }
-.daily-hexagram-card { aspect-ratio: 2 / 3; border-radius: var(--ds-radius-md); display: block; height: auto; object-fit: cover; width: 100%; }
+.daily-hexagram-card { display: block; height: auto; object-fit: cover; width: 100%; }
 .daily-result-screen .hexagram-lines { display: grid; gap: 8px; width: 100%; }
 .daily-result-screen .hexagram-line-row { align-items: center; display: grid; gap: 10px; grid-template-columns: 36px minmax(126px, 1fr) 18px; line-height: 1; }
 .daily-result-screen .hexagram-line-row > span, .daily-result-screen .hexagram-line-row > small { color: var(--ds-text-secondary); font-size: 11px; line-height: 1; text-align: right; }
@@ -588,17 +586,16 @@ function requestAiReading() {
 .daily-result-screen .yao-line.yin b { width: calc(50% - 10.5px); }
 .hexagram-name-flow { align-items: center; display: flex; gap: 12px; justify-content: center; margin-bottom: 5px; text-align: center; }
 .hexagram-name-flow > span { display: grid; gap: 2px; }
-.hexagram-name-flow small { color: var(--ds-accent); font-size: 11px; letter-spacing: .08em; line-height: 1.2; }
+.hexagram-name-flow small { color: var(--ds-accent-strong); font-size: 11px; letter-spacing: .08em; line-height: 1.2; }
 .hexagram-name-flow strong { color: var(--ds-text-primary); font-size: 16px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .hexagram-name-flow > svg { color: var(--ds-accent); }
 .hexagram-meta { align-items: center; color: var(--ds-text-secondary); display: flex; font-size: 11px; gap: 6px; justify-content: center; line-height: 1.2; margin-bottom: 10px; }
 .hexagram-meta strong { color: var(--ds-text-primary); font-size: inherit; font-weight: 600; }
 .hexagram-meta i { background: var(--ds-line); height: 10px; margin: 0 3px; width: 1px; }
 .daily-reset-action { border-radius: var(--ds-radius-round); }
-.section-meta-pill { background: var(--ds-surface-muted); border-radius: var(--ds-radius-round); color: var(--ds-accent-strong); display: inline-block; padding: 6px 10px; }
 .moving-lines-panel article { align-items: start; border-top: 1px solid var(--ds-line); display: grid; gap: 18px; grid-template-columns: 82px minmax(0, 1fr); padding: 17px 0; }
 .moving-line-heading { align-items: baseline; display: flex; flex-wrap: wrap; gap: 7px; }
-.moving-line-heading span { color: var(--ds-accent); font-size: var(--ds-text-sm); }
+.moving-line-heading span { color: var(--ds-accent-strong); font-size: var(--ds-text-sm); }
 .moving-line-heading strong { color: var(--ds-text-primary); font-size: var(--ds-text-xs); }
 .moving-line-content blockquote { color: var(--ds-text-primary); font-size: var(--ds-text-sm); line-height: var(--ds-line-normal); margin: 0 0 7px; }
 .moving-line-content p { color: var(--ds-text-secondary); font-size: var(--ds-text-sm); line-height: var(--ds-line-normal); margin: 0; }
@@ -644,7 +641,7 @@ function requestAiReading() {
   .hexagram-name-flow > svg { height: 14px; width: 14px; }
   .hexagram-meta { font-size: 10px; margin-bottom: 13px; }
   .moving-lines-panel article { gap: 10px; grid-template-columns: 66px minmax(0, 1fr); padding: 12px 0; }
-  .daily-ai-button { width: 100%; }
+  .daily-ai-button { min-width: 168px; width: auto; }
 }
 
 @media (max-width: 380px) {
