@@ -15,7 +15,7 @@ const labels: Record<(typeof topics)[number], string> = {
 const topicMarkers: Record<(typeof topics)[number], RegExp> = {
   career: /工作|交付|验收|负责人|责任/,
   study: /学习|资料|理解|记忆|笔记|练习|输入|输出/,
-  wealth: /钱款|金额|付款|成本|预算|报价|报销|结算|费用/,
+  wealth: /钱款|金额|付款|成本|预算|报价|结算|费用/,
   relationship: /沟通|共同事实|承诺|会面|倾听|表达|立场|分歧|同行人|接待方/,
   travel: /出行|行程|路线|地点|转场|返程|交通|住宿/,
   wellbeing: /身心|休息|恢复|睡眠|进食|注意力|疲劳|情绪/,

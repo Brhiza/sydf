@@ -60,12 +60,12 @@ function windowOrderValue(result: DailyFortuneResult, name: string, range: strin
 
 const summaryStructurePatterns: Array<[RegExp, RegExp]> = [
   [/顺势窗口/, /支持集中/],
-  [/强弱分化/, /明显高于|可用信号主要集中/],
-  [/助力与牵制/, /强度接近/],
-  [/连续反馈/, /六类主题大多处在平稳区/],
-  [/条件反复/, /只有.+形成持续牵制/],
-  [/承载能力/, /身心状态处在弱项/],
-  [/收紧项/, /有\d+项主题需要收紧/],
+  [/强弱分化/, /优势主要在|明显顺于/],
+  [/助力与牵制/, /势头相当/],
+  [/连续反馈/, /走势平缓/],
+  [/条件反复/, /主要波折落在/],
+  [/承载能力/, /身心状态明显偏弱/],
+  [/收紧项/, /多方条件受到制约/],
 ];
 
 function expectHolisticSummary(result: DailyFortuneResult) {

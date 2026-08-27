@@ -391,7 +391,7 @@ const scaledTrendPhrases: Record<Exclude<TrendScale, 'day'>, Record<string, Scal
       ],
       guards: [
         '这段时间交接仍有空白时，不把待确认事项排进执行',
-        '临时插单挤占原任务时，明确替换关系而不是直接叠加',
+        '新增事项挤占原排期时，明确替换关系而不是直接叠加',
         '阶段中途仍无法确认验收人时，暂停后续投入',
         '同类返工再次出现时，这段时间先修口径不加任务',
       ],
@@ -2407,7 +2407,6 @@ function summaryStructureDiagnosis(
   primary: CategoryAggregate,
   secondary: CategoryAggregate,
   caution: CategoryAggregate,
-  cautiousCount: number,
   hasCaution: boolean,
 ) {
   const scope = period === 'today' ? '当天' : period === 'month' ? '本月' : '全年';
@@ -2415,28 +2414,28 @@ function summaryStructureDiagnosis(
   const secondaryLabel = secondary.evaluation.definition.shortLabel;
   const cautionLabel = caution.evaluation.definition.shortLabel;
   if (posture === 'advance') {
-    return `${scope}的支持集中在${primaryLabel}，${secondaryLabel}仍有承接余量，六类主题没有形成持续收紧项`;
+    return `${scope}整体顺势明显，支持集中在${primaryLabel}，${secondaryLabel}仍有稳定承接空间，各方面未见明显阻碍`;
   }
   if (posture === 'focus') {
     return hasCaution
-      ? `${scope}的可用信号主要集中在${primaryLabel}，${secondaryLabel}仍能承接，但${cautionLabel}已经形成持续牵制`
-      : `${scope}的${primaryLabel}明显高于其他主题，${secondaryLabel}仍有承接余量，其余项目还没有同等强度的支持`;
+      ? `${scope}整体强弱分明，优势主要在${primaryLabel}，${secondaryLabel}仍能跟进承接，但${cautionLabel}容易打乱节奏`
+      : `${scope}整体强弱分明，${primaryLabel}明显顺于其他方面，${secondaryLabel}仍有承接余量，其余安排暂无同等支持`;
   }
   if (posture === 'stabilize') {
     return hasCaution
-      ? `${scope}的${primaryLabel}与${secondaryLabel}强度接近，${cautionLabel}的限制使整体暂时不能同时加量`
-      : `${scope}的${primaryLabel}与${secondaryLabel}强度接近，支持与限制尚未拉开，结果更依赖实际承接`;
+      ? `${scope}整体顺逆并存，${primaryLabel}与${secondaryLabel}势头相当，${cautionLabel}的波动使全局暂不宜同时铺开`
+      : `${scope}整体相对均衡，${primaryLabel}与${secondaryLabel}势头相当，各项优劣未显悬殊，成效更看实际承接`;
   }
   if (posture === 'cultivate') {
-    return `${scope}六类主题大多处在平稳区，${primaryLabel}只是相对清楚的入口，还没有连续助力`;
+    return `${scope}整体走势平缓，各方缺乏连续推力，宜以${primaryLabel}作为着手点稳步验证`;
   }
   if (posture === 'resolve') {
-    return `${scope}只有${cautionLabel}形成持续牵制，${primaryLabel}仍可保留，但不足以抵消这一弱项`;
+    return `${scope}主要波折落在${cautionLabel}，${primaryLabel}虽可照常推进，但不足以抵消这一处的反复与消耗`;
   }
   if (posture === 'restore') {
-    return `${scope}的身心状态处在弱项，恢复不足正在压缩${primaryLabel}与${secondaryLabel}能够持续投入的时间`;
+    return `${scope}身心状态明显偏弱，恢复不足正在压缩${primaryLabel}与${secondaryLabel}能够稳定投入的时间`;
   }
-  return `${scope}有${cautiousCount}项主题需要收紧，问题已经从单点扩展为多项安排互相挤压`;
+  return `${scope}多方条件受到制约，阻力已经从局部蔓延为多项安排互相挤压`;
 }
 
 function summaryDecisionStatement(
@@ -2524,7 +2523,6 @@ function buildFortuneMasterJudgment(
       primary,
       secondary,
       caution,
-      cautiousCount,
       hasCaution,
     ),
     decisionStatement: summaryDecisionStatement(primary, secondary, caution, hasCaution),

@@ -630,7 +630,8 @@ describe('今日、月运、年运统一周期算法', () => {
     results.forEach((result) => {
       expect(JSON.stringify(result)).not.toContain('先先');
       expect(result.overview.label).toMatch(/顺势窗口|强弱分化|助力与牵制|连续反馈|条件反复|承载能力|收紧项/);
-      expect(result.summary.split('。')[0]).toMatch(/支持集中|明显高于|可用信号主要集中|强度接近|平稳区|只有.+持续牵制|身心状态处在弱项|有\d+项主题需要收紧/);
+      expect(result.summary.split('。')[0]).toMatch(/支持集中|优势主要在|明显顺于|势头相当|走势平缓|主要波折落在|身心状态明显偏弱|多方条件受到制约/);
+      expect(result.summary).not.toMatch(/六类主题|可用信号|平稳区|相对清楚的入口|连续助力|强度接近|尚未拉开|持续牵制|收紧项/);
       expect(result.summary).toContain('因此');
       expect(result.summary).not.toMatch(/\d+个双小时时段|\d+个日期|\d+个节气阶段|有\d+[天段]顺势/);
       expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);

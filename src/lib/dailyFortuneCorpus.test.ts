@@ -37,8 +37,8 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     primaryAction: '先处理目标清楚、能直接推进的工作',
     primaryBoundary: '临时插单或责任人发生变化时，先不接新任务',
     cautionAction,
-    structureDiagnosis: '当天的可用信号主要集中在工作，学习仍能承接，但钱款已经形成持续牵制',
-    decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；学习把工作中的做法整理成可复用步骤，减少同类任务重新摸索；金额或付款责任未闭合，会让工作结果在报价、报销或结算处反复返工。',
+    structureDiagnosis: '当天整体强弱分明，优势主要在工作，学习仍能跟进承接，但钱款容易打乱节奏',
+    decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；学习把工作中的做法整理成可复用步骤，减少同类任务重新摸索；金额或付款责任未闭合，会让工作结果在报价、结算或付款处反复返工。',
   };
 }
 
@@ -71,7 +71,7 @@ describe('运势整体语料', () => {
       expect(result.summary).toBe(`${phraseContext.structureDiagnosis}。因此${phraseContext.decisionStatement}`);
       expect(result.summary.indexOf(phraseContext.structureDiagnosis)).toBe(0);
       expect(result.summary.indexOf(phraseContext.decisionStatement)).toBeGreaterThan(phraseContext.structureDiagnosis.length);
-      expect(result.summary.match(/当天的可用信号主要集中在工作/g)).toHaveLength(1);
+      expect(result.summary.match(/优势主要在工作/g)).toHaveLength(1);
       expect(result.summary).not.toMatch(/要让这条主线真正落地|判断能否继续投入时，还要看承接条件|恢复承载时|保留这条主线的同时/);
       expect(result.summary).not.toMatch(/主线结果能被下一环接住|多项结果都没有闭合|减少互相等待和返工|连续反馈比单次顺利|后续安排会不断重算条件|遗漏、拖延和返工通常会同时增加|新增承诺会把局部问题串成连锁返工/);
     });
@@ -98,7 +98,7 @@ describe('运势整体语料', () => {
   it('身心状态作为第二主题时始终同步照顾，不排在主线完成之后', () => {
     const wellbeingContext = {
       ...context(cautionActions[0]),
-      decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；身心状态决定工作判断、沟通与收尾能否保持连续；金额或付款责任未闭合，会让工作结果在报价、报销或结算处反复返工。',
+      decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；身心状态决定工作判断、沟通与收尾能否保持连续；金额或付款责任未闭合，会让工作结果在报价、结算或付款处反复返工。',
     };
     postures.forEach((posture) => {
       const results = Array.from({ length: 40 }, (_, index) => renderFortuneReading(posture, wellbeingContext, `${posture}-secondary-wellbeing-${index}`));

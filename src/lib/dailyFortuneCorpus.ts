@@ -49,7 +49,7 @@ function reasonedSummary(context: FortuneReadingPhraseContext) {
 const secondaryRelationsByPrimary: Record<string, Record<string, string>> = {
   career: {
     study: '学习把工作中的做法整理成可复用步骤，减少同类任务重新摸索',
-    wealth: '钱款闭合工作产生的成本、报销与付款责任，避免交付卡在结算环节',
+    wealth: '钱款闭合工作产生的成本、结算与付款责任，避免交付卡在结算环节',
     relationship: '沟通让工作负责人、交付标准和变更条件得到共同确认',
     travel: '出行保障见面、现场处理与交付所需的地点和结束时间',
     wellbeing: '身心状态决定工作判断、沟通与收尾能否保持连续',
@@ -62,7 +62,7 @@ const secondaryRelationsByPrimary: Record<string, Record<string, string>> = {
     wellbeing: '身心状态决定学习输入能否沉淀为记忆与输出，并保持连续',
   },
   wealth: {
-    career: '工作明确收入、交付与报销责任，使每笔钱款都有现实来源',
+    career: '工作明确收入、交付与结算责任，使每笔钱款都有现实来源',
     study: '学习帮助理解条款、比较成本并发现钱款记录中的遗漏',
     relationship: '沟通让金额、责任与付款节点得到共同确认，避免各自留存不同版本',
     travel: '出行补齐交通、住宿与变更成本，避免钱款预算漏项',
@@ -94,7 +94,7 @@ const secondaryRelationsByPrimary: Record<string, Record<string, string>> = {
 const cautionInterruptionsByPrimary: Record<string, Record<string, string>> = {
   career: {
     study: '资料持续增加却没有形成结论，会切碎工作判断，交付标准和验收遗漏随之增加',
-    wealth: '金额或付款责任未闭合，会让工作结果在报价、报销或结算处反复返工',
+    wealth: '金额或付款责任未闭合，会让工作结果在报价、结算或付款处反复返工',
     relationship: '共同事实未对齐，会让工作需求和验收口径出现两套版本',
     travel: '转场与返程延误会压缩工作会面、现场处理和交付时间',
     wellbeing: '恢复不足会降低工作判断准确度，错误往往集中到沟通与收尾',
@@ -107,7 +107,7 @@ const cautionInterruptionsByPrimary: Record<string, Record<string, string>> = {
     wellbeing: '恢复不足会让学习停在反复阅读，记忆、复述和应用同步下降',
   },
   wealth: {
-    career: '工作交付与责任变化会反复改写金额、报销和付款依据',
+    career: '工作交付与责任变化会反复改写金额、结算和付款依据',
     study: '条款与成本信息没有真正理解，会让钱款比较停在数字表面并漏掉责任',
     relationship: '共同事实未对齐，会让金额、付款节点和责任各自保留不同版本',
     travel: '路线或行程变化会持续新增交通、住宿和取消成本',
