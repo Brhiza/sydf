@@ -38,7 +38,7 @@ function context(cautionAction: string): FortuneReadingPhraseContext {
     primaryBoundary: '临时插单或责任人发生变化时，先不接新任务',
     cautionAction,
     structureDiagnosis: '当天的可用信号主要集中在工作，学习仍能承接，但钱款已经形成持续牵制',
-    decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；学习只沉淀主线已经验证的方法；钱款暂不进入金额、责任或节点未闭合的下一步。',
+    decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；学习把工作中的做法整理成可复用步骤，减少同类任务重新摸索；金额或付款责任未闭合，会让工作结果在报价、报销或结算处反复返工。',
   };
 }
 
@@ -98,11 +98,11 @@ describe('运势整体语料', () => {
   it('身心状态作为第二主题时始终同步照顾，不排在主线完成之后', () => {
     const wellbeingContext = {
       ...context(cautionActions[0]),
-      decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；休息与进食同步保留，防止高估主线承受量；钱款暂不进入金额、责任或节点未闭合的下一步。',
+      decisionStatement: '主要精力用于形成责任清楚、能够验收的工作结果；身心状态决定工作判断、沟通与收尾能否保持连续；金额或付款责任未闭合，会让工作结果在报价、报销或结算处反复返工。',
     };
     postures.forEach((posture) => {
       const results = Array.from({ length: 40 }, (_, index) => renderFortuneReading(posture, wellbeingContext, `${posture}-secondary-wellbeing-${index}`));
-      expect(results.some((result) => result.summary.includes('休息与进食同步保留'))).toBe(true);
+      expect(results.some((result) => result.summary.includes('身心状态决定工作判断、沟通与收尾能否保持连续'))).toBe(true);
       results.forEach((result) => expect(result.summary).not.toMatch(/身心状态(?:随后|再承接|适合接在|逐步接上|维持稳定投入|不增加变量|只做必要维护|不再加量)/));
     });
   });

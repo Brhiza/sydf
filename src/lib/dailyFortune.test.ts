@@ -72,12 +72,12 @@ const categoryValueMarkers: Record<string, RegExp> = {
 };
 
 const evidenceRiskMarkers: Record<string, RegExp> = {
-  career: /责任交接变化|确认与返工时间|收尾时间反复后移/,
-  study: /连续注意力中断|反复输入|检查与收尾/,
-  wealth: /金额|付款节点缺口|额外成本或责任/,
-  relationship: /共同事实未对齐|两套版本/,
-  travel: /转场|返程余量不足|连续处理的时间/,
-  wellbeing: /恢复不足|判断准确度和持续时间/,
+  career: /临时工作|工作交付|工作分工|工作插单|责任变化|责任交接/,
+  study: /资料|学习|信息输入|条款与成本信息/,
+  wealth: /金额|付款|费用|预算/,
+  relationship: /共同事实|沟通|同行人|接待方|分歧/,
+  travel: /转场|返程|路线|行程|会面迟到/,
+  wellbeing: /恢复不足/,
 };
 
 const evidenceOpportunityMarkers: Record<string, RegExp> = {
@@ -132,7 +132,7 @@ function expectEvidenceDistribution(result: DailyFortuneResult) {
     expect(item.detail).toMatch(new RegExp(`\\d+个${unit}里，.+有\\d+${measure}顺势、\\d+${measure}需要收紧，其余\\d+${measure}平稳`));
     if (item.key === 'opportunity' && item.sourceKey) expect(item.detail).toMatch(evidenceOpportunityMarkers[item.sourceKey]);
     if (item.key === 'caution' && item.sourceKey) expect(result.summary).toMatch(evidenceRiskMarkers[item.sourceKey]);
-    if (item.key === 'secondary') expect(item.detail).toMatch(/承接|尚未闭环|前序|信息差|状态|同步基础/);
+    if (item.key === 'secondary') expect(item.detail).toMatch(/是否接得上|要同时看/);
     expect(item.detail).not.toMatch(/六项综合排序|六项中相对最需要复核/);
   });
 }
@@ -206,7 +206,7 @@ describe('今日、月运、年运统一周期算法', () => {
       generateDailyFortune(new Date(2025, 7, 8, 12, 0, 0, 0), profile, 'today');
       expect(values.size).toBe(1);
       const serialized = [...values.values()][0] || '';
-      expect(serialized).toContain('2026-08-27-v125');
+      expect(serialized).toContain('2026-08-27-v129');
       expect(serialized).not.toContain(profile.date);
     } finally {
       clearDailyFortuneCache();

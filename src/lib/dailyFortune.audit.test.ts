@@ -126,13 +126,13 @@ describe('今日运势批量内容质量', () => {
           expect(result.summary).toMatch(/责任清楚|能够验收|理解与应用|金额、凭证与责任链|共同事实|一致的下一步|完整时间链|必要行程|注意力|承受量/);
         } else if (item.key === 'caution') {
           expect(item.detail).toMatch(/风险(?:仍)?集中在|顺势与收紧相抵|在多个.+反复失守/);
-          expect(result.summary).toMatch(/责任交接变化|连续注意力中断|付款节点缺口|共同事实未对齐|转场与返程余量不足|恢复不足/);
+          expect(result.summary).toMatch(/返工|两套版本|不同标准|压缩|遗漏|下降|付款|成本|延误|核算|入睡|恢复|输出时间|现场任务|共同事实/);
           const primaryLabel = shortTopicLabels[result.actionTips[0]?.sourceKey || ''];
           expect(result.summary).toContain(primaryLabel);
           expect(result.summary).not.toMatch(/可执行行程停在输入|闭合记录停在输入|一致结论停在输入|稳定承载停在输入|可检验成果停在无人接手|可执行行程停在无人接手/);
           expect(item.detail).toMatch(/前序任务|注意力被切碎|金额或责任未闭合|共同事实没有建立|时间余量被压缩|承受量被高估/);
         } else {
-          expect(item.detail).toMatch(/承接|依赖|前序|信息差|状态|同步基础|主线事实/);
+          expect(item.detail).toMatch(/是否接得上|要同时看/);
           expect(item.detail).toMatch(/责任|交付|连续注意力|费用|付款|倾听|事实|路线|返程|判断力|持续时间/);
         }
       });

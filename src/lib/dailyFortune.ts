@@ -17,6 +17,8 @@ import { fortuneStatusFromScore, type FortuneStatus } from './fortuneStatus';
 import { getModernAlmanacForDate, type ModernAlmanacResult } from './modernAlmanac';
 import {
   renderFortuneReading,
+  summaryCautionInterruption,
+  summarySecondaryRelation,
   type FortuneReadingCopy,
   type FortuneReadingPosture,
 } from './dailyFortuneCorpus';
@@ -903,7 +905,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v125';
+const dailyFortuneCacheVersion = '2026-08-27-v129';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2399,24 +2401,6 @@ const summaryPrimaryDecisions: Record<string, string> = {
   wellbeing: '主要精力用于恢复注意力和实际承受量',
 };
 
-const summarySecondaryRelations: Record<string, string> = {
-  career: '工作负责让主线结果获得明确承接与验收',
-  study: '学习负责把主线方法沉淀成可复用步骤',
-  wealth: '钱款负责闭合主线产生的成本与责任',
-  relationship: '沟通负责让主线事实与边界得到共同确认',
-  travel: '出行负责为主线保留地点、转场和结束时间',
-  wellbeing: '身心状态决定主线判断力与持续时间',
-};
-
-const summaryCautionInterruptions: Record<string, (primaryLabel: string) => string> = {
-  career: (primaryLabel) => `责任交接变化会持续占用确认与返工时间，使${primaryLabel}的收尾时间反复后移`,
-  study: (primaryLabel) => `连续注意力中断会把精力耗在反复输入上，${primaryLabel}所需的检查与收尾会被延后`,
-  wealth: (primaryLabel) => `金额或付款节点缺口会持续占用资金与确认时间，使${primaryLabel}增加额外成本或责任`,
-  relationship: (primaryLabel) => `共同事实未对齐会让${primaryLabel}所依据的条件出现两套版本`,
-  travel: (primaryLabel) => `转场与返程余量不足会挤占${primaryLabel}能够连续处理的时间`,
-  wellbeing: (primaryLabel) => `恢复不足会同时降低${primaryLabel}所需的判断准确度和持续时间`,
-};
-
 function summaryStructureDiagnosis(
   posture: FortuneReadingPosture,
   period: FortunePeriod,
@@ -2463,14 +2447,22 @@ function summaryDecisionStatement(
 ) {
   const primaryDecision = summaryPrimaryDecisions[primary.category.key]
     || `主要精力用于让${primary.category.label}形成能够检查的结果`;
-  const secondaryRelation = summarySecondaryRelations[secondary.category.key]
-    || `${secondary.category.label}负责承接主线已经确定的结果`;
   const primaryLabel = primary.evaluation.definition.shortLabel;
+  const secondaryRelation = summarySecondaryRelation(
+    primary.category.key,
+    secondary.category.key,
+    primaryLabel,
+    secondary.evaluation.definition.shortLabel,
+  );
   const decisions = [primaryDecision];
   if (!hasCaution || secondary.category.key !== caution.category.key) decisions.push(secondaryRelation);
   if (hasCaution) {
-    decisions.push(summaryCautionInterruptions[caution.category.key]?.(primaryLabel)
-      || `${caution.category.label}会截断${primaryLabel}形成结果的条件`);
+    decisions.push(summaryCautionInterruption(
+      primary.category.key,
+      caution.category.key,
+      primaryLabel,
+      caution.evaluation.definition.shortLabel,
+    ));
   }
   return `${decisions.join('；')}。`;
 }
@@ -2565,15 +2557,6 @@ const primaryCorrectionReasons: Record<string, string> = {
   wellbeing: '休息仍排在主线，是因为睡眠、进食或专注恢复的缺口已经显现，先恢复承受量才能判断其他安排是否真实可行。',
 };
 
-const secondaryInteractionEffects: Record<string, string> = {
-  career: '工作交接若失效，主线形成的结果会停在无人接收或无法验收的环节',
-  study: '学习若不能沉淀成方法，同类问题下一次仍要重新判断，主线经验无法累积',
-  wealth: '钱款边界若不闭合，主线选择会继续变成新增成本、付款压力或合作责任',
-  relationship: '沟通若没有对齐事实，主线下一步会建立在不同前提上，执行越快返工越多',
-  travel: '出行时间链若失守，主线安排会被转场和返程压缩，原有次序也会随之改变',
-  wellbeing: '状态若没有恢复，主线所需的判断力与持续时间会同时下降，可用窗口也会被高估',
-};
-
 function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const primary = judgment.primary;
   const secondary = judgment.secondary;
@@ -2582,7 +2565,6 @@ function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: Fort
   const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
   const scope = period === 'today' ? '全天' : period === 'month' ? '整月' : '全年';
   const primaryCheck = topicEvidenceChecks[primary.category.key] || `${primary.category.label}是否形成明确结果`;
-  const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
   const distribution = difference >= 3
     ? `${primary.evaluation.definition.shortLabel}在多个${windowType}保持顺势，支持相对连续。`
     : difference > 0
@@ -2591,13 +2573,11 @@ function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: Fort
         ? `${primary.evaluation.definition.shortLabel}的顺势与收紧互相抵消，单个${windowType}不能代表${scope}。`
         : primaryCorrectionReasons[primary.category.key]
           || `${primary.evaluation.definition.shortLabel}仍排在主线，是因为关键缺口已经显现，修正后才能判断后续投入是否有效。`;
-  const interaction = secondaryInteractionEffects[secondary.category.key]
-    || `${secondary.category.label}一旦失守，${primary.category.label}形成的结果也会失去后续承接`;
   const comparison = scoreGap >= .38
-    ? `${primary.evaluation.definition.shortLabel}的支持更集中。判断${primary.evaluation.definition.shortLabel}，看${primaryCheck}；判断${secondary.evaluation.definition.shortLabel}，看${secondaryCheck}。${interaction}。`
+    ? `${primary.evaluation.definition.shortLabel}的支持更集中；实际看${primaryCheck}。`
     : scoreGap >= .14
-      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}。前者看${primaryCheck}；后者看${secondaryCheck}。${interaction}。`
-      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}强度接近。前者看${primaryCheck}；后者看${secondaryCheck}。${interaction}。`;
+      ? `${primary.evaluation.definition.shortLabel}只略稳于${secondary.evaluation.definition.shortLabel}；实际仍以${primaryCheck}作为成败标准。`
+      : `${primary.evaluation.definition.shortLabel}与${secondary.evaluation.definition.shortLabel}强度接近；先看${primaryCheck}，这项结果会最早暴露本期安排是否可行。`;
   return `${distribution}${comparison}`;
 }
 
@@ -2657,17 +2637,15 @@ const primaryMilestones: Record<string, string> = {
 function secondaryReasonFromJudgment(judgment: FortuneMasterJudgment, period: FortunePeriod) {
   const secondary = judgment.secondary;
   const primary = judgment.primary.evaluation.definition;
-  const roles: Record<string, string> = {
-    career: `工作需要把${primary.shortLabel}产生的结果转成责任与交付；主线结果仍在变化时提前排期，负责人和验收口径都可能重写。`,
-    study: `学习依赖连续注意力；${primary.shortLabel}尚未闭环时频繁切换，会让阅读和练习难以形成同一条理解链。`,
-    wealth: `钱款条件通常承接${primary.shortLabel}形成的费用与责任；前序结果未定，报价和付款节点也容易随之失效。`,
-    relationship: primary.key === 'wellbeing'
-      ? '沟通同时依赖倾听、判断和情绪余量；状态没有恢复时，更容易漏听事实并把疲劳误当成立场。'
-      : `沟通用于消除${primary.shortLabel}推进后留下的信息差；主线事实尚未确定时开口，容易把暂时判断说成最终结论。`,
-    travel: `路线与时间要承接${primary.shortLabel}的地点和结束节点；前序安排仍在变化时排程，转场与返程都要重复计算。`,
-    wellbeing: `身心状态不是${primary.shortLabel}之后才处理的第二项，而是决定注意力、判断力和持续时间的同步基础。`,
-  };
-  return `${categoryDistributionEvidence(secondary, period)}${roles[secondary.category.key] || `${secondary.category.label}承接${primary.shortLabel}的实际结果，前序条件变化会直接造成返工。`}`;
+  const primaryCheck = topicEvidenceChecks[primary.key] || `${primary.label}是否形成明确结果`;
+  const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
+  const interruption = summaryCautionInterruption(
+    primary.key,
+    secondary.category.key,
+    primary.shortLabel,
+    secondary.evaluation.definition.shortLabel,
+  );
+  return `${categoryDistributionEvidence(secondary, period)}两项是否接得上，要同时看${primaryCheck}，以及${secondaryCheck}。${interruption}。`;
 }
 
 function stripPriorityPrefix(value: string) {
