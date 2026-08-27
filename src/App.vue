@@ -199,6 +199,7 @@ import { getCalendarEvents } from './lib/calendarEvents';
 import { normalizeSelectedCaseId, type SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
+import { normalizeToolPreferences, type ToolPreferences } from './lib/toolPreferences';
 import {
   AI_KEY_STORAGE_KEY,
   applyStoredAiKeys,
@@ -2021,7 +2022,7 @@ function toggleBaziFortuneColumn(key: BaziFortuneColumnKey) {
 
 function restorePreferences() {
   try {
-    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference; defaultHomeTool?: unknown }>(localStorage, 'shiyue-preferences');
+    const parsedPreferences = parseLocalStorageJson<Partial<AiPreferences> & { activeAiChannelId?: string; aiChannels?: Partial<AiChannel>[]; aiConfig?: Partial<AiCustomConfig>; castingPreference?: CastingPreference; defaultHomeTool?: unknown; toolPreferences?: unknown }>(localStorage, 'shiyue-preferences');
     if (!parsedPreferences) return;
     appPreferences.answerPreference = normalizeStoredAnswerPreference(parsedPreferences.answerPreference);
     if (parsedPreferences.displayLevel === 'basic' || parsedPreferences.displayLevel === 'beginner' || parsedPreferences.displayLevel === 'master') appPreferences.displayLevel = parsedPreferences.displayLevel;
@@ -2046,6 +2047,14 @@ function restorePreferences() {
         appPreferences.aiChannels = createDefaultAiChannels();
       }
     }
+    const toolPreferences = normalizeToolPreferences(parsedPreferences.toolPreferences);
+    instantTimeStandard.value = toolPreferences.instantTimeStandard;
+    if (toolPreferences.instantObserver) Object.assign(instantObserverDraft.value, toolPreferences.instantObserver);
+    settings.qimenScope = toolPreferences.qimenScope;
+    settings.qimenLayout = toolPreferences.qimenLayout;
+    settings.qimenJuMethod = toolPreferences.qimenJuMethod;
+    settings.taiyiScope = toolPreferences.taiyiScope;
+    settings.huangjiMode = toolPreferences.huangjiMode;
   } catch {
     // 偏好损坏或浏览器禁用存储时使用默认设置，不影响案例和历史。
   }
@@ -2605,6 +2614,27 @@ function clearCaseChartCache(caseId: string, keepSignature?: string) {
 }
 
 function persistPreferences() {
+  const instantObserver = buildInstantObserver(instantObserverDraft.value);
+  const toolPreferences: ToolPreferences = {
+    instantTimeStandard: instantTimeStandard.value,
+    ...(instantObserver ? {
+      instantObserver: {
+        regionKey: instantObserverDraft.value.regionKey,
+        provinceId: instantObserverDraft.value.provinceId,
+        cityId: instantObserverDraft.value.cityId,
+        regionId: instantObserverDraft.value.regionId,
+        locationName: instantObserver.locationName || instantObserverDraft.value.locationName.trim(),
+        latitude: String(instantObserver.latitude),
+        longitude: String(instantObserver.longitude),
+        timezone: String(instantObserver.timezone),
+      },
+    } : {}),
+    qimenScope: settings.qimenScope,
+    qimenLayout: settings.qimenLayout,
+    qimenJuMethod: settings.qimenJuMethod,
+    taiyiScope: settings.taiyiScope,
+    huangjiMode: settings.huangjiMode,
+  };
   const storedPreferences = {
     answerPreference: appPreferences.answerPreference,
     displayLevel: appPreferences.displayLevel,
@@ -2613,6 +2643,7 @@ function persistPreferences() {
     promptSchoolChoices: appPreferences.promptSchoolChoices,
     activeAiChannelId: appPreferences.activeAiChannelId,
     aiChannels: appPreferences.aiChannels.map(({ apiKey: _apiKey, ...channel }) => channel),
+    toolPreferences,
   };
   try {
     localStorage.setItem('shiyue-preferences', JSON.stringify(storedPreferences));
@@ -2631,6 +2662,22 @@ function persistAiKeys() {
 }
 
 watch(appPreferences, persistPreferences, { deep: true });
+watch([
+  instantTimeStandard,
+  () => instantObserverDraft.value.regionKey,
+  () => instantObserverDraft.value.provinceId,
+  () => instantObserverDraft.value.cityId,
+  () => instantObserverDraft.value.regionId,
+  () => instantObserverDraft.value.locationName,
+  () => instantObserverDraft.value.latitude,
+  () => instantObserverDraft.value.longitude,
+  () => instantObserverDraft.value.timezone,
+  () => settings.qimenScope,
+  () => settings.qimenLayout,
+  () => settings.qimenJuMethod,
+  () => settings.taiyiScope,
+  () => settings.huangjiMode,
+], persistPreferences);
 watch(baziFortuneColumnVisibility, () => {
   try {
     localStorage.setItem(BAZI_FORTUNE_COLUMN_STORAGE_KEY, JSON.stringify(baziFortuneColumnVisibility));
