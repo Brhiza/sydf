@@ -122,6 +122,7 @@ describe('今日运势批量内容质量', () => {
             correctionDetails.push(item.detail);
             expect(item.detail).toMatch(/责任与验收缺口|注意力与输出检验的断点|金额、责任或付款节点的缺口|双方事实基础的分歧|路线、转场或返程余量的缺口|睡眠、进食或专注恢复的缺口/);
           }
+          expect(item.detail).toMatch(/支持相对连续|优势没有覆盖(?:全天|整月|全年)|单个(?:时段|日期|阶段)不能代表(?:全天|整月|全年)|仍排在主线/);
           expect(result.summary).toMatch(/责任清楚|能够验收|理解与应用|金额、凭证与责任链|共同事实|一致的下一步|完整时间链|必要行程|注意力|承受量/);
         } else if (item.key === 'caution') {
           expect(item.detail).toMatch(/风险(?:仍)?集中在|顺势与收紧相抵|在多个.+反复失守/);
@@ -133,6 +134,7 @@ describe('今日运势批量内容质量', () => {
         }
       });
       expect(allText(result).join('\n')).not.toMatch(genericPattern);
+      expect(allText(result).join('\n')).not.toMatch(/有利窗口可集中用于本期主线|其他安排保持原定负荷|先按实际结果验证|不随单个窗口加量/);
       expect(allText(result).join('\n')).not.toMatch(/没有明确风险窗口|相对优势最弱/);
       if (result.period !== 'today') {
         result.goodDirections.forEach((item) => expect(item.detail).toMatch(/\d+个(?:日期|节气阶段)里.+有\d+(?:天|段)得到支持、\d+(?:天|段)需要回避/));

@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v120';
+const dailyFortuneCacheVersion = '2026-08-27-v121';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2541,14 +2541,15 @@ function primaryComparisonEvidence(judgment: FortuneMasterJudgment, period: Fort
   const difference = primary.favorableCount - primary.cautiousCount;
   const scoreGap = primary.evaluation.score - secondary.evaluation.score;
   const windowType = period === 'today' ? '时段' : period === 'month' ? '日期' : '阶段';
+  const scope = period === 'today' ? '全天' : period === 'month' ? '整月' : '全年';
   const primaryCheck = topicEvidenceChecks[primary.category.key] || `${primary.category.label}是否形成明确结果`;
   const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
   const distribution = difference >= 3
-    ? `${primary.evaluation.definition.shortLabel}的优势分布在多个${windowType}，有利窗口可集中用于本期主线。`
+    ? `${primary.evaluation.definition.shortLabel}在多个${windowType}保持顺势，支持相对连续。`
     : difference > 0
-      ? `${primary.evaluation.definition.shortLabel}只在部分${windowType}占优，其他安排保持原定负荷。`
+      ? `${primary.evaluation.definition.shortLabel}的顺势${windowType}多于收紧${windowType}，但优势没有覆盖${scope}。`
       : difference === 0
-        ? `${primary.evaluation.definition.shortLabel}的顺势与收紧互相抵消，先按实际结果验证，不随单个窗口加量。`
+        ? `${primary.evaluation.definition.shortLabel}的顺势与收紧互相抵消，单个${windowType}不能代表${scope}。`
         : primaryCorrectionReasons[primary.category.key]
           || `${primary.evaluation.definition.shortLabel}仍排在主线，是因为关键缺口已经显现，修正后才能判断后续投入是否有效。`;
   const interaction = secondaryInteractionEffects[secondary.category.key]
