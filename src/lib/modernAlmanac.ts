@@ -68,6 +68,10 @@ interface ModernAlmanacRule {
   cautiousDetail: string;
 }
 
+interface RankedModernAlmanacItem extends ModernAlmanacItem {
+  priority: number;
+}
+
 const modernAlmanacRules: ModernAlmanacRule[] = [
   {
     key: 'routine', theme: 'routine', priority: 110,
@@ -81,15 +85,15 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     key: 'health', theme: 'wellbeing', priority: 105,
     terms: ['求医', '治病', '针灸', '经络', '探病'],
     recommendedTitle: '健康检查与照护',
-    recommendedDetail: '适合预约体检、复诊、治疗或探望关怀。',
-    cautiousTitle: '非紧急健康安排多确认',
-    cautiousDetail: '非紧急项目可复核时间与准备事项。',
+    recommendedDetail: '适合预约体检、复诊、治疗或探望关怀；预约时确认是否需要空腹、现用药物说明和既往资料。',
+    cautiousTitle: '非紧急项目先看准备条件',
+    cautiousDetail: '非紧急检查先确认预约时段、是否需要空腹、现用药物说明和应携带资料；急症直接按医疗需要处理。',
   },
   {
     key: 'legal', theme: 'legal', priority: 103,
     terms: ['词讼'],
     recommendedTitle: '整理争议与证据',
-    recommendedDetail: '适合梳理事实、合同和沟通记录。',
+    recommendedDetail: '适合按时间顺序整理事实、合同、付款凭证和沟通记录，并保留原件。',
     cautiousTitle: '争议事项避免冲动定案',
     cautiousDetail: '先保留证据、核对事实，重要法律处理交由专业人士判断。',
   },
@@ -97,9 +101,9 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     key: 'money', theme: 'money', priority: 100,
     terms: ['交易', '立券', '纳财', '出货财', '开仓', '置产'],
     recommendedTitle: '合同与钱款',
-    recommendedDetail: '适合处理签约、收付款、交易或资产安排，金额、条款和风险仍要逐项核对。',
+    recommendedDetail: '适合处理签约、收付款、交易或资产安排；落笔前写清金额、费用、责任人、付款节点和退出条件。',
     cautiousTitle: '大额交易先缓一步',
-    cautiousDetail: '涉及合同、付款或资产决定时先复核条件，不因黄历替代财务和法律判断。',
+    cautiousDetail: '涉及合同、付款或资产决定时，先查金额、费用、责任、付款节点和退出条件；复杂事项交由财务或法律专业人士判断。',
   },
   {
     key: 'work', theme: 'work', priority: 98,
@@ -123,7 +127,7 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     recommendedTitle: '清洁整理与个人护理',
     recommendedDetail: '适合打扫、清理积压、做日常护理，顺手把不再需要的东西归位。',
     cautiousTitle: '护理与整理从简',
-    cautiousDetail: '只做必要的清洁维护，较大的形象改变或复杂安排可多考虑一天。',
+    cautiousDetail: '普通清洁照常；涉及染烫、医美或需要恢复期的护理，先查过敏风险、机构资质、费用和恢复时间。',
   },
   {
     key: 'home', theme: 'home', priority: 90,
@@ -145,7 +149,7 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     key: 'travel', theme: 'travel', priority: 86,
     terms: ['出行', '赴任', '乘船'],
     recommendedTitle: '外出、差旅与到岗',
-    recommendedDetail: '适合安排出行、差旅或正式到岗，出发前照常检查天气、路线和证件。',
+    recommendedDetail: '适合安排出行、差旅或正式到岗，出发前逐项确认天气、路线、证件和返程余量。',
     cautiousTitle: '远行多留时间余量',
     cautiousDetail: '非必要远行可调整；必须出发时提前核对天气、交通和备选路线。',
   },
@@ -161,15 +165,15 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     key: 'family-plan', theme: 'relationship', priority: 82,
     terms: ['求嗣'],
     recommendedTitle: '家庭计划沟通',
-    recommendedDetail: '适合与伴侣讨论生育、育儿或长期照护安排。',
+    recommendedDetail: '适合与伴侣讨论生育、育儿或长期照护安排；把时间、照护分工和预算写成双方都能确认的下一步。',
     cautiousTitle: '家庭计划先补足信息',
-    cautiousDetail: '先确认双方意愿、健康与现实条件。',
+    cautiousDetail: '先谈清双方意愿、健康咨询、时间安排、照护分工和预算，再约定下一步。',
   },
   {
     key: 'nature', theme: 'nature', priority: 72,
     terms: ['栽种', '纳畜', '牧养', '教牛马', '造畜稠', '畋猎', '捕捉', '结网', '取渔', '割蜜', '断蚁', '归岫'],
     recommendedTitle: '园艺、宠物与户外劳作',
-    recommendedDetail: '适合种植、照料动物或处理户外维护，注意天气、工具和动物安全。',
+    recommendedDetail: '适合种植、照料动物或处理户外维护，开始前核对天气、防护工具和动物安置条件。',
     cautiousTitle: '户外劳作量力而行',
     cautiousDetail: '较大的种植、捕捞或动物安置先看天气与现场条件，避免临时冒险。',
   },
@@ -179,7 +183,7 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
     recommendedTitle: '纪念、静心与表达祝愿',
     recommendedDetail: '适合祭扫纪念、安静独处或向重要的人表达祝愿，不必把仪式解释成确定结果。',
     cautiousTitle: '传统仪式从简安排',
-    cautiousDetail: '大型仪式可先缓，日常纪念、表达关怀和个人信仰不受影响。',
+    cautiousDetail: '涉及场地、人员或较高费用的大型仪式先把流程和预算列清；日常纪念、表达关怀和个人信仰照常。',
   },
   {
     key: 'memorial', theme: 'memorial', priority: 45,
@@ -194,16 +198,16 @@ const modernAlmanacRules: ModernAlmanacRule[] = [
 const dayOfficerRhythms: Record<string, Omit<ModernAlmanacRhythm, 'sourceLabel'>> = {
   建: { title: '适合建立计划', detail: '更适合明确目标、启动准备和搭好框架，第一次推进不必铺得太大。' },
   除: { title: '适合清理旧事', detail: '优先处理积压、修正问题和移除障碍，为后续安排腾出空间。' },
-  满: { title: '适合补充与分享', detail: '适合沟通、庆祝和补充资源，同时注意别因为兴致高而过度承诺。' },
-  平: { title: '适合按部就班', detail: '今天更适合稳定推进、协调关系，把普通事情做扎实。' },
-  定: { title: '适合确认方案', detail: '适合把已经讨论成熟的计划定下来，临时起意的决定仍要多核对。' },
-  执: { title: '适合坚持执行', detail: '延续已经明确的安排比频繁改方向更稳妥，先把手里的事完成。' },
+  满: { title: '适合补充与分享', detail: '适合沟通、庆祝和补充资源，先列清预算与承诺范围，避免兴致高时答应过量。' },
+  平: { title: '适合按部就班', detail: '按已有清单推进，不临时改变目标；完成一项再开启下一项。' },
+  定: { title: '适合确认方案', detail: '适合把已经讨论成熟的计划定下来；临时起意的决定先补齐负责人、成本和退出条件。' },
+  执: { title: '适合坚持执行', detail: '继续执行已经确认责任人和截止时间的部分，未确认的事项不在今天追加。' },
   破: { title: '适合拆解旧问题', detail: '适合止损、修正和打破无效做法，不宜在准备不足时启动重大事项。' },
-  危: { title: '适合检查风险', detail: '先做安全检查、备选方案和边界确认，重要事项不要省略验证。' },
-  成: { title: '适合收尾见成果', detail: '适合交付、确认结果和推进已经成熟的事项，注意完成最后检查。' },
+  危: { title: '适合检查风险', detail: '先核对安全条件、备选方案和停止条件，三项没有写清前不启动高成本安排。' },
+  成: { title: '适合收尾见成果', detail: '适合交付和确认结果，交付前核对成果内容、接收人和后续责任。' },
   收: { title: '适合归档与收拢', detail: '适合回款、整理、归档和减少分散投入，暂不追求快速扩张。' },
-  开: { title: '适合开放沟通', detail: '适合启动交流、公开信息和推进新事项，仍要把必要条件说清楚。' },
-  闭: { title: '适合内部整理', detail: '适合休整、复盘和处理内部事务，重大对外启动可以多准备一下。' },
+  开: { title: '适合开放沟通', detail: '适合启动交流、公开信息和推进新事项，发出前写清条件、责任人和回应期限。' },
+  闭: { title: '适合内部整理', detail: '适合休整、复盘和处理内部事务；未完成资源清点和问题复盘前，不启动重大对外事项。' },
 };
 
 const auspiciousHourGuidance: Record<string, { title: string; detail: string }> = {
@@ -221,7 +225,7 @@ function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function buildToneItems(values: string[], tone: ModernAlmanacTone) {
+function buildToneItems(values: string[], tone: ModernAlmanacTone): RankedModernAlmanacItem[] {
   const remaining = new Set(unique(values).filter((item) => item !== '诸事不宜'));
   const items = modernAlmanacRules.flatMap((rule) => {
     const matched = rule.terms.filter((term) => remaining.has(term));
@@ -237,21 +241,58 @@ function buildToneItems(values: string[], tone: ModernAlmanacTone) {
     }];
   });
 
-  if (remaining.size) {
-    const traditional = [...remaining];
-    items.push({
-      key: 'other',
-      theme: 'routine',
-      title: tone === 'recommended' ? '其他可安排事项' : '这些事情先多确认',
-      detail: tone === 'recommended'
-        ? `如需处理${traditional.slice(0, 4).join('、')}，可以按计划进行。`
-        : `如需处理${traditional.slice(0, 4).join('、')}，先确认人员、时间和必要条件。`,
-      traditional,
-      priority: 20,
-    });
-  }
-
   return items.sort((left, right) => right.priority - left.priority || left.key.localeCompare(right.key));
+}
+
+function mergeItemPair(
+  items: RankedModernAlmanacItem[],
+  firstKey: string,
+  secondKey: string,
+  title: string,
+  detail: string,
+) {
+  const first = items.find((item) => item.key === firstKey);
+  const second = items.find((item) => item.key === secondKey);
+  if (!first || !second) return items;
+  const merged: RankedModernAlmanacItem = {
+    ...first,
+    title,
+    detail,
+    traditional: unique([...first.traditional, ...second.traditional]),
+    priority: Math.max(first.priority, second.priority),
+  };
+  return [...items.filter((item) => item.key !== firstKey && item.key !== secondKey), merged]
+    .sort((left, right) => right.priority - left.priority || left.key.localeCompare(right.key));
+}
+
+function mergeRelatedItems(items: RankedModernAlmanacItem[], tone: ModernAlmanacTone) {
+  let merged = mergeItemPair(
+    items,
+    'relationship',
+    'family-plan',
+    tone === 'recommended' ? '关系与家庭计划' : '关系与家庭计划先沟通',
+    tone === 'recommended'
+      ? '适合见家人、安排重要会面，或讨论关系、生育、育儿与长期照护；先确认参与人和下一步。'
+      : '订婚、结婚、分居、生育或长期照护等计划，先确认双方意愿、健康与现实条件，再约定下一步。',
+  );
+  merged = mergeItemPair(
+    merged,
+    'home',
+    'construction',
+    tone === 'recommended' ? '居住调整、维修与施工' : '居住改动与施工先核实',
+    tone === 'recommended'
+      ? '适合搬家、布置住处、安装维修或推进已经规划的施工；开始前确认物业或许可、人员、天气和现场安全。'
+      : '非必要搬动、改造和大型施工可延后；必须处理时先确认方案、人员、许可和现场安全，必要抢修不等待择日。',
+  );
+  return mergeItemPair(
+    merged,
+    'ritual',
+    'memorial',
+    tone === 'recommended' ? '纪念、静心与丧葬事务' : '纪念与丧葬事务先协调',
+    tone === 'recommended'
+      ? '如有祭扫、纪念或丧葬安排，先协调家属、服务机构、当地规定与习俗；个人静心和表达祝愿可从简进行。'
+      : '大型仪式和非紧急流程可先缓；现实丧葬需要先协调家属、机构和当地规定，不因日期延误。',
+  );
 }
 
 function hourPeriodLabel(range: string) {
@@ -295,7 +336,7 @@ function modernPersonalConflictNote(name: string, basis: '年支' | '日支', re
   };
   const guidance: Record<PersonalConflictRelation, string> = {
     冲: '重要会面、签约或出行尽量避开；无法调整时，提前确认时间、路线和资料。',
-    刑: '处理手续、规则和多人协作时要多检查细节，避免赶时间或临时决定。',
+    刑: '处理手续、规则和多人协作时，逐项核对材料、责任人和截止时间，不赶时间定案。',
     害: '沟通合作中更要防止遗漏和误解，关键约定尽量说清并留记录。',
     破: '原定安排较容易被打断，涉及交付、搬动或长期决定时准备替代时间或方案。',
   };
@@ -360,24 +401,24 @@ function createMoon(day: AlmanacDayCandidate): ModernAlmanacMoon | null {
 export function modernizeAlmanacDay(day: AlmanacDayCandidate): ModernAlmanacResult {
   const traditionalRecommended = unique(day.recommends);
   const traditionalCautious = unique(day.avoids);
-  const cautiousItems = buildToneItems(traditionalCautious, 'cautious');
+  const cautiousItems = mergeRelatedItems(buildToneItems(traditionalCautious, 'cautious'), 'cautious');
   if (traditionalRecommended.includes('诸事不宜') || traditionalCautious.includes('诸事不宜')) {
     cautiousItems.unshift({
       key: 'major-decisions',
       theme: 'routine',
       title: '重大事项先缓',
-      detail: '除当天明确列出的少数事项外，不建议临时启动重大决定；必要事务仍按现实需要处理。',
+      detail: '只处理已经安排、可撤回且成本较低的事项；签约、付款、搬动或远行等会新增重大承诺的决定，除紧急情况外另择时间。',
       traditional: ['诸事不宜'],
       priority: 200,
     });
   }
   const cautiousKeys = new Set(cautiousItems.map((item) => item.key));
-  const recommendedItems = buildToneItems(traditionalRecommended, 'recommended')
+  const recommendedItems = mergeRelatedItems(buildToneItems(traditionalRecommended, 'recommended'), 'recommended')
     .filter((item) => !cautiousKeys.has(item.key));
   const officer = day.dayOfficer.replace(/日$/, '');
   const rhythm = dayOfficerRhythms[officer] || {
     title: '按现实条件安排',
-    detail: '今天没有需要额外强调的日子基调，照常按计划推进即可。',
+    detail: '今天不设额外节奏限制，直接按已有优先级和现实条件安排。',
   };
 
   return {

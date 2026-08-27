@@ -7,6 +7,7 @@ interface ReadingRow {
   title?: string;
   badge?: string;
   detail: string;
+  details?: ReadonlyArray<string>;
   note?: string;
   tone?: ReadingRowTone;
 }
@@ -33,7 +34,10 @@ withDefaults(defineProps<{
           <strong v-if="item.title">{{ item.title }}</strong>
           <b v-if="item.badge">{{ item.badge }}</b>
         </header>
-        <p>{{ item.detail }}</p>
+        <div v-if="item.details?.length" class="ui-reading-row__details">
+          <p v-for="(detail, index) in item.details" :key="index">{{ detail }}</p>
+        </div>
+        <p v-else>{{ item.detail }}</p>
         <small v-if="item.note">{{ item.note }}</small>
       </div>
     </article>
@@ -112,6 +116,8 @@ withDefaults(defineProps<{
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
+
+.ui-reading-row__details { display: grid; gap: var(--ds-space-1); }
 
 .ui-reading-row__content small {
   color: var(--ds-text-tertiary);
