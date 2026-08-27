@@ -2,14 +2,15 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { createAppUpdateController } from './lib/appUpdate';
 import { scheduleAfterPageLoad } from './lib/deferredWork';
-import { initializeNativeRuntime, isNativeApp } from './lib/nativeRuntime';
-import { applyWebviewCompatibility } from './lib/webviewCompatibility';
+import { initializeNativeRuntime, isNativeAndroidApp, isNativeApp } from './lib/nativeRuntime';
+import { applyStoredJoytouchCompatibility, startAndroidCompatibilityMonitor } from './lib/joytouchCompatibility';
 import './design-system/tokens.css';
 import './styles.css';
 import './design-system/primitives.css';
 
-applyWebviewCompatibility();
+applyStoredJoytouchCompatibility(isNativeAndroidApp());
 createApp(App).mount('#app');
+startAndroidCompatibilityMonitor(isNativeAndroidApp());
 void initializeNativeRuntime();
 
 type StartupRecoveryBridge = { markReady?: () => void };
