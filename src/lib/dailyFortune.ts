@@ -903,7 +903,7 @@ function referenceItemUse(definition: TopicDefinition, period: FortunePeriod) {
   return periodReferenceGuidance[period][definition.key]?.itemUse || '';
 }
 
-const dailyFortuneCacheVersion = '2026-08-27-v121';
+const dailyFortuneCacheVersion = '2026-08-27-v122';
 const dailyFortuneCacheStorageKey = 'shiyue-daily-fortune-cache-v1';
 const dailyFortuneCacheLimit = 24;
 const dailyFortuneCacheMaxAge = 1000 * 60 * 60 * 24 * 45;
@@ -2274,25 +2274,63 @@ function buildPersonalJudgmentInsight(
     travel: '规划路线、预留时间和处理临时变化',
     wellbeing: '察觉疲劳、调整任务量和恢复注意力',
   };
-  const reasonClauses: Record<PersonalRelationReason, (capability: string) => string> = {
-    'attention-aligned': (capability) => `注意力会自然回到${capability}这组任务上，开始后较少被其他事项拉走`,
-    'attention-blocked': (capability) => `注意力会被${capability}长期占用，却常卡在等待、犹豫或反复核对上`,
-    'approach-aligned': (capability) => `${capability}与惯常做事方式一致，开始、取舍和收尾较连贯`,
-    'approach-friction': (capability) => `${capability}需要频繁切换做事方式，通常会多一次沟通、复核或返工`,
-    'rhythm-aligned': (capability) => `${capability}较少打乱原有作息和任务顺序，连续投入成本较低`,
-    'rhythm-friction': (capability) => `${capability}会挤占原有作息或其他任务，投入后更容易疲劳或漏掉后续`,
-    'strength-aligned': (capability) => `${capability}更容易进入状态，完成标准也较快看清`,
-    'effort-friction': (capability) => `${capability}需要额外维持，同样任务会消耗更多时间和注意力`,
-    'period-aligned': (capability) => `当前周期对${capability}有连续承接，前一步结果较容易进入下一步`,
-    'period-friction': (capability) => `当前周期会多次打断${capability}，投入容易停在中途或变成补救`,
+  const topicPersonalConsequences: Record<string, { smooth: string; blocked: string }> = {
+    career: {
+      smooth: '负责人、完成标准和交接顺序会更快落定',
+      blocked: '责任空白与返工会集中到收尾阶段',
+    },
+    study: {
+      smooth: '输入更容易沉淀为笔记、练习或可检查的输出',
+      blocked: '资料会继续增加，复述与应用却跟不上',
+    },
+    wealth: {
+      smooth: '金额、责任和付款节点更容易形成同一份记录',
+      blocked: '补单、追款和责任争议会占用后续时间',
+    },
+    relationship: {
+      smooth: '事实、分歧和下一步更容易在一次沟通中对齐',
+      blocked: '同一信息差会在后续表态和行动中反复出现',
+    },
+    travel: {
+      smooth: '路线、转场和返程余量更容易提前排好',
+      blocked: '临时改线会连续挤压后续事项与返程时间',
+    },
+    wellbeing: {
+      smooth: '疲劳信号较早被发现，任务量能在透支前下调',
+      blocked: '短时兴奋会掩盖疲劳，随后注意力和执行速度一起下降',
+    },
+  };
+  const topicSupportBoundaries: Record<string, string> = {
+    career: '只用于收尾已有职责，不额外承接新任务',
+    study: '只用于消化已有资料，不额外增加课程或题量',
+    wealth: '只用于已有收支与条款，不新增付款义务',
+    relationship: '只用于已有关系或协作，不主动扩大议题',
+    travel: '只用于合并既有外出，不为利用优势新增行程',
+    wellbeing: '只用于恢复现有负荷，不把空出的精力马上填满',
+  };
+  const reasonClauses: Record<PersonalRelationReason, (capability: string, consequence: { smooth: string; blocked: string }) => string> = {
+    'attention-aligned': (capability, consequence) => `注意力较少从${capability}上移开，${consequence.smooth}`,
+    'attention-blocked': (capability, consequence) => `注意力会被${capability}长期占用，但${consequence.blocked}`,
+    'approach-aligned': (capability, consequence) => `${capability}的处理方式与惯常做法一致，${consequence.smooth}`,
+    'approach-friction': (capability, consequence) => `${capability}需要频繁切换做法，${consequence.blocked}`,
+    'rhythm-aligned': (capability, consequence) => `${capability}较少打乱原有作息与任务次序，${consequence.smooth}`,
+    'rhythm-friction': (capability, consequence) => `${capability}会挤占原有作息与任务次序，${consequence.blocked}`,
+    'strength-aligned': (capability, consequence) => `${capability}较快进入状态，${consequence.smooth}`,
+    'effort-friction': (capability, consequence) => `${capability}需要额外维持，${consequence.blocked}`,
+    'period-aligned': (capability, consequence) => `当前周期能够连续承接${capability}，${consequence.smooth}`,
+    'period-friction': (capability, consequence) => `当前周期会多次打断${capability}，${consequence.blocked}`,
   };
   const reasonFor = (item: CategoryAggregate, fallback: PersonalRelationReason) => {
     const reason = item.evaluation.personalReason || fallback;
     const capability = topicCapabilities[item.category.key] || `处理${item.category.label}`;
-    return reasonClauses[reason](capability);
+    const consequence = topicPersonalConsequences[item.category.key] || {
+      smooth: '处理条件与完成标准会更快明确',
+      blocked: '前序缺口会持续占用后续时间',
+    };
+    return reasonClauses[reason](capability, consequence);
   };
   const focusSentence = focusImpacts.length
-    ? `结合出生资料与当前周期，${focusImpacts.join('；')}。`
+    ? `个案额外需要考虑：${focusImpacts.join('；')}。`
     : '';
   const supportGuidance = supportItem
     ? personalActionGuidance(supportItem.evaluation.definition, period)
@@ -2302,11 +2340,11 @@ function buildPersonalJudgmentInsight(
     : null;
   const supportAdvice = supportItem
     ? supportItem.evaluation.definition.key === primary.evaluation.definition.key
-      ? `对这个案例，${supportItem.category.label}的投入更容易形成结果，因为${reasonFor(supportItem, 'period-aligned')}。${supportGuidance!.support}。`
-      : `${supportItem.category.label}不是整体主线，但处理成本较低，因为${reasonFor(supportItem, 'period-aligned')}。现实中有对应事项时，${supportGuidance!.support}；没有就不另起任务。`
+      ? `${supportItem.category.label}更容易形成结果：${reasonFor(supportItem, 'period-aligned')}。${supportGuidance!.support}。`
+      : `${supportItem.category.label}虽不是整体主线，却可作为较省力的支点：${reasonFor(supportItem, 'period-aligned')}。${supportGuidance!.support}；${topicSupportBoundaries[supportItem.category.key] || '只处理已经存在的事项，不新增任务'}。`
     : '';
   const reviewAdvice = reviewItem
-    ? `${reviewItem.category.label}会额外消耗精力，因为${reasonFor(reviewItem, 'period-friction')}。${reviewGuidance!.boundary}。`
+    ? `${reviewItem.category.label}会形成额外消耗：${reasonFor(reviewItem, 'period-friction')}。${reviewGuidance!.boundary}。`
     : '';
   const detail = `${focusSentence}${supportAdvice}${reviewAdvice}`;
   if (!detail) return undefined;
