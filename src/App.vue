@@ -100,6 +100,7 @@ import {
   getImmediateActiveDivinationSelection,
   getLocalAgentSelection,
   requestAgentToolSelection,
+  shouldContinueExistingDivination,
   type AgentToolSelection,
   type AgentAstrolabeFortune,
   type AgentZiweiFortune,
@@ -4658,7 +4659,9 @@ async function beginReading() {
   try {
     const selection = forcedBasicAgentSelection.value || await resolveAgentSelection(requestedQuestion);
     if (sessionId !== chatSessionId) return;
-    if (selection.mode === 'continue') {
+    const shouldContinue = selection.mode === 'continue'
+      || (hasCurrentReading && shouldContinueExistingDivination(requestedQuestion, selectedKind.value, selection));
+    if (shouldContinue) {
       if (hasCurrentReading && await continueCurrentReading(requestedQuestion)) return;
       formError.value = '当前没有可继续追问的盘面，请换一种问法。';
       return;

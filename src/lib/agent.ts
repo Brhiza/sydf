@@ -221,6 +221,16 @@ export function getImmediateActiveDivinationSelection(question: string, activeTo
   return { mode: 'divination', divinationKind: activeTool as DivinationKind };
 }
 
+/** 同一占卜会话的普通追问复用已有卦象，只有明确要求重起时才生成新卦。 */
+export function shouldContinueExistingDivination(
+  question: string,
+  previousTool: string | undefined,
+  selection: AgentToolSelection,
+) {
+  if (selection.mode !== 'divination' || !previousTool || selection.divinationKind !== previousTool) return false;
+  return !/(?:重新|重|再|另|新)(?:起|排|占)(?:一?个|一|次|本|新)?(?:卦|局|课|盘)|换(?:一?个|一种|一|种)?(?:卦|局|课|盘)/u.test(question);
+}
+
 function validYear(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1900 && value <= 2199 ? value : undefined;
 }
