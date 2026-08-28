@@ -159,7 +159,73 @@ jobs:
           name: shiyue-dongfang-android-${{ github.run_number }}
           path: release-artifacts
 
-      - name: 同步正式包到更新存储
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              release-artifacts/*-release.apk \
+              release-artifacts/*-release.aab \
+              release-artifacts/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              release-artifacts/*-release.apk \
+              release-artifacts/*-release.aab \
+              release-artifacts/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --generate-notes \
+              --title "时月东方 ${GITHUB_REF_NAME#v}"
+          fi
+
+      - name: 备份正式 APK 到蓝奏云
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LANZOU_API_TOKEN: ${{ secrets.LANZOU_API_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          apk="release-artifacts/shiyue-dongfang-${version}-release.apk"
+          marker="release-artifacts/lanzou-upload.json"
+          test -s "$apk"
+          if gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern 'lanzou-upload.json' --dir release-artifacts >/dev/null 2>&1; then
+            echo '该版本已备份到蓝奏云，跳过重复上传。'
+            exit 0
+          fi
+          if [[ -z "$LANZOU_API_TOKEN" ]]; then
+            echo '缺少蓝奏云上传 API 凭据。' >&2
+            exit 1
+          fi
+          size="$(stat -c %s "$apk")"
+          if (( size > 99614720 )); then
+            echo "APK 大小 ${size} 字节，超过蓝奏云 API 的 95 MiB 限制。" >&2
+            exit 1
+          fi
+          curl_config="$RUNNER_TEMP/lanzou-api.curlrc"
+          response="$RUNNER_TEMP/lanzou-upload-response.json"
+          printf 'header = "Authorization: Bearer %s"\n' "$LANZOU_API_TOKEN" > "$curl_config"
+          chmod 600 "$curl_config"
+          trap 'rm -f "$curl_config" "$response"' EXIT
+          filename="$(jq -rn --arg value "$(basename "$apk")" '$value | @uri')"
+          curl --fail-with-body --silent --show-error \
+            --max-time 900 \
+            --config "$curl_config" \
+            --header 'Content-Type: application/octet-stream' \
+            --data-binary "@$apk" \
+            "https://lanzou-cloudflare-api.brhiza.workers.dev/v1/files?filename=${filename}&folder_id=13903358" \
+            > "$response"
+          jq -e --arg name "$(basename "$apk")" --argjson size "$size" \
+            '.ok == true and .file.original_name == $name and .file.size == $size and .file.folder_id == 13903358' \
+            "$response" >/dev/null
+          jq '{file_id:.file.id, filename:.file.original_name, size:.file.size, folder_id:.file.folder_id}' \
+            "$response" > "$marker"
+          gh release upload "$GITHUB_REF_NAME" "$marker" --repo "$GITHUB_REPOSITORY" --clobber
+          rm -f "$curl_config" "$response"
+          trap - EXIT
+
+      - name: 同步正式包到 R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.R2_RELEASES_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_RELEASES_ACCOUNT_ID }}
@@ -173,24 +239,33 @@ jobs:
           npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/shiyue-dongfang-${version}.aab" --file "$aab" --remote --content-type application/octet-stream
           cp release-artifacts/SHA256SUMS.txt release-artifacts/r2-SHA256SUMS.txt
           npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${version}/SHA256SUMS.txt" --file release-artifacts/r2-SHA256SUMS.txt --remote --content-type text/plain
+          github_url="https://github.com/Brhiza/sydf/releases/download/v${version}/$(basename "$apk")"
+          github_accelerated_1="https://gh-proxy.com/${github_url}"
+          github_accelerated_2="https://ghfast.top/${github_url}"
+          lanzou_url="https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/shiyue-dongfang/${version}"
+          r2_url="https://sydf.cc/api/app-download?version=${version}"
           jq -n \
             --arg version "$version" \
-            --arg downloadUrl "https://sydf.cc/api/app-download?version=${version}" \
+            --arg downloadUrl "$r2_url" \
+            --arg lanzouUrl "$lanzou_url" \
+            --arg githubUrl "$github_url" \
+            --arg githubAccelerated1 "$github_accelerated_1" \
+            --arg githubAccelerated2 "$github_accelerated_2" \
+            --arg r2Url "$r2_url" \
             --arg sha256 "$(sha256sum "$apk" | cut -d' ' -f1)" \
             --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{version: $version, downloadUrl: $downloadUrl, sha256: $sha256, publishedAt: $publishedAt}' \
+            '{
+              version: $version,
+              downloadUrl: $downloadUrl,
+              downloadRoutes: [
+                {id: "lanzou-api", label: "线路 1 · 蓝奏云", url: $lanzouUrl, priority: 1},
+                {id: "github", label: "线路 2 · Release 直连", url: $githubUrl, priority: 2},
+                {id: "github-accelerated-1", label: "线路 3 · Release 加速一", url: $githubAccelerated1, priority: 3},
+                {id: "github-accelerated-2", label: "线路 4 · Release 加速二", url: $githubAccelerated2, priority: 4},
+                {id: "r2", label: "线路 5 · R2", url: $r2Url, priority: 5}
+              ],
+              sha256: $sha256,
+              publishedAt: $publishedAt
+            }' \
             > release-artifacts/latest.json
           npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/latest.json" --file release-artifacts/latest.json --remote --content-type application/json
-
-      - name: 创建 GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" \
-            release-artifacts/*-release.apk \
-            release-artifacts/*-release.aab \
-            release-artifacts/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --generate-notes \
-            --title "时月东方 ${GITHUB_REF_NAME#v}"

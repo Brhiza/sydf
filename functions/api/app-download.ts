@@ -24,8 +24,7 @@ function errorResponse(message: string, status: number) {
   });
 }
 
-/** 从自有 R2 流式下载 APK，并保留断点续传能力。 */
-export async function onRequestGet(context: AppDownloadContext) {
+async function handleDownload(context: AppDownloadContext, headOnly = false) {
   const version = new URL(context.request.url).searchParams.get('version')?.trim() ?? '';
   if (!validVersion.test(version)) return errorResponse('版本号无效。', 400);
   const bucket = context.env.APP_RELEASES;
@@ -48,8 +47,18 @@ export async function onRequestGet(context: AppDownloadContext) {
     const end = object.range.offset + object.range.length - 1;
     headers.set('Content-Length', String(object.range.length));
     headers.set('Content-Range', `bytes ${object.range.offset}-${end}/${object.size}`);
-    return new Response(object.body, { status: 206, headers });
+    return new Response(headOnly ? null : object.body, { status: 206, headers });
   }
   headers.set('Content-Length', String(object.size));
-  return new Response(object.body, { headers });
+  return new Response(headOnly ? null : object.body, { headers });
+}
+
+/** 从自有 R2 流式下载 APK，并保留断点续传能力。 */
+export function onRequestGet(context: AppDownloadContext) {
+  return handleDownload(context);
+}
+
+/** 仅返回安装包元数据，供更新线路测速使用。 */
+export function onRequestHead(context: AppDownloadContext) {
+  return handleDownload(context, true);
 }

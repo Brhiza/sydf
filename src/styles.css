@@ -257,6 +257,18 @@ h1, h2, h3, p { margin-top: 0; }
 .pwa-update-dialog { position: relative; }
 .pwa-update-dialog__icon { align-items: center; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 14px; color: var(--accent); display: flex; height: 48px; justify-content: center; margin-bottom: var(--ds-space-4); width: 48px; }
 .pwa-update-dialog .ui-dialog-header { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+.pwa-update-routes { display: grid; gap: 8px; margin: var(--ds-space-4) 0; }
+.pwa-update-routes__header { align-items: center; display: flex; justify-content: space-between; }
+.pwa-update-routes__header strong { font-size: 13px; }
+.pwa-update-routes__header button { background: transparent; border: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 4px; }
+.pwa-update-routes__header button:disabled { color: var(--muted); cursor: wait; }
+.pwa-update-route { align-items: center; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px; color: var(--text); cursor: pointer; display: flex; font: inherit; justify-content: space-between; min-height: 40px; padding: 8px 10px; text-align: left; }
+.pwa-update-route.selected { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 48%, var(--line)); }
+.pwa-update-route span { font-size: 12px; font-weight: 600; }
+.pwa-update-route em { color: var(--muted); font-size: 11px; font-style: normal; }
+.pwa-update-route em.fastest { color: var(--accent); font-weight: 700; }
+.pwa-update-route em.unavailable { color: var(--danger); }
+.pwa-update-routes > small { color: var(--muted); font-size: 10px; line-height: 1.5; }
 .record-row > svg { color: var(--subtle); margin-left: auto; }
 .drawer-empty { align-items: center; color: var(--muted); display: flex; flex-direction: column; font-size: 10px; gap: 9px; justify-content: center; min-height: 160px; }
 .drawer-empty svg { color: var(--accent); }

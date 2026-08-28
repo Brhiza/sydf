@@ -1,6 +1,9 @@
+import { buildOfficialDownloadRoutes, type NativeDownloadRoute } from './updateRoutes';
+
 export interface NativeReleaseUpdate {
   version: string;
   downloadUrl: string;
+  downloadRoutes: NativeDownloadRoute[];
 }
 
 interface AppUpdatePayload {
@@ -47,9 +50,12 @@ export async function fetchLatestNativeRelease(): Promise<NativeReleaseUpdate | 
   if (!response.ok) throw new Error('release request failed');
   const release = await response.json() as AppUpdatePayload;
   if (typeof release.version !== 'string' || typeof release.downloadUrl !== 'string') return null;
+  const version = release.version.replace(/^v/i, '');
   const downloadUrl = new URL(release.downloadUrl, RELEASE_API_URL);
   if (downloadUrl.protocol !== 'https:' || downloadUrl.hostname !== 'sydf.cc' || downloadUrl.pathname !== '/api/app-download') return null;
-  return { version: release.version.replace(/^v/i, ''), downloadUrl: downloadUrl.toString() };
+  const downloadRoutes = buildOfficialDownloadRoutes(version);
+  if (!downloadRoutes.length) return null;
+  return { version, downloadUrl: downloadUrl.toString(), downloadRoutes };
 }
 
 export function createNativeAppUpdateController(options: NativeAppUpdateControllerOptions) {
