@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { onRequestGet } from './app-download';
+import { onRequestGet, onRequestHead } from './app-download';
 
 function releaseObject(range?: { offset: number; length: number }) {
   return {
@@ -38,5 +38,15 @@ describe('APK 国内下载接口', () => {
     });
     expect(response.status).toBe(206);
     expect(response.headers.get('content-range')).toBe('bytes 20-29/100');
+  });
+
+  it('支持测速 HEAD 请求且不返回 APK 内容', async () => {
+    const response = await onRequestHead({
+      request: new Request('https://sydf.cc/api/app-download?version=1.2.3', { method: 'HEAD' }),
+      env: { APP_RELEASES: { get: vi.fn().mockResolvedValue(releaseObject()) } },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-length')).toBe('100');
+    expect(response.body).toBeNull();
   });
 });

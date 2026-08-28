@@ -51,7 +51,8 @@ if (import.meta.env.PROD) scheduleAfterPageLoad(() => {
             detail: {
               kind: 'native',
               version: update.version,
-              prepareUpdate: () => AppLauncher.openUrl({ url: update.downloadUrl }),
+              downloadRoutes: update.downloadRoutes,
+              prepareUpdate: (downloadUrl?: string) => AppLauncher.openUrl({ url: downloadUrl || update.downloadUrl }),
             },
           }));
         },

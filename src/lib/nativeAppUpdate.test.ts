@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createNativeAppUpdateController, fetchLatestNativeRelease, isNewerAppVersion } from './nativeAppUpdate';
+import { buildOfficialDownloadRoutes } from './updateRoutes';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -23,7 +24,7 @@ function stubBrowserGlobals() {
 }
 
 describe('APK 版本更新', () => {
-  it('只接受 sydf.cc 的下载入口', async () => {
+  it('只接受 sydf.cc 的更新清单并生成四条官方线路', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       version: '0.2.0',
       downloadUrl: 'https://sydf.cc/api/app-download?version=0.2.0',
@@ -33,6 +34,7 @@ describe('APK 版本更新', () => {
     await expect(fetchLatestNativeRelease()).resolves.toEqual({
       version: '0.2.0',
       downloadUrl: 'https://sydf.cc/api/app-download?version=0.2.0',
+      downloadRoutes: buildOfficialDownloadRoutes('0.2.0'),
     });
     expect(fetchMock).toHaveBeenCalledWith('https://sydf.cc/api/app-update', expect.any(Object));
 
@@ -56,6 +58,7 @@ describe('APK 版本更新', () => {
     const fetchLatestRelease = vi.fn().mockResolvedValue({
       version: '0.2.0',
       downloadUrl: 'https://example.com/app.apk',
+      downloadRoutes: buildOfficialDownloadRoutes('0.2.0'),
     });
     const controller = createNativeAppUpdateController({
       currentVersion: '0.1.0',

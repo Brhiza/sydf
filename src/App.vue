@@ -123,6 +123,12 @@ import {
 import type { PromptSchoolMethod } from 'mingyu-core/prompt';
 import { buildUpdateReloadUrl } from './lib/appUpdate';
 import {
+  probeDownloadRoutes,
+  selectBestDownloadRoute,
+  type DownloadRouteProbe,
+  type NativeDownloadRoute,
+} from './lib/updateRoutes';
+import {
   buildAppRouteHash,
   parseAppRoute,
   type AppRouteCasesSection,
@@ -1088,9 +1094,14 @@ const pwaUpdateAvailable = ref(false);
 const showPwaUpdateDialog = ref(false);
 const isApplyingPwaUpdate = ref(false);
 const updateError = ref('');
+const nativeDownloadRoutes = ref<NativeDownloadRoute[]>([]);
+const nativeRouteProbes = ref<DownloadRouteProbe[]>([]);
+const selectedNativeRouteId = ref<NativeDownloadRoute['id'] | ''>('');
+const isProbingNativeRoutes = ref(false);
 let availableUpdateKind: 'web' | 'native' = 'web';
 let availableWebVersion = '';
-let prepareWebUpdate: (() => Promise<void>) | null = null;
+let prepareWebUpdate: ((downloadUrl?: string) => Promise<void>) | null = null;
+let nativeRouteProbeRun = 0;
 let toastTimer: number | undefined;
 let basicAiFallbackCopyTimer: number | undefined;
 let cancelHomePreviewWarmup: (() => void) | undefined;
@@ -2138,14 +2149,63 @@ function restoreHistory() {
   }
 }
 
+const selectedNativeDownloadRoute = computed(() => (
+  nativeDownloadRoutes.value.find((route) => route.id === selectedNativeRouteId.value)
+  ?? nativeDownloadRoutes.value[0]
+  ?? null
+));
+
+const fastestNativeRouteId = computed(() => {
+  const best = selectBestDownloadRoute(
+    nativeDownloadRoutes.value,
+    nativeRouteProbes.value.filter((probe) => probe.latencyMs !== null),
+  );
+  return best && nativeRouteProbes.value.some((probe) => probe.routeId === best.id && probe.latencyMs !== null)
+    ? best.id
+    : '';
+});
+
+function nativeRouteProbe(routeId: NativeDownloadRoute['id']) {
+  return nativeRouteProbes.value.find((probe) => probe.routeId === routeId);
+}
+
+function nativeRouteProbeLabel(routeId: NativeDownloadRoute['id']) {
+  const probe = nativeRouteProbe(routeId);
+  if (isProbingNativeRoutes.value && !probe) return '测速中';
+  if (!probe || probe.latencyMs === null) return '不可用';
+  return `${probe.latencyMs} ms`;
+}
+
+async function testNativeDownloadRoutes() {
+  if (!nativeDownloadRoutes.value.length) return;
+  const run = ++nativeRouteProbeRun;
+  nativeRouteProbes.value = [];
+  isProbingNativeRoutes.value = true;
+  const probes = await probeDownloadRoutes(nativeDownloadRoutes.value);
+  if (run !== nativeRouteProbeRun) return;
+  nativeRouteProbes.value = probes;
+  isProbingNativeRoutes.value = false;
+  const best = selectBestDownloadRoute(nativeDownloadRoutes.value, probes);
+  selectedNativeRouteId.value = best?.id ?? nativeDownloadRoutes.value[0]?.id ?? '';
+}
+
 function handleAppUpdate(event: Event) {
-  const detail = (event as CustomEvent<{ kind?: 'web' | 'native'; version?: string; prepareUpdate?: () => Promise<void> }>).detail;
+  const detail = (event as CustomEvent<{
+    kind?: 'web' | 'native';
+    version?: string;
+    downloadRoutes?: NativeDownloadRoute[];
+    prepareUpdate?: (downloadUrl?: string) => Promise<void>;
+  }>).detail;
   availableUpdateKind = detail?.kind === 'native' ? 'native' : 'web';
   availableWebVersion = detail?.version || '';
   prepareWebUpdate = detail?.prepareUpdate || null;
+  nativeDownloadRoutes.value = availableUpdateKind === 'native' ? detail?.downloadRoutes ?? [] : [];
+  nativeRouteProbes.value = [];
+  selectedNativeRouteId.value = nativeDownloadRoutes.value[0]?.id ?? '';
   updateError.value = '';
   pwaUpdateAvailable.value = true;
   showPwaUpdateDialog.value = true;
+  if (nativeDownloadRoutes.value.length) void testNativeDownloadRoutes();
 }
 
 function postponePwaUpdate() {
@@ -2158,7 +2218,7 @@ async function refreshToPwaUpdate() {
   updateError.value = '';
   try {
     if (!prepareWebUpdate) throw new Error('update preparation is unavailable');
-    await prepareWebUpdate();
+    await prepareWebUpdate(selectedNativeDownloadRoute.value?.url);
     if (availableUpdateKind === 'native') {
       isApplyingPwaUpdate.value = false;
       return;
@@ -6898,6 +6958,27 @@ function ziweiOppositeLine(result: ZiweiChartData) {
       <UiDialogShell v-if="pwaUpdateAvailable && showPwaUpdateDialog && !showOnboarding" labelledby="pwa-update-title" size="compact" layer-class="pwa-update-layer" panel-class="pwa-update-dialog" @close="postponePwaUpdate">
         <div class="pwa-update-dialog__icon" aria-hidden="true"><RefreshCw :size="24" /></div>
         <UiDialogHeader title="发现新版本" title-id="pwa-update-title" :description="availableUpdateKind === 'native' ? `时月东方 ${availableWebVersion} 已发布，下载后即可安装更新。` : '更新后即可使用最新功能和修复。页面会重新加载，请先完成当前操作。'" close-label="稍后更新" @close="postponePwaUpdate" />
+        <div v-if="availableUpdateKind === 'native' && nativeDownloadRoutes.length" class="pwa-update-routes">
+          <div class="pwa-update-routes__header">
+            <strong>下载线路</strong>
+            <button type="button" :disabled="isProbingNativeRoutes" @click="testNativeDownloadRoutes">{{ isProbingNativeRoutes ? '测速中…' : '重新测速' }}</button>
+          </div>
+          <button
+            v-for="route in nativeDownloadRoutes"
+            :key="route.id"
+            type="button"
+            class="pwa-update-route"
+            :class="{ selected: selectedNativeRouteId === route.id }"
+            :aria-pressed="selectedNativeRouteId === route.id"
+            @click="selectedNativeRouteId = route.id"
+          >
+            <span>{{ route.label }}</span>
+            <em :class="{ fastest: fastestNativeRouteId === route.id, unavailable: nativeRouteProbe(route.id)?.latencyMs === null }">
+              {{ fastestNativeRouteId === route.id ? `最快 · ${nativeRouteProbeLabel(route.id)}` : nativeRouteProbeLabel(route.id) }}
+            </em>
+          </button>
+          <small>已自动选择响应最快的可用线路，也可以手动切换。</small>
+        </div>
         <UiNotice v-if="updateError" tone="error">{{ updateError }}</UiNotice>
         <UiActionBar mobile="stretch">
           <UiButton variant="secondary" :disabled="isApplyingPwaUpdate" @click="postponePwaUpdate">稍后更新</UiButton>
