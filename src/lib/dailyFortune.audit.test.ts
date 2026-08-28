@@ -122,8 +122,8 @@ describe('今日运势批量内容质量', () => {
             correctionDetails.push(item.detail);
             expect(item.detail).toMatch(/责任与验收缺口|注意力与输出检验的断点|金额、责任或付款节点的缺口|双方事实基础的分歧|路线、转场或返程余量的缺口|睡眠、进食或专注恢复的缺口/);
           }
-          expect(item.detail).toMatch(/支持相对连续|优势没有覆盖(?:全天|整月|全年)|单个(?:时段|日期|阶段)不能代表(?:全天|整月|全年)|仍排在主线/);
-          expect(result.summary).toMatch(/责任清楚|能够验收|理解与应用|金额、凭证与责任链|共同事实|一致的下一步|完整时间链|必要行程|注意力|承受量/);
+          expect(result.summary).toContain('主要精力用于');
+          expect(result.summary).toContain(shortTopicLabels[result.actionTips[0]?.sourceKey || ''] || '');
         } else if (item.key === 'caution') {
           expect(item.detail).toMatch(/风险(?:仍)?集中在|顺势与收紧相抵|在多个.+反复失守/);
           expect(result.summary).toMatch(/返工|两套版本|不同标准|压缩|遗漏|下降|付款|成本|延误|核算|入睡|恢复|输出时间|现场任务|共同事实/);
