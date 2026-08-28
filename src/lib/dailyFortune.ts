@@ -2392,13 +2392,31 @@ const primaryTitleOutcomes: Record<string, string> = {
   wellbeing: '稳定承载',
 };
 
-const summaryPrimaryDecisions: Record<string, string> = {
-  career: '主要精力用于形成责任清楚、能够验收的工作结果',
-  study: '主要精力用于检验学习能否转化为理解与应用',
-  wealth: '主要精力用于闭合金额、凭证与责任链',
-  relationship: '主要精力用于建立共同事实和一致的下一步',
-  travel: '主要精力用于守住完整时间链和必要行程',
-  wellbeing: '主要精力用于恢复注意力和实际承受量',
+const summaryPrimaryDecisionsByPeriod: Record<FortunePeriod, Record<string, string>> = {
+  today: {
+    career: '主要精力用于形成责任清楚、能够验收的工作结果',
+    study: '主要精力用于检验学习能否转化为理解与应用',
+    wealth: '主要精力用于闭合金额、凭证与责任链',
+    relationship: '主要精力用于建立共同事实和一致的下一步',
+    travel: '主要精力用于守住完整时间链和必要行程',
+    wellbeing: '主要精力用于恢复注意力和实际承受量',
+  },
+  month: {
+    career: '主要精力用于推进项目关键节点并锁定责任交付',
+    study: '主要精力用于围绕核心能力形成阶段性输出与应用成果',
+    wealth: '主要精力用于盘点月度资金、核实账目并优化资源周转',
+    relationship: '主要精力用于化解关键分歧并落实可执行的协作共识',
+    travel: '主要精力用于统筹优化路线方案并预留充足转场与返程余量',
+    wellbeing: '主要精力用于建立规律节奏以保障持续稳定的精力和承载力',
+  },
+  year: {
+    career: '主要精力用于固化工作规则、沉淀长期能力并完成核心布局',
+    study: '主要精力用于建立可迁移的知识体系与深度应用能力',
+    wealth: '主要精力用于健全预算规则、保障现金流并夯实风险储备',
+    relationship: '主要精力用于建立长期稳定的信任机制与协作边界',
+    travel: '主要精力用于沉淀可靠出行方案并提升复杂行程的应变能力',
+    wellbeing: '主要精力用于构筑身心恢复底线并维持可持续的年度节奏',
+  },
 };
 
 function summaryStructureDiagnosis(
@@ -2443,8 +2461,9 @@ function summaryDecisionStatement(
   secondary: CategoryAggregate,
   caution: CategoryAggregate,
   hasCaution: boolean,
+  period: FortunePeriod = 'today',
 ) {
-  const primaryDecision = summaryPrimaryDecisions[primary.category.key]
+  const primaryDecision = (summaryPrimaryDecisionsByPeriod[period] || summaryPrimaryDecisionsByPeriod.today)[primary.category.key]
     || `主要精力用于让${primary.category.label}形成能够检查的结果`;
   const primaryLabel = primary.evaluation.definition.shortLabel;
   const secondaryRelation = summarySecondaryRelation(
@@ -2452,6 +2471,7 @@ function summaryDecisionStatement(
     secondary.category.key,
     primaryLabel,
     secondary.evaluation.definition.shortLabel,
+    period,
   );
   const decisions = [primaryDecision];
   if (!hasCaution || secondary.category.key !== caution.category.key) decisions.push(secondaryRelation);
@@ -2461,6 +2481,7 @@ function summaryDecisionStatement(
       caution.category.key,
       primaryLabel,
       caution.evaluation.definition.shortLabel,
+      period,
     ));
   }
   return `${decisions.join('；')}。`;
@@ -2525,7 +2546,7 @@ function buildFortuneMasterJudgment(
       caution,
       hasCaution,
     ),
-    decisionStatement: summaryDecisionStatement(primary, secondary, caution, hasCaution),
+    decisionStatement: summaryDecisionStatement(primary, secondary, caution, hasCaution, period),
   }, seed);
   return { posture, primary, secondary, caution, bestAnalysis, cautionAnalysis, personalInsight, mixed, copy };
 }
@@ -2637,13 +2658,7 @@ function secondaryReasonFromJudgment(judgment: FortuneMasterJudgment, period: Fo
   const primary = judgment.primary.evaluation.definition;
   const primaryCheck = topicEvidenceChecks[primary.key] || `${primary.label}是否形成明确结果`;
   const secondaryCheck = topicEvidenceChecks[secondary.category.key] || `${secondary.category.label}是否保持稳定`;
-  const interruption = summaryCautionInterruption(
-    primary.key,
-    secondary.category.key,
-    primary.shortLabel,
-    secondary.evaluation.definition.shortLabel,
-  );
-  return `${categoryDistributionEvidence(secondary, period)}两项是否接得上，要同时看${primaryCheck}，以及${secondaryCheck}。${interruption}。`;
+  return `${categoryDistributionEvidence(secondary, period)}两项是否接得上，要同时看${primaryCheck}，以及${secondaryCheck}。`;
 }
 
 function stripPriorityPrefix(value: string) {
