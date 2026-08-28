@@ -1,5 +1,5 @@
 export interface NativeDownloadRoute {
-  id: 'github' | 'github-accelerated-1' | 'github-accelerated-2' | 'r2';
+  id: 'lanzou-api' | 'github' | 'github-accelerated-1' | 'github-accelerated-2' | 'r2';
   label: string;
   url: string;
   priority: number;
@@ -25,24 +25,30 @@ export function buildOfficialDownloadRoutes(version: string): NativeDownloadRout
   const fileName = `shiyue-dongfang-${normalizedVersion}-release.apk`;
   const githubUrl = `https://github.com/Brhiza/sydf/releases/download/v${normalizedVersion}/${fileName}`;
   return [
-    { id: 'github', label: '线路 1 · Release 直连', url: githubUrl, priority: 1 },
+    {
+      id: 'lanzou-api',
+      label: '线路 1 · 蓝奏云',
+      url: `https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/shiyue-dongfang/${encodeURIComponent(normalizedVersion)}`,
+      priority: 1,
+    },
+    { id: 'github', label: '线路 2 · Release 直连', url: githubUrl, priority: 2 },
     {
       id: 'github-accelerated-1',
-      label: '线路 2 · Release 加速一',
+      label: '线路 3 · Release 加速一',
       url: `https://gh-proxy.com/${githubUrl}`,
-      priority: 2,
-    },
-    {
-      id: 'github-accelerated-2',
-      label: '线路 3 · Release 加速二',
-      url: `https://ghfast.top/${githubUrl}`,
       priority: 3,
     },
     {
-      id: 'r2',
-      label: '线路 4 · R2',
-      url: `https://sydf.cc/api/app-download?version=${encodeURIComponent(normalizedVersion)}`,
+      id: 'github-accelerated-2',
+      label: '线路 4 · Release 加速二',
+      url: `https://ghfast.top/${githubUrl}`,
       priority: 4,
+    },
+    {
+      id: 'r2',
+      label: '线路 5 · R2',
+      url: `https://sydf.cc/api/app-download?version=${encodeURIComponent(normalizedVersion)}`,
+      priority: 5,
     },
   ];
 }

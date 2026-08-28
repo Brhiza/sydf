@@ -24,7 +24,7 @@ function stubBrowserGlobals() {
 }
 
 describe('APK 版本更新', () => {
-  it('只接受 sydf.cc 的更新清单并生成四条官方线路', async () => {
+  it('只接受 sydf.cc 的更新清单并生成五条官方线路', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       version: '0.2.0',
       downloadUrl: 'https://sydf.cc/api/app-download?version=0.2.0',

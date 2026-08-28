@@ -242,10 +242,12 @@ jobs:
           github_url="https://github.com/Brhiza/sydf/releases/download/v${version}/$(basename "$apk")"
           github_accelerated_1="https://gh-proxy.com/${github_url}"
           github_accelerated_2="https://ghfast.top/${github_url}"
+          lanzou_url="https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/shiyue-dongfang/${version}"
           r2_url="https://sydf.cc/api/app-download?version=${version}"
           jq -n \
             --arg version "$version" \
             --arg downloadUrl "$r2_url" \
+            --arg lanzouUrl "$lanzou_url" \
             --arg githubUrl "$github_url" \
             --arg githubAccelerated1 "$github_accelerated_1" \
             --arg githubAccelerated2 "$github_accelerated_2" \
@@ -256,10 +258,11 @@ jobs:
               version: $version,
               downloadUrl: $downloadUrl,
               downloadRoutes: [
-                {id: "github", label: "线路 1 · Release 直连", url: $githubUrl, priority: 1},
-                {id: "github-accelerated-1", label: "线路 2 · Release 加速一", url: $githubAccelerated1, priority: 2},
-                {id: "github-accelerated-2", label: "线路 3 · Release 加速二", url: $githubAccelerated2, priority: 3},
-                {id: "r2", label: "线路 4 · R2", url: $r2Url, priority: 4}
+                {id: "lanzou-api", label: "线路 1 · 蓝奏云", url: $lanzouUrl, priority: 1},
+                {id: "github", label: "线路 2 · Release 直连", url: $githubUrl, priority: 2},
+                {id: "github-accelerated-1", label: "线路 3 · Release 加速一", url: $githubAccelerated1, priority: 3},
+                {id: "github-accelerated-2", label: "线路 4 · Release 加速二", url: $githubAccelerated2, priority: 4},
+                {id: "r2", label: "线路 5 · R2", url: $r2Url, priority: 5}
               ],
               sha256: $sha256,
               publishedAt: $publishedAt
