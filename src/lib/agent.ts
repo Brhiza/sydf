@@ -204,12 +204,18 @@ export function getLocalAgentSelection(payload: Pick<AgentSelectionRequest, 'que
   if (/能否|能不能|会不会|是否|成不成|结果如何|能找到|能录取|能成交|对方.{0,4}(?:态度|想法)|关系.{0,4}走向/.test(question)) {
     return { mode: 'divination', divinationKind: 'liuyao' };
   }
-  if (payload.hasProfile && /一生|长期|未来[几十\d]+年|整体趋势|完整命书|全面分析/.test(question)) {
-    const domains = ['事业', '工作', '财富', '财运', '婚姻', '感情', '健康'].filter((word) => question.includes(word)).length;
-    if (domains >= 2 || /一生|完整命书|全面分析/.test(question)) {
-      return { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' }, ziweiFortune: { scope: 'full' } };
+  if (payload.hasProfile) {
+    if (/一生|长期|未来[几十\d]+年|整体趋势|完整命书|全面分析/.test(question)) {
+      const domains = ['事业', '工作', '财富', '财运', '婚姻', '感情', '健康'].filter((word) => question.includes(word)).length;
+      if (domains >= 2 || /一生|完整命书|全面分析/.test(question)) {
+        return { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' }, ziweiFortune: { scope: 'full' } };
+      }
+      return { mode: 'chart', chartKind: 'bazi', baziFortune: { scope: 'full' } };
     }
-    return { mode: 'chart', chartKind: 'bazi', baziFortune: { scope: 'full' } };
+    const fortuneThemes = ['事业', '工作', '财富', '财运', '婚姻', '感情', '健康', '学业', '运势', '流年', '大运', '桃花', '贵人', '发展'].filter((word) => question.includes(word));
+    if (fortuneThemes.length >= 1 && /今年|明年|后年|去年|(?:19|20|21)\d{2}年|运势|流年|大运|运程|命盘|八字/.test(question)) {
+      return { mode: 'chart', chartKind: 'bazi', baziFortune: inferBaziScope(question) };
+    }
   }
   return null;
 }
@@ -341,7 +347,7 @@ function responseError(payload: unknown, status: number) {
   return status === 404 ? '工具选择服务尚未接入当前环境。' : 'AI 暂时无法选择术式。';
 }
 
-export async function requestAgentToolSelection(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 15_000): Promise<AgentToolSelection> {
+export async function requestAgentToolSelection(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 28_000): Promise<AgentToolSelection> {
   if (isCustomAiConfig(payload.aiConfig)) {
     if (shouldUseAiProxyFallback(payload.aiConfig!)) return requestAgentToolSelectionViaProxy(payload, signal, timeoutMs);
     const { aiConfig, ...directPayload } = payload;
@@ -358,7 +364,7 @@ export async function requestAgentToolSelection(payload: AgentSelectionRequest, 
   return requestAgentToolSelectionViaProxy(payload, signal, timeoutMs);
 }
 
-async function requestAgentToolSelectionViaProxy(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 15_000): Promise<AgentToolSelection> {
+async function requestAgentToolSelectionViaProxy(payload: AgentSelectionRequest, signal?: AbortSignal, timeoutMs = 28_000): Promise<AgentToolSelection> {
   const controller = new AbortController();
   let timedOut = false;
   const abortFromCaller = () => controller.abort(signal?.reason);

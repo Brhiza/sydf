@@ -143,7 +143,10 @@ function trimApiEndpoint(baseUrl: string) {
 }
 
 function resolveDirectAiUrl(baseUrl: string, apiType: AiApiType) {
-  const normalized = baseUrl.trim().replace(/\/+$/, '');
+  let normalized = baseUrl.trim().replace(/\/+$/, '');
+  if (/^https?:\/\/api\.openai\.com$/i.test(normalized)) {
+    normalized = `${normalized}/v1`;
+  }
   const path = apiType === 'responses' ? 'responses' : apiType === 'anthropic' ? 'messages' : 'chat/completions';
   if (new RegExp(`/${path.replace('/', '\\/')}$`, 'i').test(normalized)) return normalized;
   return `${trimApiEndpoint(normalized)}/${path}`;

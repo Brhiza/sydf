@@ -37,6 +37,32 @@ describe('AI 接口安全边界', () => {
     }))?.status).toBe(403);
   });
 
+  it('同源请求与本地 APK 来源零配置自动通过', async () => {
+    // 同源请求（浏览器在 sydf.cc 访问同站 /api/interpret）零配置直接通过
+    const reqSameOrigin = new Request('https://sydf.cc/api/interpret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': 'https://sydf.cc' },
+      body: '{}',
+    });
+    expect(await guardApiRequest(reqSameOrigin, {})).toBeNull();
+
+    // 本地 APK (capacitor://localhost) 零配置直接通过
+    const reqCapacitor = new Request('https://sydf.cc/api/interpret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': 'capacitor://localhost' },
+      body: '{}',
+    });
+    expect(await guardApiRequest(reqCapacitor, {})).toBeNull();
+
+    // 本地开发 (http://localhost:5173) 零配置直接通过
+    const reqLocalhost = new Request('http://localhost:5173/api/interpret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': 'http://localhost:5173' },
+      body: '{}',
+    });
+    expect(await guardApiRequest(reqLocalhost, {})).toBeNull();
+  });
+
   it('实际请求体超过限制时停止解析', async () => {
     await expect(readJsonBody(request(JSON.stringify({ value: '界'.repeat(30_000) })))).rejects.toBeInstanceOf(RequestBodyTooLargeError);
   });
@@ -66,7 +92,7 @@ describe('AI 接口安全边界', () => {
   it('上游请求超时后中止', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn((_input, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
-      expect(init?.redirect).toBe('manual');
+      expect(init?.redirect).toBe('follow');
       // 模拟忽略 AbortController.reason、只返回通用 AbortError 的运行时。
       init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
     }));
@@ -86,7 +112,7 @@ describe('AI 接口安全边界', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(fetchWithTimeout('https://api.example.com/v1', {}, 100)).rejects.toThrow('upstream redirect not allowed');
+    await expect(fetchWithTimeout('https://api.example.com/v1', { redirect: 'manual' }, 100)).rejects.toThrow('upstream redirect not allowed');
     expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/v1', expect.objectContaining({ redirect: 'manual' }));
     vi.unstubAllGlobals();
   });

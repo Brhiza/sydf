@@ -60,7 +60,7 @@ describe('0 基础 Agent 工具调用', () => {
     expect(result).toEqual({ selection: { mode: 'chart', chartKind: 'bazi-ziwei', baziFortune: { scope: 'full' }, ziweiFortune: { scope: 'full' } } });
     expect(url).toBe('https://primary.example/v1/chat/completions');
     expect(headers.Authorization).toBe('Bearer primary-key');
-    expect(body.tool_choice).toBe('required');
+    expect(body.tool_choice).toBe('auto');
     expect(Array.isArray(body.tools)).toBe(true);
     expect(JSON.stringify(body.tools)).toContain('cast_liuyao');
     expect(JSON.stringify(body.tools)).toContain('cast_xiaoliuren');

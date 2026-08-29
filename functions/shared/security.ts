@@ -49,14 +49,18 @@ function fallbackRateLimit(key: string, limit: number) {
 
 function configuredFallbackLimit(env: ApiSecurityEnv, route: string) {
   const configured = Number(env.AI_REQUESTS_PER_MINUTE);
-  if (Number.isInteger(configured) && configured > 0) return Math.min(configured, 120);
-  return route.endsWith('/interpret') ? 8 : 16;
+  if (Number.isInteger(configured) && configured > 0) return Math.min(configured, 300);
+  return route.endsWith('/interpret') ? 30 : 60;
 }
 
 function parseOriginOnly(value: string) {
+  const text = value.trim();
+  if (text === 'capacitor://localhost' || text === 'ionic://localhost') {
+    return { origin: text, hostname: 'localhost', port: '', protocol: text.startsWith('capacitor') ? 'capacitor:' : 'ionic:' };
+  }
   try {
-    const parsed = new URL(value);
-    if (parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) return null;
+    const parsed = new URL(text);
+    if (parsed.username || parsed.password || (parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) return null;
     return parsed;
   } catch {
     return null;
@@ -82,10 +86,21 @@ function matchesTrustedOrigin(origin: string, configuredOrigin: string) {
   return configured?.origin === candidate.origin;
 }
 
+const TRUSTED_LOCAL_ORIGINS = new Set([
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://127.0.0.1',
+  'https://127.0.0.1',
+]);
+
 function isTrustedRequestOrigin(origin: string, requestOrigin: string, configuredOrigins = '') {
   const candidate = parseOriginOnly(origin);
   if (!candidate) return false;
   if (candidate.origin === requestOrigin) return true;
+  if (TRUSTED_LOCAL_ORIGINS.has(candidate.origin)) return true;
+
   return configuredOrigins
     .split(/[\s,]+/)
     .filter(Boolean)
@@ -200,9 +215,12 @@ export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs
     timedOut = true;
     controller.abort(new DOMException('upstream timeout', 'TimeoutError'));
   }, timeoutMs);
+  const redirectMode = init.redirect ?? 'follow';
   try {
-    const response = await fetch(url, { ...init, redirect: 'manual', signal: controller.signal });
-    if (response.status >= 300 && response.status < 400) throw new Error('upstream redirect not allowed');
+    const response = await fetch(url, { ...init, redirect: redirectMode, signal: controller.signal });
+    if (redirectMode === 'manual' && response.status >= 300 && response.status < 400) {
+      throw new Error('upstream redirect not allowed');
+    }
     return response;
   } catch (error) {
     // 不同运行时对 AbortController 的 reason 支持不一致，统一保留“上游超时”语义。

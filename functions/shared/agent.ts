@@ -219,12 +219,12 @@ function toolDefinitions(apiType: AiApiType) {
 function buildProviderBody(config: AiProviderConfig, userPrompt: string) {
   const tools = toolDefinitions(config.apiType);
   if (config.apiType === 'responses') {
-    return { model: config.model, instructions: systemPrompt, input: [{ role: 'user', content: userPrompt }], tools, tool_choice: 'required', store: false };
+    return { model: config.model, instructions: systemPrompt, input: [{ role: 'user', content: userPrompt }], tools, tool_choice: 'auto', store: false };
   }
   if (config.apiType === 'anthropic') {
-    return { model: config.model, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }], tools, tool_choice: { type: 'any' }, temperature: 0, max_tokens: 700 };
+    return { model: config.model, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }], tools, tool_choice: { type: 'auto' }, temperature: 0, max_tokens: 700 };
   }
-  return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'required', temperature: 0, ...getChatThinkingControl(config) };
+  return { model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], tools, tool_choice: 'auto', temperature: 0, ...getChatThinkingControl(config) };
 }
 
 function buildProviderFallbackBody(config: AiProviderConfig, userPrompt: string) {
@@ -306,7 +306,11 @@ function extractFallbackToolCall(result: unknown, apiType: AiApiType): { name: A
   } else if (Array.isArray(record.choices)) {
     const choice = record.choices[0] as Record<string, unknown> | undefined;
     const message = choice?.message as Record<string, unknown> | undefined;
-    content = typeof message?.content === 'string' ? message.content : '';
+    content = typeof message?.content === 'string' && message.content.trim()
+      ? message.content
+      : typeof message?.reasoning_content === 'string'
+        ? message.reasoning_content
+        : '';
   }
   const jsonText = content.match(/\{[\s\S]*\}/)?.[0];
   if (!jsonText) return null;
@@ -434,7 +438,7 @@ function selectionFromCall(call: { name: AgentToolName; arguments: Record<string
 
 async function requestSelection(config: AiProviderConfig, userPrompt: string) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const timeout = setTimeout(() => controller.abort(), 25_000);
   try {
     try {
       const result = await requestProviderJson(config, buildProviderBody(config, userPrompt), controller.signal);

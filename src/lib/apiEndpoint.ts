@@ -1,4 +1,4 @@
-const configuredApiOrigin = import.meta.env.VITE_API_ORIGIN?.trim().replace(/\/$/, '') || '';
+const configuredApiOrigin = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_ORIGIN)?.trim().replace(/\/$/, '') || '';
 
 export function apiEndpoint(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

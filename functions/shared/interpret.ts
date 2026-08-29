@@ -84,8 +84,11 @@ function normalizeApiType(value: unknown): AiApiType {
 }
 
 function resolveAiUrl(baseUrl: string, apiType: AiApiType) {
-  const normalized = baseUrl.trim().replace(/\/$/, '');
+  let normalized = baseUrl.trim().replace(/\/+$/, '');
   if (!normalized) return '';
+  if (/^https?:\/\/api\.openai\.com$/i.test(normalized)) {
+    normalized = `${normalized}/v1`;
+  }
   const path = apiType === 'responses' ? 'responses' : apiType === 'anthropic' ? 'messages' : 'chat/completions';
   if (new RegExp(`/${path.replace('/', '\\/')}$`, 'i').test(normalized)) return normalized;
   return `${normalized}/${path}`;
