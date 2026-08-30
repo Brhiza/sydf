@@ -767,12 +767,15 @@ const aiChannelPresets: Array<{ preset: AiChannelPreset; id: string; name: strin
   { preset: 'zhipu', id: 'preset-zhipu', name: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiType: 'chat' },
   { preset: 'anthropic', id: 'preset-anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1', apiType: 'anthropic' },
 ];
-type InspirationMode = import('./lib/inspirationLibrary').InspirationMode;
+type InspirationLibraryMode = import('./lib/inspirationLibrary').InspirationMode;
+type InspirationMode = InspirationLibraryMode | 'term';
 type InspirationItem = import('./lib/inspirationLibrary').InspirationItem;
 type InspirationGroup = import('./lib/inspirationLibrary').InspirationGroup;
 
-let inspirationLibraries: Record<InspirationMode, InspirationGroup[]> = { matter: [], natal: [] };
+let inspirationLibraries: Record<InspirationLibraryMode, InspirationGroup[]> = { matter: [], natal: [] };
 let inspirationLibraryPromise: Promise<void> | null = null;
+
+const TermGlossary = defineAsyncComponent(() => import('./components/TermGlossary.vue'));
 
 function ensureInspirationLibrary() {
   if (inspirationLibraries.matter.length && inspirationLibraries.natal.length) return Promise.resolve();
@@ -1399,6 +1402,7 @@ const configuringAiModelsText = computed({
   },
 });
 const filteredInspirationGroups = computed(() => {
+  if (inspirationMode.value === 'term') return [];
   const query = inspirationSearch.value.trim().toLocaleLowerCase();
   const groups = inspirationLibraries[inspirationMode.value];
   if (!query) return groups;
@@ -3062,7 +3066,7 @@ async function resolveAgentSelection(questionText: string) {
     const selectionPayload = {
       question: questionText,
       hasProfile: Boolean(activeCase.value?.date && activeCase.value?.time),
-      inspirationMode: selectedInspirationPrompt.value ? inspirationMode.value : undefined,
+      inspirationMode: selectedInspirationPrompt.value && inspirationMode.value !== 'term' ? inspirationMode.value : undefined,
       previousTool,
       activeTool,
       castingPreference: appPreferences.castingPreference,
@@ -3507,7 +3511,7 @@ function openOracle(questionText = '') {
 function chooseInspirationMode(mode: InspirationMode) {
   inspirationMode.value = mode;
   inspirationSearch.value = '';
-  expandedInspirationGroups.value = [inspirationLibraries[mode][0]?.key || ''];
+  expandedInspirationGroups.value = mode === 'term' ? [] : [inspirationLibraries[mode][0]?.key || ''];
 }
 
 async function chooseInspiration(item: InspirationItem) {
@@ -6736,21 +6740,22 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           <InstantChartDetail :response="selectedInstantMessage.response" />
       </UiDialogShell>
 
-      <UiDialogShell v-if="showInspirationModal" aria-label="问题灵感" layer-class="inspiration-modal-layer" panel-class="inspiration-modal" @close="closeInspirationModal">
+      <UiDialogShell v-if="showInspirationModal" :aria-label="inspirationMode === 'term' ? '术语百科' : '问题灵感'" layer-class="inspiration-modal-layer" panel-class="inspiration-modal" @close="closeInspirationModal">
           <UiDialogHeader
-            title="问题灵感"
-            close-label="关闭问题灵感"
+            :title="inspirationMode === 'term' ? '术语百科' : '问题灵感'"
+            :close-label="inspirationMode === 'term' ? '关闭术语百科' : '关闭问题灵感'"
             @close="closeInspirationModal"
           />
           <UiSegmentedControl
             class="inspiration-mode-tabs"
             :model-value="inspirationMode"
-            :items="[{ value: 'matter', label: '问事' }, { value: 'natal', label: '命书' }]"
+            :items="[{ value: 'matter', label: '问事' }, { value: 'natal', label: '命书' }, { value: 'term', label: '术语' }]"
             label="灵感类型"
             equal
             @update:model-value="chooseInspirationMode($event as InspirationMode)"
           />
-          <label class="inspiration-search"><Search :size="15" /><input v-model="inspirationSearch" type="search" :aria-label="`搜索${inspirationMode === 'matter' ? '问事' : '命书'}灵感`" :placeholder="inspirationMode === 'matter' ? '搜索想问的事情' : '搜索命盘主题或专业术语'" /></label>
+          <label class="inspiration-search"><Search :size="15" /><input v-model="inspirationSearch" type="search" :aria-label="inspirationMode === 'term' ? '搜索术语百科' : `搜索${inspirationMode === 'matter' ? '问事' : '命书'}灵感`" :placeholder="inspirationMode === 'matter' ? '搜索想问的事情' : inspirationMode === 'natal' ? '搜索命盘主题' : '搜索术语、别名或解释'" /></label>
+          <TermGlossary v-if="inspirationMode === 'term'" :query="inspirationSearch" />
           <div v-if="inspirationMode === 'natal' && filteredInspirationGroups.length" class="inspiration-natal-list">
             <button v-for="group in filteredInspirationGroups" :key="group.key" type="button" class="inspiration-natal-item" :class="{ selected: question === group.questions[0]?.text }" @click="chooseNatalInspiration(group)"><span class="inspiration-group-icon">{{ group.icon }}</span><span class="inspiration-group-copy"><strong>{{ group.label }}</strong><small>{{ group.description }}</small></span><ChevronRight :size="15" /></button>
           </div>
@@ -6760,7 +6765,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <div v-if="inspirationSearch.trim() || expandedInspirationGroups.includes(group.key)" class="inspiration-leaves"><button v-for="item in group.questions" :key="item.text" type="button" class="inspiration-leaf" :class="{ selected: question === item.text }" @click="chooseInspiration(item)"><span>{{ item.label }}</span><strong>{{ item.text }}</strong><ChevronRight :size="14" /></button></div>
             </section>
           </div>
-          <div v-if="!filteredInspirationGroups.length" class="inspiration-empty"><Search :size="17" /><span>没有找到相关问题</span></div>
+          <div v-if="inspirationMode !== 'term' && !filteredInspirationGroups.length" class="inspiration-empty"><Search :size="17" /><span>没有找到相关问题</span></div>
       </UiDialogShell>
 
       <UiDialogShell v-if="showQuestionSupplementModal" aria-label="补充信息" size="compact" panel-class="question-supplement-modal" @close="closeQuestionSupplementModal">
