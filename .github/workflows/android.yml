@@ -2,6 +2,11 @@ name: 安卓安装包
 
 on:
   workflow_dispatch:
+    inputs:
+      sync_release_version:
+        description: '仅补同步已存在的正式版本，例如 0.1.4；留空则执行普通构建'
+        required: false
+        type: string
   pull_request:
     paths:
       - '.github/workflows/android.yml'
@@ -39,6 +44,7 @@ concurrency:
 jobs:
   build:
     name: 编译 APK
+    if: github.event_name != 'workflow_dispatch' || inputs.sync_release_version == ''
     runs-on: ubuntu-latest
     outputs:
       has_signing: ${{ steps.signing-status.outputs.available }}
@@ -182,6 +188,7 @@ jobs:
           fi
 
       - name: 备份正式 APK 到蓝奏云
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           LANZOU_API_TOKEN: ${{ secrets.LANZOU_API_TOKEN }}
@@ -268,4 +275,79 @@ jobs:
               publishedAt: $publishedAt
             }' \
             > release-artifacts/latest.json
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/latest.json" --file release-artifacts/latest.json --remote --content-type application/json
+
+  sync-release:
+    name: 补同步安卓正式版
+    if: github.event_name == 'workflow_dispatch' && inputs.sync_release_version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 核对目标版本
+        env:
+          REQUESTED_VERSION: ${{ inputs.sync_release_version }}
+        shell: bash
+        run: |
+          if [[ ! "$REQUESTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "版本号必须使用 1.2.3 形式，当前为：$REQUESTED_VERSION" >&2
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$REQUESTED_VERSION" >> "$GITHUB_ENV"
+
+      - name: 下载并校验正式产物
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p release-artifacts
+          gh release download "v${RELEASE_VERSION}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "shiyue-dongfang-${RELEASE_VERSION}-release.apk" \
+            --pattern "shiyue-dongfang-${RELEASE_VERSION}-release.aab" \
+            --pattern 'SHA256SUMS.txt' \
+            --dir release-artifacts
+          sed 's#  artifacts/#  release-artifacts/#' release-artifacts/SHA256SUMS.txt \
+            | grep -E -- '-release\.(apk|aab)$' \
+            | sha256sum -c -
+
+      - name: 补同步正式包到 R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.R2_RELEASES_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_RELEASES_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          apk="release-artifacts/shiyue-dongfang-${RELEASE_VERSION}-release.apk"
+          aab="release-artifacts/shiyue-dongfang-${RELEASE_VERSION}-release.aab"
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${RELEASE_VERSION}/shiyue-dongfang-${RELEASE_VERSION}.apk" --file "$apk" --remote --content-type application/vnd.android.package-archive
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${RELEASE_VERSION}/shiyue-dongfang-${RELEASE_VERSION}.aab" --file "$aab" --remote --content-type application/octet-stream
+          npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/${RELEASE_VERSION}/SHA256SUMS.txt" --file release-artifacts/SHA256SUMS.txt --remote --content-type text/plain
+          github_url="https://github.com/Brhiza/sydf/releases/download/v${RELEASE_VERSION}/$(basename "$apk")"
+          github_accelerated_1="https://gh-proxy.com/${github_url}"
+          github_accelerated_2="https://ghfast.top/${github_url}"
+          lanzou_url="https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/shiyue-dongfang/${RELEASE_VERSION}"
+          r2_url="https://sydf.cc/api/app-download?version=${RELEASE_VERSION}"
+          jq -n \
+            --arg version "$RELEASE_VERSION" \
+            --arg downloadUrl "$r2_url" \
+            --arg lanzouUrl "$lanzou_url" \
+            --arg githubUrl "$github_url" \
+            --arg githubAccelerated1 "$github_accelerated_1" \
+            --arg githubAccelerated2 "$github_accelerated_2" \
+            --arg r2Url "$r2_url" \
+            --arg sha256 "$(sha256sum "$apk" | cut -d' ' -f1)" \
+            --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              version: $version,
+              downloadUrl: $downloadUrl,
+              downloadRoutes: [
+                {id: "lanzou-api", label: "线路 1 · 蓝奏云", url: $lanzouUrl, priority: 1},
+                {id: "github", label: "线路 2 · Release 直连", url: $githubUrl, priority: 2},
+                {id: "github-accelerated-1", label: "线路 3 · Release 加速一", url: $githubAccelerated1, priority: 3},
+                {id: "github-accelerated-2", label: "线路 4 · Release 加速二", url: $githubAccelerated2, priority: 4},
+                {id: "r2", label: "线路 5 · R2", url: $r2Url, priority: 5}
+              ],
+              sha256: $sha256,
+              publishedAt: $publishedAt
+            }' > release-artifacts/latest.json
           npx --yes wrangler@4.125.0 r2 object put "sydf-releases/android/latest.json" --file release-artifacts/latest.json --remote --content-type application/json
