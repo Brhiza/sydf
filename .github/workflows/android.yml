@@ -187,6 +187,39 @@ jobs:
               --title "时月东方 ${GITHUB_REF_NAME#v}"
           fi
 
+      - name: 同步到统一 APK 分发
+        env:
+          APP_RELEASE_PUBLISH_TOKEN: ${{ secrets.APP_RELEASE_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if [[ -z "$APP_RELEASE_PUBLISH_TOKEN" ]]; then
+            echo "缺少 APP_RELEASE_PUBLISH_TOKEN，已停止发布。" >&2
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          apk="release-artifacts/shiyue-dongfang-${version}-release.apk"
+          apk_name="$(basename "$apk")"
+          asset_url="https://github.com/Brhiza/sydf/releases/download/${GITHUB_REF_NAME}/${apk_name}"
+          release_url="https://github.com/Brhiza/sydf/releases/tag/${GITHUB_REF_NAME}"
+          release_notes="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""')"
+          jq -n \
+            --arg version "$version" \
+            --argjson versionCode "$GITHUB_RUN_NUMBER" \
+            --arg fileName "$apk_name" \
+            --arg sha256 "$(sha256sum "$apk" | cut -d' ' -f1)" \
+            --arg assetUrl "$asset_url" \
+            --arg releaseUrl "$release_url" \
+            --arg releaseNotes "$release_notes" \
+            '{version: $version, versionCode: $versionCode, channel: "latest", fileName: $fileName, sha256: $sha256, assetUrl: $assetUrl, releaseUrl: $releaseUrl, releaseNotes: $releaseNotes}' \
+            > release-artifacts/app-release-payload.json
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --request POST \
+            --header "Authorization: Bearer ${APP_RELEASE_PUBLISH_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data-binary @release-artifacts/app-release-payload.json \
+            https://download.aov.cc/v1/publish/shiyue-dongfang
+
       - name: 备份正式 APK 到蓝奏云
         continue-on-error: true
         env:

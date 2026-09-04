@@ -1,5 +1,5 @@
 export interface NativeDownloadRoute {
-  id: 'lanzou-api' | 'github' | 'github-accelerated-1' | 'github-accelerated-2' | 'r2';
+  id: 'rng-cdn' | 'lanzou-api' | 'github' | 'github-accelerated-1' | 'github-accelerated-2' | 'r2';
   label: string;
   url: string;
   priority: number;
@@ -26,29 +26,35 @@ export function buildOfficialDownloadRoutes(version: string): NativeDownloadRout
   const githubUrl = `https://github.com/Brhiza/sydf/releases/download/v${normalizedVersion}/${fileName}`;
   return [
     {
-      id: 'lanzou-api',
-      label: '线路 1 · 蓝奏云',
-      url: `https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/shiyue-dongfang/${encodeURIComponent(normalizedVersion)}`,
+      id: 'rng-cdn',
+      label: '线路 1 · 官方下载',
+      url: `https://download.aov.cc/apps/shiyue-dongfang/android/${encodeURIComponent(normalizedVersion)}/${fileName}`,
       priority: 1,
     },
-    { id: 'github', label: '线路 2 · Release 直连', url: githubUrl, priority: 2 },
+    {
+      id: 'lanzou-api',
+      label: '线路 2 · 蓝奏云',
+      url: `https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/shiyue-dongfang/${encodeURIComponent(normalizedVersion)}`,
+      priority: 2,
+    },
+    { id: 'github', label: '线路 3 · Release 直连', url: githubUrl, priority: 3 },
     {
       id: 'github-accelerated-1',
-      label: '线路 3 · Release 加速一',
+      label: '线路 4 · Release 加速一',
       url: `https://gh-proxy.com/${githubUrl}`,
-      priority: 3,
-    },
-    {
-      id: 'github-accelerated-2',
-      label: '线路 4 · Release 加速二',
-      url: `https://ghfast.top/${githubUrl}`,
       priority: 4,
     },
     {
-      id: 'r2',
-      label: '线路 5 · R2',
-      url: `https://sydf.cc/api/app-download?version=${encodeURIComponent(normalizedVersion)}`,
+      id: 'github-accelerated-2',
+      label: '线路 5 · Release 加速二',
+      url: `https://ghfast.top/${githubUrl}`,
       priority: 5,
+    },
+    {
+      id: 'r2',
+      label: '线路 6 · R2',
+      url: `https://sydf.cc/api/app-download?version=${encodeURIComponent(normalizedVersion)}`,
+      priority: 6,
     },
   ];
 }
