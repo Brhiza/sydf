@@ -52,7 +52,11 @@ export async function fetchLatestNativeRelease(): Promise<NativeReleaseUpdate | 
   if (typeof release.version !== 'string' || typeof release.downloadUrl !== 'string') return null;
   const version = release.version.replace(/^v/i, '');
   const downloadUrl = new URL(release.downloadUrl, RELEASE_API_URL);
-  if (downloadUrl.protocol !== 'https:' || downloadUrl.hostname !== 'sydf.cc' || downloadUrl.pathname !== '/api/app-download') return null;
+  const fileName = `shiyue-dongfang-${version}-release.apk`;
+  const isLegacyDownload = downloadUrl.hostname === 'sydf.cc' && downloadUrl.pathname === '/api/app-download';
+  const isUnifiedDownload = downloadUrl.hostname === 'download.aov.cc'
+    && downloadUrl.pathname === `/apps/shiyue-dongfang/android/${version}/${fileName}`;
+  if (downloadUrl.protocol !== 'https:' || (!isLegacyDownload && !isUnifiedDownload)) return null;
   const downloadRoutes = buildOfficialDownloadRoutes(version);
   if (!downloadRoutes.length) return null;
   return { version, downloadUrl: downloadUrl.toString(), downloadRoutes };

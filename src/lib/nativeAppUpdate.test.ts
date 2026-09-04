@@ -24,7 +24,7 @@ function stubBrowserGlobals() {
 }
 
 describe('APK 版本更新', () => {
-  it('只接受 sydf.cc 的更新清单并生成五条官方线路', async () => {
+  it('接受统一分发和原有 sydf.cc 下载地址并生成官方线路', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       version: '0.2.0',
       downloadUrl: 'https://sydf.cc/api/app-download?version=0.2.0',
@@ -40,6 +40,12 @@ describe('APK 版本更新', () => {
 
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
       version: '0.3.0',
+      downloadUrl: 'https://download.aov.cc/apps/shiyue-dongfang/android/0.3.0/shiyue-dongfang-0.3.0-release.apk',
+    })));
+    await expect(fetchLatestNativeRelease()).resolves.toMatchObject({ version: '0.3.0' });
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      version: '0.4.0',
       downloadUrl: 'https://github.com/example/app.apk',
     })));
     await expect(fetchLatestNativeRelease()).resolves.toBeNull();
