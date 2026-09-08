@@ -1,5 +1,7 @@
 import type { NamingBirthInput, NamingGender, NumberPurpose, Wuxing } from 'mingyu-core/name-number';
 import type { BirthForm } from './divination';
+import type { AiInterpretationRequest } from './ai';
+import type { snapshotReadingProfile } from './readingProfile';
 
 export const nameNumberTools = [
   { value: 'naming', label: '起名' }, { value: 'name', label: '姓名解析' },
@@ -30,6 +32,24 @@ export interface NameNumberResult {
   summary: string;
   sections: Array<{ title: string; text: string }>;
   prompt: string;
+}
+export interface NameNumberHistoryRecord {
+  id: string;
+  kind: 'name-number';
+  methodLabel: string;
+  tool: NameNumberTool;
+  question: string;
+  caseId: string | null;
+  caseLabel?: string;
+  profile: ReturnType<typeof snapshotReadingProfile>;
+  context?: { label?: string };
+  result: NameNumberResult;
+  createdAt: number;
+  interpretation?: string;
+  interpretationError?: string;
+  input?: NameNumberInput;
+  useBirth?: boolean;
+  conversation?: AiInterpretationRequest['conversation'];
 }
 export function namingBirthInput(profile: BirthForm): NamingBirthInput {
   const [year, month, day] = profile.date.split('-').map(Number);

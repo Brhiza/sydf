@@ -6,9 +6,10 @@ import { writeClipboardText } from '../lib/clipboard';
 import ExternalAiShareButtons from './ExternalAiShareButtons.vue';
 import { UiButton } from './ui';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   request?: AiPromptPayload | null;
-}>();
+  showRetry?: boolean;
+}>(), { showRetry: true });
 
 const emit = defineEmits<{
   retry: [];
@@ -43,7 +44,7 @@ async function copyPrompt() {
 <template>
   <div class="ai-prompt-fallback">
     <div>
-      <UiButton variant="secondary" size="small" @click="emit('retry')"><RefreshCw :size="14" />重试</UiButton>
+      <UiButton v-if="showRetry" variant="secondary" size="small" @click="emit('retry')"><RefreshCw :size="14" />重试</UiButton>
       <UiButton
         variant="secondary"
         size="small"

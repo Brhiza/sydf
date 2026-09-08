@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { UiSignPoem } from './ui';
 import type {
   JinkoujueData,
   LiurenData,
@@ -41,7 +42,6 @@ const meihuaHexagrams = computed(() => [
 ].filter((item) => item.value));
 const meihuaMethodLabel = computed(() => (meihua.value.calculation as { method?: string } | undefined)?.method || '梅花易数');
 const yaoRows = computed(() => [...liuyao.value.yaosDetail].reverse());
-const signPoemLines = computed(() => ssgw.value.poem.split(/[，。；！？\n]+/).map((line) => line.trim()).filter(Boolean));
 const signCardImageUrl = computed(() => getSsgwCardImageUrl(ssgw.value.number));
 const signDetails = computed(() => {
   const seenValues = new Set<string>();
@@ -278,7 +278,7 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
       </header>
       <div class="sign-paper-main">
         <img :src="signCardImageUrl" :alt="`第 ${ssgw.number} 签 ${ssgw.title}`" class="sign-card-art" />
-        <div class="sign-poem"><p v-for="line in signPoemLines" :key="line">{{ line }}</p></div>
+        <UiSignPoem :poem="ssgw.poem" />
       </div>
       <small>三山国王九十二签</small>
     </div>
@@ -387,8 +387,6 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
 .sign-paper h3 { font-size: 18px; letter-spacing: .08em; line-height: 1.45; margin: 5px 0 0; }
 .sign-paper-main { align-items: stretch; border-bottom: 1px solid #d8c5a1; border-top: 1px solid #d8c5a1; display: grid; gap: 13px; grid-template-columns: 116px 1fr; margin-top: 14px; padding: 13px 0; }
 .sign-card-art { align-self: center; aspect-ratio: 2 / 3; border: 1px solid rgba(152, 98, 90, .2); border-radius: var(--ds-radius-md); box-shadow: 0 5px 14px rgba(88, 62, 41, .08); display: block; object-fit: cover; overflow: hidden; width: 116px; }
-.sign-poem { align-items: center; display: flex; flex-direction: row-reverse; gap: clamp(8px, 1.3vw, 12px); justify-content: center; min-height: 180px; min-width: 0; padding: 4px 0; }
-.sign-poem p { font-size: 14px; letter-spacing: .08em; line-height: 1.65; margin: 0; writing-mode: vertical-rl; }
 .sign-paper > small { color: #9b756b; display: block; font-size: 10px; letter-spacing: .16em; margin-top: 12px; }
 .sign-reading-body { min-width: 0; padding-top: 1px; }
 .sign-story { padding: 0 0 15px; }
@@ -435,8 +433,6 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   .sign-paper { margin: 0 auto; max-width: 460px; padding: 20px 18px 17px; width: 100%; }
   .sign-paper-main { gap: 12px; grid-template-columns: 108px 1fr; margin-top: 12px; padding: 12px 0; }
   .sign-card-art { width: 108px; }
-  .sign-poem { min-height: 168px; }
-  .sign-poem p { font-size: 13px; line-height: 1.6; }
   .sign-story { padding-bottom: 13px; }
   .sign-interpretations { gap: 0 16px; }
 }
@@ -446,8 +442,6 @@ function formatPeriodRange(period: { startYear: number; endYear: number }) {
   .sign-paper h3 { font-size: 16px; }
   .sign-paper-main { gap: 9px; grid-template-columns: 92px 1fr; }
   .sign-card-art { width: 92px; }
-  .sign-poem { gap: 7px; min-height: 144px; }
-  .sign-poem p { font-size: 12px; letter-spacing: .05em; }
   .sign-interpretations { grid-template-columns: 1fr; }
 }
 @media (prefers-color-scheme: dark) {

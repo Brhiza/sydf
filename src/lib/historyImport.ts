@@ -1,4 +1,5 @@
 import { kindMeta, type DivinationKind, type ReadingRecord, type ReadingResult } from './divination';
+import { nameNumberTools, type NameNumberHistoryRecord } from './nameNumber';
 
 export const HISTORY_STORAGE_KEY = 'shiyue-history';
 export const LEGACY_HISTORY_STORAGE_KEY = 'sydf-history';
@@ -52,8 +53,8 @@ export interface LegacyHistoryRecord {
   legacySource: 'sydf.cc';
 }
 
-export type HistoryRecordEntry = ReadingRecord | LegacyHistoryRecord;
-export type HistoryRecordCategory = 'divination' | 'oracle' | 'chart';
+export type HistoryRecordEntry = ReadingRecord | LegacyHistoryRecord | NameNumberHistoryRecord;
+export type HistoryRecordCategory = 'divination' | 'oracle' | 'chart' | 'tools';
 
 export interface HistoryImportResult {
   records: HistoryRecordEntry[];
@@ -232,6 +233,7 @@ export function isLegacyHistoryRecord(record: HistoryRecordEntry): record is Leg
 }
 
 export function getHistoryRecordCategory(record: HistoryRecordEntry): HistoryRecordCategory {
+  if (record.kind === 'name-number') return record.tool === 'zhuge' || record.tool === 'kongming' ? 'oracle' : 'tools';
   if (record.kind === 'ssgw') return 'oracle';
   if (['bazi', 'ziwei', 'astrolabe', 'qizheng'].includes(record.kind) || record.methodLabel === '八字紫微合参') return 'chart';
   return 'divination';
@@ -250,6 +252,13 @@ export function isCurrentHistoryRecord(value: unknown): value is ReadingRecord {
 export function parseStoredHistory(value: unknown): HistoryRecordEntry[] {
   if (!Array.isArray(value)) return [];
   return value.filter((record): record is HistoryRecordEntry => {
+    if (isObject(record) && record.kind === 'name-number') return isNonEmptyString(record.id)
+      && nameNumberTools.some(tool => tool.value === record.tool)
+      && isNonEmptyString(record.methodLabel) && typeof record.question === 'string'
+      && optionalNumber(record.createdAt) !== undefined && isObject(record.result)
+      && typeof record.result.title === 'string' && typeof record.result.summary === 'string'
+      && typeof record.result.prompt === 'string' && Array.isArray(record.result.sections)
+      && record.result.sections.every(section => isObject(section) && typeof section.title === 'string' && typeof section.text === 'string');
     if (isCurrentHistoryRecord(record)) return record.kind !== 'almanac';
     return isObject(record)
       && record.legacySource === 'sydf.cc'
@@ -270,6 +279,20 @@ export function parseLegacyHistory(value: unknown): HistoryImportResult {
     return converted && isRetainedHistoryRecord(converted) ? [converted] : [];
   });
   return { records, total: payload.length, skipped: payload.length - records.length };
+}
+
+export function parseNameNumberHistory(value: unknown): NameNumberHistoryRecord[] {
+  if (!Array.isArray(value)) return [];
+  const candidates = value.filter(isObject).map(record => ({
+    id: record.id, kind: 'name-number', tool: record.tool,
+    methodLabel: nameNumberTools.find(tool => tool.value === record.tool)?.label,
+    question: record.question, createdAt: record.createdAt, result: record.result,
+    caseId: record.caseId, caseLabel: record.caseLabel, profile: record.profile,
+    context: { label: record.caseLabel || (isObject(record.profile) ? record.profile.label : '') },
+    input: record.input, useBirth: record.useBirth, conversation: record.conversation,
+    interpretation: typeof record.answer === 'string' ? record.answer : undefined,
+  }));
+  return parseStoredHistory(candidates).filter((record): record is NameNumberHistoryRecord => record.kind === 'name-number');
 }
 
 export function mergeHistoryRecords(
