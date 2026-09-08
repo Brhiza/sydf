@@ -203,6 +203,7 @@ import {
   type InstantTimeStandard,
 } from './lib/instantChart';
 import { getCalendarEvents } from './lib/calendarEvents';
+import { formatBirthDateTimeInput, parseBirthDateTimeInput } from './lib/birthDateTimeInput';
 import { normalizeSelectedCaseId, type SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
@@ -645,7 +646,7 @@ interface CaseProfile extends BirthForm {
   isDefault: boolean;
 }
 
-type BirthPickerKind = 'gender' | 'calendar' | 'date' | 'time' | 'region';
+type BirthPickerKind = 'gender' | 'calendar' | 'date' | 'region';
 type BirthPickerTarget = 'create' | 'editor' | 'instant';
 
 interface PickerOption {
@@ -1141,6 +1142,8 @@ const birthPicker = reactive<{
   values: [],
 });
 const birthPlaceSearchQuery = ref('');
+const birthDateTimeInput = ref('');
+const birthDateTimeInputError = ref('');
 const fortuneDatePicker = reactive<{
   open: boolean;
   values: string[];
@@ -4032,6 +4035,21 @@ function normalizeTimePickerValues(values: string[]) {
   return [String(hourNumber).padStart(2, '0'), String(minuteNumber).padStart(2, '0')];
 }
 
+function normalizeBirthDateTimePickerValues(values: string[], profile: CaseProfile) {
+  const normalizedDate = normalizeBirthDatePickerValues([
+    values[0],
+    values[1],
+    values[2],
+    values[5],
+  ], profile);
+  const normalizedTime = normalizeTimePickerValues([values[3], values[4]]);
+  return [
+    ...normalizedDate.slice(0, 3),
+    ...normalizedTime,
+    ...(normalizedDate[3] ? [normalizedDate[3]] : []),
+  ];
+}
+
 function normalizeRegionPickerValues(values: string[], profile: CaseProfile) {
   const provinces = selectableProvinceOptions(profile);
   const requestedProvince = values[0] || profile.provinceId;
@@ -4061,11 +4079,10 @@ function profileForBirthPicker(target = birthPicker.target) {
 
 const birthPickerTitle = computed(() => {
   if (birthPicker.target === 'instant') return '选择观测地点';
-  if (birthPicker.kind === 'date') return `选择${profileForBirthPicker().dateType === 'lunar' ? '农历' : '公历'}出生日期`;
+  if (birthPicker.kind === 'date') return `选择${profileForBirthPicker().dateType === 'lunar' ? '农历' : '公历'}出生日期与时间`;
   return ({
     gender: '选择性别',
     calendar: '选择出生历法',
-    time: '选择出生时间',
     region: '选择出生地区',
   } as const)[birthPicker.kind];
 });
@@ -4087,14 +4104,14 @@ const birthPickerColumns = computed<PickerColumn[]>(() => {
     }];
   }
   if (birthPicker.kind === 'date') {
-    const normalized = normalizeBirthDatePickerValues(birthPicker.values, profile);
+    const normalized = normalizeBirthDateTimePickerValues(birthPicker.values, profile);
     const [year, month] = normalized;
     const currentYear = new Date().getFullYear();
     const minimumYear = Math.min(1900, Number(year));
     const maximumYear = Math.max(currentYear, Number(year));
     const isLunar = profile.dateType === 'lunar';
     const hasLeapMonth = isLunar && lunarMonthDayCount(Number(year), Number(month), true) > 0;
-    const isLeapMonth = hasLeapMonth && normalized[3] === 'leap';
+    const isLeapMonth = hasLeapMonth && normalized[5] === 'leap';
     const maxDay = isLunar
       ? lunarMonthDayCount(Number(year), Number(month), isLeapMonth) || 29
       : new Date(Number(year), Number(month), 0).getDate();
@@ -4102,15 +4119,11 @@ const birthPickerColumns = computed<PickerColumn[]>(() => {
       { key: 'year', label: '年份', options: numberPickerOptions(minimumYear, maximumYear, '年'), flex: 1.25 },
       { key: 'month', label: '月份', options: numberPickerOptions(1, 12, '月', 2) },
       { key: 'day', label: '日期', options: numberPickerOptions(1, maxDay, '日', 2) },
-    ];
-    if (hasLeapMonth) columns.push({ key: 'monthMode', label: '月份类型', options: [{ value: 'regular', label: '本月' }, { value: 'leap', label: '闰月' }] });
-    return columns;
-  }
-  if (birthPicker.kind === 'time') {
-    return [
       { key: 'hour', label: '小时', options: numberPickerOptions(0, 23, '时', 2) },
       { key: 'minute', label: '分钟', options: numberPickerOptions(0, 59, '分', 2) },
     ];
+    if (hasLeapMonth) columns.push({ key: 'monthMode', label: '月份类型', options: [{ value: 'regular', label: '本月' }, { value: 'leap', label: '闰月' }] });
+    return columns;
   }
   const [provinceId, cityId] = normalizeRegionPickerValues(birthPicker.values, profile);
   const provinces = selectableProvinceOptions(profile);
@@ -4158,8 +4171,7 @@ const birthPlaceSearchResults = computed<BirthPlaceSearchResult[]>(() => {
 function birthPickerFieldValue(kind: BirthPickerKind, profile: CaseProfile) {
   if (kind === 'gender') return profile.gender === 'male' ? '男' : '女';
   if (kind === 'calendar') return profile.dateType === 'lunar' ? '农历' : '公历';
-  if (kind === 'date') return profile.date ? formatCaseDate(profile) : '请选择';
-  if (kind === 'time') return profile.time || '请选择';
+  if (kind === 'date') return profile.date && profile.time ? `${formatCaseDate(profile)} · ${profile.time}` : '请选择';
   return profile.locationName || '请选择';
 }
 
@@ -4192,25 +4204,76 @@ async function openBirthPicker(kind: BirthPickerKind, target: BirthPickerTarget)
   birthPicker.target = target;
   if (kind === 'gender') birthPicker.values = [profile.gender || 'female'];
   else if (kind === 'calendar') birthPicker.values = [profile.dateType === 'lunar' ? 'lunar' : 'solar'];
-  else if (kind === 'date') birthPicker.values = normalizeBirthDatePickerValues([...(profile.date || '2000-01-01').split('-'), profile.isLeapMonth ? 'leap' : 'regular'], profile);
-  else if (kind === 'time') birthPicker.values = normalizeTimePickerValues((profile.time || '12:00').split(':'));
+  else if (kind === 'date') {
+    birthPicker.values = normalizeBirthDateTimePickerValues([
+      ...(profile.date || '2000-01-01').split('-'),
+      ...(profile.time || '12:00').split(':'),
+      profile.isLeapMonth ? 'leap' : 'regular',
+    ], profile);
+    birthDateTimeInput.value = formatBirthDateTimeInput(birthPicker.values);
+    birthDateTimeInputError.value = '';
+  }
   else birthPicker.values = normalizeRegionPickerValues([profile.provinceId, profile.cityId, profile.regionId], profile);
   birthPicker.open = true;
 }
 
 function updateBirthPickerValues(values: string[]) {
   const profile = profileForBirthPicker();
-  if (birthPicker.kind === 'date') birthPicker.values = normalizeBirthDatePickerValues(values, profile);
-  else if (birthPicker.kind === 'time') birthPicker.values = normalizeTimePickerValues(values);
+  if (birthPicker.kind === 'date') {
+    birthPicker.values = normalizeBirthDateTimePickerValues(values, profile);
+    birthDateTimeInput.value = formatBirthDateTimeInput(birthPicker.values);
+    birthDateTimeInputError.value = '';
+  }
   else if (birthPicker.kind === 'region') birthPicker.values = normalizeRegionPickerValues(values, profile);
   else if (birthPicker.kind === 'calendar') birthPicker.values = [values[0] === 'lunar' ? 'lunar' : 'solar'];
   else birthPicker.values = [values[0] === 'male' ? 'male' : 'female'];
+}
+
+function applyBirthDateTimeInput(showError = false) {
+  const profile = profileForBirthPicker();
+  const currentTime = `${birthPicker.values[3] || '12'}:${birthPicker.values[4] || '00'}`;
+  const parsed = parseBirthDateTimeInput(birthDateTimeInput.value, currentTime);
+  if (!parsed) {
+    const digitsLength = birthDateTimeInput.value.replace(/\D/g, '').length;
+    birthDateTimeInputError.value = showError || digitsLength >= 12 ? '请输入完整的出生日期与时间。' : '';
+    return false;
+  }
+  const sameLunarMonth = birthPicker.values[0] === String(parsed.year)
+    && birthPicker.values[1] === String(parsed.month).padStart(2, '0');
+  const monthMode = sameLunarMonth && birthPicker.values[5] === 'leap' ? 'leap' : 'regular';
+  const dateError = getBirthDateValidationMessage({
+    year: parsed.year,
+    month: parsed.month,
+    day: parsed.day,
+    dateType: profile.dateType,
+    isLeapMonth: profile.dateType === 'lunar' && monthMode === 'leap',
+  });
+  if (dateError || parsed.hour < 0 || parsed.hour > 23 || parsed.minute < 0 || parsed.minute > 59) {
+    birthDateTimeInputError.value = '出生日期或时间无效，请重新输入。';
+    return false;
+  }
+  birthPicker.values = normalizeBirthDateTimePickerValues([
+    String(parsed.year),
+    String(parsed.month).padStart(2, '0'),
+    String(parsed.day).padStart(2, '0'),
+    String(parsed.hour).padStart(2, '0'),
+    String(parsed.minute).padStart(2, '0'),
+    monthMode,
+  ], profile);
+  birthDateTimeInputError.value = '';
+  return true;
+}
+
+function confirmBirthDateTimeInput() {
+  if (applyBirthDateTimeInput(true)) confirmBirthPicker(birthPicker.values);
 }
 
 function closeBirthPicker() {
   birthPicker.open = false;
   birthPicker.values = [];
   birthPlaceSearchQuery.value = '';
+  birthDateTimeInput.value = '';
+  birthDateTimeInputError.value = '';
 }
 
 function selectBirthPlaceSearchResult(result: BirthPlaceSearchResult) {
@@ -4218,6 +4281,8 @@ function selectBirthPlaceSearchResult(result: BirthPlaceSearchResult) {
 }
 
 function confirmBirthPicker(values: string[]) {
+  if (birthPicker.kind === 'date' && !applyBirthDateTimeInput(true)) return;
+  if (birthPicker.kind === 'date') values = birthPicker.values;
   updateBirthPickerValues(values);
   const profile = profileForBirthPicker();
   if (birthPicker.kind === 'gender') {
@@ -4231,9 +4296,9 @@ function confirmBirthPicker(values: string[]) {
     profile.isLeapMonth = false;
   } else if (birthPicker.kind === 'date') {
     profile.date = birthPicker.values.slice(0, 3).join('-');
-    profile.isLeapMonth = profile.dateType === 'lunar' && birthPicker.values[3] === 'leap';
-  } else if (birthPicker.kind === 'time') profile.time = birthPicker.values.join(':');
-  else {
+    profile.time = birthPicker.values.slice(3, 5).join(':');
+    profile.isLeapMonth = profile.dateType === 'lunar' && birthPicker.values[5] === 'leap';
+  } else {
     const [provinceId, cityId, regionId] = birthPicker.values;
     profile.provinceId = provinceId;
     profile.cityId = cityId;
@@ -6319,8 +6384,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   <div class="case-binary-control"><span>性别</span><UiSegmentedControl id="new-case-gender" tabindex="-1" :aria-invalid="caseError.includes('性别') || undefined" :aria-describedby="caseError.includes('性别') ? 'new-case-error' : undefined" :model-value="newCaseGenderConfirmed ? newCaseDraft.gender : ''" :items="caseGenderOptions" label="选择性别" compact equal @update:model-value="chooseCaseGender(newCaseDraft, $event, 'create')" /></div>
                   <div class="case-binary-control"><span>出生历法</span><UiSegmentedControl :model-value="newCaseDraft.dateType" :items="caseCalendarOptions" label="选择出生历法" compact equal @update:model-value="chooseCaseCalendar(newCaseDraft, $event)" /></div>
                 </div>
-                <div class="birth-picker-control"><span>出生日期</span><button id="new-case-date" type="button" class="birth-picker-trigger" aria-label="选择出生日期" :aria-invalid="caseError.includes('日期') || caseError.includes('时间') || undefined" :aria-describedby="caseError.includes('日期') || caseError.includes('时间') ? 'new-case-error' : undefined" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
-                <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'create')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
+                <div class="birth-picker-control birth-picker-datetime"><span>出生日期与时间</span><button id="new-case-date" type="button" class="birth-picker-trigger" aria-label="选择出生日期与时间" :aria-invalid="caseError.includes('日期') || caseError.includes('时间') || undefined" :aria-describedby="caseError.includes('日期') || caseError.includes('时间') ? 'new-case-error' : undefined" @click="openBirthPicker('date', 'create')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', newCaseDraft) }}</strong><ChevronRight :size="15" /></button></div>
                 <div class="birth-picker-control birth-picker-region"><span>出生地区（选填）</span><button id="new-case-region" type="button" class="birth-picker-trigger" aria-label="选择出生地区，不选则按北京时间" :aria-invalid="caseError.includes('地区') || undefined" :aria-describedby="caseError.includes('地区') ? 'new-case-error' : undefined" @click="openBirthPicker('region', 'create')"><MapPin :size="16" /><strong>{{ newCaseRegionConfirmed ? birthPickerFieldValue('region', newCaseDraft) : '不选则按北京时间' }}</strong><ChevronRight :size="15" /></button></div>
               </div>
               <div v-if="newCaseCalendar" class="birth-calendar"><div><small>公历</small><strong>{{ newCaseCalendar.solar }}</strong></div><div><small>农历</small><strong>{{ newCaseCalendar.lunar }}</strong></div><div><small>干支</small><strong>{{ newCaseCalendar.ganzhi }}</strong></div><div><small>节气 / 时辰</small><strong>{{ newCaseCalendar.jieqi }} · {{ newCaseCalendar.shichen }}</strong></div></div>
@@ -6837,6 +6901,26 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         @cancel="closeBirthPicker"
         @confirm="confirmBirthPicker"
       >
+        <template v-if="birthPicker.kind === 'date'" #before-wheel>
+          <div class="birth-datetime-picker-input">
+            <label class="birth-datetime-picker-field">
+              <CalendarDays :size="16" aria-hidden="true" />
+              <input
+                v-model="birthDateTimeInput"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="199001201220"
+                aria-label="输入出生日期与时间"
+                :aria-invalid="Boolean(birthDateTimeInputError) || undefined"
+                @input="applyBirthDateTimeInput()"
+                @blur="applyBirthDateTimeInput(true)"
+                @keydown.enter.prevent="confirmBirthDateTimeInput"
+              />
+            </label>
+            <p v-if="birthDateTimeInputError" role="alert">{{ birthDateTimeInputError }}</p>
+          </div>
+        </template>
         <template v-if="birthPicker.kind === 'region'" #before-wheel>
           <div class="location-picker-search">
             <label class="location-picker-search-field">
@@ -6879,8 +6963,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               <div class="case-binary-control"><span>性别</span><UiSegmentedControl :model-value="editableCase.gender" :items="caseGenderOptions" label="选择性别" compact equal @update:model-value="chooseCaseGender(editableCase, $event, 'editor')" /></div>
               <div class="case-binary-control"><span>出生历法</span><UiSegmentedControl :model-value="editableCase.dateType" :items="caseCalendarOptions" label="选择出生历法" compact equal @update:model-value="chooseCaseCalendar(editableCase, $event)" /></div>
             </div>
-            <div class="birth-picker-control"><span>出生日期</span><button type="button" class="birth-picker-trigger" aria-label="选择出生日期" @click="openBirthPicker('date', 'editor')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
-            <div class="birth-picker-control"><span>出生时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生时间" @click="openBirthPicker('time', 'editor')"><Clock3 :size="16" /><strong>{{ birthPickerFieldValue('time', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
+            <div class="birth-picker-control birth-picker-datetime"><span>出生日期与时间</span><button type="button" class="birth-picker-trigger" aria-label="选择出生日期与时间" @click="openBirthPicker('date', 'editor')"><CalendarDays :size="16" /><strong>{{ birthPickerFieldValue('date', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
             <div class="birth-picker-control birth-picker-region"><span>出生地区</span><button type="button" class="birth-picker-trigger" aria-label="选择出生地区" @click="openBirthPicker('region', 'editor')"><MapPin :size="16" /><strong>{{ birthPickerFieldValue('region', editableCase) }}</strong><ChevronRight :size="15" /></button></div>
           </div>
           <div v-if="currentCalendar" class="birth-calendar"><div><small>公历</small><strong>{{ currentCalendar.solar }}</strong></div><div><small>农历</small><strong>{{ currentCalendar.lunar }}</strong></div><div><small>干支</small><strong>{{ currentCalendar.ganzhi }}</strong></div><div><small>节气 / 时辰</small><strong>{{ currentCalendar.jieqi }} · {{ currentCalendar.shichen }}</strong></div></div>

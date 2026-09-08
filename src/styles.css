@@ -14,6 +14,14 @@
 .birth-picker-trigger strong { flex: 1 1 auto; font-size: var(--type-control, 12px); font-weight: 550; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .birth-picker-trigger:focus-visible { border-color: var(--accent); outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent); outline-offset: 1px; }
 
+.birth-datetime-picker-input { border-bottom: 1px solid var(--line); padding: 10px 12px; }
+.birth-datetime-picker-field { align-items: center; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); display: flex; gap: 8px; min-height: 40px; padding: 0 11px; }
+.birth-datetime-picker-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-strong); }
+.birth-datetime-picker-field > svg { color: var(--accent); flex: 0 0 auto; }
+.birth-datetime-picker-field input { background: transparent; border: 0; color: var(--ink); flex: 1; font: inherit; font-variant-numeric: tabular-nums; letter-spacing: .08em; min-width: 0; outline: 0; padding: 8px 0; }
+.birth-datetime-picker-field input::placeholder { color: var(--subtle); }
+.birth-datetime-picker-input p { color: var(--danger); font-size: 11px; line-height: 1.45; margin: 6px 2px 0; }
+
 .location-picker-search { border-bottom: 1px solid var(--line); padding: 10px 12px; }
 .location-picker-search-field { align-items: center; background: var(--surface-muted); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); display: flex; gap: 8px; min-height: 38px; padding: 0 11px; }
 .location-picker-search-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-strong); }
@@ -3959,7 +3967,9 @@ body { background: var(--canvas); }
 .case-binary-control > span { color: var(--muted); font-size: var(--type-small); }
 .case-binary-control .ui-segmented-control > button { min-height: var(--ds-control-sm); }
 .case-input-form .birth-picker-region,
-.case-editor .birth-picker-region { grid-column: 1 / -1; }
+.case-editor .birth-picker-region,
+.case-input-form .birth-picker-datetime,
+.case-editor .birth-picker-datetime { grid-column: 1 / -1; }
 .case-input-form .birth-calendar {
   background: transparent;
   border: 0;
