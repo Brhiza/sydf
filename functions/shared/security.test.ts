@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl } from './security';
+import { fetchWithTimeout, guardApiRequest, readJsonBody, RequestBodyTooLargeError, validateExternalUrl, MAX_REQUEST_BYTES } from './security';
+import { buildAiInterpretationRequestBody } from '../../src/lib/ai';
 
 function request(body = '{}', headers: Record<string, string> = {}) {
   return new Request('https://example.com/api/interpret', {
@@ -12,7 +13,7 @@ function request(body = '{}', headers: Record<string, string> = {}) {
 describe('AI 接口安全边界', () => {
   it('拒绝非 JSON、超大请求和跨站来源', async () => {
     expect((await guardApiRequest(new Request('https://example.com/api/interpret', { method: 'POST', body: 'x' }), {}))?.status).toBe(415);
-    expect((await guardApiRequest(request('{}', { 'Content-Length': String(65 * 1024) }), {}))?.status).toBe(413);
+    expect((await guardApiRequest(request('{}', { 'Content-Length': String(MAX_REQUEST_BYTES + 1) }), {}))?.status).toBe(413);
     expect((await guardApiRequest(request('{}', { Origin: 'https://evil.example' }), {}))?.status).toBe(403);
   });
 
@@ -64,7 +65,16 @@ describe('AI 接口安全边界', () => {
   });
 
   it('实际请求体超过限制时停止解析', async () => {
-    await expect(readJsonBody(request(JSON.stringify({ value: '界'.repeat(30_000) })))).rejects.toBeInstanceOf(RequestBodyTooLargeError);
+    await expect(readJsonBody(request(JSON.stringify({ value: '界'.repeat(Math.floor(MAX_REQUEST_BYTES / 3) + 1) })))).rejects.toBeInstanceOf(RequestBodyTooLargeError);
+  });
+
+  it('完整中文盘面与受限历史不会在调用模型前被旧的 64 KiB 限额拒绝', async () => {
+    const payload = buildAiInterpretationRequestBody({ mode: 'chart', question: '问'.repeat(4000), reading: { summary: '', data: {}, prompt: '盘'.repeat(26000) }, conversation: Array.from({ length: 20 }, () => ({ role: 'assistant' as const, content: '答'.repeat(4000) })) });
+    const serialized = JSON.stringify(payload);
+    expect(new TextEncoder().encode(serialized).length).toBeGreaterThan(64 * 1024);
+    expect(payload.conversation!.map((item) => item.content).join('').length).toBeLessThanOrEqual(16000);
+    expect(await guardApiRequest(request(serialized), {})).toBeNull();
+    expect(await readJsonBody(request(serialized))).toEqual(payload);
   });
 
   it('使用限流绑定并在超限时返回 429', async () => {

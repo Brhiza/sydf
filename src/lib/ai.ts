@@ -107,7 +107,10 @@ async function fetchWithClientTimeout(
     controller.abort();
   }, timeoutMs);
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    // JSON 接口需要完整正文，超时与调用方取消必须覆盖正文下载阶段。
+    const body = response.body ? await response.arrayBuffer() : null;
+    return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
   } catch (error) {
     if (timedOut) throw new Error(timeoutMessage);
     throw error;
@@ -124,6 +127,7 @@ export function buildAiInterpretationRequestBody(payload: AiInterpretationReques
   const reading = prompt ? { prompt } : summary ? { summary } : undefined;
   return {
     ...request,
+    ...(request.conversation ? { conversation: sanitizeAiConversation(request.conversation) } : {}),
     ...(profile ? { profile } : {}),
     ...(reading ? { reading } : {}),
   };

@@ -8,7 +8,8 @@ export interface ApiSecurityEnv {
   APP_TRUSTED_ORIGINS?: string;
 }
 
-const MAX_REQUEST_BYTES = 64 * 1024;
+// 盘面最多 26000 字、历史 16000 字、问题 4000 字；按 UTF-8 保留容量，同时限制总请求大小。
+export const MAX_REQUEST_BYTES = 192 * 1024;
 const fallbackRateBuckets = new Map<string, { count: number; expiresAt: number }>();
 
 export class RequestBodyTooLargeError extends Error {
@@ -221,7 +222,9 @@ export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs
     if (redirectMode === 'manual' && response.status >= 300 && response.status < 400) {
       throw new Error('upstream redirect not allowed');
     }
-    return response;
+    // JSON 接口需要完整正文，不能在只收到响应头时解除超时保护。
+    const body = response.body ? await response.arrayBuffer() : null;
+    return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
   } catch (error) {
     // 不同运行时对 AbortController 的 reason 支持不一致，统一保留“上游超时”语义。
     if (timedOut) throw new DOMException('upstream timeout', 'TimeoutError');

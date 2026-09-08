@@ -30,7 +30,8 @@ export const ANTHROPIC_REQUIRED_MAX_TOKENS = 8192;
 export function getChatThinkingControl(config: AiProviderIdentity) {
   if (config.apiType !== 'chat' || !config.model.trim().toLowerCase().startsWith('deepseek-v4-')) return {};
   try {
-    if (new URL(config.url).hostname.toLowerCase() !== 'api.deepseek.com') return {};
+    const hostname = new URL(config.url).hostname.toLowerCase();
+    if (!['api.deepseek.com', 'ark.cn-beijing.volces.com'].includes(hostname)) return {};
   } catch {
     return {};
   }
