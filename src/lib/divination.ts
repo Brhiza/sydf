@@ -162,6 +162,8 @@ export interface CompatibilityRecordData {
 }
 
 export interface ReadingRecord {
+  caseId?: string | null;
+  profile?: Partial<import('./ai').AiProfileContext> | null;
   id: string;
   kind: DivinationKind;
   methodLabel: string;

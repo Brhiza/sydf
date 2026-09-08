@@ -21,8 +21,8 @@ describe('AI 解读请求', () => {
     question: '我的项目怎么样',
     method: '梅花易数',
     profile: {
-      label: '不应发送的案例',
-      name: '不应发送的姓名',
+      label: '当前案例',
+      name: '当前姓名',
       gender: 'male',
       date: '1999-06-20',
       dateType: 'solar',
@@ -43,7 +43,7 @@ describe('AI 解读请求', () => {
     },
   };
 
-  it('占卜请求只发送完整提示词，移除案例、摘要、原始排盘和审计依据', () => {
+  it('占卜请求保留选中案例和完整提示词，移除摘要、原始排盘和审计依据', () => {
     const body = buildAiInterpretationRequestBody(request);
     const serialized = JSON.stringify(body);
 
@@ -52,8 +52,9 @@ describe('AI 解读请求', () => {
     });
     expect(serialized).toContain('体用关系');
     expect(serialized).not.toContain('主卦离为火，变卦火山旅。');
-    expect(serialized).not.toContain('不应发送的案例');
-    expect(serialized).not.toContain('1999-06-20');
+    expect(body.profile).toEqual(request.profile);
+    expect(serialized).toContain('当前案例');
+    expect(serialized).toContain('1999-06-20');
     expect(serialized).not.toContain('evidenceAnalysis');
     expect(serialized).not.toContain('calculationChain');
     expect(serialized).not.toContain('不应发送');

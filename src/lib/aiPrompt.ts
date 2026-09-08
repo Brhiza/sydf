@@ -315,7 +315,7 @@ function modeInstruction(payload: AiPromptPayload) {
 
 export function buildAiUserPrompt(payload: AiPromptPayload) {
   const question = payload.question?.trim() || '请结合当前资料做一次综合解读。';
-  const profile = payload.mode === 'chart' ? readableProfile(payload.profile) : '';
+  const profile = readableProfile(payload.profile);
   const reading = readingText(payload);
   return [
     `【问题】\n${question}`,
@@ -355,7 +355,7 @@ export function buildAiSystemPrompt(payload: AiPromptPayload, supplementalSystem
 export function buildExternalAiPrompt(payload: AiPromptPayload) {
   const conversation = sanitizeAiConversation(payload.conversation);
   const question = payload.question?.trim() || '请结合当前资料做一次综合解读。';
-  const profile = payload.mode === 'chart' ? readableProfile(payload.profile) : '';
+  const profile = readableProfile(payload.profile);
   const reading = readingText(payload);
   const conversationText = conversation.length
     ? `【此前对话】\n${conversation.map((message) => `${message.role === 'user' ? '用户' : 'AI'}：${message.content}`).join('\n\n')}`
