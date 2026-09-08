@@ -250,6 +250,7 @@ const FengShuiView = defineAsyncComponent(() => import('./components/FengShuiVie
 const CompatibilityView = defineAsyncComponent(() => import('./components/CompatibilityView.vue'));
 const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyHexagramView.vue'));
 const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChart.vue'));
+const NameNumberView = defineAsyncComponent(() => import('./components/NameNumberView.vue'));
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
 const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
@@ -1283,6 +1284,7 @@ const primaryNavItems = [
   { key: 'almanac' as const, label: '传统黄历', icon: CalendarDays },
   { key: 'fengshui' as const, label: '居家风水', icon: House },
   { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
+  { key: 'name-number' as const, label: '姓名与数字', icon: BookOpen },
 ];
 const secondaryNavItems = [
   { key: 'cases' as const, label: '案例', icon: BookOpen },
@@ -6338,6 +6340,15 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           :ai-config="activeAiRequestConfig"
           :casting-preference="appPreferences.castingPreference"
           @interpret="startTarotInterpretation"
+        />
+
+        <NameNumberView
+          v-else-if="activeView === 'name-number'"
+          :profile="activeCase"
+          :case-ids="cases.map(item => item.id)"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :ai-config="activeAiRequestConfig"
+          @select-case="selectCase"
         />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />

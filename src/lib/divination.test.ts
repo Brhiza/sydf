@@ -294,7 +294,8 @@ describe('占卜解读提示词清理', () => {
     expect(prompt).toContain('择日事项：考试学习');
     expect(prompt).toContain('候选日期：2026-08-09 至 2026-08-15');
     expect(prompt).toContain('候选日期明细：共7日');
-    expect(prompt.match(/^- 第\d日：/gmu)).toHaveLength(7);
+    expect(prompt.match(/^(?:- )?第\d日：/gmu)).toHaveLength(7);
+    for (let day = 9; day <= 15; day++) expect(prompt).toContain(`2026-08-${String(day).padStart(2, '0')}`);
     expect(prompt).toContain('事项宜');
     expect(prompt).not.toContain('日课：');
     expect(prompt).not.toContain('证据：');

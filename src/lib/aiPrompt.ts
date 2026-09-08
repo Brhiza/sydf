@@ -165,7 +165,7 @@ export function compactReadingPrompt(value: string) {
   const technicalLine = /^(?:[-*]\s*)?(?:计算链(?:概览)?|证据链(?:状态)?|证据汇总|反证与应期边界|规则来源|数据版本|算法版本|资料来源|文献来源|接口信息|模型信息|解释限制|内部说明|schema|version|payload|calculationChain|evidenceChain)[：:]/i;
   const lines = value.replace(/\r\n?/g, '\n').split('\n');
   const natalOnly = /【分析对象】\s*\n\s*分析对象[：:]\s*(?:本命盘|natal)\s*(?:\n|$)/i.test(value);
-  const selectedYearOnly = /【分析对象】\s*\n\s*分析对象[：:]\s*(?:所选流年|year)\s*(?:\n|$)/i.test(value) || /【指定岁运资料】[\s\S]*?分析对象[：:].*流年/.test(value);
+  const selectedYearOnly = /【分析对象】\s*\n\s*分析对象[：:]\s*(?:所选流年|year|\d{4}年流年)\s*(?:\n|$)/i.test(value) || /【指定岁运资料】[\s\S]*?分析对象[：:].*流年/.test(value);
   const cleaned: string[] = [];
   let skippingSection = false;
   let skippingDetailGroup = false;
