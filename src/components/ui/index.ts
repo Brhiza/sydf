@@ -8,6 +8,7 @@ export { default as UiDialogHeader } from './UiDialogHeader.vue';
 export { default as UiPageShell } from './UiPageShell.vue';
 export { default as UiReadingGrid } from './UiReadingGrid.vue';
 export { default as UiReadingHero } from './UiReadingHero.vue';
+export { default as UiSignPoem } from './UiSignPoem.vue';
 export { default as UiReadingLead } from './UiReadingLead.vue';
 export { default as UiReadingRows } from './UiReadingRows.vue';
 export { default as UiReadingSection } from './UiReadingSection.vue';

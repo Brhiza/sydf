@@ -185,6 +185,7 @@ import {
   updateHistoryInterpretation,
   updateHistoryInterpretationError,
   type HistoryRecordEntry,
+  parseNameNumberHistory,
   type LegacyHistoryRecord,
 } from './lib/historyImport';
 import type { DailyFortuneResult, FortunePeriod } from './lib/dailyFortune';
@@ -207,6 +208,7 @@ import { formatBirthDateTimeInput, parseBirthDateTimeInput } from './lib/birthDa
 import { normalizeSelectedCaseId, type SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
 import { snapshotReadingProfile, historyReadingProfile } from './lib/readingProfile';
+import type { NameNumberHistoryRecord } from './lib/nameNumber';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { normalizeToolPreferences, type ToolPreferences } from './lib/toolPreferences';
 import {
@@ -1006,6 +1008,7 @@ const almanacSearchError = ref('');
 const showAlmanacSearchModal = ref(false);
 const almanacCalendarPanel = ref<HTMLElement | null>(null);
 const history = ref<HistoryRecordEntry[]>([]);
+const nameNumberHistoryRecord = ref<NameNumberHistoryRecord | null>(null);
 const selectedLegacyHistory = ref<LegacyHistoryRecord | null>(null);
 const draftCase = ref<CaseProfile>({ ...createCase('draft-case', '新案例', false), date: '', time: '' });
 const cases = ref<CaseProfile[]>([]);
@@ -1029,7 +1032,7 @@ const showCaseSwitcher = ref(false);
 const caseSearch = ref('');
 const caseSwitcherSearch = ref('');
 const historySearch = ref('');
-type HistoryCategoryFilter = 'all' | 'divination' | 'oracle' | 'chart';
+type HistoryCategoryFilter = 'all' | 'divination' | 'oracle' | 'chart' | 'tools';
 type HistoryInterpretationFilter = 'all' | 'interpreted' | 'pending';
 const historyCategory = ref<HistoryCategoryFilter>('all');
 const historyMethod = ref('all');
@@ -1285,8 +1288,8 @@ const primaryNavItems = [
   { key: 'fengshui' as const, label: '居家风水', icon: House },
   { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
   { key: 'name-number' as const, label: '姓名与数字', icon: BookOpen },
-  { key: 'zhuge' as const, label: '诸葛神数', icon: BookOpen },
-  { key: 'kongming' as const, label: '孔明神卦', icon: BookOpen },
+  { key: 'zhuge' as const, label: '诸葛神数', icon: ScrollText },
+  { key: 'kongming' as const, label: '孔明神卦', icon: Coins },
 ];
 const secondaryNavItems = [
   { key: 'cases' as const, label: '案例', icon: BookOpen },
@@ -1557,7 +1560,7 @@ const filteredHistory = computed(() => {
   const query = historySearch.value.trim().toLocaleLowerCase('zh-CN');
   return history.value.filter((item) => {
     const contextLabel = !isLegacyHistoryRecord(item) ? item.context?.label || '' : '';
-    const matchesSearch = !query || [item.question, item.methodLabel, contextLabel]
+    const matchesSearch = !query || [item.question, item.methodLabel, contextLabel, item.kind === 'name-number' ? item.result.title : '']
       .some((value) => value.toLocaleLowerCase('zh-CN').includes(query));
     const matchesCategory = historyCategory.value === 'all' || historyRecordCategory(item) === historyCategory.value;
     const matchesMethod = historyMethod.value === 'all' || item.methodLabel === historyMethod.value;
@@ -2156,6 +2159,13 @@ function restoreHistory() {
       history.value = parseStoredHistory(storedHistoryPayload);
       if (Array.isArray(storedHistoryPayload) && history.value.length !== storedHistoryPayload.length) persistHistory();
     }
+    if (localStorage.getItem('shiyue-name-number-history-migrated') !== 'complete') {
+      const records = parseNameNumberHistory(parseLocalStorageJson<unknown>(localStorage, 'shiyue-name-number-history'));
+      if (records.length) {
+        history.value = mergeHistoryRecords(history.value, records).records;
+        if (persistHistory()) localStorage.setItem('shiyue-name-number-history-migrated', 'complete');
+      }
+    }
   } catch {
     history.value = [];
   }
@@ -2429,7 +2439,7 @@ function persistHistoryInterpretationError(recordId: string | null, content: str
 function applyUpdatedHistory(updatedHistory: HistoryRecordEntry[], recordId: string | null) {
   history.value = updatedHistory;
   const updatedRecord = updatedHistory.find((record) => record.id === recordId);
-  if (updatedRecord && !isLegacyHistoryRecord(updatedRecord)) {
+  if (updatedRecord && !isLegacyHistoryRecord(updatedRecord) && updatedRecord.kind !== 'name-number') {
     if (currentRecord.value?.id === updatedRecord.id) currentRecord.value = updatedRecord;
     if (chartRecord.value?.id === updatedRecord.id) chartRecord.value = updatedRecord;
     if (compatibilityHistoryRecord.value?.id === updatedRecord.id) compatibilityHistoryRecord.value = updatedRecord;
@@ -3173,6 +3183,7 @@ async function goView(view: AppView, options: { preservePageState?: boolean } = 
   }
   const previousView = activeView.value;
   const changedView = previousView !== view;
+  if (changedView) nameNumberHistoryRecord.value = null;
   const fallbackQuestionToRestore = view === 'tools' && restoreBasicAiFallbackQuestionOnHome.value
     ? basicAiFallbackQuestion.value
     : '';
@@ -5630,7 +5641,15 @@ watch([activeView, chartKind, () => JSON.stringify(activeCase.value)], ([view], 
   }
 });
 
+function saveNameNumberRecord(record: NameNumberHistoryRecord) {
+  const index = history.value.findIndex(item => item.id === record.id);
+  if (index < 0) history.value = [record, ...history.value].slice(0, HISTORY_LIMIT);
+  else history.value = history.value.map(item => item.id === record.id ? record : item);
+  persistHistory();
+}
+
 function historyRecordMeta(record: HistoryRecordEntry) {
+  if (record.kind === 'name-number') return { icon: record.tool === 'kongming' ? '卦' : record.tool === 'zhuge' ? '签' : '字', label: record.methodLabel };
   if (record.kind === 'tarot') return { icon: '牌', label: '塔罗牌' };
   if (record.kind === 'daily') return { icon: '运', label: '今日运势' };
   return kindMeta[record.kind];
@@ -5641,6 +5660,13 @@ function restoredHistoryInterpretationError(record: HistoryRecordEntry) {
 }
 
 async function openRecord(record: HistoryRecordEntry) {
+  if (record.kind === 'name-number') {
+    selectCase(record.caseId && cases.value.some(item => item.id === record.caseId) ? record.caseId : '');
+    goView(record.tool === 'zhuge' || record.tool === 'kongming' ? record.tool : 'name-number');
+    nameNumberHistoryRecord.value = { ...record };
+    showHistory.value = false;
+    return;
+  }
   if (isLegacyHistoryRecord(record)) {
     showHistory.value = false;
     selectedLegacyHistory.value = record;
@@ -6348,11 +6374,11 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           v-else-if="activeView === 'name-number' || activeView === 'zhuge' || activeView === 'kongming'"
           :key="activeView"
           :oracle="activeView === 'name-number' ? undefined : activeView"
+          :history-record="nameNumberHistoryRecord"
           :profile="activeCase"
-          :case-ids="cases.map(item => item.id)"
           :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
           :ai-config="activeAiRequestConfig"
-          @select-case="selectCase"
+          @save="saveNameNumberRecord"
         />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
@@ -7084,7 +7110,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           </div>
           <div class="search-box"><Search :size="15" /><input v-model="historySearch" type="search" placeholder="搜索问题、工具或案例" aria-label="搜索记录" autofocus /></div>
           <div class="history-filters">
-            <UiSelect v-model="historyCategory" label="类型" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option></UiSelect>
+            <UiSelect v-model="historyCategory" label="类型" aria-label="按记录类型筛选"><option value="all">全部类型</option><option value="divination">占卜</option><option value="oracle">灵签</option><option value="chart">排盘</option><option value="tools">姓名数字</option></UiSelect>
             <UiSelect v-model="historyMethod" label="工具" aria-label="按工具筛选"><option value="all">全部工具</option><option v-for="method in historyMethodOptions" :key="method" :value="method">{{ method }}</option></UiSelect>
             <UiSelect v-model="historyInterpretation" label="解读" aria-label="按 AI 解读状态筛选"><option value="all">全部状态</option><option value="interpreted">已解读</option><option value="pending">未解读</option></UiSelect>
           </div>
@@ -7096,7 +7122,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <button v-for="record in filteredHistory" :key="record.id" class="record-row" type="button" @click="openRecord(record)">
               <span class="record-icon">{{ historyRecordMeta(record).icon }}</span>
               <span class="record-main">
-                <strong>{{ record.question }}</strong>
+                <strong>{{ record.question || (record.kind === 'name-number' ? record.result.title : '') }}</strong>
                 <small><span>{{ record.methodLabel }} · {{ formatReadingTime(record.createdAt) }}</span><em :class="{ ready: record.interpretation?.trim(), running: isHistoryRecordRunning(record.id) }">{{ isHistoryRecordRunning(record.id) ? '解读中' : record.interpretation?.trim() ? '已解读' : record.interpretationError?.trim() ? '解读失败' : '未解读' }}</em></small>
               </span>
               <ChevronRight :size="15" />

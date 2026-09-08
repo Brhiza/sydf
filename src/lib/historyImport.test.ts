@@ -6,6 +6,7 @@ import {
   mergeHistoryRecords,
   parseLegacyHistory,
   parseStoredHistory,
+  parseNameNumberHistory,
   updateHistoryInterpretation,
 } from './historyImport';
 
@@ -19,6 +20,24 @@ function oldRecord(type: string, data: Record<string, unknown>, id = type) {
     result: { type, data, aiResponse: '旧版 AI 解读' },
   };
 }
+
+describe('姓名数字与独立占测历史', () => {
+  const result = { title: '测试结果', summary: '摘要', prompt: '实际盘面', sections: [{ title: '依据', text: '内容' }] };
+  it('迁入统一历史，保留案例快照和已有解读，重复迁移不重复添加', () => {
+    const migrated = parseNameNumberHistory([{ id: 'name-1', tool: 'name', question: '姓名如何', createdAt: 1000, caseId: 'x', profile: { label: 'x' }, result, answer: '已有解读' }]);
+    expect(migrated).toHaveLength(1);
+    expect(migrated[0]).toMatchObject({ kind: 'name-number', methodLabel: '姓名解析', interpretation: '已有解读', context: { label: 'x' }, profile: { label: 'x' } });
+    expect(parseStoredHistory(migrated)).toEqual(migrated);
+    expect(getHistoryRecordCategory(migrated[0]!)).toBe('tools');
+    expect(mergeHistoryRecords(migrated, migrated).records).toHaveLength(1);
+  });
+  it('诸葛和孔明归入灵签，并拒绝损坏结果', () => {
+    const migrated = parseNameNumberHistory(['zhuge', 'kongming'].map(tool => ({ id: tool, tool, question: '', createdAt: 1000, result, profile: null })));
+    expect(migrated).toHaveLength(2);
+    expect(migrated.every(record => getHistoryRecordCategory(record) === 'oracle')).toBe(true);
+    expect(parseStoredHistory([{ ...migrated[0], result: { ...result, sections: [null] } }])).toEqual([]);
+  });
+});
 
 describe('旧版历史导入', () => {
   it('应转换旧版导出文件中的可继续查看记录并保留 AI 解读', () => {
@@ -96,7 +115,7 @@ describe('旧版历史导入', () => {
     expect(records).toHaveLength(2);
     expect(getHistoryRecordCategory(records[0])).toBe('oracle');
     expect(getHistoryRecordCategory(records[1])).toBe('chart');
-    expect(!isLegacyHistoryRecord(records[1]) && records[1].compatibility).toMatchObject({
+    expect(!isLegacyHistoryRecord(records[1]) && records[1].kind !== 'name-number' && records[1].compatibility).toMatchObject({
       primaryCaseId: 'one',
       partnerCaseId: 'two',
     });
