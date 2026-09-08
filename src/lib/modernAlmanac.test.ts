@@ -79,18 +79,17 @@ describe('现代黄历时段', () => {
     expect(homeItems[0]?.detail).toMatch(/方案、人员、许可和现场安全/);
   });
 
-  it('全年传统事项都有具体的现代解释，不退回低信息兜底', () => {
-    const ranges = [
-      ['2026-01-01', '2026-04-30'],
-      ['2026-05-01', '2026-08-31'],
-      ['2026-09-01', '2026-12-31'],
-    ] as const;
-    const terms = ranges.flatMap(([startDate, endDate]) => generateLocalAlmanac({
+  it.each([
+    ['2026-01-01', '2026-04-30'],
+    ['2026-05-01', '2026-08-31'],
+    ['2026-09-01', '2026-12-31'],
+  ])('%s 至 %s 的传统事项都有具体的现代解释，不退回低信息兜底', (startDate, endDate) => {
+    const terms = generateLocalAlmanac({
       mode: 'general',
       topic: 'custom',
       startDate,
       endDate,
-    }).days.flatMap((day) => [...day.recommends, ...day.avoids]));
+    }).days.flatMap((day) => [...day.recommends, ...day.avoids]);
     expect(findUnmappedAlmanacTerms(terms)).toEqual([]);
   });
 
