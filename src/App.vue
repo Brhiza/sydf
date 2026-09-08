@@ -3659,13 +3659,13 @@ async function submitHomePrompt() {
   await beginReading();
 }
 
-function leaveChat() {
+function leaveChat(resetTool = true) {
   cancelChatSelection();
   chatSessionId += 1;
   agentAbortController?.abort();
   agentAbortController = null;
   homeState.value = 'default';
-  applyDefaultHomeTool();
+  if (resetTool) applyDefaultHomeTool();
   agentBaziFortune.value = null;
   agentZiweiFortune.value = null;
   agentAstrolabeFortune.value = null;
@@ -5533,14 +5533,8 @@ function openTodayFortune() {
 }
 
 watch(() => JSON.stringify(activeCase.value), () => {
-  const mode = homeMode.value;
-  const kind = selectedKind.value;
-  const homeChart = homeChartKind.value;
   const pendingQuestion = question.value;
-  leaveChat();
-  homeMode.value = mode;
-  selectedKind.value = kind;
-  homeChartKind.value = homeChart;
+  leaveChat(false);
   question.value = pendingQuestion;
   chartRequestId += 1;
   fortuneRequestId += 1;
@@ -5931,7 +5925,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
     <div class="app-main">
       <header class="topbar" :class="{ 'is-page': activeView !== 'tools' }">
-        <button v-if="activeView === 'tools' && homeState === 'chat'" class="topbar-back" type="button" @click="leaveChat"><ArrowLeft :size="17" /><span>返回</span></button>
+        <button v-if="activeView === 'tools' && homeState === 'chat'" class="topbar-back" type="button" @click="leaveChat()"><ArrowLeft :size="17" /><span>返回</span></button>
         <button v-else class="mobile-nav-toggle" type="button" aria-label="打开导航" aria-controls="app-sidebar" :aria-expanded="showMobileNav" @click="showMobileNav = true"><Menu :size="19" /></button>
         <div v-if="activeView === 'tools'" ref="topbarAiPickerRef" class="topbar-ai-picker">
           <button type="button" class="topbar-ai-trigger" :aria-expanded="showAiPicker" aria-label="调整解答风格和 AI 模型" :title="`${activeAnswerPreference.label} · ${activeAiChannel.name} · ${activeAiModelLabel}`" @click="toggleAiPicker">
