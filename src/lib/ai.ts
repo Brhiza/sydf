@@ -67,7 +67,7 @@ export interface AiInterpretationRequest {
   mode: AiInterpretationMode;
   question: string;
   method?: string;
-  profile?: AiProfileContext;
+  profile?: Partial<AiProfileContext>;
   reading?: AiReadingContext;
   conversation?: AiConversationMessage[];
   preferences?: AiPreferences;
@@ -124,7 +124,7 @@ export function buildAiInterpretationRequestBody(payload: AiInterpretationReques
   const reading = prompt ? { prompt } : summary ? { summary } : undefined;
   return {
     ...request,
-    ...(payload.mode === 'chart' && profile ? { profile } : {}),
+    ...(profile ? { profile } : {}),
     ...(reading ? { reading } : {}),
   };
 }

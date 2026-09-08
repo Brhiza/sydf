@@ -5,7 +5,7 @@ import { buildAiSystemPrompt, buildExternalAiPrompt } from './aiPrompt';
 import { buildChartReadingPrompt } from './chartPrompt';
 import { buildDivinationReadingPrompt } from './divination';
 
-const CORE_ANSWER_FRAMEWORK = '先给出清晰结论，再说明主要依据及其相互作用；如盘面呈现过程或时间层级，再说明阶段变化与可观察信号。';
+const CORE_ANSWER_FRAMEWORK = '先给出明确的倾向或吉凶定性，再说明主要理据及其生克演变；涉及阶段变化时，依据已列干支时段、节令或时间层级说明。';
 
 describe('AI 降级提示词', () => {
   it('内置解读与外部 AI 均使用 Core 通用答题框架', () => {

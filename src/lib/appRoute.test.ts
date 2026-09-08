@@ -11,6 +11,9 @@ describe('app route', () => {
     });
     expect(parseAppRoute('#/cases/records')).toMatchObject({ view: 'cases', casesSection: 'records', history: false });
     expect(parseAppRoute('#/settings/theme')).toMatchObject({ view: 'settings', settingsSection: 'theme', history: false });
+    expect(parseAppRoute('#/name-number')).toMatchObject({ view: 'name-number' });
+    expect(parseAppRoute('#/zhuge')).toMatchObject({ view: 'zhuge' });
+    expect(parseAppRoute('#/kongming')).toMatchObject({ view: 'kongming' });
   });
 
   it('falls back safely when a shared link is invalid', () => {

@@ -206,6 +206,7 @@ import { getCalendarEvents } from './lib/calendarEvents';
 import { formatBirthDateTimeInput, parseBirthDateTimeInput } from './lib/birthDateTimeInput';
 import { normalizeSelectedCaseId, type SelectableCaseProfile } from './lib/caseSelection';
 import { normalizeStoredTimeBasis } from './lib/caseProfile';
+import { snapshotReadingProfile, historyReadingProfile } from './lib/readingProfile';
 import { parseLocalStorageJson, persistArrayWithOldestEviction } from './lib/localStorage';
 import { normalizeToolPreferences, type ToolPreferences } from './lib/toolPreferences';
 import {
@@ -249,6 +250,7 @@ const FengShuiView = defineAsyncComponent(() => import('./components/FengShuiVie
 const CompatibilityView = defineAsyncComponent(() => import('./components/CompatibilityView.vue'));
 const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyHexagramView.vue'));
 const QizhengChart = defineAsyncComponent(() => import('./components/QizhengChart.vue'));
+const NameNumberView = defineAsyncComponent(() => import('./components/NameNumberView.vue'));
 const XiaoliurenView = defineAsyncComponent(() => import('./components/XiaoliurenView.vue'));
 const OracleView = defineAsyncComponent(() => import('./components/OracleView.vue'));
 const WesternDivinationView = defineAsyncComponent(() => import('./components/WesternDivinationView.vue'));
@@ -1282,6 +1284,9 @@ const primaryNavItems = [
   { key: 'almanac' as const, label: '传统黄历', icon: CalendarDays },
   { key: 'fengshui' as const, label: '居家风水', icon: House },
   { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
+  { key: 'name-number' as const, label: '姓名与数字', icon: BookOpen },
+  { key: 'zhuge' as const, label: '诸葛神数', icon: BookOpen },
+  { key: 'kongming' as const, label: '孔明神卦', icon: BookOpen },
 ];
 const secondaryNavItems = [
   { key: 'cases' as const, label: '案例', icon: BookOpen },
@@ -3265,6 +3270,7 @@ async function copyBasicAiFallbackPrompt() {
     await writeClipboardText(buildExternalAiPrompt({
       mode: 'ask',
       question: basicAiFallbackQuestion.value,
+      profile: snapshotReadingProfile(activeCase.value) || undefined,
       conversation: currentConversationContext(),
       preferences: {
         answerPreference: appPreferences.answerPreference,
@@ -3660,13 +3666,13 @@ async function submitHomePrompt() {
   await beginReading();
 }
 
-function leaveChat() {
+function leaveChat(resetTool = true) {
   cancelChatSelection();
   chatSessionId += 1;
   agentAbortController?.abort();
   agentAbortController = null;
   homeState.value = 'default';
-  applyDefaultHomeTool();
+  if (resetTool) applyDefaultHomeTool();
   agentBaziFortune.value = null;
   agentZiweiFortune.value = null;
   agentAstrolabeFortune.value = null;
@@ -4536,25 +4542,13 @@ async function buildAiRequest(
   result?: ReadingResult,
   channel: AiChannel = activeAiChannel.value,
   chartPromptOptions: ChartReadingPromptOptions = {},
+  profile: AiInterpretationRequest['profile'] | null = mode === 'ask' ? null : snapshotReadingProfile(activeCase.value),
 ): Promise<AiInterpretationRequest> {
-  const profile = currentCase.value;
   const request: AiInterpretationRequest = {
     mode,
     question: questionText,
     method: kind ? kindMeta[kind].label : undefined,
-    ...(mode === 'chart' ? {
-      profile: {
-        label: profile.label,
-        name: profile.name,
-        gender: profile.gender,
-        date: profile.date,
-        dateType: profile.dateType,
-        isLeapMonth: profile.isLeapMonth,
-        time: profile.time,
-        locationName: profile.locationName,
-        timeBasis: profile.timeBasis,
-      },
-    } : {}),
+    ...(profile ? { profile: { ...profile } } : {}),
     preferences: {
       answerPreference: appPreferences.answerPreference,
       displayLevel: appPreferences.displayLevel,
@@ -4582,8 +4576,9 @@ async function buildCombinedChartAiRequest(
   bazi: BaziChartResult,
   ziwei: ZiweiChartData,
   baziFortune?: BaziFortuneRequest | null,
+  profile: AiInterpretationRequest['profile'] | null = snapshotReadingProfile(activeCase.value),
 ) {
-  const request = await buildAiRequest('chart', questionText);
+  const request = await buildAiRequest('chart', questionText, undefined, undefined, activeAiChannel.value, {}, profile);
   request.method = '八字紫微合参';
   request.reading = {
     summary: `八字：${formatReadingSummary('bazi', bazi)}；紫微：${formatReadingSummary('ziwei', ziwei)}`,
@@ -4606,6 +4601,7 @@ async function requestInterpretation(
   sessionId = chatSessionId,
   historyRecordId: string | null = null,
 ) {
+  if (sessionId !== chatSessionId) return;
   const requestId = ++aiRequestId;
   const sourceView = activeView.value;
   lastAiRequest.value = payload;
@@ -4690,6 +4686,7 @@ async function completeDivination(
 ) {
   if (sessionId !== chatSessionId) return;
   if (kind === 'bazi') await ensureBaziRuntime();
+  if (sessionId !== chatSessionId) return;
   const createdAt = Date.now();
   const record: ReadingRecord = {
     id: `${createdAt}-${Math.random().toString(16).slice(2)}`,
@@ -4698,6 +4695,8 @@ async function completeDivination(
     question: userQuestion,
     createdAt,
     result,
+    caseId: activeCase.value?.id || null,
+    profile: snapshotReadingProfile(activeCase.value),
   };
   selectedKind.value = kind;
   if (kind === 'wuyun-liuqi') selectedWuyunYear.value = wuyunReadingYear(result as WuyunLiuqiResult);
@@ -4790,16 +4789,17 @@ async function finishAutomaticReading(kind: ManualDivinationKind, userQuestion: 
 }
 
 async function completeOracleReading(payload: { result: SsgwData; question: string }) {
+  const sessionId = chatSessionId;
   isReading.value = true;
   aiAnswer.value = '';
   aiError.value = '';
   oracleResult.value = payload.result;
   try {
-    await completeDivination('ssgw', payload.result, payload.question, false);
+    await completeDivination('ssgw', payload.result, payload.question, false, sessionId);
   } catch (error) {
-    aiError.value = error instanceof Error ? error.message : '解签暂时没有完成。';
+    if (sessionId === chatSessionId) aiError.value = error instanceof Error ? error.message : '解签暂时没有完成。';
   } finally {
-    isReading.value = false;
+    if (sessionId === chatSessionId) isReading.value = false;
   }
 }
 
@@ -4827,6 +4827,7 @@ function startTarotInterpretation(payload: WesternInterpretationPayload) {
 }
 
 async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
+  const sessionId = chatSessionId;
   if (isInterpreting.value) return;
   const questionText = '请解读今天的卦象，说明我今天应关注的重点、变化趋势和行动建议。';
   aiAnswer.value = '';
@@ -4847,9 +4848,9 @@ async function startDailyHexagramInterpretation(result: DailyHexagramResult) {
         (await import('./lib/dailyHexagram')).formatDailyHexagramAiContext(result, dateLabel),
       ].filter((item): item is string => Boolean(item)).join('\n\n'),
     };
-    await requestInterpretation(request, false, chatSessionId, null);
+    await requestInterpretation(request, false, sessionId, null);
   } catch (error) {
-    aiError.value = error instanceof Error ? error.message : '每日一卦的 AI 解读暂时没有完成。';
+    if (sessionId === chatSessionId) aiError.value = error instanceof Error ? error.message : '每日一卦的 AI 解读暂时没有完成。';
   }
 }
 
@@ -4933,7 +4934,7 @@ async function beginReading() {
       await requestInterpretation(request, true, sessionId, null);
       selectedInspirationPrompt.value = '';
     } catch (error) {
-      formError.value = error instanceof Error ? error.message : '即时排盘没有完成，请稍后重试。';
+      if (sessionId === chatSessionId) formError.value = error instanceof Error ? error.message : '即时排盘没有完成，请稍后重试。';
     } finally {
       if (sessionId === chatSessionId) chartLoading.value = false;
     }
@@ -4966,6 +4967,7 @@ async function beginReading() {
             ? calculateUncachedChart('ziwei', currentCase.value, { ziweiFortune: agentZiweiFortune.value })
             : calculateCachedChart('ziwei', currentCase.value),
         ]);
+        if (sessionId !== chatSessionId) return;
         if (!isBazi(baziEntry.result) || !isZiwei(ziweiEntry.result)) throw new Error('合参盘面数据无法识别，请稍后重试。');
         const context = {
           label: currentCase.value.label,
@@ -4981,6 +4983,8 @@ async function beginReading() {
           question: chartQuestion,
           createdAt,
           result: baziEntry.result,
+          caseId: activeCase.value?.id || null,
+          profile: snapshotReadingProfile(activeCase.value),
           relatedResults: [{ kind: 'ziwei', result: ziweiEntry.result }],
           context,
         };
@@ -5017,6 +5021,8 @@ async function beginReading() {
         question: `${currentCase.value.label} · ${kindMeta[kind].label}`,
         createdAt,
         result,
+        caseId: activeCase.value?.id || null,
+        profile: snapshotReadingProfile(activeCase.value),
         context: {
           label: currentCase.value.label,
           date: currentCase.value.date,
@@ -5049,6 +5055,7 @@ async function beginReading() {
       ), true, sessionId, chartRecord.value?.id || null);
       selectedInspirationPrompt.value = '';
     } catch (error) {
+      if (sessionId !== chatSessionId) return;
       chartError.value = error instanceof Error ? error.message : '排盘没有完成，请检查案例资料。';
       formError.value = chartError.value;
     } finally {
@@ -5111,7 +5118,7 @@ async function beginReading() {
     });
     await completeDivination(selectedKind.value, result, userQuestion, true, sessionId);
   } catch (error) {
-    formError.value = error instanceof Error ? error.message : '计算没有完成，请检查案例资料。';
+    if (sessionId === chatSessionId) formError.value = error instanceof Error ? error.message : '计算没有完成，请检查案例资料。';
   } finally {
     if (sessionId === chatSessionId) isReading.value = false;
   }
@@ -5215,6 +5222,8 @@ function applyChartResult(kind: ChartKind, result: ReadingResult, createdAt: num
     question: `${currentCase.value.label} · ${kindMeta[kind].label}`,
     createdAt,
     result,
+    caseId: activeCase.value?.id || null,
+    profile: snapshotReadingProfile(activeCase.value),
     context: {
       label: currentCase.value.label,
       date: currentCase.value.date,
@@ -5309,6 +5318,8 @@ function handleBaziFortuneWheel(event: WheelEvent) {
 
 async function interpretSelectedBaziFortune(scope: 'dayun' | 'year') {
   const result = displayResult.value;
+  const sessionId = chatSessionId;
+  const record = chartRecord.value;
   if (!result || !isBazi(result) || isInterpreting.value) return;
   const cycle = result.luckInfo.cycles[selectedBaziCycleIndex.value];
   if (!cycle) return;
@@ -5326,7 +5337,8 @@ async function interpretSelectedBaziFortune(scope: 'dayun' | 'year') {
     result,
     activeAiChannel.value,
     { baziFortune: fortune },
-  ), false, chatSessionId, chartRecord.value?.id || null);
+    record ? historyReadingProfile(record) : null,
+  ), false, sessionId, record?.id || null);
 }
 
 function chooseZiweiScope(scope: ZiweiScope) {
@@ -5370,6 +5382,7 @@ function formatAstroAnnualAspects(values?: string[]) {
 
 async function runChart(shouldRecord = true) {
   const requestId = ++chartRequestId;
+  const sessionId = chatSessionId;
   chartError.value = '';
   aiError.value = '';
   aiAnswer.value = '';
@@ -5386,11 +5399,13 @@ async function runChart(shouldRecord = true) {
     try {
       await ensureBaziRuntime();
     } catch {
+      if (requestId !== chartRequestId) return;
       chartLoading.value = false;
       chartError.value = '八字排盘加载失败，请检查网络后重试。';
       return;
     }
   }
+  if (requestId !== chartRequestId) return;
   const cached = getCachedChart(kind, profile);
   if (cached) {
     applyChartResult(kind, cached.result, cached.createdAt);
@@ -5414,11 +5429,12 @@ async function runChart(shouldRecord = true) {
       await requestInterpretation(
         await buildAiRequest('chart', `请用最容易理解的方式解读${currentCase.value.label}的${kindMeta[chartKind.value].label}。`, chartKind.value, result),
         true,
-        chatSessionId,
+        sessionId,
         shouldRecord ? `${createdAt}-chart` : null,
       );
     }
   } catch (error) {
+    if (sessionId !== chatSessionId) return;
     chartError.value = error instanceof Error ? error.message : '排盘没有完成，请检查案例资料。';
   } finally {
     if (requestId === chartRequestId) chartLoading.value = false;
@@ -5585,7 +5601,26 @@ function openTodayFortune() {
   goView('fortune');
 }
 
-watch([activeView, chartKind, selectedCaseId, () => currentCase.value?.date, () => currentCase.value?.dateType, () => currentCase.value?.isLeapMonth, () => currentCase.value?.time, () => currentCase.value?.timeBasis, () => currentCase.value?.regionId], ([view], [previousView]) => {
+watch(() => JSON.stringify(activeCase.value), () => {
+  const pendingQuestion = question.value;
+  leaveChat(false);
+  question.value = pendingQuestion;
+  chartRequestId += 1;
+  fortuneRequestId += 1;
+  homeFortuneRequestId += 1;
+  dailyFortune.value = null;
+  homeFortunePreview.value = null;
+  fortuneLoading.value = false;
+  chartResult.value = null;
+  chartRecord.value = null;
+  oracleResult.value = null;
+  closeBasicAiFallback();
+  basicAiFallbackQuestion.value = '';
+  forcedBasicAgentSelection.value = null;
+  selectedInspirationPrompt.value = '';
+}, { flush: 'sync' });
+
+watch([activeView, chartKind, () => JSON.stringify(activeCase.value)], ([view], [previousView]) => {
   if (view === 'charts') void runChart(false);
   if (view === 'fortune') void refreshDailyFortune();
   if (view === 'tools') void refreshHomeFortunePreview();
@@ -5611,6 +5646,15 @@ async function openRecord(record: HistoryRecordEntry) {
     selectedLegacyHistory.value = record;
     return;
   }
+  if (record.compatibility) {
+    goView('compatibility');
+    compatibilityHistoryRecord.value = record;
+    return;
+  }
+  leaveChat();
+  selectCase(record.caseId && cases.value.some((item) => item.id === record.caseId) ? record.caseId : '');
+  let sessionId = chatSessionId;
+  const profile = historyReadingProfile(record);
   try {
     if (record.kind === 'almanac') await ensureAlmanacRuntime();
     if (record.kind === 'bazi' || record.relatedResults?.some((item) => item.kind === 'bazi')) await ensureBaziRuntime();
@@ -5618,15 +5662,12 @@ async function openRecord(record: HistoryRecordEntry) {
     showToast('记录所需数据加载失败，请检查网络后重试。');
     return;
   }
+  if (sessionId !== chatSessionId) return;
   showHistory.value = false;
-  if (record.compatibility) {
-    goView('compatibility');
-    compatibilityHistoryRecord.value = record;
-    return;
-  }
   const relatedZiwei = record.relatedResults?.find((item) => item.kind === 'ziwei' && isZiwei(item.result));
   if (record.kind === 'bazi' && isBazi(record.result) && relatedZiwei && isZiwei(relatedZiwei.result)) {
     goView('tools');
+    sessionId = chatSessionId;
     homeMode.value = 'chart';
     homeChartKind.value = 'bazi-ziwei';
     homeState.value = 'chat';
@@ -5639,7 +5680,9 @@ async function openRecord(record: HistoryRecordEntry) {
       { kind: 'reading', role: 'assistant', content: '', reading: relatedZiwei.result, method: 'ziwei', context: record.context },
       ...(record.interpretation ? [{ kind: 'text' as const, role: 'assistant' as const, content: record.interpretation }] : []),
     ];
-    lastAiRequest.value = await buildCombinedChartAiRequest(record.question, record.result, relatedZiwei.result);
+    const request = await buildCombinedChartAiRequest(record.question, record.result, relatedZiwei.result, undefined, profile);
+    if (sessionId !== chatSessionId) return;
+    lastAiRequest.value = request;
     lastAiHistoryRecordId.value = record.id;
     aiError.value = restoredHistoryInterpretationError(record);
     return;
@@ -5660,6 +5703,7 @@ async function openRecord(record: HistoryRecordEntry) {
   if (['bazi', 'ziwei', 'astrolabe', 'qizheng'].includes(record.kind)) {
     const savedKind = record.kind as ChartKind;
     goView('tools');
+    sessionId = chatSessionId;
     homeMode.value = 'chart';
     homeChartKind.value = savedKind;
     homeState.value = 'chat';
@@ -5677,25 +5721,31 @@ async function openRecord(record: HistoryRecordEntry) {
       { kind: 'reading', role: 'assistant', content: '', reading: record.result, method: savedKind, context: record.context },
       ...(record.interpretation ? [{ kind: 'text' as const, role: 'assistant' as const, content: record.interpretation }] : []),
     ];
-    lastAiRequest.value = await buildAiRequest('chart', record.question, record.kind, record.result);
+    const request = await buildAiRequest('chart', record.question, record.kind, record.result, activeAiChannel.value, {}, profile);
+    if (sessionId !== chatSessionId) return;
+    lastAiRequest.value = request;
     lastAiHistoryRecordId.value = record.id;
     aiError.value = restoredHistoryInterpretationError(record);
     return;
   }
   if (record.kind === 'ssgw' && isSsgw(record.result)) {
     goView('oracle');
+    sessionId = chatSessionId;
     selectedKind.value = 'ssgw';
     currentResult.value = record.result;
     currentRecord.value = record;
     oracleResult.value = record.result;
     aiAnswer.value = record.interpretation || '';
     aiError.value = '';
-    lastAiRequest.value = await buildAiRequest('divination', record.question, record.kind, record.result);
+    const request = await buildAiRequest('divination', record.question, record.kind, record.result, activeAiChannel.value, {}, profile);
+    if (sessionId !== chatSessionId) return;
+    lastAiRequest.value = request;
     lastAiHistoryRecordId.value = record.id;
     aiError.value = restoredHistoryInterpretationError(record);
     return;
   }
   goView('tools');
+  sessionId = chatSessionId;
   selectedKind.value = record.kind;
   if (record.kind === 'wuyun-liuqi') selectedWuyunYear.value = wuyunReadingYear(record.result as WuyunLiuqiResult);
   if (record.kind === 'taiyi') {
@@ -5717,12 +5767,17 @@ async function openRecord(record: HistoryRecordEntry) {
     { kind: 'reading', role: 'assistant', content: '', reading: record.result, method: record.kind },
     ...(record.interpretation ? [{ kind: 'text' as const, role: 'assistant' as const, content: record.interpretation }] : []),
   ];
-  lastAiRequest.value = await buildAiRequest(
+  const request = await buildAiRequest(
     isChartReading(record.kind) ? 'chart' : 'divination',
     record.question,
     record.kind,
     record.result,
+    activeAiChannel.value,
+    {},
+    profile,
   );
+  if (sessionId !== chatSessionId) return;
+  lastAiRequest.value = request;
   lastAiHistoryRecordId.value = record.id;
   aiError.value = restoredHistoryInterpretationError(record);
 }
@@ -5939,7 +5994,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
 
     <div class="app-main">
       <header class="topbar" :class="{ 'is-page': activeView !== 'tools' }">
-        <button v-if="activeView === 'tools' && homeState === 'chat'" class="topbar-back" type="button" @click="leaveChat"><ArrowLeft :size="17" /><span>返回</span></button>
+        <button v-if="activeView === 'tools' && homeState === 'chat'" class="topbar-back" type="button" @click="leaveChat()"><ArrowLeft :size="17" /><span>返回</span></button>
         <button v-else class="mobile-nav-toggle" type="button" aria-label="打开导航" aria-controls="app-sidebar" :aria-expanded="showMobileNav" @click="showMobileNav = true"><Menu :size="19" /></button>
         <div v-if="activeView === 'tools'" ref="topbarAiPickerRef" class="topbar-ai-picker">
           <button type="button" class="topbar-ai-trigger" :aria-expanded="showAiPicker" aria-label="调整解答风格和 AI 模型" :title="`${activeAnswerPreference.label} · ${activeAiChannel.name} · ${activeAiModelLabel}`" @click="toggleAiPicker">
@@ -6287,6 +6342,17 @@ function ziweiOppositeLine(result: ZiweiChartData) {
           :ai-config="activeAiRequestConfig"
           :casting-preference="appPreferences.castingPreference"
           @interpret="startTarotInterpretation"
+        />
+
+        <NameNumberView
+          v-else-if="activeView === 'name-number' || activeView === 'zhuge' || activeView === 'kongming'"
+          :key="activeView"
+          :oracle="activeView === 'name-number' ? undefined : activeView"
+          :profile="activeCase"
+          :case-ids="cases.map(item => item.id)"
+          :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
+          :ai-config="activeAiRequestConfig"
+          @select-case="selectCase"
         />
 
         <XiaoliurenView v-else-if="activeView === 'xiaoliuren'" />
@@ -6753,6 +6819,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
             <ExternalAiShareButtons :request="{
               mode: 'ask',
               question: basicAiFallbackQuestion,
+              profile: snapshotReadingProfile(activeCase) || undefined,
               conversation: currentConversationContext(),
               preferences: {
                 answerPreference: appPreferences.answerPreference,
