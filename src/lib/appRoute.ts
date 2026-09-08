@@ -1,6 +1,8 @@
 export const appRouteViews = [
   'tools',
   'name-number',
+  'zhuge',
+  'kongming',
   'fortune',
   'xiaoliuren',
   'daily-hexagram',

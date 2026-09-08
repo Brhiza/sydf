@@ -8,9 +8,11 @@ import ChatMarkdown from './ChatMarkdown.vue';
 import AiPromptFallback from './AiPromptFallback.vue';
 import { UiButton, UiNotice, UiSegmentedControl } from './ui';
 
-const props = defineProps<{ profile: SelectableCaseProfile | null; caseIds: string[]; preferences: AiPreferences; aiConfig: AiCustomConfig }>();
+const props = defineProps<{ profile: SelectableCaseProfile | null; caseIds: string[]; preferences: AiPreferences; aiConfig: AiCustomConfig; oracle?: 'zhuge' | 'kongming' }>();
 const emit = defineEmits<{ 'select-case': [id: string] }>();
 const form = reactive<NameNumberInput>({ tool: 'naming', text: '', surname: '', surnameLength: 1, givenNameLength: 2, gender: '通用', preferredCharacters: '', forbiddenCharacters: '', generationCharacter: '', generationPosition: 'first', purpose: 'general', pattern: '', strokes: '', wuxing: '', question: '' });
+form.tool = props.oracle || 'naming';
+const availableTools = nameNumberTools.filter(tool => tool.value !== 'zhuge' && tool.value !== 'kongming');
 const useBirth = ref(true);
 const loading = ref(false);
 const interpreting = ref(false);
@@ -27,6 +29,7 @@ interface SavedReading {
   input?: NameNumberInput; useBirth?: boolean; caseLabel?: string; conversation?: AiInterpretationRequest['conversation'];
 }
 const records = ref<SavedReading[]>([]);
+const visibleRecords = computed(() => records.value.filter(record => props.oracle ? record.tool === props.oracle : availableTools.some(tool => tool.value === record.tool)));
 const current = ref<SavedReading | null>(null);
 const request = ref<AiInterpretationRequest | null>(null);
 try {
@@ -105,7 +108,7 @@ async function restore(record: SavedReading) {
 
 <template>
   <section class="name-number-page screen">
-    <UiSegmentedControl v-model="form.tool" :items="[...nameNumberTools]" label="姓名数字工具" wrap />
+    <UiSegmentedControl v-if="!oracle" v-model="form.tool" :items="availableTools" label="姓名数字工具" wrap />
     <form class="name-number-form" @submit.prevent="calculate">
       <template v-if="form.tool === 'naming'">
         <label>姓氏<input v-model="form.surname" maxlength="2" required placeholder="请输入姓氏" /></label>
@@ -149,7 +152,7 @@ async function restore(record: SavedReading) {
         <AiPromptFallback :request="request" @retry="interpret" />
       </div>
     </article>
-    <section v-if="records.length" class="name-number-history"><h2>最近记录</h2><button v-for="record in records" :key="record.id" type="button" @click="restore(record)"><strong>{{ record.result.title }}</strong><span>{{ record.caseLabel || record.profile?.label || '未关联案例' }} · {{ new Date(record.createdAt).toLocaleString('zh-CN') }}</span></button></section>
+    <section v-if="visibleRecords.length" class="name-number-history"><h2>最近记录</h2><button v-for="record in visibleRecords" :key="record.id" type="button" @click="restore(record)"><strong>{{ record.result.title }}</strong><span>{{ record.caseLabel || record.profile?.label || '未关联案例' }} · {{ new Date(record.createdAt).toLocaleString('zh-CN') }}</span></button></section>
   </section>
 </template>
 

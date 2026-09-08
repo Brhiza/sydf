@@ -1285,6 +1285,8 @@ const primaryNavItems = [
   { key: 'fengshui' as const, label: '居家风水', icon: House },
   { key: 'tarot' as const, label: '西方占卜', icon: Sparkles },
   { key: 'name-number' as const, label: '姓名与数字', icon: BookOpen },
+  { key: 'zhuge' as const, label: '诸葛神数', icon: BookOpen },
+  { key: 'kongming' as const, label: '孔明神卦', icon: BookOpen },
 ];
 const secondaryNavItems = [
   { key: 'cases' as const, label: '案例', icon: BookOpen },
@@ -6343,7 +6345,9 @@ function ziweiOppositeLine(result: ZiweiChartData) {
         />
 
         <NameNumberView
-          v-else-if="activeView === 'name-number'"
+          v-else-if="activeView === 'name-number' || activeView === 'zhuge' || activeView === 'kongming'"
+          :key="activeView"
+          :oracle="activeView === 'name-number' ? undefined : activeView"
           :profile="activeCase"
           :case-ids="cases.map(item => item.id)"
           :preferences="{ answerPreference: appPreferences.answerPreference, displayLevel: appPreferences.displayLevel }"
