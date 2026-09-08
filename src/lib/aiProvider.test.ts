@@ -8,6 +8,15 @@ const chatMessages = [
 ];
 
 describe('AI 渠道协议适配', () => {
+  it.each([
+    ['https://ark.cn-beijing.volces.com/api/v3/chat/completions', 'deepseek-v4-flash-ga-260731', true],
+    ['https://ark.cn-beijing.volces.com/api/v3/chat/completions', 'deepseek-v4-pro', true],
+    ['https://ark.cn-beijing.volces.com/api/v3/chat/completions', 'other-model', false],
+    ['https://ark.cn-beijing.volces.com.example.org/api/v3/chat/completions', 'deepseek-v4-flash', false],
+  ])('火山思考参数仅应用于支持的模型和正式域名 %s %s', (url, model, disabled) => {
+    const body = buildInterpretationProviderBody({ apiType: 'chat', model, url }, '系统提示', providerMessages, chatMessages, 0.55);
+    expect('thinking' in body ? body.thinking : undefined).toEqual(disabled ? { type: 'disabled' } : undefined);
+  });
   it('Chat 和 Responses 不发送输出预算，Anthropic 保留协议必填值', () => {
     const chat = buildInterpretationProviderBody(
       { apiType: 'chat', model: 'chat-model', url: 'https://example.com/v1/chat/completions' },

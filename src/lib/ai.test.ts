@@ -8,6 +8,28 @@ afterEach(() => {
 });
 
 describe('AI 解读请求', () => {
+  it.each(['timeout', 'cancel'])('内置 AI 正文等待支持 %s', async (action) => {
+    vi.useFakeTimers();
+    const caller = new AbortController();
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => { started = resolve; });
+    vi.stubGlobal('fetch', vi.fn((_url, init: RequestInit) => Promise.resolve(new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{'));
+        init.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), { once: true });
+        started();
+      },
+    })))));
+    const pending = requestAiInterpretation({ mode: 'ask', question: '测试' }, caller.signal);
+    const assertion = action === 'timeout'
+      ? expect(pending).rejects.toThrow('AI 解读等待超时')
+      : expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    await ready;
+    if (action === 'timeout') await vi.advanceTimersByTimeAsync(95_000);
+    else caller.abort();
+    await assertion;
+    expect(vi.getTimerCount()).toBe(0);
+  });
   const customConfig = {
     enabled: true,
     provider: 'openai-compatible' as const,

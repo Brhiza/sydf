@@ -27,6 +27,22 @@ afterEach(() => {
 });
 
 describe('0 基础 Agent 工具调用', () => {
+  it.each([401, 429])('上游 %s 不通过 JSON 降级重复请求', async (status) => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ error: { code: 'unavailable' } }, status)));
+    vi.stubGlobal('fetch', fetchMock);
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+    expect(response.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('上游拒绝 tools 参数时仍可使用同一模型的 JSON 降级', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ error: 'unsupported tools' }, 400))
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: '{"name":"cast_meihua","arguments":{}}' } }] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const response = await onRequestPost({ request: createRequest(), env: builtinEnv });
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   const builtinEnv = {
     AI_BASE_URL: 'https://primary.example/v1',
     AI_API_KEY: 'primary-key',

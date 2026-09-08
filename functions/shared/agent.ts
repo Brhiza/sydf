@@ -2,6 +2,7 @@ import {
   getBuiltinAiConfig,
   getCustomAiConfig,
   requestProviderJson,
+  isToolCallingUnsupported,
   type AiApiType,
   type AiEnv,
   type AiProviderConfig,
@@ -445,7 +446,7 @@ async function requestSelection(config: AiProviderConfig, userPrompt: string) {
       const call = extractToolCall(result, config.apiType);
       if (call) return selectionFromCall(call);
     } catch (error) {
-      if (controller.signal.aborted) throw error;
+      if (controller.signal.aborted || !isToolCallingUnsupported(error)) throw error;
       // 部分兼容接口能正常生成文本，但不接受 tools/tool_choice，改用严格 JSON 路由。
     }
     const fallbackResult = await requestProviderJson(config, buildProviderFallbackBody(config, userPrompt), controller.signal);

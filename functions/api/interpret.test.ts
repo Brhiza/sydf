@@ -33,6 +33,33 @@ afterEach(() => {
 });
 
 describe('内置 AI 服务', () => {
+  it('火山正式模型请求显式关闭思考', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulUpstream());
+    vi.stubGlobal('fetch', fetchMock);
+    const response = await onRequestPost({ request: createRequest(), env: {
+      AI_BASE_URL: 'https://ark.cn-beijing.volces.com/api/v3', AI_API_KEY: 'test-key', AI_MODEL: 'deepseek-v4-flash-ga-260731',
+    } });
+    expect(response.status).toBe(200);
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1].body)).toMatchObject({ thinking: { type: 'disabled' } });
+  });
+
+  it('上游已返回响应头但正文卡住时仍在总时限内结束', async () => {
+    vi.useFakeTimers();
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn((_url, init: RequestInit) => Promise.resolve(new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{'));
+        init.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), { once: true });
+      },
+    })))));
+    const pending = onRequestPost({ request: createRequest(), env: builtinEnv });
+    await vi.advanceTimersByTimeAsync(90_000);
+    const response = await pending;
+    expect(response.status).toBe(504);
+    expect(log).toHaveBeenCalledWith('ai_upstream_failed', expect.objectContaining({ category: 'timeout', elapsedMs: 90_000 }));
+    expect(JSON.stringify(log.mock.calls)).not.toContain('primary-key');
+  });
+
   const builtinEnv = {
     AI_BASE_URL: 'https://primary.example/v1',
     AI_API_KEY: 'primary-key',
@@ -74,7 +101,7 @@ describe('内置 AI 服务', () => {
 
   it('内置 AI 连续 502 时返回繁忙语义，不暴露成模糊 502', async () => {
     vi.useFakeTimers();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'failed' }), { status: 502 }));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ error: 'failed' }), { status: 502 })));
     vi.stubGlobal('fetch', fetchMock);
 
     const pending = onRequestPost({ request: createRequest(), env: builtinEnv });

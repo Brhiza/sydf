@@ -62,6 +62,10 @@ class UpstreamResponseError extends Error {
   }
 }
 
+export function isToolCallingUnsupported(error: unknown) {
+  return error instanceof UpstreamResponseError && [400, 422].includes(error.status);
+}
+
 class EmptyUpstreamResponseError extends Error {
   constructor(
     readonly finishReason = '',
@@ -117,11 +121,15 @@ async function requestProvider(
   providerMessages: AiPromptConversationMessage[],
   messages: AiChatMessage[],
   temperature: number,
+  signal?: AbortSignal,
 ) {
   const body = buildInterpretationProviderBody(config, systemPrompt, providerMessages, messages, temperature);
-  const result = await requestProviderJson(config, body);
+  const result = await requestProviderJson(config, body, signal);
   const extracted = extractProviderText(result, config.apiType);
   if (!extracted.content.trim()) {
+    const finishReason = ['stop', 'length', 'content_filter', 'end_turn', 'max_tokens', 'completed', 'incomplete'].includes(extracted.finishReason)
+      ? extracted.finishReason : 'unknown';
+    console.warn('ai_upstream_empty', { apiType: config.apiType, finishReason, reasoningLength: extracted.reasoningLength });
     throw new EmptyUpstreamResponseError(extracted.finishReason, extracted.reasoningLength);
   }
   return extracted.content.trim();
@@ -141,6 +149,8 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
   const requestBody = JSON.stringify(body);
   const deadline = Date.now() + UPSTREAM_REQUEST_TIMEOUT_MS;
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    signal?.throwIfAborted();
+    const startedAt = Date.now();
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) throw new DOMException('upstream timeout', 'TimeoutError');
     const response = await fetchWithTimeout(config.url, {
@@ -148,15 +158,34 @@ export async function requestProviderJson(config: AiProviderConfig, body: Record
       headers,
       body: requestBody,
       signal,
-    }, remainingMs);
+    }, remainingMs).catch((error: unknown) => {
+      console.warn('ai_upstream_failed', {
+        host: new URL(config.url).hostname,
+        attempt: attempt + 1,
+        elapsedMs: Date.now() - startedAt,
+        category: signal?.aborted ? 'cancelled' : isTimeoutError(error) ? 'timeout' : 'network',
+      });
+      throw error;
+    });
     if (response.ok) {
       const result = await response.json().catch(() => null) as unknown;
-      if (!result) throw new Error('empty upstream response');
+      if (!result) {
+        console.warn('ai_upstream_invalid_json', { host: new URL(config.url).hostname, elapsedMs: Date.now() - startedAt });
+        throw new Error('empty upstream response');
+      }
       return result;
     }
 
     await response.arrayBuffer().catch(() => undefined);
     const retryAfter = response.headers.get('Retry-After')?.trim() || undefined;
+    const upstreamId = response.headers.get('x-request-id') || response.headers.get('x-tt-logid') || '';
+    console.warn('ai_upstream_http_error', {
+      host: new URL(config.url).hostname,
+      status: response.status,
+      attempt: attempt + 1,
+      elapsedMs: Date.now() - startedAt,
+      requestId: /^[\w-]{1,128}$/.test(upstreamId) ? upstreamId : undefined,
+    });
     if (attempt === 0 && RETRYABLE_UPSTREAM_STATUS.has(response.status)) {
       const seconds = Number(retryAfter);
       const requestedDelay = Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : DEFAULT_UPSTREAM_RETRY_DELAY_MS;
@@ -241,7 +270,7 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   const temperature = Number.isFinite(Number(env.AI_TEMPERATURE)) ? Number(env.AI_TEMPERATURE) : 0.55;
   if (customConfig) {
     try {
-      const content = await requestProvider(customConfig, systemPrompt, providerMessages, messages, temperature);
+      const content = await requestProvider(customConfig, systemPrompt, providerMessages, messages, temperature, context.request.signal);
       return jsonResponse({ content, model: customConfig.model, provider });
     } catch (error) {
       return providerErrorResponse(error, true);
@@ -252,7 +281,7 @@ export async function handleInterpretPost(context: { request: Request; env: AiEn
   if (!builtinConfig) return jsonResponse({ error: 'AI 服务尚未配置，请稍后再试。' }, 503);
 
   try {
-    const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature);
+    const content = await requestProvider(builtinConfig, systemPrompt, providerMessages, messages, temperature, context.request.signal);
     return jsonResponse({ content, provider });
   } catch (error) {
     return providerErrorResponse(error, false);

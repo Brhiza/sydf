@@ -3,6 +3,7 @@ import type { Plugin } from 'vite';
 import { onRequestPost as agent } from './api/agent';
 import { onRequestPost as interpret } from './api/interpret';
 import { onRequestPost as models } from './api/models';
+import { MAX_REQUEST_BYTES } from './shared/security';
 
 type PagesHandler = (context: {
   request: Request;
@@ -24,7 +25,7 @@ function readRequestBody(request: IncomingMessage) {
       if (settled) return;
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
-      if (size > 64 * 1024) {
+      if (size > MAX_REQUEST_BYTES) {
         settled = true;
         reject(new Error('request body too large'));
         return;
