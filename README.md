@@ -101,7 +101,7 @@ cd android
 
 APK 输出到 `android/app/build/outputs/apk/debug/app-debug.apk`。正式发布前需使用独立的发布密钥签名，密钥文件不得提交到仓库。
 
-GitHub Actions 会在相关代码或安卓工程变化时自动编译调试 APK，并在运行记录的 Artifacts 中保留 14 天。若仓库配置了 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD` 四项 Actions Secrets，同一流程还会生成签名的 Release APK 与 AAB；未配置签名时不会伪造可发布产物。推送 `v1.2.3` 形式的标签时，APK 内版本会与标签保持一致，正式 APK 会同步到 `download.aov.cc`，同时保留 R2、GitHub Release 和蓝奏云线路。APK 端仍通过 `sydf.cc` 检查更新，下载时优先使用统一分发并自动选择可用备用线路。
+GitHub Actions 会在相关代码或安卓工程变化时自动编译调试 APK，并在运行记录的 Artifacts 中保留 14 天。若仓库配置了 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD` 四项 Actions Secrets，同一流程还会生成签名的 Release APK 与 AAB；未配置签名时不会伪造可发布产物。推送 `v1.2.3` 形式的标签时，APK 内版本会与标签保持一致，正式 APK 会同步到 `download.aov.cc`，并保留 GitHub Release 和 R2 备用线路。APK 端仍通过 `sydf.cc` 检查更新，默认使用统一分发，当前线路不可用时再切换到备用线路。
 
 ## 部署
 
