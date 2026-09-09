@@ -2207,8 +2207,13 @@ async function testNativeDownloadRoutes() {
   if (run !== nativeRouteProbeRun) return;
   nativeRouteProbes.value = probes;
   isProbingNativeRoutes.value = false;
-  const best = selectBestDownloadRoute(nativeDownloadRoutes.value, probes);
-  selectedNativeRouteId.value = best?.id ?? nativeDownloadRoutes.value[0]?.id ?? '';
+  const selectedProbe = probes.find((probe) => probe.routeId === selectedNativeRouteId.value);
+  if (selectedProbe?.latencyMs === null) {
+    selectedNativeRouteId.value = nativeDownloadRoutes.value
+      .find((route) => probes.some((probe) => probe.routeId === route.id && probe.latencyMs !== null))?.id
+      ?? nativeDownloadRoutes.value[0]?.id
+      ?? '';
+  }
 }
 
 function handleAppUpdate(event: Event) {
@@ -7158,7 +7163,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
               {{ fastestNativeRouteId === route.id ? `最快 · ${nativeRouteProbeLabel(route.id)}` : nativeRouteProbeLabel(route.id) }}
             </em>
           </button>
-          <small>已自动选择响应最快的可用线路，也可以手动切换。</small>
+          <small>默认使用官方下载；当前线路不可用时会切换到下一条备用线路。</small>
         </div>
         <UiNotice v-if="updateError" tone="error">{{ updateError }}</UiNotice>
         <UiActionBar mobile="stretch">
