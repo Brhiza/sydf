@@ -248,6 +248,7 @@ import type {
 } from './lib/almanac';
 
 const ManualDivinationDialog = defineAsyncComponent(() => import('./components/ManualDivinationDialog.vue'));
+const PersonalAlmanacReading = defineAsyncComponent(() => import('./components/PersonalAlmanacReading.vue'));
 const FengShuiView = defineAsyncComponent(() => import('./components/FengShuiView.vue'));
 const CompatibilityView = defineAsyncComponent(() => import('./components/CompatibilityView.vue'));
 const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyHexagramView.vue'));
@@ -325,7 +326,7 @@ const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/Lega
 
 type BaziRuntime = typeof import('mingyu-core/bazi') & typeof import('mingyu-core/ganzhi');
 type LocationRuntime = typeof import('mingyu-core/location');
-type AlmanacRuntime = typeof import('./lib/almanac') & typeof import('./lib/modernAlmanac');
+type AlmanacRuntime = typeof import('./lib/almanac') & typeof import('./lib/modernAlmanac') & typeof import('./lib/personalAlmanac');
 
 let baziRuntime: BaziRuntime | null = null;
 let baziRuntimePromise: Promise<BaziRuntime> | null = null;
@@ -384,8 +385,9 @@ function ensureAlmanacRuntime() {
     almanacRuntimePromise = Promise.all([
       import('./lib/almanac'),
       import('./lib/modernAlmanac'),
-    ]).then(([almanac, modern]) => {
-      almanacRuntime = { ...almanac, ...modern } as AlmanacRuntime;
+      import('./lib/personalAlmanac'),
+    ]).then(([almanac, modern, personal]) => {
+      almanacRuntime = { ...almanac, ...modern, ...personal } as AlmanacRuntime;
       almanacTopicGroups = almanac.almanacTopicGroups;
       almanacTopicOptions = almanac.almanacTopicOptions;
       return almanacRuntime;
@@ -446,9 +448,6 @@ function getModernAlmanacHours(...args: Parameters<AlmanacRuntime['getModernAlma
   return requireAlmanacRuntime().getModernAlmanacHours(...args);
 }
 
-function getModernAlmanacPersonalNotes(...args: Parameters<AlmanacRuntime['getModernAlmanacPersonalNotes']>) {
-  return requireAlmanacRuntime().getModernAlmanacPersonalNotes(...args);
-}
 
 function isAlmanacProfileComplete(profile?: BirthForm | null) {
   if (!profile || !/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return false;
@@ -1940,6 +1939,18 @@ const almanacDayEvaluations = computed(() => {
   return new Map(result.days.map((day) => [day.date, evaluateAlmanacPurposeDay(result, day, purpose)]));
 });
 const hasAlmanacMonthFilter = computed(() => almanacMode.value === 'personal' && almanacMonthFilter.value !== 'all');
+const almanacThemeParticipant = computed(() => {
+  if (almanacMode.value !== 'personal') return null;
+  const participants = almanacResult.value?.participants || [];
+  return participants.find((participant) => participant.id === activeGlobalCaseId.value) || participants[0] || null;
+});
+const almanacCalendarThemes = computed(() => {
+  const result = almanacResult.value;
+  const participant = almanacThemeParticipant.value;
+  if (!result || !participant || hasAlmanacMonthFilter.value) return new Map<string, ReturnType<AlmanacRuntime['getPersonalAlmanacDayTheme']>>();
+  return new Map(result.days.map((day) => [day.date, requireAlmanacRuntime().getPersonalAlmanacDayTheme(day, participant)]));
+});
+const almanacThemeGroups = computed(() => almanacThemeParticipant.value && !hasAlmanacMonthFilter.value ? requireAlmanacRuntime().personalAlmanacThemeGroups : []);
 const almanacLevelCounts = computed(() => {
   const counts: Record<AlmanacAuspiceLevel, number> = { 大吉: 0, 吉: 0, 小吉: 0, 平: 0, 慎用: 0, 不宜: 0 };
   for (const evaluation of almanacDayEvaluations.value.values()) counts[evaluation.level] += 1;
@@ -3462,9 +3473,6 @@ function almanacDateTitle(date: string) {
   return `${month}月${day}日`;
 }
 
-function almanacPersonalNotes(day: AlmanacDayCandidate) {
-  return getModernAlmanacPersonalNotes(day);
-}
 
 function isDefaultDivinationTool(kind: DivinationKind) {
   return appPreferences.defaultHomeTool.mode === 'divination' && appPreferences.defaultHomeTool.kind === kind;
@@ -6276,6 +6284,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <span class="is-inauspicious"><i></i>不宜 {{ almanacLevelCounts.不宜 }}</span>
               </template>
             </div>
+            <div v-if="almanacThemeGroups.length" class="almanac-theme-legend" aria-label="日干主题图例">
+              <strong>{{ almanacThemeParticipant?.name }} · 日干主题</strong>
+              <span v-for="group in almanacThemeGroups" :key="group.key" :class="`almanac-theme-${group.key}`"><i aria-hidden="true"></i>{{ group.label }}</span>
+            </div>
             <div class="almanac-week-row" aria-hidden="true"><span v-for="(weekday, index) in almanacWeekdays" :key="weekday" :class="{ weekend: index === 0 || index === 6 }">{{ weekday }}</span></div>
             <div class="almanac-calendar-grid" role="grid" :aria-label="`${almanacMonthLabel}黄历`">
               <button
@@ -6290,7 +6302,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 ]"
                 :disabled="!cell.isNavigable"
                 :aria-selected="selectedAlmanacDay?.date === cell.date"
-                :aria-label="`${cell.date} 星期${almanacWeekdays[cell.weekdayIndex]} 农历${cell.lunarLabel}${cell.eventLabel ? ` ${cell.eventLabel}` : ''}${cell.day && hasAlmanacMonthFilter ? ` ${almanacDayLevel(cell.day)}` : ''}`"
+                :aria-label="`${cell.date} 星期${almanacWeekdays[cell.weekdayIndex]} 农历${cell.lunarLabel}${cell.eventLabel ? ` ${cell.eventLabel}` : ''}${cell.day && hasAlmanacMonthFilter ? ` ${almanacDayLevel(cell.day)}` : ''}${almanacCalendarThemes.get(cell.date) ? ` ${almanacThemeParticipant?.name}：${almanacCalendarThemes.get(cell.date)?.title}` : ''}`"
                 @click="selectAlmanacCalendarCell(cell)"
               >
                 <span class="almanac-cell-solar"><strong>{{ cell.dayNumber }}</strong><em v-if="cell.date === almanacToday">今</em></span>
@@ -6298,6 +6310,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   <span class="almanac-cell-label-text">{{ cell.eventLabel || almanacLunarDayLabel(cell.lunarLabel) }}</span>
                   <span v-if="cell.day && hasAlmanacMonthFilter" class="almanac-cell-level">{{ almanacLevelShort(almanacDayLevel(cell.day)) }}</span>
                 </small>
+                <span v-if="almanacCalendarThemes.get(cell.date)" class="almanac-cell-theme" :class="`almanac-theme-${almanacCalendarThemes.get(cell.date)?.key}`" aria-hidden="true"><i></i>{{ almanacCalendarThemes.get(cell.date)?.shortLabel }}</span>
               </button>
             </div>
           </section>
@@ -6313,15 +6326,15 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <b v-if="hasAlmanacMonthFilter" class="almanac-status-pill" :class="almanacLevelClass(almanacDayLevel(selectedAlmanacDay))">{{ almanacDayLevel(selectedAlmanacDay) }}</b>
               </div>
 
-              <div v-if="selectedModernAlmanac" class="almanac-advice-grid is-modern">
+              <PersonalAlmanacReading v-if="almanacMode === 'personal'" :day="selectedAlmanacDay" :participants="almanacResult.participants" :profiles="activeAlmanacProfiles" />
+
+              <component :is="almanacMode === 'personal' ? 'details' : 'div'" v-if="selectedModernAlmanac" class="almanac-general-advice">
+                <summary v-if="almanacMode === 'personal'">当天黄历宜忌</summary>
+              <div class="almanac-advice-grid is-modern">
                 <section><div class="almanac-advice-title is-good"><b>宜</b><small>可以安排</small></div><div class="almanac-modern-advice-list"><article v-for="item in selectedModernAlmanac.recommended" :key="item.key"><strong>{{ item.title }}</strong><p>{{ item.detail }}</p></article><p v-if="!selectedModernAlmanac.recommended.length" class="almanac-empty-copy">没有需要特别优先的事项，按平常计划即可。</p></div></section>
                 <section><div class="almanac-advice-title is-bad"><b>慎</b><small>多做确认</small></div><div class="almanac-modern-advice-list"><article v-for="item in selectedModernAlmanac.cautious" :key="item.key"><strong>{{ item.title }}</strong><p>{{ item.detail }}</p></article><p v-if="!selectedModernAlmanac.cautious.length" class="almanac-empty-copy">没有需要特别避开的事项，重要细节照常核对即可。</p></div></section>
               </div>
-
-              <section v-if="almanacMode === 'personal' && almanacPersonalNotes(selectedAlmanacDay).length" class="almanac-personal-detail">
-                <div class="almanac-subheading"><h3>个人历提示</h3></div>
-                <div class="almanac-note-list"><p v-for="note in almanacPersonalNotes(selectedAlmanacDay)" :key="note"><UserRound :size="13" />{{ note }}</p></div>
-              </section>
+              </component>
 
               <section class="almanac-secondary">
                 <header class="almanac-secondary-heading"><strong>当天优先时段</strong></header>
