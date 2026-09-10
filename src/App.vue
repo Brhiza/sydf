@@ -248,6 +248,7 @@ import type {
 } from './lib/almanac';
 
 const ManualDivinationDialog = defineAsyncComponent(() => import('./components/ManualDivinationDialog.vue'));
+const PersonalAlmanacReading = defineAsyncComponent(() => import('./components/PersonalAlmanacReading.vue'));
 const FengShuiView = defineAsyncComponent(() => import('./components/FengShuiView.vue'));
 const CompatibilityView = defineAsyncComponent(() => import('./components/CompatibilityView.vue'));
 const DailyHexagramView = defineAsyncComponent(() => import('./components/DailyHexagramView.vue'));
@@ -446,9 +447,6 @@ function getModernAlmanacHours(...args: Parameters<AlmanacRuntime['getModernAlma
   return requireAlmanacRuntime().getModernAlmanacHours(...args);
 }
 
-function getModernAlmanacPersonalNotes(...args: Parameters<AlmanacRuntime['getModernAlmanacPersonalNotes']>) {
-  return requireAlmanacRuntime().getModernAlmanacPersonalNotes(...args);
-}
 
 function isAlmanacProfileComplete(profile?: BirthForm | null) {
   if (!profile || !/^\d{4}-\d{2}-\d{2}$/.test(profile.date) || !/^\d{2}:\d{2}$/.test(profile.time)) return false;
@@ -3462,9 +3460,6 @@ function almanacDateTitle(date: string) {
   return `${month}月${day}日`;
 }
 
-function almanacPersonalNotes(day: AlmanacDayCandidate) {
-  return getModernAlmanacPersonalNotes(day);
-}
 
 function isDefaultDivinationTool(kind: DivinationKind) {
   return appPreferences.defaultHomeTool.mode === 'divination' && appPreferences.defaultHomeTool.kind === kind;
@@ -6313,15 +6308,15 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <b v-if="hasAlmanacMonthFilter" class="almanac-status-pill" :class="almanacLevelClass(almanacDayLevel(selectedAlmanacDay))">{{ almanacDayLevel(selectedAlmanacDay) }}</b>
               </div>
 
-              <div v-if="selectedModernAlmanac" class="almanac-advice-grid is-modern">
+              <PersonalAlmanacReading v-if="almanacMode === 'personal'" :day="selectedAlmanacDay" :participants="almanacResult.participants" :profiles="activeAlmanacProfiles" />
+
+              <component :is="almanacMode === 'personal' ? 'details' : 'div'" v-if="selectedModernAlmanac" class="almanac-general-advice">
+                <summary v-if="almanacMode === 'personal'">当天黄历宜忌</summary>
+              <div class="almanac-advice-grid is-modern">
                 <section><div class="almanac-advice-title is-good"><b>宜</b><small>可以安排</small></div><div class="almanac-modern-advice-list"><article v-for="item in selectedModernAlmanac.recommended" :key="item.key"><strong>{{ item.title }}</strong><p>{{ item.detail }}</p></article><p v-if="!selectedModernAlmanac.recommended.length" class="almanac-empty-copy">没有需要特别优先的事项，按平常计划即可。</p></div></section>
                 <section><div class="almanac-advice-title is-bad"><b>慎</b><small>多做确认</small></div><div class="almanac-modern-advice-list"><article v-for="item in selectedModernAlmanac.cautious" :key="item.key"><strong>{{ item.title }}</strong><p>{{ item.detail }}</p></article><p v-if="!selectedModernAlmanac.cautious.length" class="almanac-empty-copy">没有需要特别避开的事项，重要细节照常核对即可。</p></div></section>
               </div>
-
-              <section v-if="almanacMode === 'personal' && almanacPersonalNotes(selectedAlmanacDay).length" class="almanac-personal-detail">
-                <div class="almanac-subheading"><h3>个人历提示</h3></div>
-                <div class="almanac-note-list"><p v-for="note in almanacPersonalNotes(selectedAlmanacDay)" :key="note"><UserRound :size="13" />{{ note }}</p></div>
-              </section>
+              </component>
 
               <section class="almanac-secondary">
                 <header class="almanac-secondary-heading"><strong>当天优先时段</strong></header>
