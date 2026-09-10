@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { BaziChartResult } from 'mingyu-core/bazi';
+import { SIXTY_CYCLE } from 'mingyu-core/bazi';
 import type { AlmanacData } from 'mingyu-core/types';
 import { generateLocalAlmanac, type AlmanacProfile } from './almanac';
-import { getPersonalAlmanacChart, getPersonalAlmanacReading } from './personalAlmanac';
+import { getPersonalAlmanacChart, getPersonalAlmanacDayTheme, getPersonalAlmanacReading } from './personalAlmanac';
 
 const profile: AlmanacProfile = {
   id: 'first', label: '测试案例', name: '测试案例', gender: 'female',
@@ -117,5 +118,74 @@ describe('个人历解析', () => {
     input.chart.pillars.hour.ganZhi = '甲子';
     input.participant.pillars.hour = '乙丑';
     expect(() => read(input)).toThrow('出生信息已变化');
+  });
+
+  it('同一日干遇不同日支时给出不同的变化和第二步行动', () => {
+    const peer = read(fixture('身弱', '戊子'));
+    const wealth = read(fixture('身弱', '戊午'));
+    expect(peer.relation).toBe(wealth.relation);
+    expect(peer.dayChange).toContain('日支子的本气癸对应比肩');
+    expect(wealth.dayChange).toContain('日支午的本气丁对应偏财');
+    expect(peer.nextAction).not.toBe(wealth.nextAction);
+    expect(peer.dayChange).toContain('责任需要落实到人');
+    expect(wealth.dayChange).toContain('资源与成本');
+  });
+
+  it('日干喜用与日支忌神分别解释，副线不改变日干主题或冒充新格局', () => {
+    const input = fixture('身弱', '戊子');
+    input.chart.analysis.usefulGod.favorableWuxing = ['土'];
+    input.chart.analysis.usefulGod.unfavorableWuxing = ['水'];
+    const reading = read(input);
+    expect(reading.impact).toContain('日干土落在原局喜用');
+    expect(reading.branchBalance).toContain('子中本气癸水落在忌神');
+    expect(reading.title).toBe('按序推进');
+    expect(reading.family).toBe('authority');
+  });
+
+  it('只有存在额外藏干时才展开副线，列出的藏干与解释对应', () => {
+    expect(read(fixture('身弱', '戊子')).secondaryNote).toBe('');
+    const reading = read(fixture('身弱', '己丑'));
+    expect(reading.secondaryNote).toContain('癸（比肩）');
+    expect(reading.secondaryNote).toContain('辛（偏印）');
+    expect(reading.secondaryNote).toContain('自主安排与同伴配合');
+    expect(reading.secondaryNote).toContain('独立研究与细节核验');
+  });
+
+  it('喜忌相同时，强弱仍提供不同的解释视角', () => {
+    const strong = fixture('身强');
+    const weak = fixture('身弱');
+    strong.chart.analysis.usefulGod.favorableWuxing = ['土'];
+    weak.chart.analysis.usefulGod.favorableWuxing = ['土'];
+    expect(read(strong).impact).toContain('官杀的约束可用于收拢目标');
+    expect(read(weak).impact).toContain('先争取资源与合理期限');
+  });
+
+  it.each([...('甲乙丙丁戊己庚辛壬癸')])('%s 日主的六十甲子均有完整解析，月历标记与详情一致', (master) => {
+    const input = fixture('中和');
+    input.chart.dayMaster.gan = master;
+    input.participant.dayMaster = master;
+    for (const ganzhi of SIXTY_CYCLE) {
+      input.day.ganzhi.day = ganzhi;
+      const reading = read(input);
+      const marker = getPersonalAlmanacDayTheme(input.day, input.participant)!;
+      expect(marker.title).toBe(reading.title);
+      expect(marker.key).toBe(reading.family);
+      expect(reading.dayChange).toContain(reading.undertones[0]!.relation);
+      expect(reading.nextAction).not.toBe(reading.action);
+      expect(reading.nextAction.length).toBeGreaterThan(15);
+      expect(reading.keywords.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(reading.keywords).size).toBe(reading.keywords.length);
+      expect(reading.focus + reading.dayChange + reading.branchBalance + reading.secondaryNote).not.toMatch(/undefined|NaN|TODO/);
+      expect(reading.undertones.every((item) => item.scene && item.element && item.keyword)).toBe(true);
+    }
+  });
+
+  it('切换参与人时月历主题随其日主更新，缺少日主不生成标记', () => {
+    const input = fixture('身弱');
+    expect(getPersonalAlmanacDayTheme(input.day, input.participant)?.relation).toBe('正官');
+    input.participant.dayMaster = '丁';
+    expect(getPersonalAlmanacDayTheme(input.day, input.participant)?.relation).toBe('伤官');
+    input.participant.dayMaster = '';
+    expect(getPersonalAlmanacDayTheme(input.day, input.participant)).toBeNull();
   });
 });

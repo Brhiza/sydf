@@ -25,7 +25,7 @@ const readings = computed(() => props.participants.map((participant) => {
     <template v-for="{ participant, reading, error } in readings" :key="participant.id">
     <p v-if="error" role="alert">{{ participant.name }}：{{ error }}</p>
     <article v-if="reading" class="personal-almanac-reading">
-      <header><span>{{ reading.name }} · 当日主题</span><h3>{{ reading.title }}</h3></header>
+      <header><span>{{ reading.name }} · 当日主题</span><h3>{{ reading.title }}</h3><p class="personal-almanac-focus">{{ reading.focus }}</p></header>
       <dl class="personal-almanac-facts">
         <div><dt>当日干支</dt><dd>{{ reading.dayGanzhi }}</dd></div>
         <div><dt>你的日主</dt><dd>{{ reading.dayMaster }}</dd></div>
@@ -33,16 +33,30 @@ const readings = computed(() => props.participants.map((participant) => {
         <div><dt>原局强弱</dt><dd>{{ reading.strength }}</dd></div>
       </dl>
       <div class="personal-almanac-section"><h4>与你的关系</h4><p>{{ reading.basis }}{{ reading.meaning }}</p></div>
-      <div class="personal-almanac-section personal-almanac-impact"><h4>对你的影响</h4><p>{{ reading.impact }}</p></div>
+      <div class="personal-almanac-section personal-almanac-impact"><h4>强弱如何影响你</h4><p>{{ reading.impact }}</p></div>
+      <section v-if="reading.dayChange" class="personal-almanac-section personal-almanac-change">
+        <h4>当日变化</h4>
+        <p>{{ reading.dayChange }}</p>
+        <p>{{ reading.branchBalance }}</p>
+        <p v-if="reading.secondaryNote">{{ reading.secondaryNote }}</p>
+        <details class="personal-almanac-undertones">
+          <summary>查看日支藏干</summary>
+          <dl class="personal-almanac-hidden-stems">
+            <div v-for="(item, index) in reading.undertones" :key="item.stem">
+              <dt>{{ item.stem }}{{ item.element }} · {{ index === 0 ? '本气' : '藏干' }}</dt>
+              <dd>{{ item.relation }}<small>{{ item.scene }}</small></dd>
+            </div>
+          </dl>
+        </details>
+      </section>
       <div class="personal-almanac-actions">
-        <section class="personal-almanac-section"><h4>可以做</h4><p>{{ reading.action }}</p></section>
-        <section class="personal-almanac-section"><h4>需要留意</h4><p>{{ reading.caution }}</p></section>
+        <section class="personal-almanac-section"><h4>可以关注</h4><ol><li>{{ reading.action }}</li><li v-if="reading.nextAction">{{ reading.nextAction }}</li></ol></section>
+        <section class="personal-almanac-section"><h4>需要留意</h4><p>{{ reading.caution }}</p><p v-if="reading.conflict" class="personal-almanac-conflict">{{ reading.conflict }}</p></section>
       </div>
-      <p v-if="reading.conflict" class="personal-almanac-conflict">{{ reading.conflict }}</p>
-      <details v-if="reading.undertones.length" class="personal-almanac-undertones">
-        <summary>日支藏干 · {{ reading.undertones.map((item) => item.relation).join('、') }}</summary>
-        <p>{{ reading.dayGanzhi[1] }}中藏{{ reading.undertones.map((item) => `${item.stem}（${item.relation}·${item.keyword}）`).join('、') }}，作为理解当天主题的补充。</p>
-      </details>
+      <section class="personal-almanac-section personal-almanac-closing">
+        <h4>今日关键词</h4><ul class="personal-almanac-keywords"><li v-for="keyword in reading.keywords" :key="keyword">{{ keyword }}</li></ul>
+        <h4>收尾提醒</h4><p>{{ reading.closing }}</p>
+      </section>
       <details class="personal-almanac-undertones">
         <summary>强弱与取用依据</summary>
         <p>{{ reading.ruleBasis.join('；') }}</p>
@@ -59,15 +73,26 @@ const readings = computed(() => props.participants.map((participant) => {
 .personal-almanac-readings { display: grid; gap: 16px; margin: 20px 0; }
 .personal-almanac-reading { border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
 header > span { color: var(--muted); font-size: var(--type-caption); overflow-wrap: anywhere; }
-header h3 { color: var(--ink); font-size: 21px; margin: 6px 0 16px; }
+header h3 { color: var(--ink); font-size: 21px; margin: 6px 0 8px; }
+.personal-almanac-focus { color: var(--muted); font-size: var(--type-body); line-height: 1.85; margin: 0 0 20px; }
 .personal-almanac-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .personal-almanac-impact { margin-top: 16px; }
+.personal-almanac-change { margin-top: 20px; }
+.personal-almanac-section p + p { margin-top: 10px; }
 dt { color: var(--muted); font-size: var(--type-caption); }
 dd { margin: 6px 0 0; color: var(--ink); font-size: 18px; font-weight: 600; }
 .personal-almanac-section h4 { margin: 0 0 6px; font-size: var(--type-caption); color: var(--accent); }
-.personal-almanac-section p, .personal-almanac-conflict, .personal-almanac-undertones p { margin: 0; line-height: 1.85; color: var(--ink); font-size: var(--type-body); }
+.personal-almanac-section p, .personal-almanac-section ol, .personal-almanac-conflict, .personal-almanac-undertones p { margin: 0; line-height: 1.85; color: var(--ink); font-size: var(--type-body); }
+.personal-almanac-section ol { padding-left: 1.4em; }
+.personal-almanac-section ol li + li { margin-top: 10px; }
 .personal-almanac-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 18px; }
-.personal-almanac-conflict { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 16px; }
+.personal-almanac-conflict { border-top: 1px solid var(--line); padding-top: 12px; }
+.personal-almanac-hidden-stems { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 14px; margin: 12px 0 0; }
+.personal-almanac-hidden-stems dd { font-size: var(--type-body); }
+.personal-almanac-hidden-stems dd small { display: block; color: var(--muted); font-size: var(--type-caption); font-weight: normal; line-height: 1.7; margin-top: 4px; }
+.personal-almanac-closing { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 16px; }
+.personal-almanac-keywords { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.personal-almanac-keywords li { border-radius: 5px; padding: 3px 8px; background: var(--accent-soft); color: var(--accent); font-size: var(--type-caption); }
 .personal-almanac-undertones { margin-top: 16px; color: var(--muted); font-size: var(--type-caption); }
 .personal-almanac-undertones summary { cursor: pointer; line-height: 1.8; }
 .personal-almanac-undertones p { padding-top: 8px; }

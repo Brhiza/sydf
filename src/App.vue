@@ -326,7 +326,7 @@ const LegacyHistoryDetail = defineAsyncComponent(() => import('./components/Lega
 
 type BaziRuntime = typeof import('mingyu-core/bazi') & typeof import('mingyu-core/ganzhi');
 type LocationRuntime = typeof import('mingyu-core/location');
-type AlmanacRuntime = typeof import('./lib/almanac') & typeof import('./lib/modernAlmanac');
+type AlmanacRuntime = typeof import('./lib/almanac') & typeof import('./lib/modernAlmanac') & typeof import('./lib/personalAlmanac');
 
 let baziRuntime: BaziRuntime | null = null;
 let baziRuntimePromise: Promise<BaziRuntime> | null = null;
@@ -385,8 +385,9 @@ function ensureAlmanacRuntime() {
     almanacRuntimePromise = Promise.all([
       import('./lib/almanac'),
       import('./lib/modernAlmanac'),
-    ]).then(([almanac, modern]) => {
-      almanacRuntime = { ...almanac, ...modern } as AlmanacRuntime;
+      import('./lib/personalAlmanac'),
+    ]).then(([almanac, modern, personal]) => {
+      almanacRuntime = { ...almanac, ...modern, ...personal } as AlmanacRuntime;
       almanacTopicGroups = almanac.almanacTopicGroups;
       almanacTopicOptions = almanac.almanacTopicOptions;
       return almanacRuntime;
@@ -1938,6 +1939,18 @@ const almanacDayEvaluations = computed(() => {
   return new Map(result.days.map((day) => [day.date, evaluateAlmanacPurposeDay(result, day, purpose)]));
 });
 const hasAlmanacMonthFilter = computed(() => almanacMode.value === 'personal' && almanacMonthFilter.value !== 'all');
+const almanacThemeParticipant = computed(() => {
+  if (almanacMode.value !== 'personal') return null;
+  const participants = almanacResult.value?.participants || [];
+  return participants.find((participant) => participant.id === activeGlobalCaseId.value) || participants[0] || null;
+});
+const almanacCalendarThemes = computed(() => {
+  const result = almanacResult.value;
+  const participant = almanacThemeParticipant.value;
+  if (!result || !participant || hasAlmanacMonthFilter.value) return new Map<string, ReturnType<AlmanacRuntime['getPersonalAlmanacDayTheme']>>();
+  return new Map(result.days.map((day) => [day.date, requireAlmanacRuntime().getPersonalAlmanacDayTheme(day, participant)]));
+});
+const almanacThemeGroups = computed(() => almanacThemeParticipant.value && !hasAlmanacMonthFilter.value ? requireAlmanacRuntime().personalAlmanacThemeGroups : []);
 const almanacLevelCounts = computed(() => {
   const counts: Record<AlmanacAuspiceLevel, number> = { 大吉: 0, 吉: 0, 小吉: 0, 平: 0, 慎用: 0, 不宜: 0 };
   for (const evaluation of almanacDayEvaluations.value.values()) counts[evaluation.level] += 1;
@@ -6271,6 +6284,10 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 <span class="is-inauspicious"><i></i>不宜 {{ almanacLevelCounts.不宜 }}</span>
               </template>
             </div>
+            <div v-if="almanacThemeGroups.length" class="almanac-theme-legend" aria-label="日干主题图例">
+              <strong>{{ almanacThemeParticipant?.name }} · 日干主题</strong>
+              <span v-for="group in almanacThemeGroups" :key="group.key" :class="`almanac-theme-${group.key}`"><i aria-hidden="true"></i>{{ group.label }}</span>
+            </div>
             <div class="almanac-week-row" aria-hidden="true"><span v-for="(weekday, index) in almanacWeekdays" :key="weekday" :class="{ weekend: index === 0 || index === 6 }">{{ weekday }}</span></div>
             <div class="almanac-calendar-grid" role="grid" :aria-label="`${almanacMonthLabel}黄历`">
               <button
@@ -6285,7 +6302,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                 ]"
                 :disabled="!cell.isNavigable"
                 :aria-selected="selectedAlmanacDay?.date === cell.date"
-                :aria-label="`${cell.date} 星期${almanacWeekdays[cell.weekdayIndex]} 农历${cell.lunarLabel}${cell.eventLabel ? ` ${cell.eventLabel}` : ''}${cell.day && hasAlmanacMonthFilter ? ` ${almanacDayLevel(cell.day)}` : ''}`"
+                :aria-label="`${cell.date} 星期${almanacWeekdays[cell.weekdayIndex]} 农历${cell.lunarLabel}${cell.eventLabel ? ` ${cell.eventLabel}` : ''}${cell.day && hasAlmanacMonthFilter ? ` ${almanacDayLevel(cell.day)}` : ''}${almanacCalendarThemes.get(cell.date) ? ` ${almanacThemeParticipant?.name}：${almanacCalendarThemes.get(cell.date)?.title}` : ''}`"
                 @click="selectAlmanacCalendarCell(cell)"
               >
                 <span class="almanac-cell-solar"><strong>{{ cell.dayNumber }}</strong><em v-if="cell.date === almanacToday">今</em></span>
@@ -6293,6 +6310,7 @@ function ziweiOppositeLine(result: ZiweiChartData) {
                   <span class="almanac-cell-label-text">{{ cell.eventLabel || almanacLunarDayLabel(cell.lunarLabel) }}</span>
                   <span v-if="cell.day && hasAlmanacMonthFilter" class="almanac-cell-level">{{ almanacLevelShort(almanacDayLevel(cell.day)) }}</span>
                 </small>
+                <span v-if="almanacCalendarThemes.get(cell.date)" class="almanac-cell-theme" :class="`almanac-theme-${almanacCalendarThemes.get(cell.date)?.key}`" aria-hidden="true"><i></i>{{ almanacCalendarThemes.get(cell.date)?.shortLabel }}</span>
               </button>
             </div>
           </section>
